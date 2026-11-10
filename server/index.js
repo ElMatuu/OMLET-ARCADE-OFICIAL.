@@ -1021,6 +1021,14 @@ app.post('/api/friends/requests/:username', requireAuth, friendshipLimiter, asyn
       existing.status = 'accepted';
       existing.updatedAt = new Date();
       await existing.save();
+      await createNotification({
+        recipient: existing.requester,
+        actor: req.auth.sub,
+        type: 'friend_accepted',
+        title: 'Solicitud de amistad aceptada',
+        body: '@' + req.auth.username + ' aceptó tu solicitud.',
+        entityId: existing._id
+      });
       return res.json({ success: true, status: 'accepted', message: 'La solicitud pendiente quedó aceptada.' });
     }
 
@@ -2010,6 +2018,14 @@ app.post('/api/conversations/:conversationId/messages', requireAuth, directMessa
       senderUsername: req.auth.username,
       recipient: recipientId,
       body
+    });
+    await createNotification({
+      recipient: recipientId,
+      actor: req.auth.sub,
+      type: 'direct_message',
+      title: 'Nuevo mensaje privado',
+      body: '@' + req.auth.username + ': ' + body.slice(0, 180),
+      entityId: conversation._id
     });
     await Conversation.updateOne(
       { _id: conversation._id },
