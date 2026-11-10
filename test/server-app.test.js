@@ -52,6 +52,10 @@ test('web client and update assets are served by the same HTTPS-ready origin', a
     const csp = page.headers.get('content-security-policy') || '';
     assert.match(csp, /script-src[^;]*'unsafe-inline'/);
     assert.match(csp, /script-src-attr[^;]*'unsafe-inline'/);
+    assert.match(csp, /https:\/\/cdn\.tailwindcss\.com/);
+    assert.match(csp, /https:\/\/cdnjs\.cloudflare\.com/);
+    assert.match(csp, /https:\/\/fonts\.googleapis\.com/);
+    assert.match(csp, /wss:\/\/playverse-api-bgyg\.onrender\.com/);
 
     for (const asset of ['/service-worker.js', '/app-update.js', '/manifest.webmanifest']) {
       const response = await fetch(baseUrl + asset);
