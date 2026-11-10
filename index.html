@@ -1186,6 +1186,9 @@
         }
 
         async function openDirectConversation(conversationId, participant) {
+            stopDirectTyping();
+            if (directTypingIndicatorTimer) clearTimeout(directTypingIndicatorTimer);
+            directTypingIndicatorTimer = null;
             if (directSocket) directSocket.disconnect();
             directSocket = null;
             directSocketJoined = false;
