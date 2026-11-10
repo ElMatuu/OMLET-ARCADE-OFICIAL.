@@ -581,6 +581,11 @@
         let roomSocket = null;
         let roomSocketJoined = false;
         let socketScriptLoading = false;
+        let presenceSocket = null;
+        let presenceScriptLoading = false;
+        let presenceHeartbeatTimer = null;
+        let friendsPresenceTimer = null;
+
 
         function setAuthMessage(message, isError = true) {
             let status = document.getElementById('auth-status');
@@ -727,6 +732,58 @@
             }
         }
 
+        function connectPresenceSocket() {
+            if (!authToken) return;
+            if (!window.io) {
+                if (presenceScriptLoading) return;
+                presenceScriptLoading = true;
+                const script = document.createElement('script');
+                script.src = API_URL + '/socket.io/socket.io.js';
+                script.onload = () => {
+                    presenceScriptLoading = false;
+                    connectPresenceSocket();
+                };
+                script.onerror = () => {
+                    presenceScriptLoading = false;
+                };
+                document.head.appendChild(script);
+                return;
+            }
+            if (presenceSocket && (presenceSocket.connected || presenceSocket.active)) return;
+            presenceSocket = window.io(API_URL, { auth: { token: authToken } });
+            presenceSocket.on('connect', () => {
+                presenceSocket.emit('presence_heartbeat', (result) => {
+                    if (!result || !result.success) console.warn('PLAYVERSE presence heartbeat was not accepted.');
+                });
+                if (!presenceHeartbeatTimer) {
+                    presenceHeartbeatTimer = setInterval(() => {
+                        if (presenceSocket && presenceSocket.connected) {
+                            presenceSocket.emit('presence_heartbeat');
+                        }
+                    }, 25000);
+                }
+            });
+            presenceSocket.on('disconnect', () => {
+                if (presenceHeartbeatTimer) {
+                    clearInterval(presenceHeartbeatTimer);
+                    presenceHeartbeatTimer = null;
+                }
+            });
+            presenceSocket.on('connect_error', () => {
+                // Presence is best-effort; the rest of the app remains usable.
+            });
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && authToken) {
+                if (presenceSocket && presenceSocket.connected) {
+                    presenceSocket.emit('presence_heartbeat');
+                } else {
+                    connectPresenceSocket();
+                }
+            }
+        });
+
         function showAuthenticatedApp(user) {
             applyProfileData(user);
             document.getElementById('auth-screen').classList.add('hidden');
@@ -735,6 +792,15 @@
             loadRooms();
             loadCommunityPosts();
             refreshNotificationBadge();
+            connectPresenceSocket();
+            if (!friendsPresenceTimer) {
+                friendsPresenceTimer = setInterval(() => {
+                    const friendsTab = document.getElementById('tab-friends');
+                    if (authToken && !document.hidden && friendsTab && !friendsTab.classList.contains('hidden')) {
+                        loadFriends();
+                    }
+                }, 30000);
+            }
         }
 
         async function restoreSession() {
@@ -813,6 +879,10 @@
         }
 
         function logout() {
+            if (presenceSocket) presenceSocket.disconnect();
+            presenceSocket = null;
+            if (presenceHeartbeatTimer) clearInterval(presenceHeartbeatTimer);
+            presenceHeartbeatTimer = null;
             authToken = null;
             sessionStorage.removeItem(SESSION_KEY);
             document.getElementById('main-app').classList.add('hidden');
@@ -2075,6 +2145,12 @@
             handle.className = 'text-xs text-slate-400';
             handle.textContent = '@' + person.username;
             details.append(display, handle);
+            if (type === 'friend') {
+                const presence = document.createElement('p');
+                presence.className = 'text-[10px] mt-1 ' + (person.online ? 'text-emerald-300' : 'text-slate-500');
+                presence.textContent = person.online ? '● En línea' : '○ Desconectado';
+                details.append(presence);
+            }
             card.append(avatar, details);
 
             const action = (label, style, callback) => {
