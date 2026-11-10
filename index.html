@@ -326,11 +326,30 @@
         </form>
     </div>
 
+    <div id="room-chat-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 hidden">
+        <section class="PLAYVERSE-card rounded-3xl w-full max-w-xl h-[80vh] max-h-[720px] p-4 flex flex-col border border-slate-700">
+            <div class="flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                <div class="min-w-0"><h3 id="room-chat-title" class="font-black text-base text-white truncate">Chat de sala</h3><p id="room-chat-status" class="text-xs text-slate-400" role="status">Conectando…</p></div>
+                <button type="button" onclick="closeRoomChat()" class="text-slate-400 p-2" aria-label="Cerrar chat"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div id="room-chat-messages" class="flex-1 overflow-y-auto py-3 space-y-2" aria-live="polite"></div>
+            <form id="room-chat-form" onsubmit="sendRoomMessage(event)" class="flex gap-2 border-t border-slate-800 pt-3">
+                <input id="room-chat-input" maxlength="1000" required autocomplete="off" class="min-w-0 flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-sm text-white" placeholder="Escribí un mensaje…">
+                <button id="room-chat-send" type="submit" class="PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white">Enviar</button>
+            </form>
+        </section>
+    </div>
+
     <script>
         const API_URL = window.PLAYVERSE_API_URL || 'https://playverse-api-bgyg.onrender.com';
         const SESSION_KEY = 'playverse_session_token';
         let authToken = sessionStorage.getItem(SESSION_KEY);
         let appState = { username: '', créditos: 0 };
+        let activeRoomId = null;
+        let activeRoomName = '';
+        let roomSocket = null;
+        let roomSocketJoined = false;
+        let socketScriptLoading = false;
 
         function setAuthMessage(message, isError = true) {
             let status = document.getElementById('auth-status');
@@ -533,20 +552,33 @@
                     card.className = 'PLAYVERSE-card p-4 rounded-2xl flex items-center justify-between gap-3';
                     const isMember = room.isMember === true;
                     const isOwner = room.isOwner === true;
-                    const actionLabel = isOwner ? 'Cerrar sala' : (isMember ? 'Abandonar' : 'Unirse');
-                    const actionClass = isOwner ? 'bg-rose-500 text-white' : (isMember ? 'bg-slate-700 text-white' : 'bg-emerald-500 text-slate-950');
-                    card.innerHTML = '<div class="min-w-0"><span class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">' + escapeHtml(room.game.toUpperCase()) + '</span><h4 class="font-bold text-sm mt-1 text-white break-words">' + escapeHtml(room.name) + '</h4><p class="text-xs text-slate-400">Host: ' + escapeHtml(room.ownerUsername) + ' · ' + Number(room.memberCount) + '/' + Number(room.capacity) + ' jugadores</p></div><button class="room-action-btn shrink-0 text-xs font-black px-4 py-2.5 rounded-xl ' + actionClass + '">' + actionLabel + '</button>';
-                    const actionButton = card.querySelector('button');
-                    actionButton.disabled = !isMember && Number(room.memberCount) >= Number(room.capacity);
-                    if (actionButton.disabled) {
-                        actionButton.textContent = 'Completa';
-                        actionButton.classList.add('opacity-50', 'cursor-not-allowed');
-                    } else {
-                        actionButton.addEventListener('click', () => {
+                    card.innerHTML = '<div class="min-w-0 flex-1"><span class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">' + escapeHtml(room.game.toUpperCase()) + '</span><h4 class="font-bold text-sm mt-1 text-white break-words">' + escapeHtml(room.name) + '</h4><p class="text-xs text-slate-400">Host: ' + escapeHtml(room.ownerUsername) + ' · ' + Number(room.memberCount) + '/' + Number(room.capacity) + ' jugadores</p></div><div class="flex flex-col gap-2 shrink-0"></div>';
+                    const actions = card.querySelector('div.flex.flex-col');
+                    if (isMember) {
+                        const chatButton = document.createElement('button');
+                        chatButton.type = 'button';
+                        chatButton.className = 'bg-cyan-500 text-slate-950 text-xs font-black px-3 py-2 rounded-xl';
+                        chatButton.textContent = 'Abrir chat';
+                        chatButton.addEventListener('click', () => openRoomChat(room.id, room.name));
+                        actions.appendChild(chatButton);
+                        const membershipButton = document.createElement('button');
+                        membershipButton.type = 'button';
+                        membershipButton.className = (isOwner ? 'bg-rose-500 text-white' : 'bg-slate-700 text-white') + ' text-xs font-black px-3 py-2 rounded-xl';
+                        membershipButton.textContent = isOwner ? 'Cerrar sala' : 'Abandonar';
+                        membershipButton.addEventListener('click', () => {
                             if (isOwner) closeRoom(room.id);
-                            else if (isMember) leaveRoom(room.id);
-                            else joinRoom(room.id);
+                            else leaveRoom(room.id);
                         });
+                        actions.appendChild(membershipButton);
+                    } else {
+                        const joinButton = document.createElement('button');
+                        joinButton.type = 'button';
+                        joinButton.className = 'bg-emerald-500 text-slate-950 text-xs font-black px-3 py-2 rounded-xl';
+                        joinButton.textContent = Number(room.memberCount) >= Number(room.capacity) ? 'Completa' : 'Unirse';
+                        joinButton.disabled = Number(room.memberCount) >= Number(room.capacity);
+                        joinButton.classList.toggle('opacity-50', joinButton.disabled);
+                        joinButton.addEventListener('click', () => joinRoom(room.id, room.name));
+                        actions.appendChild(joinButton);
                     }
                     container.appendChild(card);
                 });
@@ -591,14 +623,122 @@
             }
         }
 
-        async function joinRoom(roomId) {
+        async function joinRoom(roomId, roomName) {
             try {
                 await apiRequest('/api/rooms/' + encodeURIComponent(roomId) + '/join', { method: 'POST' });
-                const status = document.getElementById('rooms-status');
-                status.textContent = '¡Te uniste a la sala correctamente!';
+                document.getElementById('rooms-status').textContent = '¡Te uniste a la sala correctamente!';
                 await loadRooms();
+                await openRoomChat(roomId, roomName);
             } catch (error) {
                 document.getElementById('rooms-status').textContent = error.message;
+            }
+        }
+
+        function appendRoomMessage(message) {
+            const container = document.getElementById('room-chat-messages');
+            if (!container || !message) return;
+            const item = document.createElement('article');
+            item.className = 'rounded-xl bg-slate-900 px-3 py-2';
+            const heading = document.createElement('p');
+            heading.className = 'text-[11px] font-bold text-cyan-400';
+            heading.textContent = String(message.username || 'Jugador') + ' · ' + new Date(message.sentAt || Date.now()).toLocaleTimeString();
+            const body = document.createElement('p');
+            body.className = 'text-sm text-slate-100 whitespace-pre-wrap break-words';
+            body.textContent = String(message.message || '');
+            item.append(heading, body);
+            container.appendChild(item);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function loadRoomMessages(roomId) {
+            const container = document.getElementById('room-chat-messages');
+            container.replaceChildren();
+            const data = await apiRequest('/api/rooms/' + encodeURIComponent(roomId) + '/messages');
+            data.messages.forEach(appendRoomMessage);
+        }
+
+        function connectRoomSocket(roomId) {
+            if (!window.io) {
+                if (socketScriptLoading) return;
+                socketScriptLoading = true;
+                const script = document.createElement('script');
+                script.src = API_URL + '/socket.io/socket.io.js';
+                script.onload = () => {
+                    socketScriptLoading = false;
+                    connectRoomSocket(roomId);
+                };
+                script.onerror = () => {
+                    socketScriptLoading = false;
+                    document.getElementById('room-chat-status').textContent = 'Chat en vivo no disponible; podés seguir enviando mensajes.';
+                };
+                document.head.appendChild(script);
+                return;
+            }
+            if (roomSocket) roomSocket.disconnect();
+            roomSocketJoined = false;
+            roomSocket = window.io(API_URL, { auth: { token: authToken } });
+            roomSocket.on('connect', () => {
+                roomSocket.emit('join_room', { roomId }, (result) => {
+                    roomSocketJoined = Boolean(result && result.success);
+                    document.getElementById('room-chat-status').textContent = roomSocketJoined
+                        ? 'Chat en vivo conectado'
+                        : (result && result.message) || 'No se pudo entrar al chat en vivo.';
+                });
+            });
+            roomSocket.on('receive_message', appendRoomMessage);
+            roomSocket.on('connect_error', () => {
+                roomSocketJoined = false;
+                document.getElementById('room-chat-status').textContent = 'Chat en vivo no disponible; modo de mensajes guardados.';
+            });
+            roomSocket.on('disconnect', () => {
+                roomSocketJoined = false;
+                document.getElementById('room-chat-status').textContent = 'Reconectando chat…';
+            });
+        }
+
+        async function openRoomChat(roomId, roomName) {
+            activeRoomId = roomId;
+            activeRoomName = roomName || 'Sala PLAYVERSE';
+            document.getElementById('room-chat-title').textContent = activeRoomName;
+            document.getElementById('room-chat-status').textContent = 'Cargando mensajes…';
+            document.getElementById('room-chat-modal').classList.remove('hidden');
+            try {
+                await loadRoomMessages(roomId);
+                connectRoomSocket(roomId);
+            } catch (error) {
+                document.getElementById('room-chat-status').textContent = error.message;
+            }
+        }
+
+        function closeRoomChat() {
+            document.getElementById('room-chat-modal').classList.add('hidden');
+            if (roomSocket) roomSocket.disconnect();
+            roomSocket = null;
+            roomSocketJoined = false;
+            activeRoomId = null;
+        }
+
+        async function sendRoomMessage(event) {
+            event.preventDefault();
+            if (!activeRoomId) return;
+            const input = document.getElementById('room-chat-input');
+            const button = document.getElementById('room-chat-send');
+            const message = input.value.trim();
+            if (!message) return;
+            button.disabled = true;
+            try {
+                const data = await apiRequest('/api/rooms/' + encodeURIComponent(activeRoomId) + '/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+                if (!roomSocketJoined) appendRoomMessage(data.message);
+                input.value = '';
+            } catch (error) {
+                document.getElementById('room-chat-status').textContent = error.message;
+            } finally {
+                button.disabled = false;
+                input.focus();
             }
         }
 
