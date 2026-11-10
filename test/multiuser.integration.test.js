@@ -114,6 +114,13 @@ integrationTest('two independent accounts can interact while ownership and persi
       method: 'POST', body: { name: 'Sala de integración', game: 'PLAYVERSE Test', capacity: 2 }
     }, alice.body.token);
     assert.equal(room.status, 201);
+    const aliceRooms = await request(baseUrl, '/api/rooms', {}, alice.body.token);
+    assert.equal(aliceRooms.status, 200);
+    assert.equal(aliceRooms.body.rooms[0].isOwner, true);
+    assert.equal(aliceRooms.body.rooms[0].isMember, true);
+    const bobRooms = await request(baseUrl, '/api/rooms', {}, bob.body.token);
+    assert.equal(bobRooms.body.rooms[0].isOwner, false);
+    assert.equal(bobRooms.body.rooms[0].isMember, false);
     const joined = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/join', {
       method: 'POST'
     }, bob.body.token);
@@ -154,6 +161,8 @@ integrationTest('two independent accounts can interact while ownership and persi
     }, alice.body.token);
     assert.equal(aliceClosesRoom.status, 200);
     assert.equal(aliceClosesRoom.body.room.status, 'closed');
+    const roomsAfterClose = await request(baseUrl, '/api/rooms', {}, bob.body.token);
+    assert.equal(roomsAfterClose.body.rooms.some((item) => item.id === room.body.room.id), false);
 
     const bobCannotRejoinClosedRoom = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/join', {
       method: 'POST'
