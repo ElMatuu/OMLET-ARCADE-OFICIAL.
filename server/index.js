@@ -267,6 +267,88 @@ app.get('/api/me/profile-summary', requireAuth, async (req, res, next) => {
   }
 });
 
+
+const ACTIVITY_SOURCES = [
+  { model: Post, type: 'post', dateField: 'createdAt', filter: (userId) => ({ author: userId }), title: 'Publicaste en la comunidad', description: 'Nueva publicación' },
+  { model: Room, type: 'room', dateField: 'createdAt', filter: (userId) => ({ owner: userId }), title: 'Creaste una sala', description: 'Nueva sala de juego' },
+  { model: RoomMessage, type: 'room_message', dateField: 'sentAt', filter: (userId) => ({ author: userId }), title: 'Participaste en el chat de una sala', description: 'Mensaje en sala' },
+  { model: Comment, type: 'comment', dateField: 'createdAt', filter: (userId) => ({ author: userId }), title: 'Comentaste una publicación', description: 'Nuevo comentario' },
+  { model: SavedPost, type: 'saved_post', dateField: 'createdAt', filter: (userId) => ({ user: userId }), title: 'Guardaste una publicación', description: 'Publicación guardada' }
+];
+
+function encodeActivityCursor(createdAt, id) {
+  return Buffer.from(JSON.stringify({ at: createdAt.toISOString(), id: String(id) })).toString('base64url');
+}
+
+function decodeActivityCursor(cursor) {
+  if (!cursor) return null;
+  try {
+    const decoded = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+    const at = new Date(decoded.at);
+    if (!decoded || typeof decoded.id !== 'string' || !mongoose.isValidObjectId(decoded.id)
+      || !Number.isFinite(at.getTime()) || at.toISOString() !== decoded.at) return false;
+    return { at, id: new mongoose.Types.ObjectId(decoded.id) };
+  } catch {
+    return false;
+  }
+}
+
+app.get('/api/me/activity', requireAuth, async (req, res, next) => {
+  try {
+    const parsedLimit = req.query.limit === undefined ? 20 : Number(req.query.limit);
+    if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 50) {
+      return res.status(400).json({ success: false, message: 'El límite debe ser un número entero entre 1 y 50.' });
+    }
+    const cursor = decodeActivityCursor(req.query.cursor);
+    if (cursor === false) {
+      return res.status(400).json({ success: false, message: 'El cursor de actividad no es válido.' });
+    }
+
+    const batches = await Promise.all(ACTIVITY_SOURCES.map(async (source) => {
+      const query = source.filter(req.auth.sub);
+      if (cursor) {
+        query.$or = [
+          { [source.dateField]: { $lt: cursor.at } },
+          { [source.dateField]: cursor.at, _id: { $lt: cursor.id } }
+        ];
+      }
+      return source.model.find(query)
+        .select('_id ' + source.dateField)
+        .sort({ [source.dateField]: -1, _id: -1 })
+        .limit(parsedLimit + 1)
+        .lean()
+        .then((records) => records.map((record) => ({
+          id: String(record._id),
+          type: source.type,
+          title: source.title,
+          description: source.description,
+          entityId: String(record._id),
+          createdAt: record[source.dateField]
+        })));
+    }));
+
+    const activities = batches.flat()
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id.localeCompare(a.id))
+      .slice(0, parsedLimit);
+    const hasMore = batches.some((batch) => batch.length > parsedLimit)
+      || batches.flat().length > parsedLimit;
+    const last = activities[activities.length - 1];
+    return res.json({
+      success: true,
+      activities,
+      page: {
+        limit: parsedLimit,
+        hasMore,
+        nextCursor: hasMore && last ? encodeActivityCursor(last.createdAt, last.id) : null
+      },
+      source: 'persisted-user-records',
+      note: 'El historial refleja registros reales existentes; no genera actividad retrospectiva.'
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.put('/api/me/profile', requireAuth, profileLimiter, async (req, res, next) => {
   try {
     const updates = {};
