@@ -6,6 +6,7 @@ const Conversation = require('./models/Conversation');
 const DirectMessage = require('./models/DirectMessage');
 const Friendship = require('./models/Friendship');
 const Block = require('./models/Block');
+const Notification = require('./models/Notification');
 
 const ROOM_ID_PATTERN = /^[a-zA-Z0-9_-]{3,64}$/;
 const MESSAGE_MAX_LENGTH = 1000;
@@ -102,6 +103,14 @@ function attachSocketServer(httpServer, allowedOrigins) {
           senderUsername: socket.user.username,
           recipient: recipientId,
           body
+        });
+        await Notification.create({
+          recipient: recipientId,
+          actor: socket.user.sub,
+          type: 'direct_message',
+          title: 'Nuevo mensaje privado',
+          body: '@' + socket.user.username + ': ' + body.slice(0, 180),
+          entityId: conversation._id
         });
         await Conversation.updateOne(
           { _id: conversation._id },
