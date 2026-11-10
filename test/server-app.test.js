@@ -6,7 +6,7 @@ process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017/playverse_test_only';
 process.env.JWT_SECRET = 'playverse-test-secret-with-at-least-32-characters';
 process.env.CORS_ORIGIN = 'https://playverse-test.example';
 
-const { app } = require('../server/index');
+const { app, httpServer } = require('../server/index');
 
 async function withServer(run) {
   const server = http.createServer(app);
@@ -26,6 +26,7 @@ test('importing the API does not connect to MongoDB or start a listener', () => 
   const mongoose = require('mongoose');
   assert.equal(mongoose.connection.readyState, 0);
   assert.equal(typeof app, 'function');
+  assert.equal(httpServer.listening, false);
 });
 
 test('health endpoint reports database state without exposing configuration', async () => {
