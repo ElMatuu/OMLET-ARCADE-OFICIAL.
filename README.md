@@ -16,7 +16,7 @@ This repository contains a working backend foundation and a web client that is s
 - Followers/following with separate persistent relationships and public profile counts.
 - Private one-to-one conversations for accepted friends, persisted message history, authenticated Socket.IO delivery, unread counters, read receipts, ephemeral typing indicators and connected-device notification events.
 - Player block/unblock controls. Blocking removes the friendship and both follow directions, hides the conversation from the inbox and prevents new friend requests, follows and private messages.
-- Saved posts, profile statistics and a 22-mission campaign across five chapters. Mission progress is calculated from persisted posts, rooms, room chat, saved posts, comments, accepted friendships, follows, reactions and private messages. Automatic XP/token rewards are explicitly not enabled yet.
+- Saved posts, profile statistics and a 22-mission campaign across five chapters. Mission progress is calculated from persisted posts, rooms, room chat, saved posts, comments, accepted friendships, follows, reactions and private messages. Completed missions award one-time Tokens through a server-validated, transaction-backed claim flow. There are no real-money top-ups.
 - Persistent store catalog, inventory, token ledger and server-validated purchases/equipping for supported cosmetic categories. Token top-ups and real-money purchases are not enabled.
 - Account-backed accessibility preferences (reduced motion and high contrast).
 - Persistent account notification center for incoming friend requests, accepted requests and private messages, with unread counts, cursor pagination and read-state controls.
