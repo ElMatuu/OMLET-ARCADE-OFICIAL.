@@ -342,12 +342,16 @@
                 </section>
             </div>
 
-            <!-- TAB EVENTS -->
+            <!-- TAB EVENTS / MISSIONS -->
             <div id="tab-events" class="space-y-4 hidden max-w-lg mx-auto">
                 <section class="PLAYVERSE-card rounded-2xl p-5 space-y-2">
-                    <h3 class="font-black text-xl">Eventos y recompensas</h3>
-                    <p class="text-sm text-slate-300">Las misiones, sorteos y recompensas todavía no están habilitados. No se descontarán Tokens ni se mostrarán premios ficticios.</p>
-                    <p class="text-xs text-slate-500">Esta sección se conectará al sistema de eventos cuando exista una lógica de premios verificable en el servidor.</p>
+                    <div class="flex items-center justify-between gap-3">
+                        <h3 class="font-black text-xl">Misiones de PLAYVERSE</h3>
+                        <span id="missions-summary" class="text-xs text-orange-300 font-bold">0/4 completadas</span>
+                    </div>
+                    <p id="missions-status" class="text-xs text-slate-400" role="status">El progreso se calcula con la actividad real de tu cuenta.</p>
+                    <div id="missions-list" class="space-y-3"></div>
+                    <p class="text-xs text-slate-500 border-t border-slate-800 pt-3">Las recompensas todavía no están habilitadas. Estas misiones registran actividad real y no entregan XP ni Tokens.</p>
                 </section>
             </div>
 
@@ -678,6 +682,7 @@
             if (tabName === 'lobbies') loadRooms();
             if (tabName === 'feed') loadCommunityPosts();
             if (tabName === 'saved') loadSavedPosts();
+            if (tabName === 'events') loadMissions();
             if (tabName === 'friends') loadFriends();
             if (tabName === 'shop') loadStore();
             ['feed', 'live', 'chat', 'lobbies', 'shop', 'events', 'friends', 'profile'].forEach(t => {
@@ -1451,6 +1456,49 @@
 
             card.append(header, content, actions, commentsPanel);
             return card;
+        }
+
+        async function loadMissions() {
+            const status = document.getElementById('missions-status');
+            const list = document.getElementById('missions-list');
+            const summary = document.getElementById('missions-summary');
+            if (!status || !list || !authToken) return;
+            status.textContent = 'Consultando tu actividad…';
+            try {
+                const data = await apiRequest('/api/me/missions');
+                list.replaceChildren();
+                (data.missions || []).forEach((mission) => {
+                    const card = document.createElement('div');
+                    card.className = 'rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-2';
+                    const top = document.createElement('div');
+                    top.className = 'flex items-center justify-between gap-3';
+                    const title = document.createElement('p');
+                    title.className = 'text-sm font-bold text-white';
+                    title.textContent = mission.title;
+                    const state = document.createElement('span');
+                    state.className = mission.completed ? 'text-xs text-emerald-300 font-bold' : 'text-xs text-slate-400';
+                    state.textContent = mission.completed ? 'Completada' : 'Pendiente';
+                    top.append(title, state);
+                    const description = document.createElement('p');
+                    description.className = 'text-xs text-slate-400';
+                    description.textContent = mission.description;
+                    const progress = document.createElement('div');
+                    progress.className = 'h-2 rounded-full bg-slate-800 overflow-hidden';
+                    const fill = document.createElement('div');
+                    fill.className = 'h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-300';
+                    fill.style.width = Math.max(0, Math.min(100, (Number(mission.current) / Math.max(1, Number(mission.target))) * 100)) + '%';
+                    progress.appendChild(fill);
+                    const count = document.createElement('p');
+                    count.className = 'text-[11px] text-slate-500 text-right';
+                    count.textContent = mission.current + ' / ' + mission.target;
+                    card.append(top, description, progress, count);
+                    list.appendChild(card);
+                });
+                summary.textContent = (data.summary?.completed || 0) + '/' + (data.summary?.total || 0) + ' completadas';
+                status.textContent = data.note || 'Progreso actualizado.';
+            } catch (error) {
+                status.textContent = 'No se pudieron cargar las misiones: ' + error.message;
+            }
         }
 
         async function loadSavedPosts() {
