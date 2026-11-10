@@ -34,9 +34,11 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Initialize isolated MongoDB replica set
         run: |
-          mongosh "mongodb://127.0.0.1:27017/admin" --quiet --eval "rs.initiate({_id:'rs0',members:[{_id:0,host:'127.0.0.1:27017'}]})"
+          MONGO_CONTAINER="$(docker ps -q --filter 'ancestor=mongo:7' | head -n 1)"
+          test -n "$MONGO_CONTAINER"
+          docker exec "$MONGO_CONTAINER" mongosh --quiet --eval "rs.initiate({_id:'rs0',members:[{_id:0,host:'127.0.0.1:27017'}]})"
           for attempt in $(seq 1 30); do
-            if mongosh "mongodb://127.0.0.1:27017/admin?replicaSet=rs0" --quiet --eval "db.hello().isWritablePrimary" | grep -q true; then
+            if docker exec "$MONGO_CONTAINER" mongosh --quiet --eval "db.hello().isWritablePrimary" | grep -q true; then
               exit 0
             fi
             sleep 2
