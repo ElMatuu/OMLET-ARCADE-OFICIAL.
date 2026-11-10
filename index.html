@@ -752,13 +752,13 @@
             if (presenceSocket && (presenceSocket.connected || presenceSocket.active)) return;
             presenceSocket = window.io(API_URL, { auth: { token: authToken } });
             presenceSocket.on('connect', () => {
-                presenceSocket.emit('presence_heartbeat', (result) => {
+                presenceSocket.emit('presence_heartbeat', {}, (result) => {
                     if (!result || !result.success) console.warn('PLAYVERSE presence heartbeat was not accepted.');
                 });
                 if (!presenceHeartbeatTimer) {
                     presenceHeartbeatTimer = setInterval(() => {
                         if (presenceSocket && presenceSocket.connected) {
-                            presenceSocket.emit('presence_heartbeat');
+                            presenceSocket.emit('presence_heartbeat', {});
                         }
                     }, 25000);
                 }
