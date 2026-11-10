@@ -33,7 +33,8 @@ function configureMediaPermissions() {
   });
 
   session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
-    if (!request.frame || !isTrustedAppContent(request.frame.top && request.frame.top.webContents ? request.frame.top.webContents : mainWindow && mainWindow.webContents)) {
+    const requesterUrl = request.frame && request.frame.url;
+    if (typeof requesterUrl !== 'string' || !requesterUrl.startsWith('file://') || !requesterUrl.includes('/www/')) {
       callback(null);
       return;
     }
