@@ -1,14 +1,21 @@
 {
   "name": "playverse-platform",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "PLAYVERSE — original gaming community platform for Android and Windows",
-  "main": "server/index.js",
+  "main": "desktop/main.js",
   "scripts": {
     "start": "node server/index.js",
     "start:dev": "node --watch server/index.js",
-    "preview": "npx serve .",
-    "check:syntax": "node --check server/index.js && node --check server/models/User.js && node --check server/middleware/auth.js && node --check server/socket.js"
+    "preview": "npx serve www",
+    "check:syntax": "node --check server/index.js && node --check server/models/User.js && node --check server/middleware/auth.js && node --check server/socket.js",
+    "build:web": "node scripts/prepare-web.js",
+    "desktop": "npm run build:web && electron .",
+    "build:win": "npm run build:web && electron-builder --win nsis",
+    "android:add": "npm run build:web && cap add android",
+    "android:sync": "npm run build:web && cap sync android",
+    "android:open": "npx cap open android",
+    "android:build": "npm run android:sync && cap build android"
   },
   "engines": {
     "node": ">=20"
@@ -23,5 +30,34 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.9.5",
     "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0",
+    "@capacitor/android": "^6.2.0",
+    "electron": "^30.5.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.playverse.desktop",
+    "productName": "PLAYVERSE",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "desktop/**/*",
+      "www/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   }
 }
