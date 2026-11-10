@@ -548,7 +548,124 @@
             const content = document.createElement('p');
             content.className = 'text-sm text-slate-200 whitespace-pre-wrap break-words';
             content.textContent = post.content;
-            card.append(header, content);
+
+            const actions = document.createElement('div');
+            actions.className = 'flex items-center gap-3 border-t border-slate-800 pt-3';
+            const likeButton = document.createElement('button');
+            likeButton.type = 'button';
+            likeButton.className = 'text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 hover:border-pink-400';
+            likeButton.textContent = (post.likedByMe ? '❤️' : '🤍') + ' Me gusta · ' + (Number(post.likeCount) || 0);
+            likeButton.setAttribute('aria-pressed', String(Boolean(post.likedByMe)));
+            const commentToggle = document.createElement('button');
+            commentToggle.type = 'button';
+            commentToggle.className = 'text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 hover:border-cyan-400 text-cyan-300';
+            commentToggle.textContent = '💬 Comentarios · ' + (Number(post.commentCount) || 0);
+            actions.append(likeButton, commentToggle);
+
+            const commentsPanel = document.createElement('section');
+            commentsPanel.className = 'hidden space-y-3 border-t border-slate-800 pt-3';
+            const commentsStatus = document.createElement('p');
+            commentsStatus.className = 'text-xs text-slate-400';
+            commentsStatus.textContent = 'Abrí los comentarios para ver la conversación.';
+            const commentsList = document.createElement('div');
+            commentsList.className = 'space-y-2';
+            const commentForm = document.createElement('form');
+            commentForm.className = 'space-y-2';
+            const commentInput = document.createElement('textarea');
+            commentInput.rows = 2;
+            commentInput.maxLength = 1000;
+            commentInput.required = true;
+            commentInput.placeholder = 'Escribí un comentario…';
+            commentInput.className = 'w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-cyan-500 resize-y';
+            const commentSubmit = document.createElement('button');
+            commentSubmit.type = 'submit';
+            commentSubmit.className = 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs font-bold px-3 py-2 rounded-xl';
+            commentSubmit.textContent = 'Comentar';
+            commentForm.append(commentInput, commentSubmit);
+            commentsPanel.append(commentsStatus, commentsList, commentForm);
+
+            likeButton.addEventListener('click', async () => {
+                likeButton.disabled = true;
+                try {
+                    const liked = likeButton.getAttribute('aria-pressed') === 'true';
+                    const result = await apiRequest('/api/posts/' + encodeURIComponent(post.id) + '/like', {
+                        method: liked ? 'DELETE' : 'PUT'
+                    });
+                    likeButton.setAttribute('aria-pressed', String(result.likedByMe));
+                    likeButton.textContent = (result.likedByMe ? '❤️' : '🤍') + ' Me gusta · ' + result.likeCount;
+                } catch (error) {
+                    commentsStatus.textContent = error.message;
+                    commentsPanel.classList.remove('hidden');
+                } finally {
+                    likeButton.disabled = false;
+                }
+            });
+
+            let commentsLoaded = false;
+            commentToggle.addEventListener('click', async () => {
+                const opening = commentsPanel.classList.contains('hidden');
+                commentsPanel.classList.toggle('hidden');
+                if (opening && !commentsLoaded) {
+                    commentsStatus.textContent = 'Cargando comentarios…';
+                    try {
+                        const result = await apiRequest('/api/posts/' + encodeURIComponent(post.id) + '/comments');
+                        commentsList.replaceChildren();
+                        (result.comments || []).forEach((comment) => {
+                            const item = document.createElement('div');
+                            item.className = 'bg-slate-950/70 rounded-xl p-3';
+                            const name = document.createElement('p');
+                            name.className = 'text-xs font-bold text-cyan-300';
+                            name.textContent = comment.authorUsername;
+                            const body = document.createElement('p');
+                            body.className = 'text-xs text-slate-200 whitespace-pre-wrap break-words mt-1';
+                            body.textContent = comment.content;
+                            item.append(name, body);
+                            commentsList.appendChild(item);
+                        });
+                        commentsStatus.textContent = result.comments.length ? result.comments.length + ' comentario(s)' : 'Todavía no hay comentarios. ¡Empezá la charla!';
+                        commentsLoaded = true;
+                    } catch (error) {
+                        commentsStatus.textContent = error.message;
+                    }
+                }
+            });
+
+            commentForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const contentValue = commentInput.value.trim();
+                if (!contentValue) return;
+                commentSubmit.disabled = true;
+                commentSubmit.textContent = 'Enviando…';
+                try {
+                    const result = await apiRequest('/api/posts/' + encodeURIComponent(post.id) + '/comments', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ content: contentValue })
+                    });
+                    const item = document.createElement('div');
+                    item.className = 'bg-slate-950/70 rounded-xl p-3';
+                    const name = document.createElement('p');
+                    name.className = 'text-xs font-bold text-cyan-300';
+                    name.textContent = result.comment.authorUsername;
+                    const body = document.createElement('p');
+                    body.className = 'text-xs text-slate-200 whitespace-pre-wrap break-words mt-1';
+                    body.textContent = result.comment.content;
+                    item.append(name, body);
+                    commentsList.appendChild(item);
+                    commentInput.value = '';
+                    commentsLoaded = true;
+                    commentsStatus.textContent = 'Comentario publicado.';
+                    post.commentCount = (Number(post.commentCount) || 0) + 1;
+                    commentToggle.textContent = '💬 Comentarios · ' + post.commentCount;
+                } catch (error) {
+                    commentsStatus.textContent = error.message;
+                } finally {
+                    commentSubmit.disabled = false;
+                    commentSubmit.textContent = 'Comentar';
+                }
+            });
+
+            card.append(header, content, actions, commentsPanel);
             return card;
         }
 
