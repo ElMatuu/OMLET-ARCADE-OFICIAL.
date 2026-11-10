@@ -124,10 +124,13 @@
                 <button onclick="switchTab('events'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-sparkles text-amber-400 w-5"></i><span>Ruleta y Sorteos</span></button>
                 <button onclick="switchTab('profile'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-user-gear text-orange-400 w-5"></i><span>Mi Perfil</span></button>
                 <button onclick="switchTab('friends'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-user-group text-pink-400 w-5"></i><span>Amigos y solicitudes</span></button>
+                <button onclick="switchTab('saved'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-bookmark text-cyan-300 w-5"></i><span>Guardados y VODs</span></button>
+                <button onclick="switchTab('events'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-list-check text-amber-300 w-5"></i><span>Misiones</span></button>
+                <button onclick="switchTab('help'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-circle-question text-sky-300 w-5"></i><span>Ayuda y soporte</span></button>
             </nav>
             <div class="p-4 border-t border-slate-800 space-y-2">
                 <button onclick="openSettingsModal(); toggleDrawer(false);" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold text-slate-300">
-                    <i class="fa-solid fa-gear text-slate-400 w-5"></i><span>Ajustes de Stream y App</span>
+                    <i class="fa-solid fa-gear text-slate-400 w-5"></i><span>Preferencias de creador</span>
                 </button>
                 <button onclick="logout()" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-red-950/40 text-sm font-semibold text-red-300">
                     <i class="fa-solid fa-right-from-bracket w-5"></i><span>Cerrar sesión</span>
@@ -336,6 +339,24 @@
                     <h3 class="font-black text-xl">Eventos y recompensas</h3>
                     <p class="text-sm text-slate-300">Las misiones, sorteos y recompensas todavía no están habilitados. No se descontarán Tokens ni se mostrarán premios ficticios.</p>
                     <p class="text-xs text-slate-500">Esta sección se conectará al sistema de eventos cuando exista una lógica de premios verificable en el servidor.</p>
+                </section>
+            </div>
+
+            <!-- TAB SAVED -->
+            <div id="tab-saved" class="space-y-4 hidden max-w-lg mx-auto">
+                <section class="PLAYVERSE-card rounded-2xl p-5 space-y-3">
+                    <div class="flex items-center gap-3"><i class="fa-solid fa-bookmark text-2xl text-cyan-300"></i><h3 class="font-black text-xl">Guardados y VODs</h3></div>
+                    <p class="text-sm text-slate-300">Este espacio queda preparado para tus publicaciones guardadas y repeticiones de transmisiones.</p>
+                    <p class="text-xs text-slate-500">Todavía no existe un servicio de guardados ni almacenamiento de VODs conectado. No mostraremos contenido de ejemplo como si fuera tuyo.</p>
+                </section>
+            </div>
+
+            <!-- TAB HELP -->
+            <div id="tab-help" class="space-y-4 hidden max-w-lg mx-auto">
+                <section class="PLAYVERSE-card rounded-2xl p-5 space-y-3">
+                    <div class="flex items-center gap-3"><i class="fa-solid fa-life-ring text-2xl text-sky-300"></i><h3 class="font-black text-xl">Ayuda y soporte</h3></div>
+                    <p class="text-sm text-slate-300">PLAYVERSE está en construcción. Desde acá vamos a reunir ayuda de cuenta, seguridad, reportes y preguntas frecuentes.</p>
+                    <p class="text-xs text-slate-500">El canal de soporte todavía no está conectado. No se publica una dirección de contacto hasta que exista una oficial.</p>
                 </section>
             </div>
 
@@ -633,7 +654,7 @@
         }
 
         function switchTab(tabName) {
-            ['feed', 'live', 'chat', 'lobbies', 'shop', 'events', 'profile', 'friends'].forEach(t => {
+            ['feed', 'live', 'chat', 'lobbies', 'shop', 'events', 'profile', 'friends', 'saved', 'help'].forEach(t => {
                 const el = document.getElementById('tab-' + t);
                 if(el) el.classList.add('hidden');
             });
