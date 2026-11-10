@@ -2,6 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const mongoose = require('mongoose');
+const { io: createSocketClient } = require('socket.io-client');
+const { attachSocketServer } = require('../server/socket');
 
 const mongoUri = process.env.PLAYVERSE_TEST_MONGODB_URI;
 const integrationTest = mongoUri ? test : test.skip;
@@ -11,6 +13,23 @@ process.env.JWT_SECRET = 'playverse-integration-test-secret-at-least-32-characte
 process.env.CORS_ORIGIN = 'http://127.0.0.1';
 
 const { app } = require('../server/index');
+
+async function connectSocket(baseUrl, token) {
+  return new Promise((resolve, reject) => {
+    const socket = createSocketClient(baseUrl, {
+      auth: { token },
+      transports: ['websocket'],
+      reconnection: false,
+      timeout: 5000
+    });
+    socket.once('connect', () => resolve(socket));
+    socket.once('connect_error', reject);
+  });
+}
+
+function emitSocketAck(socket, event, payload) {
+  return new Promise((resolve) => socket.emit(event, payload, resolve));
+}
 
 async function request(baseUrl, path, options = {}, token) {
   const headers = { ...(options.headers || {}) };
@@ -28,6 +47,9 @@ async function request(baseUrl, path, options = {}, token) {
 integrationTest('multiple independent accounts can interact concurrently with ownership and persistence enforced', async () => {
   await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 10000 });
   const server = http.createServer(app);
+  const ioServer = attachSocketServer(server, ['http://127.0.0.1']);
+  server.io = ioServer;
+  const liveSockets = [];
   await new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(0, '127.0.0.1', resolve);
@@ -145,6 +167,29 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     const overCapacity = await request(baseUrl, roomJoinPath, { method: 'POST' }, waitingToken);
     assert.equal(overCapacity.status, 404);
 
+    const aliceSocket = await connectSocket(baseUrl, alice.body.token);
+    const memberSocket = await connectSocket(baseUrl, winningToken);
+    liveSockets.push(aliceSocket, memberSocket);
+    const aliceRoomJoin = await emitSocketAck(aliceSocket, 'join_room', { roomId: room.body.room.id });
+    const memberRoomJoin = await emitSocketAck(memberSocket, 'join_room', { roomId: room.body.room.id });
+    assert.equal(aliceRoomJoin.success, true);
+    assert.equal(memberRoomJoin.success, true);
+
+    const realtimeDelivery = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Live room message was not delivered')), 5000);
+      memberSocket.once('receive_message', (message) => {
+        clearTimeout(timer);
+        resolve(message);
+      });
+    });
+    const socketSendAck = await emitSocketAck(aliceSocket, 'send_message', {
+      roomId: room.body.room.id,
+      message: 'Mensaje en vivo por Socket.IO'
+    });
+    assert.equal(socketSendAck.success, true);
+    const realtimeMessage = await realtimeDelivery;
+    assert.equal(realtimeMessage.message, 'Mensaje en vivo por Socket.IO');
+
     const firstRoomMessage = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/messages', {
       method: 'POST', body: { message: '¡Hola desde PLAYVERSE!' }
     }, alice.body.token);
@@ -158,8 +203,9 @@ integrationTest('multiple independent accounts can interact concurrently with ow
 
     const roomHistory = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/messages', {}, alice.body.token);
     assert.equal(roomHistory.status, 200);
-    assert.equal(roomHistory.body.messages.length, 2);
-    assert.equal(roomHistory.body.messages[0].message, '¡Hola desde PLAYVERSE!');
+    assert.equal(roomHistory.body.messages.length, 3);
+    assert.equal(roomHistory.body.messages[0].message, 'Mensaje en vivo por Socket.IO');
+    assert.equal(roomHistory.body.messages[1].message, '¡Hola desde PLAYVERSE!');
 
     const memberLeaves = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/leave', {
       method: 'POST'
@@ -168,6 +214,11 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.equal(memberLeaves.body.room.memberCount, 1);
     const formerMemberCannotReadChat = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/messages', {}, winningToken);
     assert.equal(formerMemberCannotReadChat.status, 403);
+    const formerMemberSocketSend = await emitSocketAck(memberSocket, 'send_message', {
+      roomId: room.body.room.id,
+      message: 'No debería llegar después de abandonar'
+    });
+    assert.equal(formerMemberSocketSend.success, false);
 
     const waitingPlayerJoins = await request(baseUrl, roomJoinPath, {
       method: 'POST'
@@ -176,7 +227,7 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.equal(waitingPlayerJoins.body.room.memberCount, 2);
     const persistedChatHistory = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/messages', {}, waitingToken);
     assert.equal(persistedChatHistory.status, 200);
-    assert.equal(persistedChatHistory.body.messages.length, 2);
+    assert.equal(persistedChatHistory.body.messages.length, 3);
 
     const bobCannotCloseRoom = await request(baseUrl, '/api/rooms/' + room.body.room.id, {
       method: 'DELETE'
@@ -212,7 +263,8 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.equal(persistedProfile.status, 200);
     assert.equal(persistedProfile.body.user.displayName, 'Alice Gamer');
   } finally {
-    await new Promise((resolve) => server.close(resolve));
+    liveSockets.forEach((socket) => socket.disconnect());
+    await new Promise((resolve) => ioServer.close(resolve));
     await mongoose.connection.dropDatabase();
     await mongoose.disconnect();
   }
