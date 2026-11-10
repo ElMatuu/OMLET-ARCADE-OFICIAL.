@@ -166,10 +166,15 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     }, alice.body.token);
     assert.equal(privateMessage.status, 201);
     assert.equal(privateMessage.body.message.body, 'Mensaje privado persistente');
+    const bobUnreadInbox = await request(baseUrl, '/api/me/conversations', {}, bob.body.token);
+    assert.equal(bobUnreadInbox.body.conversations[0].unreadCount, 1);
     const bobPrivateHistory = await request(baseUrl, '/api/conversations/' + conversationId + '/messages', {}, bob.body.token);
     assert.equal(bobPrivateHistory.status, 200);
     assert.equal(bobPrivateHistory.body.messages.length, 1);
     assert.equal(bobPrivateHistory.body.messages[0].senderUsername, 'alice_test');
+    assert.ok(bobPrivateHistory.body.messages[0].readAt);
+    const bobReadInbox = await request(baseUrl, '/api/me/conversations', {}, bob.body.token);
+    assert.equal(bobReadInbox.body.conversations[0].unreadCount, 0);
 
     const post = await request(baseUrl, '/api/posts', {
       method: 'POST', body: { content: 'Publicación de Alice en una prueba multiusuario.' }
@@ -249,6 +254,13 @@ integrationTest('multiple independent accounts can interact concurrently with ow
         resolve(message);
       });
     });
+    const privateNotificationDelivery = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Private message notification was not delivered')), 5000);
+      bobDirectSocket.once('direct_message_notification', (notification) => {
+        clearTimeout(timer);
+        resolve(notification);
+      });
+    });
     const privateSocketAck = await emitSocketAck(aliceSocket, 'send_direct_message', {
       conversationId, body: 'Privado por Socket.IO'
     });
@@ -256,6 +268,9 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     const privateRealtimeMessage = await privateRealtimeDelivery;
     assert.equal(privateRealtimeMessage.body, 'Privado por Socket.IO');
     assert.equal(privateRealtimeMessage.senderUsername, 'alice_test');
+    const privateNotification = await privateNotificationDelivery;
+    assert.equal(privateNotification.senderUsername, 'alice_test');
+    assert.equal(privateNotification.body, 'Privado por Socket.IO');
 
     const privateRestRealtimeDelivery = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('REST private message was not delivered to connected recipient')), 5000);
