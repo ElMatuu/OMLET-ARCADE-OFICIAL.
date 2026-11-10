@@ -144,16 +144,23 @@ app.get('/api/posts', requireAuth, async (req, res, next) => {
     const filter = {};
     const before = typeof req.query.before === 'string' ? req.query.before : '';
     if (before) {
-      if (!mongoose.isValidObjectId(before)) {
+      if (before.length > 256) {
         return res.status(400).json({ success: false, message: 'Cursor de publicaciones inválido.' });
       }
-      const cursorPost = await Post.findById(before).select('createdAt').lean();
-      if (!cursorPost) {
-        return res.status(400).json({ success: false, message: 'El cursor de publicaciones ya no existe.' });
+      let cursor;
+      try {
+        cursor = JSON.parse(Buffer.from(before, 'base64url').toString('utf8'));
+      } catch {
+        return res.status(400).json({ success: false, message: 'Cursor de publicaciones inválido.' });
+      }
+      const cursorDate = cursor && typeof cursor.createdAt === 'string' ? new Date(cursor.createdAt) : null;
+      if (!cursor || !mongoose.isValidObjectId(cursor.id) ||
+          !cursorDate || Number.isNaN(cursorDate.getTime())) {
+        return res.status(400).json({ success: false, message: 'Cursor de publicaciones inválido.' });
       }
       filter.$or = [
-        { createdAt: { $lt: cursorPost.createdAt } },
-        { createdAt: cursorPost.createdAt, _id: { $lt: cursorPost._id } }
+        { createdAt: { $lt: cursorDate } },
+        { createdAt: cursorDate, _id: { $lt: new mongoose.Types.ObjectId(cursor.id) } }
       ];
     }
 
@@ -167,7 +174,10 @@ app.get('/api/posts', requireAuth, async (req, res, next) => {
     return res.json({
       success: true,
       hasMore,
-      nextCursor: hasMore && posts.length ? String(posts[posts.length - 1]._id) : null,
+      nextCursor: hasMore && posts.length ? Buffer.from(JSON.stringify({
+        createdAt: posts[posts.length - 1].createdAt.toISOString(),
+        id: String(posts[posts.length - 1]._id)
+      })).toString('base64url') : null,
       posts: posts.map((post) => ({
         id: String(post._id),
         authorUsername: post.authorUsername,
