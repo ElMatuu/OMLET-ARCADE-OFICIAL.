@@ -320,6 +320,7 @@
             <div class="flex items-center justify-between pb-3 border-b border-slate-800"><h3 class="font-black text-base text-white">Crear sala multijugador</h3><button type="button" onclick="closeCreateRoomModal()" class="text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark text-lg"></i></button></div>
             <label class="block text-xs font-semibold text-slate-400">Nombre de la sala<input id="room-name" required minlength="3" maxlength="60" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-sm text-white" placeholder="Ej. Supervivencia con amigos"></label>
             <label class="block text-xs font-semibold text-slate-400">Juego<input id="room-game" required minlength="2" maxlength="40" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-sm text-white" placeholder="Ej. Minecraft"></label>
+            <label class="block text-xs font-semibold text-slate-400">Capacidad máxima<select id="room-capacity" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-sm text-white"><option value="2">2 jugadores</option><option value="4">4 jugadores</option><option value="8">8 jugadores</option><option value="12" selected>12 jugadores</option><option value="20">20 jugadores</option><option value="50">50 jugadores</option><option value="100">100 jugadores</option></select></label>
             <p id="room-form-status" class="text-xs text-slate-400" role="status"></p>
             <div class="flex gap-2"><button type="button" onclick="closeCreateRoomModal()" class="flex-1 bg-slate-800 text-white font-bold py-3 rounded-xl">Cancelar</button><button id="room-submit" type="submit" class="flex-1 PLAYVERSE-gradient text-white font-bold py-3 rounded-xl">Crear sala</button></div>
         </form>
@@ -530,8 +531,23 @@
                 data.rooms.forEach((room) => {
                     const card = document.createElement('article');
                     card.className = 'PLAYVERSE-card p-4 rounded-2xl flex items-center justify-between gap-3';
-                    card.innerHTML = '<div class="min-w-0"><span class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">' + escapeHtml(room.game.toUpperCase()) + '</span><h4 class="font-bold text-sm mt-1 text-white break-words">' + escapeHtml(room.name) + '</h4><p class="text-xs text-slate-400">Host: ' + escapeHtml(room.ownerUsername) + ' · ' + Number(room.memberCount) + '/' + Number(room.capacity) + ' jugadores</p></div><button class="join-room-btn shrink-0 bg-emerald-500 text-slate-950 text-xs font-black px-4 py-2.5 rounded-xl">Unirse</button>';
-                    card.querySelector('button').addEventListener('click', () => joinRoom(room.id));
+                    const isMember = room.isMember === true;
+                    const isOwner = room.isOwner === true;
+                    const actionLabel = isOwner ? 'Cerrar sala' : (isMember ? 'Abandonar' : 'Unirse');
+                    const actionClass = isOwner ? 'bg-rose-500 text-white' : (isMember ? 'bg-slate-700 text-white' : 'bg-emerald-500 text-slate-950');
+                    card.innerHTML = '<div class="min-w-0"><span class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">' + escapeHtml(room.game.toUpperCase()) + '</span><h4 class="font-bold text-sm mt-1 text-white break-words">' + escapeHtml(room.name) + '</h4><p class="text-xs text-slate-400">Host: ' + escapeHtml(room.ownerUsername) + ' · ' + Number(room.memberCount) + '/' + Number(room.capacity) + ' jugadores</p></div><button class="room-action-btn shrink-0 text-xs font-black px-4 py-2.5 rounded-xl ' + actionClass + '">' + actionLabel + '</button>';
+                    const actionButton = card.querySelector('button');
+                    actionButton.disabled = !isMember && Number(room.memberCount) >= Number(room.capacity);
+                    if (actionButton.disabled) {
+                        actionButton.textContent = 'Completa';
+                        actionButton.classList.add('opacity-50', 'cursor-not-allowed');
+                    } else {
+                        actionButton.addEventListener('click', () => {
+                            if (isOwner) closeRoom(room.id);
+                            else if (isMember) leaveRoom(room.id);
+                            else joinRoom(room.id);
+                        });
+                    }
                     container.appendChild(card);
                 });
             } catch (error) {
@@ -560,7 +576,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         name: document.getElementById('room-name').value.trim(),
-                        game: document.getElementById('room-game').value.trim()
+                        game: document.getElementById('room-game').value.trim(),
+                        capacity: Number(document.getElementById('room-capacity').value)
                     })
                 });
                 document.getElementById('room-form').reset();
@@ -579,6 +596,27 @@
                 await apiRequest('/api/rooms/' + encodeURIComponent(roomId) + '/join', { method: 'POST' });
                 const status = document.getElementById('rooms-status');
                 status.textContent = '¡Te uniste a la sala correctamente!';
+                await loadRooms();
+            } catch (error) {
+                document.getElementById('rooms-status').textContent = error.message;
+            }
+        }
+
+        async function leaveRoom(roomId) {
+            try {
+                await apiRequest('/api/rooms/' + encodeURIComponent(roomId) + '/leave', { method: 'POST' });
+                document.getElementById('rooms-status').textContent = 'Saliste de la sala.';
+                await loadRooms();
+            } catch (error) {
+                document.getElementById('rooms-status').textContent = error.message;
+            }
+        }
+
+        async function closeRoom(roomId) {
+            if (!window.confirm('¿Querés cerrar esta sala para todos los jugadores?')) return;
+            try {
+                await apiRequest('/api/rooms/' + encodeURIComponent(roomId), { method: 'DELETE' });
+                document.getElementById('rooms-status').textContent = 'Sala cerrada correctamente.';
                 await loadRooms();
             } catch (error) {
                 document.getElementById('rooms-status').textContent = error.message;
