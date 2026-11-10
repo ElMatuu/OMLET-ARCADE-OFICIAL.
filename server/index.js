@@ -25,6 +25,7 @@ const Conversation = require('./models/Conversation');
 const DirectMessage = require('./models/DirectMessage');
 const Inventory = require('./models/Inventory');
 const TokenTransaction = require('./models/TokenTransaction');
+const MissionClaim = require('./models/MissionClaim');
 const { STORE_CATALOG } = require('./data/storeCatalog');
 const { requireAuth } = require('./middleware/auth');
 const { attachSocketServer } = require('./socket');
@@ -875,11 +876,13 @@ app.get('/api/me/wallet/transactions', requireAuth, async (req, res, next) => {
       .lean();
     const transactions = records.map((record) => {
       const item = STORE_CATALOG.find((entry) => entry.id === record.itemId);
+      const missionId = typeof record.itemId === 'string' && record.itemId.startsWith('mission:') ? record.itemId.slice(8) : null;
+      const mission = missionId ? MISSION_CATALOG.find((entry) => entry.id === missionId) : null;
       return {
         id: String(record._id),
         type: record.type,
         amount: record.amount,
-        itemName: item ? item.name : null,
+        itemName: mission ? 'Misión: ' + mission.title : (item ? item.name : null),
         balanceAfter: record.balanceAfter,
         createdAt: record.createdAt
       };
@@ -1316,70 +1319,164 @@ const postLimiter = rateLimit({
   message: { success: false, message: 'Publicaste demasiado rápido. Probá más tarde.' }
 });
 
+const MISSION_CATALOG = [
+  { id: 'welcome-post-1', chapter: 'Primeros pasos', title: 'Tu voz en PLAYVERSE', description: 'Publicá tu primera idea, captura o presentación para que la comunidad te conozca.', metric: 'posts', target: 1, rewardTokens: 10 },
+  { id: 'welcome-post-3', chapter: 'Primeros pasos', title: 'Creador en movimiento', description: 'Compartí tres publicaciones diferentes y empezá a construir tu perfil.', metric: 'posts', target: 3, rewardTokens: 15 },
+  { id: 'welcome-friend-1', chapter: 'Primeros pasos', title: 'Tu primera conexión', description: 'Aceptá o conseguí tu primera amistad dentro de PLAYVERSE.', metric: 'friends', target: 1, rewardTokens: 10 },
+  { id: 'welcome-message-1', chapter: 'Primeros pasos', title: 'Romper el hielo', description: 'Mandá tu primer mensaje privado a una amistad.', metric: 'directMessages', target: 1, rewardTokens: 10 },
+
+  { id: 'creator-post-10', chapter: 'Camino del creador', title: 'Voz reconocible', description: 'Llegá a diez publicaciones y mantené activa tu presencia en la comunidad.', metric: 'posts', target: 10, rewardTokens: 20 },
+  { id: 'creator-comment-1', chapter: 'Camino del creador', title: 'Conversación iniciada', description: 'Comentá una publicación de la comunidad y sumate al intercambio.', metric: 'comments', target: 1, rewardTokens: 10 },
+  { id: 'creator-comment-5', chapter: 'Camino del creador', title: 'Siempre hay algo para aportar', description: 'Escribí cinco comentarios útiles en publicaciones de la comunidad.', metric: 'comments', target: 5, rewardTokens: 20 },
+  { id: 'creator-like-1', chapter: 'Camino del creador', title: 'Buena onda', description: 'Dale tu primer me gusta a una publicación que te interese.', metric: 'likes', target: 1, rewardTokens: 10 },
+
+  { id: 'party-room-1', chapter: 'Líder de escuadra', title: 'Armá la escuadra', description: 'Creá tu primera sala pública para reunir jugadores.', metric: 'rooms', target: 1, rewardTokens: 15 },
+  { id: 'party-room-3', chapter: 'Líder de escuadra', title: 'Organizador habitual', description: 'Creá tres salas para organizar distintas sesiones de juego.', metric: 'rooms', target: 3, rewardTokens: 30 },
+  { id: 'party-chat-1', chapter: 'Líder de escuadra', title: 'Primera llamada al equipo', description: 'Mandá un mensaje en el chat de una sala.', metric: 'roomMessages', target: 1, rewardTokens: 10 },
+  { id: 'party-chat-10', chapter: 'Líder de escuadra', title: 'Capitán comunicador', description: 'Participá con diez mensajes en chats de salas.', metric: 'roomMessages', target: 10, rewardTokens: 20 },
+  { id: 'party-chat-30', chapter: 'Líder de escuadra', title: 'La voz de la sala', description: 'Alcanzá treinta mensajes en chats de salas y mantené viva la coordinación.', metric: 'roomMessages', target: 30, rewardTokens: 30 },
+
+  { id: 'social-friends-3', chapter: 'Leyenda de comunidad', title: 'Círculo cercano', description: 'Formá un grupo de tres amistades aceptadas.', metric: 'friends', target: 3, rewardTokens: 20 },
+  { id: 'social-friends-5', chapter: 'Leyenda de comunidad', title: 'Punto de encuentro', description: 'Llegá a cinco amistades aceptadas en PLAYVERSE.', metric: 'friends', target: 5, rewardTokens: 35 },
+  { id: 'social-follow-1', chapter: 'Leyenda de comunidad', title: 'Seguí a un creador', description: 'Empezá a seguir a otro jugador para no perderte sus novedades.', metric: 'follows', target: 1, rewardTokens: 10 },
+  { id: 'social-follow-5', chapter: 'Leyenda de comunidad', title: 'Radar de comunidad', description: 'Seguí a cinco jugadores cuyos contenidos te interesen.', metric: 'follows', target: 5, rewardTokens: 20 },
+
+  { id: 'social-like-10', chapter: 'Coleccionista y comunicador', title: 'Apoyo constante', description: 'Reaccioná a diez publicaciones de otros jugadores.', metric: 'likes', target: 10, rewardTokens: 15 },
+  { id: 'social-save-1', chapter: 'Coleccionista y comunicador', title: 'Para después', description: 'Guardá tu primera publicación para volver a encontrarla.', metric: 'saved', target: 1, rewardTokens: 10 },
+  { id: 'social-save-5', chapter: 'Coleccionista y comunicador', title: 'Coleccionista de ideas', description: 'Guardá cinco publicaciones que quieras consultar más tarde.', metric: 'saved', target: 5, rewardTokens: 20 },
+  { id: 'social-dm-10', chapter: 'Coleccionista y comunicador', title: 'Compañero de equipo', description: 'Enviá diez mensajes privados a tus amistades.', metric: 'directMessages', target: 10, rewardTokens: 15 },
+  { id: 'social-dm-30', chapter: 'Coleccionista y comunicador', title: 'Conexiones duraderas', description: 'Alcanzá treinta mensajes privados enviados.', metric: 'directMessages', target: 30, rewardTokens: 25 }
+];
+
+async function buildMissionProgress(userId, session = null) {
+  const count = (Model, filter) => {
+    const query = Model.countDocuments(filter);
+    return session ? query.session(session) : query;
+  };
+  const countQueries = [
+    count(Post, { author: userId }),
+    count(Room, { owner: userId }),
+    count(RoomMessage, { author: userId }),
+    count(SavedPost, { user: userId }),
+    count(Comment, { author: userId }),
+    count(Friendship, { status: 'accepted', $or: [{ requester: userId }, { recipient: userId }] }),
+    count(Follow, { follower: userId }),
+    count(Post, { likes: userId, author: { $ne: userId } }),
+    count(DirectMessage, { sender: userId })
+  ];
+  const claimsQuery = MissionClaim.find({ user: userId }).select('missionId rewardTokens claimedAt').lean();
+  if (session) claimsQuery.session(session);
+  const [values, claims] = await Promise.all([Promise.all(countQueries), claimsQuery]);
+  const metricCounts = {
+    posts: values[0], rooms: values[1], roomMessages: values[2], saved: values[3],
+    comments: values[4], friends: values[5], follows: values[6], likes: values[7], directMessages: values[8]
+  };
+  const claimedById = new Map(claims.map((claim) => [claim.missionId, claim]));
+  return MISSION_CATALOG.map((definition) => {
+    const current = Math.min(metricCounts[definition.metric] || 0, definition.target);
+    const claim = claimedById.get(definition.id);
+    return {
+      id: definition.id,
+      chapter: definition.chapter,
+      title: definition.title,
+      description: definition.description,
+      current,
+      target: definition.target,
+      completed: current >= definition.target,
+      rewardTokens: definition.rewardTokens,
+      claimed: Boolean(claim),
+      claimable: current >= definition.target && !claim,
+      claimedAt: claim ? claim.claimedAt : null
+    };
+  });
+}
+
 app.get('/api/me/missions', requireAuth, async (req, res, next) => {
   try {
-    const userId = req.auth.sub;
-    const [
-      postCount, roomCount, roomMessageCount, savedCount, commentCount,
-      friendshipCount, followCount, likedPostCount, directMessageCount
-    ] = await Promise.all([
-      Post.countDocuments({ author: userId }),
-      Room.countDocuments({ owner: userId }),
-      RoomMessage.countDocuments({ author: userId }),
-      SavedPost.countDocuments({ user: userId }),
-      Comment.countDocuments({ author: userId }),
-      Friendship.countDocuments({
-        status: 'accepted',
-        $or: [{ requester: userId }, { recipient: userId }]
-      }),
-      Follow.countDocuments({ follower: userId }),
-      Post.countDocuments({ likes: userId, author: { $ne: userId } }),
-      DirectMessage.countDocuments({ sender: userId })
-    ]);
-
-    const missionDefinitions = [
-      { id: 'welcome-post-1', chapter: 'Primeros pasos', title: 'Tu voz en PLAYVERSE', description: 'Publicá tu primera idea, captura o presentación para que la comunidad te conozca.', current: postCount, target: 1 },
-      { id: 'welcome-post-3', chapter: 'Primeros pasos', title: 'Creador en movimiento', description: 'Compartí tres publicaciones diferentes y empezá a construir tu perfil.', current: postCount, target: 3 },
-      { id: 'welcome-friend-1', chapter: 'Primeros pasos', title: 'Tu primera conexión', description: 'Aceptá o conseguí tu primera amistad dentro de PLAYVERSE.', current: friendshipCount, target: 1 },
-      { id: 'welcome-message-1', chapter: 'Primeros pasos', title: 'Romper el hielo', description: 'Mandá tu primer mensaje privado a una amistad.', current: directMessageCount, target: 1 },
-
-      { id: 'creator-post-10', chapter: 'Camino del creador', title: 'Voz reconocible', description: 'Llegá a diez publicaciones y mantené activa tu presencia en la comunidad.', current: postCount, target: 10 },
-      { id: 'creator-comment-1', chapter: 'Camino del creador', title: 'Conversación iniciada', description: 'Comentá una publicación de la comunidad y sumate al intercambio.', current: commentCount, target: 1 },
-      { id: 'creator-comment-5', chapter: 'Camino del creador', title: 'Siempre hay algo para aportar', description: 'Escribí cinco comentarios útiles en publicaciones de la comunidad.', current: commentCount, target: 5 },
-      { id: 'creator-like-1', chapter: 'Camino del creador', title: 'Buena onda', description: 'Dale tu primer me gusta a una publicación que te interese.', current: likedPostCount, target: 1 },
-
-      { id: 'party-room-1', chapter: 'Líder de escuadra', title: 'Armá la escuadra', description: 'Creá tu primera sala pública para reunir jugadores.', current: roomCount, target: 1 },
-      { id: 'party-room-3', chapter: 'Líder de escuadra', title: 'Organizador habitual', description: 'Creá tres salas para organizar distintas sesiones de juego.', current: roomCount, target: 3 },
-      { id: 'party-chat-1', chapter: 'Líder de escuadra', title: 'Primera llamada al equipo', description: 'Mandá un mensaje en el chat de una sala.', current: roomMessageCount, target: 1 },
-      { id: 'party-chat-10', chapter: 'Líder de escuadra', title: 'Capitán comunicador', description: 'Participá con diez mensajes en chats de salas.', current: roomMessageCount, target: 10 },
-      { id: 'party-chat-30', chapter: 'Líder de escuadra', title: 'La voz de la sala', description: 'Alcanzá treinta mensajes en chats de salas y mantené viva la coordinación.', current: roomMessageCount, target: 30 },
-
-      { id: 'social-friends-3', chapter: 'Leyenda de comunidad', title: 'Círculo cercano', description: 'Formá un grupo de tres amistades aceptadas.', current: friendshipCount, target: 3 },
-      { id: 'social-friends-5', chapter: 'Leyenda de comunidad', title: 'Punto de encuentro', description: 'Llegá a cinco amistades aceptadas en PLAYVERSE.', current: friendshipCount, target: 5 },
-      { id: 'social-follow-1', chapter: 'Leyenda de comunidad', title: 'Seguí a un creador', description: 'Empezá a seguir a otro jugador para no perderte sus novedades.', current: followCount, target: 1 },
-      { id: 'social-follow-5', chapter: 'Leyenda de comunidad', title: 'Radar de comunidad', description: 'Seguí a cinco jugadores cuyos contenidos te interesen.', current: followCount, target: 5 },
-      { id: 'social-like-10', chapter: 'Coleccionista y comunicador', title: 'Apoyo constante', description: 'Reaccioná a diez publicaciones de otros jugadores.', current: likedPostCount, target: 10 },
-      { id: 'social-save-1', chapter: 'Coleccionista y comunicador', title: 'Para después', description: 'Guardá tu primera publicación para volver a encontrarla.', current: savedCount, target: 1 },
-      { id: 'social-save-5', chapter: 'Coleccionista y comunicador', title: 'Coleccionista de ideas', description: 'Guardá cinco publicaciones que quieras consultar más tarde.', current: savedCount, target: 5 },
-      { id: 'social-dm-10', chapter: 'Coleccionista y comunicador', title: 'Compañero de equipo', description: 'Enviá diez mensajes privados a tus amistades.', current: directMessageCount, target: 10 },
-      { id: 'social-dm-30', chapter: 'Coleccionista y comunicador', title: 'Conexiones duraderas', description: 'Alcanzá treinta mensajes privados enviados.', current: directMessageCount, target: 30 }
-    ];
-
-    const missions = missionDefinitions.map((mission) => ({
-      ...mission,
-      current: Math.min(mission.current, mission.target),
-      completed: mission.current >= mission.target
-    }));
+    const missions = await buildMissionProgress(req.auth.sub);
     const completed = missions.filter((mission) => mission.completed).length;
+    const claimed = missions.filter((mission) => mission.claimed).length;
     return res.json({
       success: true,
       missions,
-      summary: { completed, total: missions.length, percentage: Math.round((completed / missions.length) * 100) },
-      rewardsEnabled: false,
-      note: 'Las 22 misiones avanzan con acciones reales guardadas en tu cuenta. Las recompensas automáticas todavía no están habilitadas; no se otorgan XP ni Tokens ficticios.'
+      summary: {
+        completed,
+        claimed,
+        claimable: missions.filter((mission) => mission.claimable).length,
+        total: missions.length,
+        percentage: Math.round((completed / missions.length) * 100)
+      },
+      rewardsEnabled: true,
+      note: 'El progreso se calcula en el servidor con actividad real. Cada misión completada puede reclamarse una sola vez; los Tokens se acreditan en una transacción protegida.'
     });
   } catch (error) {
     return next(error);
+  }
+});
+
+app.post('/api/me/missions/:missionId/claim', requireAuth, storeLimiter, async (req, res, next) => {
+  const definition = MISSION_CATALOG.find((mission) => mission.id === req.params.missionId);
+  if (!definition) return res.status(404).json({ success: false, message: 'Misión no encontrada.' });
+  const session = await mongoose.startSession();
+  let result;
+  try {
+    await session.withTransaction(async () => {
+      const missions = await buildMissionProgress(req.auth.sub, session);
+      const mission = missions.find((item) => item.id === definition.id);
+      if (!mission || !mission.completed) {
+        result = { error: 'NOT_COMPLETED' };
+        return;
+      }
+      if (mission.claimed) {
+        result = { error: 'ALREADY_CLAIMED' };
+        return;
+      }
+      const user = await User.findByIdAndUpdate(
+        req.auth.sub,
+        { $inc: { walletTokens: definition.rewardTokens } },
+        { new: true, session }
+      ).select('walletTokens');
+      if (!user) {
+        result = { error: 'USER_NOT_FOUND' };
+        return;
+      }
+      await MissionClaim.create([{
+        user: req.auth.sub,
+        missionId: definition.id,
+        rewardTokens: definition.rewardTokens
+      }], { session });
+      await TokenTransaction.create([{
+        user: req.auth.sub,
+        type: 'credit',
+        amount: definition.rewardTokens,
+        itemId: 'mission:' + definition.id,
+        balanceAfter: user.walletTokens
+      }], { session });
+      result = { walletTokens: user.walletTokens, rewardTokens: definition.rewardTokens };
+    });
+    if (result && result.error === 'NOT_COMPLETED') {
+      return res.status(409).json({ success: false, code: result.error, message: 'Completá los objetivos de la misión antes de reclamar la recompensa.' });
+    }
+    if (result && result.error === 'ALREADY_CLAIMED') {
+      return res.status(409).json({ success: false, code: result.error, message: 'Esta recompensa ya fue reclamada.' });
+    }
+    if (result && result.error === 'USER_NOT_FOUND') {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    }
+    return res.status(201).json({
+      success: true,
+      message: 'Recompensa acreditada.',
+      missionId: definition.id,
+      rewardTokens: result.rewardTokens,
+      wallet: { tokens: result.walletTokens }
+    });
+  } catch (error) {
+    if (error && error.code === 11000) {
+      return res.status(409).json({ success: false, code: 'ALREADY_CLAIMED', message: 'Esta recompensa ya fue reclamada.' });
+    }
+    return next(error);
+  } finally {
+    await session.endSession();
   }
 });
 
