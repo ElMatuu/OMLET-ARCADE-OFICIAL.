@@ -12,11 +12,17 @@ const UserPresence = require('./models/UserPresence');
 const PRESENCE_TTL_MS = 70 * 1000;
 
 async function refreshSocketPresence(socket) {
-  return UserPresence.findOneAndUpdate(
-    { socketId: socket.id },
-    { $set: { user: socket.user.sub, expiresAt: new Date(Date.now() + PRESENCE_TTL_MS) } },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  );
+  const update = { $set: { user: socket.user.sub, expiresAt: new Date(Date.now() + PRESENCE_TTL_MS) } };
+  try {
+    return await UserPresence.findOneAndUpdate(
+      { socketId: socket.id },
+      update,
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  } catch (error) {
+    if (error.code !== 11000) throw error;
+    return UserPresence.findOneAndUpdate({ socketId: socket.id }, update, { new: true });
+  }
 }
 
 const ROOM_ID_PATTERN = /^[a-zA-Z0-9_-]{3,64}$/;
