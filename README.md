@@ -19,6 +19,7 @@ This repository contains a working backend foundation and a web client that is s
 - Saved posts, activity-derived starter missions and profile statistics based on persisted account activity.
 - Persistent store catalog, inventory, token ledger and server-validated purchases/equipping for supported cosmetic categories. Token top-ups and real-money purchases are not enabled.
 - Account-backed accessibility preferences (reduced motion and high contrast).
+- Persistent account notification center for incoming friend requests, accepted requests and private messages, with unread counts, cursor pagination and read-state controls.
 - Persistent posts, comments and reactions with pagination and ownership checks.
 - Public multiplayer rooms with capacity, membership, leave/close controls and server-side checks.
 - Persistent room message history and authenticated Socket.IO room chat.
@@ -32,7 +33,7 @@ This repository contains a working backend foundation and a web client that is s
 - Actual live streaming: no working capture/encoder, RTMP/SRT/WebRTC ingest, SFU, transcoding, adaptive playback, recording pipeline or media CDN is configured.
 - Camera/screen/audio capture on Android and Windows, including device capability detection and permissions.
 - 8K capture or any guaranteed 4K/120 FPS mode. Stored preferences are requests, not proof that a device or encoder can deliver them.
-- Online presence, mobile push notifications, a persistent notifications center, typing indicators, attachments, voice/video calls and invitations.
+- Online presence, mobile push notifications, typing indicators, attachments, voice/video calls and invitations.
 - Creator clips/video uploads, playback storage, profile media galleries and favorites collections.
 - Full communities/servers with roles, moderation tools and membership management beyond multiplayer rooms.
 - User reporting, moderator queues, moderation actions, appeals and operational trust-and-safety tooling beyond player blocking.
