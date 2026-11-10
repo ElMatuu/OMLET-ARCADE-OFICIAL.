@@ -755,11 +755,20 @@ app.delete('/api/posts/:postId/comments/:commentId', requireAuth, commentLimiter
 app.get('/api/rooms', requireAuth, async (req, res, next) => {
   try {
     const rooms = await Room.find({ visibility: 'public', status: 'open' })
-      .select('name game ownerUsername memberCount capacity createdAt')
+      .select('name game ownerUsername owner members memberCount capacity createdAt')
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
-    return res.json({ success: true, rooms });
+    return res.json({ success: true, rooms: rooms.map((room) => ({
+      id: String(room._id),
+      name: room.name,
+      game: room.game,
+      ownerUsername: room.ownerUsername,
+      memberCount: room.memberCount,
+      capacity: room.capacity,
+      isOwner: String(room.owner) === req.auth.sub,
+      isMember: room.members.some((member) => String(member) === req.auth.sub)
+    })) });
   } catch (error) {
     return next(error);
   }
