@@ -15,6 +15,9 @@ const RoomMessage = require('./models/RoomMessage');
 const Post = require('./models/Post');
 const Comment = require('./models/Comment');
 const Friendship = require('./models/Friendship');
+const Inventory = require('./models/Inventory');
+const TokenTransaction = require('./models/TokenTransaction');
+const { STORE_CATALOG } = require('./data/storeCatalog');
 const { requireAuth } = require('./middleware/auth');
 const { attachSocketServer } = require('./socket');
 
@@ -83,6 +86,14 @@ const profileLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { success: false, message: 'Actualizaste tu perfil demasiadas veces. Probá más tarde.' }
+});
+
+const storeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 12,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, message: 'Demasiadas operaciones de tienda. Probá en un minuto.' }
 });
 
 const friendshipLimiter = rateLimit({
@@ -330,6 +341,125 @@ app.put('/api/me/streaming-preferences', requireAuth, profileLimiter, async (req
   }
 });
 
+
+
+app.get('/api/store/catalog', requireAuth, (req, res) => {
+  return res.json({
+    success: true,
+    items: STORE_CATALOG.map(({ id, name, category, description, priceTokens, rarity, animation, assetKey }) => ({
+      id, name, category, description, priceTokens, rarity, animation, assetKey
+    }))
+  });
+});
+
+app.get('/api/me/inventory', requireAuth, async (req, res, next) => {
+  try {
+    const [user, records] = await Promise.all([
+      User.findById(req.auth.sub).select('walletTokens activeAvatarFrame activeStreamOverlay').lean(),
+      Inventory.find({ user: req.auth.sub }).sort({ acquiredAt: -1 }).lean()
+    ]);
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    const items = records.map((record) => {
+      const product = STORE_CATALOG.find((entry) => entry.id === record.itemId);
+      return product ? { ...product, quantity: record.quantity || 1, acquiredAt: record.acquiredAt, equipped: record.equipped === true } : null;
+    }).filter(Boolean);
+    return res.json({
+      success: true,
+      wallet: { tokens: user.walletTokens || 0 },
+      equipped: { avatarFrame: user.activeAvatarFrame || null, streamOverlay: user.activeStreamOverlay || null },
+      items
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next) => {
+  const itemId = typeof req.body.itemId === 'string' ? req.body.itemId : '';
+  const product = STORE_CATALOG.find((entry) => entry.id === itemId);
+  if (!product) return res.status(404).json({ success: false, message: 'Artículo no encontrado.' });
+
+  const session = await mongoose.startSession();
+  let result;
+  try {
+    await session.withTransaction(async () => {
+      const existing = await Inventory.findOne({ user: req.auth.sub, itemId }).session(session);
+      if (existing && product.category !== 'stream-gift') {
+        result = { error: 'ALREADY_OWNED' };
+        return;
+      }
+
+      const user = await User.findOneAndUpdate(
+        { _id: req.auth.sub, walletTokens: { $gte: product.priceTokens } },
+        { $inc: { walletTokens: -product.priceTokens } },
+        { new: true, session }
+      ).select('walletTokens');
+      if (!user) {
+        result = { error: 'INSUFFICIENT_TOKENS' };
+        return;
+      }
+
+      if (product.category === 'stream-gift') {
+        await Inventory.findOneAndUpdate(
+          { user: req.auth.sub, itemId },
+          { $inc: { quantity: 1 }, $setOnInsert: { user: req.auth.sub, itemId, acquiredAt: new Date(), equipped: false } },
+          { upsert: true, new: true, session, setDefaultsOnInsert: true }
+        );
+      } else {
+        await Inventory.create([{ user: req.auth.sub, itemId, quantity: 1 }], { session });
+      }
+      await TokenTransaction.create([{
+        user: req.auth.sub,
+        type: 'purchase',
+        amount: -product.priceTokens,
+        itemId,
+        balanceAfter: user.walletTokens
+      }], { session });
+      result = { walletTokens: user.walletTokens };
+    });
+    if (result && result.error === 'ALREADY_OWNED') {
+      return res.status(409).json({ success: false, message: 'Ya tenés este artículo en tu inventario.' });
+    }
+    if (result && result.error === 'INSUFFICIENT_TOKENS') {
+      return res.status(409).json({ success: false, message: 'No tenés Tokens suficientes. Tu saldo no fue modificado.' });
+    }
+    return res.status(201).json({ success: true, message: 'Compra registrada.', wallet: { tokens: result.walletTokens } });
+  } catch (error) {
+    return next(error);
+  } finally {
+    await session.endSession();
+  }
+});
+
+app.put('/api/me/inventory/:itemId/equip', requireAuth, storeLimiter, async (req, res, next) => {
+  try {
+    const product = STORE_CATALOG.find((entry) => entry.id === req.params.itemId);
+    if (!product || !['avatar-frame', 'stream-overlay'].includes(product.category)) {
+      return res.status(400).json({ success: false, message: 'Este artículo no se puede equipar.' });
+    }
+    const owned = await Inventory.exists({ user: req.auth.sub, itemId: product.id });
+    if (!owned) return res.status(404).json({ success: false, message: 'Primero tenés que adquirir este artículo.' });
+
+    const field = product.category === 'avatar-frame' ? 'activeAvatarFrame' : 'activeStreamOverlay';
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await Inventory.updateMany(
+          { user: req.auth.sub, itemId: { $in: STORE_CATALOG.filter((item) => item.category === product.category).map((item) => item.id) } },
+          { $set: { equipped: false } },
+          { session }
+        );
+        await Inventory.updateOne({ user: req.auth.sub, itemId: product.id }, { $set: { equipped: true } }, { session });
+        await User.updateOne({ _id: req.auth.sub }, { $set: { [field]: product.id } }, { session });
+      });
+    } finally {
+      await session.endSession();
+    }
+    return res.json({ success: true, equipped: product.id, category: product.category });
+  } catch (error) {
+    return next(error);
+  }
+});
 
 app.get('/api/users/:username', requireAuth, async (req, res, next) => {
   try {
