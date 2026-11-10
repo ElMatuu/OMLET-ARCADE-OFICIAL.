@@ -25,7 +25,7 @@ async function request(baseUrl, path, options = {}, token) {
   return { status: response.status, body };
 }
 
-integrationTest('two independent accounts can interact while ownership and persistence are enforced', async () => {
+integrationTest('multiple independent accounts can interact concurrently with ownership and persistence enforced', async () => {
   await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 10000 });
   const server = http.createServer(app);
   await new Promise((resolve, reject) => {
@@ -64,8 +64,13 @@ integrationTest('two independent accounts can interact while ownership and persi
       method: 'PUT', body: { displayName: 'Alice Gamer', bio: 'Cuenta de prueba' }
     }, alice.body.token);
     assert.equal(aliceProfile.status, 200);
-    const bobCannotUseAliceToken = await request(baseUrl, '/api/me', {}, null);
-    assert.equal(bobCannotUseAliceToken.status, 401);
+    const aliceIdentity = await request(baseUrl, '/api/me', {}, alice.body.token);
+    const bobIdentity = await request(baseUrl, '/api/me', {}, bob.body.token);
+    assert.equal(aliceIdentity.body.user.username, 'alice_test');
+    assert.equal(bobIdentity.body.user.username, 'bob_test');
+    assert.notEqual(aliceIdentity.body.user.id, bobIdentity.body.user.id);
+    const unauthenticatedProfileRequest = await request(baseUrl, '/api/me');
+    assert.equal(unauthenticatedProfileRequest.status, 401);
 
     const sentRequest = await request(baseUrl, '/api/friends/requests/bob_test', {
       method: 'POST'
