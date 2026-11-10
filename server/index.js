@@ -19,6 +19,7 @@ const Friendship = require('./models/Friendship');
 const Follow = require('./models/Follow');
 const Block = require('./models/Block');
 const Notification = require('./models/Notification');
+const UserPresence = require('./models/UserPresence');
 const Conversation = require('./models/Conversation');
 const DirectMessage = require('./models/DirectMessage');
 const Inventory = require('./models/Inventory');
@@ -974,6 +975,16 @@ app.get('/api/friends', requireAuth, async (req, res, next) => {
       .limit(100)
       .lean();
 
+    const acceptedFriendIds = records
+      .filter((record) => record.status === 'accepted')
+      .map((record) => String(String(record.requester && record.requester._id) === userId
+        ? record.recipient && record.recipient._id : record.requester && record.requester._id))
+      .filter(Boolean);
+    const onlineUserIds = await UserPresence.distinct('user', {
+      user: { $in: acceptedFriendIds },
+      expiresAt: { $gt: new Date() }
+    });
+    const onlineUsers = new Set(onlineUserIds.map(String));
     const friends = [];
     const incomingRequests = [];
     const outgoingRequests = [];
@@ -986,7 +997,8 @@ app.get('/api/friends', requireAuth, async (req, res, next) => {
         id: String(other._id),
         username: other.username,
         displayName: other.displayName || '',
-        avatarUrl: other.avatarUrl || ''
+        avatarUrl: other.avatarUrl || '',
+        ...(record.status === 'accepted' ? { online: onlineUsers.has(String(other._id)) } : {})
       };
       if (record.status === 'accepted') {
         friends.push({ ...person, friendshipId: String(record._id) });
