@@ -325,6 +325,29 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.equal(aliceDirectJoin.success, true);
     assert.equal(bobDirectJoin.success, true);
     assert.equal(charlieDirectJoin.success, false);
+
+    const typingStartDelivery = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Typing indicator was not delivered')), 5000);
+      bobDirectSocket.once('direct_typing', (event) => {
+        clearTimeout(timer);
+        resolve(event);
+      });
+    });
+    const typingStartAck = await emitSocketAck(aliceSocket, 'direct_typing_start', { conversationId });
+    assert.equal(typingStartAck.success, true);
+    const typingStartEvent = await typingStartDelivery;
+    assert.equal(typingStartEvent.userId, alice.body.user.id);
+    const typingStopDelivery = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Typing stop was not delivered')), 5000);
+      bobDirectSocket.once('direct_typing_stopped', (event) => {
+        clearTimeout(timer);
+        resolve(event);
+      });
+    });
+    const typingStopAck = await emitSocketAck(aliceSocket, 'direct_typing_stop', { conversationId });
+    assert.equal(typingStopAck.success, true);
+    assert.equal((await typingStopDelivery).conversationId, conversationId);
+
     const privateRealtimeDelivery = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('Private message was not delivered in real time')), 5000);
       bobDirectSocket.once('receive_direct_message', (message) => {
@@ -346,6 +369,21 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     const privateRealtimeMessage = await privateRealtimeDelivery;
     assert.equal(privateRealtimeMessage.body, 'Privado por Socket.IO');
     assert.equal(privateRealtimeMessage.senderUsername, 'alice_test');
+
+    const readReceiptDelivery = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Private message read receipt was not delivered')), 5000);
+      aliceSocket.once('direct_messages_read', (event) => {
+        clearTimeout(timer);
+        resolve(event);
+      });
+    });
+    const markReadAck = await emitSocketAck(bobDirectSocket, 'mark_direct_messages_read', { conversationId });
+    assert.equal(markReadAck.success, true);
+    assert.equal(markReadAck.readCount, 1);
+    const readReceipt = await readReceiptDelivery;
+    assert.equal(readReceipt.readerId, bob.body.user.id);
+    assert.equal(readReceipt.throughMessageId, privateRealtimeMessage.id);
+
     const privateNotification = await privateNotificationDelivery;
     assert.equal(privateNotification.senderUsername, 'alice_test');
     assert.equal(privateNotification.body, 'Privado por Socket.IO');
