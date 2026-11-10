@@ -236,11 +236,30 @@
                         <button type="button" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">Otros</button>
                     </div>
                 </section>
-                <section class="PLAYVERSE-card rounded-2xl p-5 space-y-3">
-                    <div class="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-300 flex items-center justify-center text-xl"><i class="fa-solid fa-tower-broadcast"></i></div>
-                    <h4 class="font-bold text-base">Todavía no hay transmisiones disponibles</h4>
-                    <p class="text-xs text-slate-400 leading-relaxed">El catálogo está preparado para recibir streams. La emisión y reproducción en vivo necesitan integrar el motor de video y la infraestructura multimedia.</p>
-                    <button type="button" onclick="openStreamStudio()" class="PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white">Configurar mi transmisión</button>
+                <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
+                    <div><h4 class="font-bold text-base">Crear una transmisión</h4><p class="text-xs text-slate-400 mt-1">Emisión en tiempo real mediante LiveKit. Se necesita iniciar sesión y autorizar cámara o micrófono en el dispositivo.</p></div>
+                    <form id="live-stream-create-form" onsubmit="startLiveStream(event)" class="space-y-2">
+                        <input id="live-stream-title" maxlength="100" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white" placeholder="Título de tu transmisión">
+                        <textarea id="live-stream-description" maxlength="500" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white" placeholder="Descripción (opcional)"></textarea>
+                        <button id="live-stream-start" type="submit" class="PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white w-full">Iniciar transmisión</button>
+                    </form>
+                    <p id="live-stream-status" class="text-xs text-slate-400" role="status" aria-live="polite">Comprobando disponibilidad del servicio de video…</p>
+                </section>
+                <section class="space-y-3">
+                    <div class="flex items-center justify-between"><h4 class="font-bold text-sm">Transmisiones activas</h4><button type="button" onclick="loadLiveStreams()" class="text-xs text-orange-300">Actualizar</button></div>
+                    <div id="live-streams-container" class="grid gap-3" aria-live="polite"><p class="text-xs text-slate-500">Cargando transmisiones…</p></div>
+                </section>
+                <section id="live-player-panel" class="hidden PLAYVERSE-card rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center justify-between gap-2"><div class="min-w-0"><h4 id="live-player-title" class="font-bold text-sm truncate">Transmisión</h4><p id="live-player-role" class="text-[11px] text-slate-400"></p></div><button type="button" onclick="leaveLiveStream()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs">Salir</button></div>
+                    <video id="live-local-preview" class="hidden w-full max-h-56 rounded-xl bg-black" autoplay muted playsinline></video>
+                    <div id="live-player-tracks" class="grid gap-2"></div>
+                    <div id="live-host-controls" class="hidden flex flex-wrap gap-2">
+                        <button type="button" onclick="toggleLiveCamera()" class="rounded-xl border border-slate-700 px-3 py-2 text-xs">Cámara</button>
+                        <button type="button" onclick="toggleLiveMicrophone()" class="rounded-xl border border-slate-700 px-3 py-2 text-xs">Micrófono</button>
+                        <button type="button" onclick="toggleLiveScreenShare()" class="rounded-xl border border-slate-700 px-3 py-2 text-xs">Compartir pantalla</button>
+                        <button type="button" onclick="endLiveStream()" class="rounded-xl bg-red-600/20 border border-red-500/40 text-red-200 px-3 py-2 text-xs font-bold">Finalizar transmisión</button>
+                    </div>
+                    <p id="live-player-status" class="text-xs text-slate-400" role="status"></p>
                 </section>
                 <section class="PLAYVERSE-card rounded-2xl p-4 space-y-2">
                     <h4 class="font-bold text-sm">Multi-Stream Squads</h4>
@@ -572,6 +591,7 @@
         </section>
     </div>
 
+    <script src="/livekit-client.umd.min.js"></script>
     <script>
         const API_URL = window.PLAYVERSE_API_URL || 'https://playverse-api-bgyg.onrender.com';
         const SESSION_KEY = 'playverse_session_token';
