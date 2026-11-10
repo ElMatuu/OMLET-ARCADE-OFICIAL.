@@ -12,6 +12,7 @@ const User = require('./models/User');
 const Room = require('./models/Room');
 const Post = require('./models/Post');
 const Comment = require('./models/Comment');
+const Friendship = require('./models/Friendship');
 const { requireAuth } = require('./middleware/auth');
 const { attachSocketServer } = require('./socket');
 
@@ -57,6 +58,18 @@ const profileLimiter = rateLimit({
   legacyHeaders: false,
   message: { success: false, message: 'Actualizaste tu perfil demasiadas veces. Probá más tarde.' }
 });
+
+const friendshipLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, message: 'Hiciste demasiadas acciones de amistad. Probá más tarde.' }
+});
+
+function makeFriendshipPairKey(firstId, secondId) {
+  return [String(firstId), String(secondId)].sort().join(':');
+}
 
 function issueToken(user) {
   return jwt.sign(
@@ -201,6 +214,161 @@ app.put('/api/me/profile', requireAuth, profileLimiter, async (req, res, next) =
       avatarUrl: user.avatarUrl || '',
       createdAt: user.createdAt
     } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+
+app.get('/api/users/:username', requireAuth, async (req, res, next) => {
+  try {
+    const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
+    const user = await User.findOne({ username })
+      .select('username displayName bio avatarUrl createdAt')
+      .lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    const [postCount, friendship] = await Promise.all([
+      Post.countDocuments({ author: user._id }),
+      Friendship.findOne({
+        pairKey: makeFriendshipPairKey(req.auth.sub, user._id)
+      }).select('status requester recipient').lean()
+    ]);
+    const relation = !friendship ? 'none'
+      : friendship.status === 'accepted' ? 'friends'
+      : String(friendship.requester) === req.auth.sub ? 'outgoing_pending'
+      : 'incoming_pending';
+    return res.json({ success: true, profile: {
+      id: String(user._id),
+      username: user.username,
+      displayName: user.displayName || '',
+      bio: user.bio || '',
+      avatarUrl: user.avatarUrl || '',
+      createdAt: user.createdAt,
+      postCount,
+      friendship: relation
+    } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/api/friends', requireAuth, async (req, res, next) => {
+  try {
+    const userId = req.auth.sub;
+    const records = await Friendship.find({
+      $or: [{ requester: userId }, { recipient: userId }]
+    })
+      .populate('requester', 'username displayName avatarUrl')
+      .populate('recipient', 'username displayName avatarUrl')
+      .sort({ updatedAt: -1, _id: -1 })
+      .limit(100)
+      .lean();
+
+    const friends = [];
+    const incomingRequests = [];
+    const outgoingRequests = [];
+    records.forEach((record) => {
+      const requesterId = record.requester && String(record.requester._id);
+      const recipientId = record.recipient && String(record.recipient._id);
+      const other = requesterId === userId ? record.recipient : record.requester;
+      if (!other) return;
+      const person = {
+        id: String(other._id),
+        username: other.username,
+        displayName: other.displayName || '',
+        avatarUrl: other.avatarUrl || ''
+      };
+      if (record.status === 'accepted') {
+        friends.push({ ...person, friendshipId: String(record._id) });
+      } else if (recipientId === userId) {
+        incomingRequests.push({ ...person, friendshipId: String(record._id), createdAt: record.createdAt });
+      } else {
+        outgoingRequests.push({ ...person, friendshipId: String(record._id), createdAt: record.createdAt });
+      }
+    });
+    return res.json({ success: true, friends, incomingRequests, outgoingRequests });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/friends/requests/:username', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
+    const target = await User.findOne({ username }).select('_id username').lean();
+    if (!target) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    if (String(target._id) === req.auth.sub) {
+      return res.status(400).json({ success: false, message: 'No podés enviarte una solicitud a vos mismo.' });
+    }
+
+    const pairKey = makeFriendshipPairKey(req.auth.sub, target._id);
+    const existing = await Friendship.findOne({ pairKey });
+    if (existing) {
+      if (existing.status === 'accepted') {
+        return res.status(409).json({ success: false, message: 'Ya son amigos.' });
+      }
+      if (String(existing.requester) === req.auth.sub) {
+        return res.status(409).json({ success: false, message: 'Ya enviaste una solicitud a este jugador.' });
+      }
+      existing.status = 'accepted';
+      existing.updatedAt = new Date();
+      await existing.save();
+      return res.json({ success: true, status: 'accepted', message: 'La solicitud pendiente quedó aceptada.' });
+    }
+
+    const friendship = await Friendship.create({
+      pairKey,
+      requester: req.auth.sub,
+      recipient: target._id
+    });
+    return res.status(201).json({
+      success: true,
+      status: friendship.status,
+      friendshipId: String(friendship._id),
+      message: 'Solicitud de amistad enviada.'
+    });
+  } catch (error) {
+    if (error && error.code === 11000) {
+      return res.status(409).json({ success: false, message: 'Ya existe una solicitud o amistad entre estas cuentas.' });
+    }
+    return next(error);
+  }
+});
+
+app.put('/api/friends/requests/:friendshipId/accept', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.friendshipId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de solicitud inválido.' });
+    }
+    const friendship = await Friendship.findOneAndUpdate({
+      _id: req.params.friendshipId,
+      recipient: req.auth.sub,
+      status: 'pending'
+    }, { $set: { status: 'accepted', updatedAt: new Date() } }, { new: true });
+    if (!friendship) {
+      const exists = await Friendship.exists({ _id: req.params.friendshipId });
+      return res.status(exists ? 403 : 404).json({
+        success: false,
+        message: exists ? 'No podés aceptar esta solicitud o ya fue procesada.' : 'Solicitud no encontrada.'
+      });
+    }
+    return res.json({ success: true, status: 'accepted', friendshipId: String(friendship._id) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.delete('/api/friends/:friendshipId', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.friendshipId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de amistad inválido.' });
+    }
+    const friendship = await Friendship.findOneAndDelete({
+      _id: req.params.friendshipId,
+      $or: [{ requester: req.auth.sub }, { recipient: req.auth.sub }]
+    });
+    if (!friendship) return res.status(404).json({ success: false, message: 'Amistad o solicitud no encontrada.' });
+    return res.json({ success: true, deletedFriendshipId: String(friendship._id) });
   } catch (error) {
     return next(error);
   }
