@@ -25,7 +25,7 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /function sendRoomMessage\(event\)/, 'The chat interface must send persistent messages');
   assert.match(html, /roomSocket\.on\('receive_message'/, 'The chat interface must receive live room messages');
   assert.ok(html.includes("'/api/rooms/' + encodeURIComponent(activeRoomId) + '/messages'"), 'The chat interface must load and send messages through the room API');
-  assert.match(html, /if \(profileCredits\) profileCredits\.textContent/, 'Legacy credit updates must tolerate the profile economy being disabled');
+  assert.match(html, /id="header-créditos"/, 'The active wallet balance must have a visible header target');
   assert.match(html, /comment\.authorUsername === appState\.username/, 'Comment edit and delete controls must be restricted to the comment owner in the interface');
   assert.match(html, /encodeURIComponent\(comment\.id\)[\s\S]{0,300}method: 'PUT'/, 'Comment editing must call the persistent API');
   assert.match(html, /encodeURIComponent\(comment\.id\)[\s\S]{0,300}method: 'DELETE'/, 'Comment deletion must call the persistent API');
