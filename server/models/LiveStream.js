@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const liveStreamSchema = new mongoose.Schema({
-  owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   ownerUsername: { type: String, required: true, trim: true, maxlength: 24 },
   title: { type: String, required: true, trim: true, maxlength: 100 },
   description: { type: String, default: '', trim: true, maxlength: 500 },
