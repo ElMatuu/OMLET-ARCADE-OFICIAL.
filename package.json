@@ -38,7 +38,8 @@
     "@capacitor/cli": "^6.2.0",
     "@capacitor/android": "^6.2.0",
     "electron": "^30.5.1",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "socket.io-client": "^4.8.1"
   },
   "build": {
     "appId": "com.playverse.desktop",
