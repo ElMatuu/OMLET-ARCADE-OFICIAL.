@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
 const User = require('../server/models/User');
 const Room = require('../server/models/Room');
+const Friendship = require('../server/models/Friendship');
 
 test('User enforces a bounded platform username and hides password hashes', async () => {
   const user = new User({ username: 'Player_123', passwordHash: 'hashed-password' });
@@ -66,5 +67,26 @@ test('Room starts with its owner as a member and validates capacity', async () =
     owner,
     ownerUsername: 'HostPlayer',
     capacity: 101
+  }).validate());
+});
+
+test('Friendship enforces unique pair identity and valid request states', async () => {
+  const requester = new mongoose.Types.ObjectId();
+  const recipient = new mongoose.Types.ObjectId();
+  const friendship = new Friendship({
+    pairKey: [String(requester), String(recipient)].sort().join(':'),
+    requester,
+    recipient
+  });
+  await friendship.validate();
+  assert.equal(friendship.status, 'pending');
+  assert.ok(friendship.createdAt instanceof Date);
+  assert.ok(friendship.updatedAt instanceof Date);
+
+  await assert.rejects(new Friendship({
+    pairKey: 'invalid-pair',
+    requester,
+    recipient,
+    status: 'blocked'
   }).validate());
 });
