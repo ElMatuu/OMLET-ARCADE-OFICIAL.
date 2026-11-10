@@ -127,7 +127,12 @@ function makeFriendshipPairKey(firstId, secondId) {
 
 async function createNotification({ recipient, actor = null, type, title, body = '', entityId = null }) {
   if (!recipient || (actor && String(recipient) === String(actor))) return null;
-  return Notification.create({ recipient, actor, type, title, body, entityId });
+  try {
+    return await Notification.create({ recipient, actor, type, title, body, entityId });
+  } catch (notificationError) {
+    console.error('Unable to persist account notification:', notificationError.message);
+    return null;
+  }
 }
 
 
