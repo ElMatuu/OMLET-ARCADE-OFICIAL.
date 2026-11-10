@@ -21,6 +21,7 @@ const Block = require('./models/Block');
 const Notification = require('./models/Notification');
 const UserPresence = require('./models/UserPresence');
 const LiveStream = require('./models/LiveStream');
+const Block = require('./models/Block');
 const Conversation = require('./models/Conversation');
 const DirectMessage = require('./models/DirectMessage');
 const Inventory = require('./models/Inventory');
@@ -236,6 +237,13 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
     if (!title || title.length > 100 || description.length > 500) {
       return res.status(400).json({ success: false, message: 'El título es obligatorio (máximo 100 caracteres) y la descripción admite hasta 500.' });
     }
+    const existingStream = await LiveStream.findOne({ owner: req.auth.sub, status: 'live' }).select('_id title').lean();
+    if (existingStream) return res.status(409).json({
+      success: false,
+      code: 'ACTIVE_STREAM_EXISTS',
+      message: 'Ya tenés una transmisión activa. Finalizala antes de iniciar otra.',
+      streamId: String(existingStream._id)
+    });
     const user = await User.findById(req.auth.sub).select('username').lean();
     if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
     const roomName = createRoomName();
@@ -284,6 +292,15 @@ app.post('/api/streams/:streamId/token', requireAuth, streamLimiter, async (req,
     const session = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).lean();
     if (!session) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
     const isOwner = String(session.owner) === String(req.auth.sub);
+    if (!isOwner) {
+      const blocked = await Block.exists({
+        $or: [
+          { blocker: req.auth.sub, blocked: session.owner },
+          { blocker: session.owner, blocked: req.auth.sub }
+        ]
+      });
+      if (blocked) return res.status(403).json({ success: false, code: 'STREAM_ACCESS_BLOCKED', message: 'No podés acceder a esta transmisión.' });
+    }
     const user = await User.findById(req.auth.sub).select('username').lean();
     if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
     const identity = String(req.auth.sub) + ':' + require('node:crypto').randomUUID();
