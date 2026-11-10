@@ -102,7 +102,7 @@ npm run android:open
 npm run android:build
 ```
 
-The Android project requires Android Studio/SDK and Java/Gradle. A release APK requires secure signing. The adaptive PLAYVERSE launcher icon is generated during add/sync. No APK is considered verified until it is built, installed and tested on real devices.
+The Android project requires Android Studio/SDK and Java/Gradle. The Android sync script declares camera and microphone permissions for WebRTC capture in the generated manifest. A release APK requires secure signing. The adaptive PLAYVERSE launcher icon is generated during add/sync. No APK is considered verified until it is built, installed and tested on real devices.
 
 ## Windows
 
