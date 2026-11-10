@@ -95,6 +95,41 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.equal(aliceIdentity.body.user.username, 'alice_test');
     assert.equal(bobIdentity.body.user.username, 'bob_test');
     assert.notEqual(aliceIdentity.body.user.id, bobIdentity.body.user.id);
+
+    const aliceStreamingPreferences = await request(baseUrl, '/api/me/streaming-preferences', {
+      method: 'PUT',
+      body: {
+        resolution: '1080p',
+        fps: 60,
+        bitrateMbps: 12,
+        cameraEnabled: true,
+        microphoneEnabled: false,
+        systemAudioEnabled: true,
+        orientation: 'landscape',
+        cameraPosition: 'top-right',
+        cameraFrame: 'cyan'
+      }
+    }, alice.body.token);
+    assert.equal(aliceStreamingPreferences.status, 200);
+    assert.equal(aliceStreamingPreferences.body.preferences.resolution, '1080p');
+    assert.equal(aliceStreamingPreferences.body.preferences.fps, 60);
+    const aliceStreamingReloaded = await request(baseUrl, '/api/me/streaming-preferences', {}, alice.body.token);
+    assert.equal(aliceStreamingReloaded.body.preferences.cameraEnabled, true);
+    assert.equal(aliceStreamingReloaded.body.preferences.microphoneEnabled, false);
+    const bobStreamingPreferences = await request(baseUrl, '/api/me/streaming-preferences', {}, bob.body.token);
+    assert.equal(bobStreamingPreferences.status, 200);
+    assert.equal(bobStreamingPreferences.body.preferences.resolution, 'auto');
+    assert.equal(bobStreamingPreferences.body.preferences.cameraEnabled, false);
+    const invalidStreamingPreferences = await request(baseUrl, '/api/me/streaming-preferences', {
+      method: 'PUT',
+      body: { resolution: '8K' }
+    }, alice.body.token);
+    assert.equal(invalidStreamingPreferences.status, 400);
+    const unknownStreamingPreference = await request(baseUrl, '/api/me/streaming-preferences', {
+      method: 'PUT',
+      body: { fakeSetting: true }
+    }, alice.body.token);
+    assert.equal(unknownStreamingPreference.status, 400);
     const unauthenticatedProfileRequest = await request(baseUrl, '/api/me');
     assert.equal(unauthenticatedProfileRequest.status, 401);
 
