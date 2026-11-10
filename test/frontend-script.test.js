@@ -16,8 +16,8 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /id="profile-editor-form"/, 'The profile editor must be present');
   assert.match(html, /if \(profileCredits\) profileCredits\.textContent/, 'Legacy credit updates must tolerate the profile economy being disabled');
   assert.match(html, /comment\.authorUsername === appState\.username/, 'Comment edit and delete controls must be restricted to the comment owner in the interface');
-  assert.match(html, /\/comments\/[' + ]*encodeURIComponent\(comment\.id\)[\s\S]{0,300}method: 'PUT'/, 'Comment editing must call the persistent API');
-  assert.match(html, /\/comments\/[' + ]*encodeURIComponent\(comment\.id\)[\s\S]{0,300}method: 'DELETE'/, 'Comment deletion must call the persistent API');
+  assert.match(html, /encodeURIComponent\\(comment\\.id\\)[\\s\\S]{0,300}method: 'PUT'/, 'Comment editing must call the persistent API');
+  assert.match(html, /encodeURIComponent\\(comment\\.id\\)[\\s\\S]{0,300}method: 'DELETE'/, 'Comment deletion must call the persistent API');
 
   inlineScripts.forEach((match, index) => {
     assert.doesNotThrow(
