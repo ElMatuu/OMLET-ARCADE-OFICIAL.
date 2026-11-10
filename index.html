@@ -60,7 +60,7 @@
                 </div>
                 <div>
                     <label class="text-xs font-semibold text-slate-400 block mb-1">Contraseña</label>
-                    <input type="password" id="input-password" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500" placeholder="••••••••">
+                    <input type="password" id="input-password" required minlength="1" maxlength="128" autocomplete="current-password" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500" placeholder="••••••••">
                 </div>
                 <button type="submit" id="auth-submit-btn" class="w-full PLAYVERSE-gradient text-white font-bold py-3.5 rounded-xl shadow-lg neon-border hover:brightness-110">Iniciar Sesión</button>
             </form>
@@ -80,7 +80,7 @@
                     <div class="w-9 h-9 PLAYVERSE-gradient rounded-xl flex items-center justify-center font-bold text-white shadow-md"><i class="fa-solid fa-gamepad text-lg"></i></div>
                     <div>
                         <span class="font-black text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-300">PLAYVERSE</span>
-                        <span class="text-[10px] block font-mono text-cyan-500/80 -mt-1 font-bold">ARCADE OFICIAL</span>
+                        <span class="text-[10px] block font-mono text-cyan-500/80 -mt-1 font-bold">GAMING · COMMUNITY · LIVE</span>
                     </div>
                 </div>
             </div>
@@ -114,9 +114,12 @@
                 <button onclick="switchTab('events'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-sparkles text-blue-400 w-5"></i><span>Ruleta y Sorteos</span></button>
                 <button onclick="switchTab('profile'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-user-gear text-cyan-400 w-5"></i><span>Mi Perfil</span></button>
             </nav>
-            <div class="p-4 border-t border-slate-800">
+            <div class="p-4 border-t border-slate-800 space-y-2">
                 <button onclick="openSettingsModal(); toggleDrawer(false);" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold text-slate-300">
                     <i class="fa-solid fa-gear text-slate-400 w-5"></i><span>Ajustes de Stream y App</span>
+                </button>
+                <button onclick="logout()" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-red-950/40 text-sm font-semibold text-red-300">
+                    <i class="fa-solid fa-right-from-bracket w-5"></i><span>Cerrar sesión</span>
                 </button>
             </div>
         </div>
@@ -278,15 +281,62 @@
     </div>
 
     <script>
-        let appState = { username: "Wachin Gamer", créditos: 2500 };
-        window.addEventListener('DOMContentLoaded', () => {
+        const API_URL = window.PLAYVERSE_API_URL || 'http://localhost:3000';
+        const SESSION_KEY = 'playverse_session_token';
+        let authToken = sessionStorage.getItem(SESSION_KEY);
+        let appState = { username: '', créditos: 0 };
+
+        function setAuthMessage(message, isError = true) {
+            let status = document.getElementById('auth-status');
+            if (!status) {
+                status = document.createElement('p');
+                status.id = 'auth-status';
+                status.className = 'text-xs text-center mt-3';
+                document.getElementById('auth-form').after(status);
+            }
+            status.className = isError ? 'text-xs text-center mt-3 text-red-400' : 'text-xs text-center mt-3 text-emerald-400';
+            status.textContent = message;
+        }
+
+        function showAuthenticatedApp(user) {
+            appState.username = user.username;
+            document.getElementById('drawer-username').textContent = user.username;
+            document.getElementById('profile-username').textContent = user.username;
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            document.querySelector('main > .rounded-xl')?.remove();
+        }
+
+        async function restoreSession() {
+            if (!authToken) return false;
+            try {
+                const response = await fetch(API_URL + '/api/me', {
+                    headers: { Authorization: 'Bearer ' + authToken }
+                });
+                if (!response.ok) throw new Error('SESSION_EXPIRED');
+                const data = await response.json();
+                if (!data.success || !data.user) throw new Error('SESSION_INVALID');
+                showAuthenticatedApp(data.user);
+                return true;
+            } catch (error) {
+                authToken = null;
+                sessionStorage.removeItem(SESSION_KEY);
+                return false;
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
             const progress = document.getElementById('splash-progress');
             setTimeout(() => { progress.style.width = '100%'; }, 200);
-            setTimeout(() => {
+            setTimeout(async () => {
                 const splash = document.getElementById('splash-screen');
                 splash.style.opacity = '0';
-                setTimeout(() => { splash.remove(); document.getElementById('auth-screen').classList.remove('hidden'); }, 500);
-            }, 1800);
+                setTimeout(async () => {
+                    splash.remove();
+                    const restored = await restoreSession();
+                    if (!restored) document.getElementById('auth-screen').classList.remove('hidden');
+                }, 500);
+            }, 900);
         });
 
         let isRegisterMode = false;
@@ -294,17 +344,51 @@
             isRegisterMode = !isRegisterMode;
             document.getElementById('auth-title').innerText = isRegisterMode ? 'Crear Cuenta en PLAYVERSE' : 'Iniciar Sesión en PLAYVERSE';
             document.getElementById('auth-submit-btn').innerText = isRegisterMode ? 'Registrarse' : 'Iniciar Sesión';
-            document.getElementById('email-field-container').classList.toggle('hidden', !isRegisterMode);
+            document.getElementById('input-password').setAttribute('minlength', isRegisterMode ? '12' : '1');
+            document.getElementById('auth-subtitle').innerText = isRegisterMode ? 'Usá una contraseña de al menos 12 caracteres' : 'Tu universo gamer comienza aquí';
+            document.getElementById('auth-status')?.remove();
         }
 
-        function handleAuthSubmit(e) {
+        async function handleAuthSubmit(e) {
             e.preventDefault();
-            const username = document.getElementById('input-username').value;
-            if(username) appState.username = username;
-            document.getElementById('drawer-username').innerText = appState.username;
-            document.getElementById('profile-username').innerText = appState.username;
-            document.getElementById('auth-screen').classList.add('hidden');
-            document.getElementById('main-app').classList.remove('hidden');
+            const username = document.getElementById('input-username').value.trim();
+            const password = document.getElementById('input-password').value;
+            const button = document.getElementById('auth-submit-btn');
+            const endpoint = isRegisterMode ? '/api/register' : '/api/login';
+            button.disabled = true;
+            button.textContent = isRegisterMode ? 'Creando cuenta…' : 'Ingresando…';
+            setAuthMessage('Conectando con PLAYVERSE…', false);
+            try {
+                const response = await fetch(API_URL + endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(data.message || 'No se pudo completar la autenticación.');
+                if (!data.token || !data.user) throw new Error('El servidor respondió sin una sesión válida.');
+                authToken = data.token;
+                sessionStorage.setItem(SESSION_KEY, authToken);
+                setAuthMessage('Sesión iniciada correctamente.', false);
+                showAuthenticatedApp(data.user);
+            } catch (error) {
+                const message = error instanceof TypeError
+                    ? 'No se pudo conectar con la API. Revisá la dirección del servidor y que esté encendido.'
+                    : error.message;
+                setAuthMessage(message);
+            } finally {
+                button.disabled = false;
+                button.textContent = isRegisterMode ? 'Registrarse' : 'Iniciar Sesión';
+            }
+        }
+
+        function logout() {
+            authToken = null;
+            sessionStorage.removeItem(SESSION_KEY);
+            document.getElementById('main-app').classList.add('hidden');
+            document.getElementById('auth-screen').classList.remove('hidden');
+            document.getElementById('auth-form').reset();
+            setAuthMessage('Cerraste tu sesión.', false);
         }
 
         function switchTab(tabName) {
