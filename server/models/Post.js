@@ -20,6 +20,15 @@ const postSchema = new mongoose.Schema({
     minlength: 1,
     maxlength: 2000
   },
+  likes: {
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    default: []
+  },
+  commentCount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   createdAt: {
     type: Date,
     default: Date.now,
