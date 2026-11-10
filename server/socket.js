@@ -20,6 +20,7 @@ function attachSocketServer(httpServer, allowedOrigins) {
       const token = socket.handshake.auth && socket.handshake.auth.token;
       if (!token) return next(new Error('Autenticación requerida'));
       socket.user = verifyToken(token);
+      socket.data.userId = socket.user.sub;
       return next();
     } catch {
       return next(new Error('Sesión inválida'));
