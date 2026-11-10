@@ -31,6 +31,18 @@ const resources = {
         android:pathData="M49,34 V24 C49,21 51,19 54,19 H67 C77,19 83,25 83,33 C83,42 77,47 67,47 H57 V56 H49 V34 Z M57,27 V39 H67 C72,39 75,37 75,33 C75,29 72,27 67,27 Z" />
 </vector>
 `,
+  'mipmap-anydpi/ic_launcher.xml': `<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/playverse_icon_background" />
+    <item android:drawable="@drawable/playverse_icon_foreground" />
+</layer-list>
+`,
+  'mipmap-anydpi/ic_launcher_round.xml': `<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/playverse_icon_background" />
+    <item android:drawable="@drawable/playverse_icon_foreground" />
+</layer-list>
+`,
   'mipmap-anydpi-v26/ic_launcher.xml': `<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/playverse_icon_background" />
