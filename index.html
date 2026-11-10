@@ -850,6 +850,12 @@
                     date.className = 'text-[10px] text-slate-500';
                     date.textContent = conversation.lastMessageAt ? new Date(conversation.lastMessageAt).toLocaleDateString('es-AR') : '';
                     button.append(avatar, details, date);
+                    if (conversation.unreadCount > 0) {
+                        const unread = document.createElement('span');
+                        unread.className = 'min-w-5 h-5 rounded-full bg-orange-500 text-slate-950 text-[10px] font-black flex items-center justify-center px-1';
+                        unread.textContent = String(conversation.unreadCount);
+                        button.appendChild(unread);
+                    }
                     button.addEventListener('click', () => openDirectConversation(conversation.id, conversation.participant));
                     list.appendChild(button);
                 });
@@ -896,6 +902,7 @@
                 const data = await apiRequest('/api/conversations/' + encodeURIComponent(conversationId) + '/messages');
                 data.messages.forEach(appendDirectMessage);
                 status.textContent = 'Historial sincronizado. Conectando tiempo real…';
+                await loadDirectConversations();
                 connectDirectSocket(conversationId);
             } catch (error) { status.textContent = error.message; }
         }
@@ -927,6 +934,13 @@
             directSocket.on('receive_direct_message', (message) => {
                 if (String(message.conversationId) === String(activeDirectConversationId)) appendDirectMessage(message);
                 loadDirectConversations();
+            });
+            directSocket.on('direct_message_notification', (notification) => {
+                loadDirectConversations();
+                const status = document.getElementById('dm-inbox-status');
+                if (status && String(notification.conversationId) !== String(activeDirectConversationId)) {
+                    status.textContent = 'Nuevo mensaje de @' + String(notification.senderUsername || 'jugador') + '.';
+                }
             });
             directSocket.on('connect_error', () => {
                 directSocketJoined = false;
