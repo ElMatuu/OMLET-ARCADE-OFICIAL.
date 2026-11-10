@@ -121,35 +121,36 @@ integrationTest('two independent accounts can interact while ownership and persi
     const bobRooms = await request(baseUrl, '/api/rooms', {}, bob.body.token);
     assert.equal(bobRooms.body.rooms[0].isOwner, false);
     assert.equal(bobRooms.body.rooms[0].isMember, false);
-    const joined = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/join', {
-      method: 'POST'
-    }, bob.body.token);
-    assert.equal(joined.status, 200);
-    assert.equal(joined.body.room.memberCount, 2);
-    assert.equal(joined.body.room.capacity, 2);
+    const roomJoinPath = '/api/rooms/' + room.body.room.id + '/join';
+    const concurrentJoins = await Promise.all([
+      request(baseUrl, roomJoinPath, { method: 'POST' }, bob.body.token),
+      request(baseUrl, roomJoinPath, { method: 'POST' }, charlie.body.token)
+    ]);
+    assert.equal(concurrentJoins.filter((result) => result.status === 200).length, 1);
+    assert.equal(concurrentJoins.filter((result) => result.status === 404).length, 1);
+    const winningToken = concurrentJoins[0].status === 200 ? bob.body.token : charlie.body.token;
+    const waitingToken = concurrentJoins[0].status === 404 ? bob.body.token : charlie.body.token;
+    assert.equal(concurrentJoins.find((result) => result.status === 200).body.room.memberCount, 2);
+    assert.equal(concurrentJoins.find((result) => result.status === 200).body.room.capacity, 2);
 
-    const duplicateJoin = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/join', {
-      method: 'POST'
-    }, bob.body.token);
+    const duplicateJoin = await request(baseUrl, roomJoinPath, { method: 'POST' }, winningToken);
     assert.equal(duplicateJoin.status, 200);
     assert.equal(duplicateJoin.body.room.memberCount, 2);
 
-    const overCapacity = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/join', {
-      method: 'POST'
-    }, charlie.body.token);
+    const overCapacity = await request(baseUrl, roomJoinPath, { method: 'POST' }, waitingToken);
     assert.equal(overCapacity.status, 404);
 
-    const bobLeaves = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/leave', {
+    const memberLeaves = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/leave', {
       method: 'POST'
-    }, bob.body.token);
-    assert.equal(bobLeaves.status, 200);
-    assert.equal(bobLeaves.body.room.memberCount, 1);
+    }, winningToken);
+    assert.equal(memberLeaves.status, 200);
+    assert.equal(memberLeaves.body.room.memberCount, 1);
 
-    const charlieJoins = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/join', {
+    const waitingPlayerJoins = await request(baseUrl, roomJoinPath, {
       method: 'POST'
-    }, charlie.body.token);
-    assert.equal(charlieJoins.status, 200);
-    assert.equal(charlieJoins.body.room.memberCount, 2);
+    }, waitingToken);
+    assert.equal(waitingPlayerJoins.status, 200);
+    assert.equal(waitingPlayerJoins.body.room.memberCount, 2);
 
     const bobCannotCloseRoom = await request(baseUrl, '/api/rooms/' + room.body.room.id, {
       method: 'DELETE'
