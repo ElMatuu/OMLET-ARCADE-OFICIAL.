@@ -5,7 +5,7 @@
   "description": "PLAYVERSE — original gaming community platform for Android and Windows",
   "main": "desktop/main.js",
   "scripts": {
-    "start": "node server/index.js",
+    "start": "npm run build:web && node server/index.js",
     "start:dev": "node --watch server/index.js",
     "preview": "npx serve www",
     "test": "node --test",
