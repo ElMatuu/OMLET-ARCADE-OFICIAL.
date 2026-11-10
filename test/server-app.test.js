@@ -68,3 +68,22 @@ test('CORS rejects an origin outside the explicit allowlist', async () => {
     assert.equal(response.headers.get('access-control-allow-origin'), null);
   });
 });
+
+test('liveness probe stays healthy independently of database state', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/health/live');
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.status, 'alive');
+  });
+});
+
+test('readiness probe returns 503 while database is disconnected', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/health/ready');
+    const body = await response.json();
+    assert.equal(response.status, 503);
+    assert.equal(body.success, false);
+    assert.equal(body.status, 'database-disconnected');
+  });
+});
