@@ -17,14 +17,16 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        body { background-color: #050509; color: #f3f4f6; overflow: hidden; user-select: none; }
+        body { background-color: #08090d; color: #f3f4f6; overflow: hidden; user-select: none; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #0b0f19; }
         ::-webkit-scrollbar-thumb { background: #1f293d; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #22d3ee; }
-        .PLAYVERSE-gradient { background: linear-gradient(135deg, #22d3ee 0%, #2563eb 50%, #7c3aed 100%); }
+        ::-webkit-scrollbar-thumb:hover { background: #FF5232; }
+        .PLAYVERSE-gradient { background: linear-gradient(135deg, #FF5232 0%, #ff7a18 52%, #FFC107 100%); }
         .PLAYVERSE-card { background: #0f172a; border: 1px solid #1e293b; }
         .neon-border { box-shadow: 0 0 15px rgba(249, 115, 22, 0.3); }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+        .gpu-layer { transform: translate3d(0,0,0); backface-visibility: hidden; }
     </style>
 </head>
 <body class="h-screen w-screen flex flex-col justify-between relative">
@@ -33,14 +35,14 @@
     <div id="splash-screen" class="fixed inset-0 z-50 PLAYVERSE-gradient flex flex-col items-center justify-center text-white transition-all duration-700">
         <div class="relative mb-6">
             <div class="absolute inset-0 bg-white/20 rounded-3xl blur-xl animate-pulse"></div>
-            <div class="relative w-28 h-28 bg-slate-950 rounded-3xl flex items-center justify-center shadow-2xl border-2 border-cyan-400/50">
-                <i class="fa-solid fa-gamepad text-5xl text-cyan-500 animate-bounce"></i>
+            <div class="relative w-28 h-28 bg-slate-950 rounded-3xl flex items-center justify-center shadow-2xl border-2 border-orange-400/50">
+                <i class="fa-solid fa-gamepad text-5xl text-orange-500 animate-bounce"></i>
             </div>
         </div>
-        <h1 class="text-4xl font-black tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white via-cyan-200 to-blue-300">PLAYVERSE</h1>
-        <p class="text-xs text-cyan-200/80 mt-2 font-mono tracking-widest uppercase">GAMING • COMMUNITY • LIVE</p>
+        <h1 class="text-4xl font-black tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white via-orange-200 to-amber-300">PLAYVERSE</h1>
+        <p class="text-xs text-orange-200/80 mt-2 font-mono tracking-widest uppercase">GAMING • COMMUNITY • LIVE</p>
         <div class="mt-10 w-48 h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/10">
-            <div id="splash-progress" class="h-full bg-gradient-to-r from-cyan-400 to-blue-300 w-0 transition-all duration-1000"></div>
+            <div id="splash-progress" class="h-full bg-gradient-to-r from-orange-400 to-amber-300 w-0 transition-all duration-1000"></div>
         </div>
     </div>
 
@@ -58,21 +60,21 @@
             <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-4">
                 <div>
                     <label class="text-xs font-semibold text-slate-400 block mb-1">Nombre de usuario</label>
-                    <input type="text" id="input-username" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500" placeholder="Ej. WachinGamer">
+                    <input type="text" id="input-username" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-orange-500" placeholder="Ej. WachinGamer">
                 </div>
                 <div id="email-field-container" class="hidden">
                     <label class="text-xs font-semibold text-slate-400 block mb-1">Correo Electrónico</label>
-                    <input type="email" id="input-email" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500" placeholder="tu@email.com">
+                    <input type="email" id="input-email" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-orange-500" placeholder="tu@email.com">
                 </div>
                 <div>
                     <label class="text-xs font-semibold text-slate-400 block mb-1">Contraseña</label>
-                    <input type="password" id="input-password" required minlength="1" maxlength="128" autocomplete="current-password" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500" placeholder="••••••••">
+                    <input type="password" id="input-password" required minlength="1" maxlength="128" autocomplete="current-password" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-orange-500" placeholder="••••••••">
                 </div>
                 <button type="submit" id="auth-submit-btn" class="w-full PLAYVERSE-gradient text-white font-bold py-3.5 rounded-xl shadow-lg neon-border hover:brightness-110">Iniciar Sesión</button>
             </form>
 
             <div class="mt-6 text-center text-xs text-slate-400">
-                <p id="auth-switch-text">¿No tienes cuenta? <button type="button" onclick="toggleAuthMode()" class="text-cyan-400 font-bold hover:underline">Regístrate gratis</button></p>
+                <p id="auth-switch-text">¿No tienes cuenta? <button type="button" onclick="toggleAuthMode()" class="text-orange-400 font-bold hover:underline">Regístrate gratis</button></p>
             </div>
         </div>
     </div>
@@ -81,44 +83,44 @@
     <div id="main-app" class="h-full w-full flex flex-col justify-between hidden">
         <header class="h-14 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 flex items-center justify-between shrink-0 z-30">
             <div class="flex items-center space-x-3">
-                <button onclick="toggleDrawer(true)" class="p-2 hover:bg-slate-800 rounded-xl text-cyan-400"><i class="fa-solid fa-bars text-xl"></i></button>
+                <button onclick="toggleDrawer(true)" class="p-2 hover:bg-slate-800 rounded-xl text-orange-400"><i class="fa-solid fa-bars text-xl"></i></button>
                 <div class="flex items-center space-x-2.5">
                     <div class="w-9 h-9 PLAYVERSE-gradient rounded-xl flex items-center justify-center font-bold text-white shadow-md"><i class="fa-solid fa-gamepad text-lg"></i></div>
                     <div>
-                        <span class="font-black text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-300">PLAYVERSE</span>
-                        <span class="text-[10px] block font-mono text-cyan-500/80 -mt-1 font-bold">GAMING · COMMUNITY · LIVE</span>
+                        <span class="font-black text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-amber-300">PLAYVERSE</span>
+                        <span class="text-[10px] block font-mono text-orange-500/80 -mt-1 font-bold">GAMING · COMMUNITY · LIVE</span>
                     </div>
                 </div>
             </div>
             <div class="flex items-center space-x-3">
-                <button onclick="switchTab('events')" class="flex items-center space-x-1.5 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-full hover:border-blue-500/50">
-                    <i class="fa-solid fa-coins text-blue-400 animate-pulse"></i>
-                    <span id="header-créditos" class="text-xs font-bold text-blue-300">2500</span>
+                <button onclick="switchTab('events')" class="flex items-center space-x-1.5 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-full hover:border-amber-500/50">
+                    <i class="fa-solid fa-coins text-amber-400 animate-pulse"></i>
+                    <span id="header-créditos" class="text-xs font-bold text-amber-300">2500</span>
                 </button>
-                <button onclick="openPostModal()" class="bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 p-2 rounded-xl hover:bg-cyan-500 hover:text-white"><i class="fa-solid fa-plus text-sm"></i></button>
+                <button onclick="openPostModal()" class="bg-orange-500/20 text-orange-400 border border-orange-500/40 p-2 rounded-xl hover:bg-orange-500 hover:text-white"><i class="fa-solid fa-plus text-sm"></i></button>
                 <button onclick="switchTab('profile')" class="w-8 h-8 rounded-full PLAYVERSE-gradient p-0.5 shadow-md flex items-center justify-center text-xs">🎮</button>
             </div>
         </header>
 
         <!-- DRAWER LATERAL -->
         <div id="drawer-backdrop" onclick="toggleDrawer(false)" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden"></div>
-        <div id="drawer-panel" class="fixed inset-y-0 left-0 w-80 bg-slate-900 border-r border-slate-800 z-50 flex flex-col transform -translate-x-full transition-transform duration-300 shadow-2xl">
+        <div id="drawer-panel" class="fixed inset-y-0 left-0 w-80 bg-slate-900 border-r border-slate-800 z-50 flex flex-col transform -translate-x-full transition-transform duration-300 will-change-transform shadow-2xl">
             <div class="p-5 border-b border-slate-800 flex items-center justify-between PLAYVERSE-gradient">
                 <div class="flex items-center space-x-3">
                     <div class="w-12 h-12 rounded-full bg-slate-950 border-2 border-white/40 flex items-center justify-center text-2xl shadow-lg">🎮</div>
                     <div>
                         <h4 id="drawer-username" class="font-bold text-sm text-white">Wachin Gamer</h4>
-                        <span id="drawer-profile-subtitle" class="text-[10px] text-cyan-200 font-mono font-bold">Comunidad gamer</span>
+                        <span id="drawer-profile-subtitle" class="text-[10px] text-orange-200 font-mono font-bold">Comunidad gamer</span>
                     </div>
                 </div>
                 <button onclick="toggleDrawer(false)" class="text-white hover:bg-black/20 p-2 rounded-xl"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <nav class="p-3 space-y-1.5 flex-1 overflow-y-auto">
-                <button onclick="switchTab('feed'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-tv text-cyan-400 w-5"></i><span>Feed y Transmisiones</span></button>
+                <button onclick="switchTab('feed'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-tv text-orange-400 w-5"></i><span>Feed y Transmisiones</span></button>
                 <button onclick="switchTab('lobbies'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-gamepad text-emerald-400 w-5"></i><span>Salas Multijugador</span></button>
                 <button onclick="switchTab('shop'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-store text-purple-400 w-5"></i><span>Tienda Arcade & Marcos</span></button>
-                <button onclick="switchTab('events'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-sparkles text-blue-400 w-5"></i><span>Ruleta y Sorteos</span></button>
-                <button onclick="switchTab('profile'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-user-gear text-cyan-400 w-5"></i><span>Mi Perfil</span></button>
+                <button onclick="switchTab('events'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-sparkles text-amber-400 w-5"></i><span>Ruleta y Sorteos</span></button>
+                <button onclick="switchTab('profile'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-user-gear text-orange-400 w-5"></i><span>Mi Perfil</span></button>
                 <button onclick="switchTab('friends'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-user-group text-pink-400 w-5"></i><span>Amigos y solicitudes</span></button>
             </nav>
             <div class="p-4 border-t border-slate-800 space-y-2">
@@ -132,10 +134,10 @@
         </div>
 
         <!-- CONTENIDO TABS -->
-        <main class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-4xl mx-auto w-full"><div class="rounded-xl border border-cyan-500/30 bg-cyan-950/40 px-4 py-3 text-xs text-cyan-100"><strong>PLAYVERSE · CONSTRUCCIÓN EN CURSO</strong><br>Registro, inicio de sesión y perfil básico conectados a la API. Feed, transmisiones, tienda, créditos y herramientas sociales siguen en desarrollo.</div>
+        <main class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-4xl mx-auto w-full"><div class="rounded-xl border border-orange-500/30 bg-orange-950/40 px-4 py-3 text-xs text-orange-100"><strong>PLAYVERSE · CONSTRUCCIÓN EN CURSO</strong><br>Registro, inicio de sesión y perfil básico conectados a la API. Feed, transmisiones, tienda, créditos y herramientas sociales siguen en desarrollo.</div>
             <!-- TAB FEED -->
             <div id="tab-feed" class="space-y-6">
-                <div class="PLAYVERSE-card rounded-2xl p-4 flex items-center justify-between border-cyan-500/30 neon-border">
+                <div class="PLAYVERSE-card rounded-2xl p-4 flex items-center justify-between border-orange-500/30 neon-border">
                     <div class="flex items-center space-x-3">
                         <div class="w-12 h-12 rounded-xl PLAYVERSE-gradient flex items-center justify-center text-white text-xl shadow-md"><i class="fa-solid fa-video"></i></div>
                         <div>
@@ -147,7 +149,7 @@
                 </div>
 
                 <div class="space-y-4">
-                    <h3 class="font-black text-base flex items-center gap-2"><i class="fa-solid fa-fire text-cyan-500"></i> Streams en Vivo Populares</h3>
+                    <h3 class="font-black text-base flex items-center gap-2"><i class="fa-solid fa-fire text-orange-500"></i> Streams en Vivo Populares</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="PLAYVERSE-card rounded-2xl overflow-hidden shadow-lg">
                             <div class="relative aspect-video bg-slate-950 flex items-center justify-center">
@@ -160,7 +162,7 @@
                                     <div class="w-9 h-9 rounded-full bg-purple-500/20 border border-purple-400 flex items-center justify-center text-lg">🧙‍♂️</div>
                                     <div><h5 class="font-bold text-sm">GamerPro_MC</h5><p class="text-[10px] text-slate-400">1,420 espectadores</p></div>
                                 </div>
-                                <button onclick="alert('Conectando...')" class="bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 text-xs px-3.5 py-1.5 rounded-xl font-bold">Ver Stream</button>
+                                <button onclick="alert('Conectando...')" class="bg-orange-500/20 text-orange-400 border border-orange-500/40 text-xs px-3.5 py-1.5 rounded-xl font-bold">Ver Stream</button>
                             </div>
                         </div>
                     </div>
@@ -170,7 +172,7 @@
                     <h3 class="font-black text-base flex items-center gap-2"><i class="fa-solid fa-earth-americas text-purple-400"></i> Publicaciones de la Comunidad</h3>
                     <p id="community-posts-status" class="text-xs text-slate-400" role="status">Cargando publicaciones…</p>
                     <div id="community-posts-container" class="space-y-4" aria-live="polite"></div>
-                    <button id="community-load-more" type="button" class="hidden w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-xs font-bold text-cyan-300 hover:border-cyan-500 disabled:opacity-50">Cargar más publicaciones</button>
+                    <button id="community-load-more" type="button" class="hidden w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-xs font-bold text-orange-300 hover:border-orange-500 disabled:opacity-50">Cargar más publicaciones</button>
                     </div>
                 </div>
             </div>
@@ -218,12 +220,12 @@
                     <div class="PLAYVERSE-card p-4 rounded-2xl text-center space-y-3">
                         <div class="text-4xl my-2 bg-slate-950 w-16 h-16 rounded-2xl mx-auto flex items-center justify-center border border-slate-800">💫</div>
                         <h4 class="font-bold text-sm text-white">Marco Neón Cyber</h4>
-                        <button onclick="buyShopItem('Marco Neón Cyber', 1500)" class="w-full bg-slate-800 border border-slate-700 text-blue-300 text-xs font-bold py-2 rounded-xl"><i class="fa-solid fa-coins text-blue-400"></i> 1500</button>
+                        <button onclick="buyShopItem('Marco Neón Cyber', 1500)" class="w-full bg-slate-800 border border-slate-700 text-amber-300 text-xs font-bold py-2 rounded-xl"><i class="fa-solid fa-coins text-amber-400"></i> 1500</button>
                     </div>
                     <div class="PLAYVERSE-card p-4 rounded-2xl text-center space-y-3">
                         <div class="text-4xl my-2 bg-slate-950 w-16 h-16 rounded-2xl mx-auto flex items-center justify-center border border-slate-800">🔥</div>
                         <h4 class="font-bold text-sm text-white">HUD Stream Fuego</h4>
-                        <button onclick="buyShopItem('HUD Stream Fuego', 3000)" class="w-full bg-slate-800 border border-slate-700 text-blue-300 text-xs font-bold py-2 rounded-xl"><i class="fa-solid fa-coins text-blue-400"></i> 3000</button>
+                        <button onclick="buyShopItem('HUD Stream Fuego', 3000)" class="w-full bg-slate-800 border border-slate-700 text-amber-300 text-xs font-bold py-2 rounded-xl"><i class="fa-solid fa-coins text-amber-400"></i> 3000</button>
                     </div>
                 </div>
             </div>
@@ -232,7 +234,7 @@
             <div id="tab-events" class="space-y-6 hidden text-center max-w-lg mx-auto">
                 <h3 class="font-black text-xl">Ruleta Diaria PLAYVERSE</h3>
                 <div class="relative w-64 h-64 mx-auto my-6">
-                    <div id="roulette-wheel" class="w-full h-full rounded-full border-4 border-blue-400 PLAYVERSE-gradient shadow-2xl flex items-center justify-center transition-all duration-[3000ms] ease-out">
+                    <div id="roulette-wheel" class="w-full h-full rounded-full border-4 border-amber-400 PLAYVERSE-gradient shadow-2xl flex items-center justify-center transition-all duration-[3000ms] ease-out">
                         <div class="text-xs font-black text-white grid grid-cols-2 gap-8 p-4 text-center"><span>500 Créditos</span><span>Marco VIP</span><span>Bonus sorpresa</span><span>100 Créditos</span></div>
                     </div>
                 </div>
@@ -249,7 +251,7 @@
                     </div>
                     <div>
                         <h3 id="profile-display-name" class="font-black text-xl text-white">Jugador PLAYVERSE</h3>
-                        <p id="profile-username" class="text-xs text-cyan-400 font-mono mt-0.5">@usuario</p>
+                        <p id="profile-username" class="text-xs text-orange-400 font-mono mt-0.5">@usuario</p>
                         <p id="profile-bio" class="text-sm text-slate-300 mt-3 whitespace-pre-wrap break-words">Todavía no agregaste una biografía.</p>
                     </div>
                     <div class="grid grid-cols-3 gap-3">
@@ -257,7 +259,7 @@
                         <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800"><span class="block text-[10px] text-slate-400 font-bold">CUENTA</span><span class="font-black text-sm text-emerald-400">Activa</span></div>
                         <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800"><span class="block text-[10px] text-slate-400 font-bold">MIEMBRO DESDE</span><span id="profile-member-since" class="font-black text-sm text-white">—</span></div>
                     </div>
-                    <button type="button" onclick="openProfileEditor()" class="w-full rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-4 py-3 text-xs font-bold text-cyan-300">Editar perfil</button>
+                    <button type="button" onclick="openProfileEditor()" class="w-full rounded-xl border border-orange-500/40 bg-orange-500/10 px-4 py-3 text-xs font-bold text-orange-300">Editar perfil</button>
                     <p id="profile-status" class="text-xs text-slate-400" role="status"></p>
                 </div>
             </div>
@@ -274,7 +276,7 @@
 
         <!-- BOTTOM NAV -->
         <nav class="h-16 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 grid grid-cols-5 items-center shrink-0 z-30">
-            <button onclick="switchTab('feed')" id="nav-btn-feed" class="flex flex-col items-center justify-center text-cyan-400"><i class="fa-solid fa-tv text-lg"></i><span class="text-[10px] mt-1 font-semibold">Transmitir</span></button>
+            <button onclick="switchTab('feed')" id="nav-btn-feed" class="flex flex-col items-center justify-center text-orange-400"><i class="fa-solid fa-tv text-lg"></i><span class="text-[10px] mt-1 font-semibold">Transmitir</span></button>
             <button onclick="switchTab('lobbies')" id="nav-btn-lobbies" class="flex flex-col items-center justify-center text-slate-400"><i class="fa-solid fa-gamepad text-lg"></i><span class="text-[10px] mt-1 font-semibold">Salas</span></button>
             <div class="flex justify-center -mt-5"><button onclick="openPostModal()" class="w-14 h-14 PLAYVERSE-gradient rounded-full flex items-center justify-center text-white shadow-xl border-4 border-slate-950 text-xl"><i class="fa-solid fa-plus"></i></button></div>
             <button onclick="switchTab('shop')" id="nav-btn-shop" class="flex flex-col items-center justify-center text-slate-400"><i class="fa-solid fa-store text-lg"></i><span class="text-[10px] mt-1 font-semibold">Tienda</span></button>
@@ -286,7 +288,7 @@
     <div id="post-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
         <div class="PLAYVERSE-card rounded-3xl w-full max-w-md p-6 space-y-4 border border-slate-800">
             <div class="flex items-center justify-between pb-3 border-b border-slate-800"><h3 class="font-black text-base text-white">Crear Publicación</h3><button onclick="closePostModal()" class="text-slate-400"><i class="fa-solid fa-xmark text-lg"></i></button></div>
-            <textarea id="post-text-input" rows="4" maxlength="2000" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-sm text-white focus:outline-none focus:border-cyan-500 resize-none" placeholder="¿Qué quieres compartir con la comunidad de PLAYVERSE?..."></textarea>
+            <textarea id="post-text-input" rows="4" maxlength="2000" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-sm text-white focus:outline-none focus:border-orange-500 resize-none" placeholder="¿Qué quieres compartir con la comunidad de PLAYVERSE?..."></textarea>
             <p id="post-form-status" class="text-xs text-slate-400" role="status">Máximo 2000 caracteres.</p>
             <div class="flex justify-end pt-2"><button id="post-submit-btn" onclick="submitPost()" class="PLAYVERSE-gradient text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md">Publicar</button></div>
         </div>
@@ -296,18 +298,18 @@
     <div id="settings-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
         <form id="streaming-settings-form" onsubmit="saveStreamingPreferences(event)" class="PLAYVERSE-card rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-5 border border-slate-800">
             <div class="flex items-center justify-between pb-3 border-b border-slate-800"><div><h3 class="font-black text-lg text-white">Preferencias de creador</h3><p class="text-xs text-slate-400">Se guardan en tu cuenta PLAYVERSE</p></div><button type="button" onclick="closeSettingsModal()" class="text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark text-lg"></i></button></div>
-            <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-cyan-300">Calidad de salida</h4>
+            <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-orange-300">Calidad de salida</h4>
                 <label class="block text-xs text-slate-400">Resolución preferida<select id="stream-resolution" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="auto">Automática</option><option value="720p">720p</option><option value="1080p">1080p</option><option value="1440p">1440p</option><option value="2160p">2160p (4K)</option></select></label>
                 <div class="grid grid-cols-2 gap-3"><label class="text-xs text-slate-400">Fotogramas por segundo<select id="stream-fps" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="24">24 FPS</option><option value="30">30 FPS</option><option value="60">60 FPS</option><option value="120">120 FPS</option></select></label><label class="text-xs text-slate-400">Bitrate objetivo<select id="stream-bitrate" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="3">3 Mbps</option><option value="6">6 Mbps</option><option value="8">8 Mbps</option><option value="12">12 Mbps</option><option value="20">20 Mbps</option><option value="30">30 Mbps</option><option value="50">50 Mbps</option></select></label></div>
             </section>
-            <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-cyan-300">Captura y audio</h4>
-                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Cámara habilitada<input id="stream-camera" type="checkbox" class="accent-cyan-400 w-5 h-5"></label>
-                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Micrófono habilitado<input id="stream-microphone" type="checkbox" class="accent-cyan-400 w-5 h-5"></label>
-                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Audio del sistema habilitado<input id="stream-system-audio" type="checkbox" class="accent-cyan-400 w-5 h-5"></label>
+            <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-orange-300">Captura y audio</h4>
+                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Cámara habilitada<input id="stream-camera" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
+                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Micrófono habilitado<input id="stream-microphone" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
+                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Audio del sistema habilitado<input id="stream-system-audio" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
             </section>
-            <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-cyan-300">Presentación</h4>
+            <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-orange-300">Presentación</h4>
                 <div class="grid grid-cols-2 gap-3"><label class="text-xs text-slate-400">Orientación<select id="stream-orientation" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="auto">Automática</option><option value="portrait">Vertical</option><option value="landscape">Horizontal</option></select></label><label class="text-xs text-slate-400">Posición de cámara<select id="stream-camera-position" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="top-left">Arriba izquierda</option><option value="top-right">Arriba derecha</option><option value="bottom-left">Abajo izquierda</option><option value="bottom-right">Abajo derecha</option></select></label></div>
-                <label class="block text-xs text-slate-400">Marco de cámara<select id="stream-camera-frame" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="none">Sin marco</option><option value="cyan">Cian</option><option value="violet">Violeta</option></select></label>
+                <label class="block text-xs text-slate-400">Marco de cámara<select id="stream-camera-frame" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="none">Sin marco</option><option value="orange">Cian</option><option value="violet">Violeta</option></select></label>
             </section>
             <p id="streaming-settings-status" class="text-xs text-slate-400" role="status">Cargando preferencias guardadas…</p>
             <p class="text-[11px] text-amber-300/90">Estas opciones guardan tus preferencias. No activan todavía la captura de pantalla/cámara ni inician una transmisión real.</p>
@@ -525,10 +527,10 @@
             if (tabName === 'friends') loadFriends();
             ['feed', 'lobbies', 'shop', 'events'].forEach(t => {
                 const btn = document.getElementById('nav-btn-' + t);
-                if(btn) { btn.classList.remove('text-cyan-400'); btn.classList.add('text-slate-400'); }
+                if(btn) { btn.classList.remove('text-orange-400'); btn.classList.add('text-slate-400'); }
             });
             const activeNav = document.getElementById('nav-btn-' + tabName);
-            if(activeNav) { activeNav.classList.remove('text-slate-400'); activeNav.classList.add('text-cyan-400'); }
+            if(activeNav) { activeNav.classList.remove('text-slate-400'); activeNav.classList.add('text-orange-400'); }
         }
 
         async function apiRequest(path, options = {}) {
@@ -573,7 +575,7 @@
                     if (isMember) {
                         const chatButton = document.createElement('button');
                         chatButton.type = 'button';
-                        chatButton.className = 'bg-cyan-500 text-slate-950 text-xs font-black px-3 py-2 rounded-xl';
+                        chatButton.className = 'bg-orange-500 text-slate-950 text-xs font-black px-3 py-2 rounded-xl';
                         chatButton.textContent = 'Abrir chat';
                         chatButton.addEventListener('click', () => openRoomChat(room.id, room.name));
                         actions.appendChild(chatButton);
@@ -656,7 +658,7 @@
             const item = document.createElement('article');
             item.className = 'rounded-xl bg-slate-900 px-3 py-2';
             const heading = document.createElement('p');
-            heading.className = 'text-[11px] font-bold text-cyan-400';
+            heading.className = 'text-[11px] font-bold text-orange-400';
             heading.textContent = String(message.username || 'Jugador') + ' · ' + new Date(message.sentAt || Date.now()).toLocaleTimeString();
             const body = document.createElement('p');
             body.className = 'text-sm text-slate-100 whitespace-pre-wrap break-words';
@@ -842,7 +844,7 @@
                 ownerActions.className = 'ml-auto flex items-center gap-2';
                 const editPostButton = document.createElement('button');
                 editPostButton.type = 'button';
-                editPostButton.className = 'text-[11px] text-cyan-300 px-2 py-1 rounded-lg border border-slate-700';
+                editPostButton.className = 'text-[11px] text-orange-300 px-2 py-1 rounded-lg border border-slate-700';
                 editPostButton.textContent = 'Editar';
                 editPostButton.addEventListener('click', async () => {
                     const updatedContent = window.prompt('Editar publicación:', post.content);
@@ -895,7 +897,7 @@
             likeButton.setAttribute('aria-pressed', String(Boolean(post.likedByMe)));
             const commentToggle = document.createElement('button');
             commentToggle.type = 'button';
-            commentToggle.className = 'text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 hover:border-cyan-400 text-cyan-300';
+            commentToggle.className = 'text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 hover:border-orange-400 text-orange-300';
             commentToggle.textContent = '💬 Comentarios · ' + (Number(post.commentCount) || 0);
             actions.append(likeButton, commentToggle);
 
@@ -913,10 +915,10 @@
             commentInput.maxLength = 1000;
             commentInput.required = true;
             commentInput.placeholder = 'Escribí un comentario…';
-            commentInput.className = 'w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-cyan-500 resize-y';
+            commentInput.className = 'w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-orange-500 resize-y';
             const commentSubmit = document.createElement('button');
             commentSubmit.type = 'submit';
-            commentSubmit.className = 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs font-bold px-3 py-2 rounded-xl';
+            commentSubmit.className = 'bg-orange-500/20 text-orange-300 border border-orange-500/40 text-xs font-bold px-3 py-2 rounded-xl';
             commentSubmit.textContent = 'Comentar';
             commentForm.append(commentInput, commentSubmit);
             commentsPanel.append(commentsStatus, commentsList, commentForm);
@@ -946,7 +948,7 @@
                 const header = document.createElement('div');
                 header.className = 'flex items-center gap-2';
                 const name = document.createElement('p');
-                name.className = 'text-xs font-bold text-cyan-300';
+                name.className = 'text-xs font-bold text-orange-300';
                 name.textContent = comment.authorUsername;
                 header.appendChild(name);
 
@@ -960,7 +962,7 @@
                     controls.className = 'flex items-center gap-2 mt-2';
                     const editButton = document.createElement('button');
                     editButton.type = 'button';
-                    editButton.className = 'text-[11px] text-cyan-300 px-2 py-1 rounded-lg border border-slate-700';
+                    editButton.className = 'text-[11px] text-orange-300 px-2 py-1 rounded-lg border border-slate-700';
                     editButton.textContent = 'Editar';
                     editButton.addEventListener('click', async () => {
                         const updatedContent = window.prompt('Editar comentario:', comment.content);
@@ -1180,12 +1182,12 @@
                 const data = await apiRequest('/api/users/' + encodeURIComponent(username));
                 const player = data.profile;
                 const card = document.createElement('div');
-                card.className = 'PLAYVERSE-card rounded-2xl border border-cyan-500/30 p-4 space-y-3';
+                card.className = 'PLAYVERSE-card rounded-2xl border border-orange-500/30 p-4 space-y-3';
                 const name = document.createElement('p');
                 name.className = 'font-bold text-white';
                 name.textContent = player.displayName || player.username;
                 const handle = document.createElement('p');
-                handle.className = 'text-xs text-cyan-300';
+                handle.className = 'text-xs text-orange-300';
                 handle.textContent = '@' + player.username;
                 const bio = document.createElement('p');
                 bio.className = 'text-xs text-slate-300 whitespace-pre-wrap';
@@ -1202,7 +1204,7 @@
                 } else if (player.friendship === 'none') {
                     const add = document.createElement('button');
                     add.type = 'button';
-                    add.className = 'rounded-xl bg-cyan-500/15 border border-cyan-500/30 px-4 py-2 text-xs font-bold text-cyan-300';
+                    add.className = 'rounded-xl bg-orange-500/15 border border-orange-500/30 px-4 py-2 text-xs font-bold text-orange-300';
                     add.textContent = 'Enviar solicitud';
                     add.addEventListener('click', async () => {
                         add.disabled = true;
