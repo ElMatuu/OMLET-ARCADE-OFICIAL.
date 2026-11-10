@@ -1,14 +1,27 @@
 {
   "name": "playverse-platform",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "PLAYVERSE — original gaming community and live platform for Android and Windows",
-  "main": "index.html",
+  "description": "PLAYVERSE — original gaming community platform for Android and Windows",
+  "main": "server/index.js",
   "scripts": {
-    "start": "npx serve ."
+    "start": "node server/index.js",
+    "start:dev": "node --watch server/index.js",
+    "preview": "npx serve .",
+    "check:syntax": "node --check server/index.js && node --check server/models/User.js && node --check server/middleware/auth.js && node --check server/socket.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
-  "dependencies": {}
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.5",
+    "socket.io": "^4.8.1"
+  }
 }
