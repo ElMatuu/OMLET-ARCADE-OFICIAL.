@@ -213,6 +213,41 @@ app.get('/api/me', requireAuth, async (req, res, next) => {
   }
 });
 
+app.get('/api/me/profile-summary', requireAuth, async (req, res, next) => {
+  try {
+    const userId = req.auth.sub;
+    const [postCount, roomCount, messageCount, savedPostCount, friendCount] = await Promise.all([
+      Post.countDocuments({ author: userId }),
+      Room.countDocuments({ owner: userId }),
+      RoomMessage.countDocuments({ author: userId }),
+      SavedPost.countDocuments({ user: userId }),
+      Friendship.countDocuments({
+        status: 'accepted',
+        $or: [{ requester: userId }, { recipient: userId }]
+      })
+    ]);
+
+    return res.json({
+      success: true,
+      stats: {
+        posts: postCount,
+        roomsCreated: roomCount,
+        roomMessages: messageCount,
+        savedPosts: savedPostCount,
+        friends: friendCount,
+        views: null,
+        experience: null
+      },
+      availability: {
+        views: 'El seguimiento de visualizaciones todavía no está implementado.',
+        experience: 'El sistema de niveles y experiencia todavía no está implementado.'
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.put('/api/me/profile', requireAuth, profileLimiter, async (req, res, next) => {
   try {
     const updates = {};
