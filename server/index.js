@@ -277,7 +277,14 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
       try { await liveKit.room.deleteRoom(roomName); } catch {}
       throw error;
     }
-  } catch (error) { return next(error); }
+  } catch (error) {
+    if (error && error.code === 11000) return res.status(409).json({
+      success: false,
+      code: 'ACTIVE_STREAM_EXISTS',
+      message: 'Ya tenés una transmisión activa. Finalizala antes de iniciar otra.'
+    });
+    return next(error);
+  }
 });
 
 app.post('/api/streams/:streamId/token', requireAuth, streamLimiter, async (req, res, next) => {
