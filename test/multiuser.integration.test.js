@@ -325,6 +325,10 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.equal(aliceDirectJoin.success, true);
     assert.equal(bobDirectJoin.success, true);
     assert.equal(charlieDirectJoin.success, false);
+    const unauthorizedTyping = await emitSocketAck(charlieDirectSocket, 'direct_typing_start', { conversationId });
+    assert.equal(unauthorizedTyping.success, false);
+    const unauthorizedRead = await emitSocketAck(charlieDirectSocket, 'mark_direct_messages_read', { conversationId });
+    assert.equal(unauthorizedRead.success, false);
 
     const typingStartDelivery = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('Typing indicator was not delivered')), 5000);
