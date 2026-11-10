@@ -343,6 +343,61 @@ app.put('/api/me/streaming-preferences', requireAuth, profileLimiter, async (req
 
 
 
+const DEFAULT_APP_PREFERENCES = {
+  reduceMotion: false,
+  highContrast: false
+};
+
+const APP_PREFERENCE_RULES = {
+  reduceMotion: (value) => typeof value === 'boolean',
+  highContrast: (value) => typeof value === 'boolean'
+};
+
+app.get('/api/me/app-preferences', requireAuth, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.auth.sub).select('appPreferences').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    return res.json({
+      success: true,
+      preferences: { ...DEFAULT_APP_PREFERENCES, ...(user.appPreferences || {}) }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.put('/api/me/app-preferences', requireAuth, profileLimiter, async (req, res, next) => {
+  try {
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ success: false, message: 'Preferencias de aplicación inválidas.' });
+    }
+    const keys = Object.keys(req.body);
+    if (!keys.length || keys.some((key) => !Object.prototype.hasOwnProperty.call(APP_PREFERENCE_RULES, key))) {
+      return res.status(400).json({ success: false, message: 'Hay preferencias desconocidas o no válidas.' });
+    }
+    for (const key of keys) {
+      if (!APP_PREFERENCE_RULES[key](req.body[key])) {
+        return res.status(400).json({ success: false, message: 'Valor no válido para la opción: ' + key + '.' });
+      }
+    }
+    const updates = {};
+    keys.forEach((key) => { updates['appPreferences.' + key] = req.body[key]; });
+    const user = await User.findByIdAndUpdate(
+      req.auth.sub,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).select('appPreferences').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    return res.json({
+      success: true,
+      preferences: { ...DEFAULT_APP_PREFERENCES, ...(user.appPreferences || {}) }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+
 app.get('/api/store/catalog', requireAuth, (req, res) => {
   return res.json({
     success: true,
