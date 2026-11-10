@@ -591,8 +591,10 @@
         }
 
         function updateCréditosUI() {
-            document.getElementById('header-créditos').innerText = appState.créditos;
-            document.getElementById('profile-créditos').innerText = appState.créditos;
+            const headerCredits = document.getElementById('header-créditos');
+            const profileCredits = document.getElementById('profile-créditos');
+            if (headerCredits) headerCredits.textContent = appState.créditos;
+            if (profileCredits) profileCredits.textContent = appState.créditos;
         }
 
         function buyShopItem(itemName, cost) {
