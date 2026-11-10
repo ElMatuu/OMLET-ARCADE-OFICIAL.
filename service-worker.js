@@ -1,7 +1,7 @@
 'use strict';
 
 const CACHE_PREFIX = 'playverse-shell-';
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = '__PLAYVERSE_BUILD_VERSION__';
 const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
 const APP_SHELL = ['/index.html', '/manifest.webmanifest'];
 
@@ -9,7 +9,6 @@ self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
     await cache.addAll(APP_SHELL);
-    await self.skipWaiting();
   })());
 });
 
@@ -59,4 +58,10 @@ self.addEventListener('fetch', (event) => {
       return cached || Response.error();
     }
   })());
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
