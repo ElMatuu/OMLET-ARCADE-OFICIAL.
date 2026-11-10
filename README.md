@@ -20,6 +20,7 @@ This repository contains a working backend foundation and a web client that is s
 - Persistent store catalog, inventory, token ledger and server-validated purchases/equipping for supported cosmetic categories. Token top-ups and real-money purchases are not enabled.
 - Account-backed accessibility preferences (reduced motion and high contrast).
 - Persistent account notification center for incoming friend requests, accepted requests and private messages, with unread counts, cursor pagination and read-state controls.
+- Authenticated online friend presence using expiring per-connection heartbeats, a TTL-backed presence collection and online indicators in the friends list. Status is best-effort and currently refreshed while the friends screen is open; multi-instance real-time fan-out is not yet configured.
 - Persistent posts, comments and reactions with pagination and ownership checks.
 - Public multiplayer rooms with capacity, membership, leave/close controls and server-side checks.
 - Persistent room message history and authenticated Socket.IO room chat.
@@ -33,7 +34,7 @@ This repository contains a working backend foundation and a web client that is s
 - Actual live streaming: no working capture/encoder, RTMP/SRT/WebRTC ingest, SFU, transcoding, adaptive playback, recording pipeline or media CDN is configured.
 - Camera/screen/audio capture on Android and Windows, including device capability detection and permissions.
 - 8K capture or any guaranteed 4K/120 FPS mode. Stored preferences are requests, not proof that a device or encoder can deliver them.
-- Online presence, mobile push notifications, typing indicators, attachments, voice/video calls and invitations.
+- Mobile push notifications, typing indicators, attachments, voice/video calls and invitations.
 - Creator clips/video uploads, playback storage, profile media galleries and favorites collections.
 - Full communities/servers with roles, moderation tools and membership management beyond multiplayer rooms.
 - User reporting, moderator queues, moderation actions, appeals and operational trust-and-safety tooling beyond player blocking.
@@ -41,7 +42,7 @@ This repository contains a working backend foundation and a web client that is s
 - Native Android OTA updater integration and a verified installed APK.
 - Signed and tested Windows installer, production monitoring, load testing and scale validation.
 - A complete UI-to-API integration for every screen. A backend route or visual control alone does not mean its user flow is complete.
-- Runtime validation of the latest private messaging and block workflows against a live test database. Source parsing is not a substitute for executing the automated suite.
+- Manual end-to-end validation on physical Android phones/tablets and Windows devices, plus production smoke tests. GitHub Actions currently runs the automated multi-user integration suite against an isolated MongoDB replica set; CI success does not prove a public production deployment.
 
 No million-user capacity or public production readiness is claimed. Those require load tests, production infrastructure, observability, abuse controls and operational support.
 
