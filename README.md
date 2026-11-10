@@ -1,18 +1,107 @@
-# Omlet Arcade - Oficial & Global 🎮🌍
+# PLAYVERSE
 
-¡La réplica definitiva, avanzada y 100% funcional de la legendaria aplicación **Omlet Arcade**!
+**Gaming · Community · Live**
 
-## Características Incluidas:
-- **Splash Screen de Arranque Original** con animación y barra de carga.
-- **Pantalla de Autenticación** (Login y Registro).
-- **Menú Lateral Desplegable (Drawer)** con acceso a todos los apartados clásicos.
-- **Feed y Transmisiones en Vivo** con soporte para posts y comunidad.
-- **Salas Multijugador** (Minecraft, Roblox, Free Fire).
-- **Tienda Arcade** con marcos animados y HUDs.
-- **Ruleta Diaria** con tokens de Omlet.
-- **Overlay Flotante Arrastrable** con controles de stream y micrófono.
+PLAYVERSE is an independent gaming and creator-community platform for Android and Windows. It is inspired by broad social-gaming workflows (profiles, communities, creator tools, multiplayer rooms and live video), while using its own brand, interface implementation, code and services.
 
-## Cómo subirlo a GitHub y desplegarlo en Vercel / Netlify:
-1. Sube estos archivos (`index.html`, `package.json`, `README.md`) a un nuevo repositorio en GitHub.
-2. Conecta tu repositorio en [Vercel](https://vercel.com/) o [Netlify](https://www.netlify.com/).
-3. ¡Disfruta de tu app en línea para todo el mundo!
+## Honest implementation status
+
+This repository contains a working backend foundation and a web client that is still being integrated feature by feature. A configured build is not the same as a verified production release.
+
+### Implemented in the codebase
+
+- MongoDB-backed account registration and login with password hashing and JWT authentication.
+- Editable user profiles and public profile lookup.
+- Friend requests, acceptance, friend lists and removal.
+- Persistent posts, comments and reactions with pagination and ownership checks.
+- Public multiplayer rooms with capacity, membership, leave/close controls and server-side checks.
+- Persistent room message history and authenticated Socket.IO room chat.
+- Authenticated creator streaming-preference storage (resolution preference up to 2160p/4K, FPS presets, bitrate, camera, microphone, system audio, orientation and camera overlay position/frame).
+- Health liveness/readiness endpoints.
+- Web asset build, service-worker update foundation, Android Capacitor configuration and Windows Electron packaging configuration.
+- PLAYVERSE install name and original vector icon resources.
+
+### Not yet implemented or verified as production features
+
+- Actual live streaming: no working capture/encoder, RTMP/SRT/WebRTC ingest, SFU, transcoding, adaptive playback, recording pipeline or media CDN is configured.
+- Camera/screen/audio capture on Android and Windows, including device capability detection and permissions.
+- 8K capture or any guaranteed 4K/120 FPS mode. Stored preferences are requests, not proof that a device or encoder can deliver them.
+- Private one-to-one messaging, online presence, push notifications and invitations.
+- Creator clips/video uploads, playback storage, profile media galleries and favorites collections.
+- Full communities/servers with roles, moderation tools and membership management beyond multiplayer rooms.
+- Moderation/report/block workflows and operational trust-and-safety tooling.
+- Store, virtual items, gifting, donations, paid subscriptions, payment processing, creator payouts, fraud controls and legal/tax workflows.
+- Native Android OTA updater integration and a verified installed APK.
+- Signed and tested Windows installer, production monitoring, load testing and scale validation.
+- A complete UI-to-API integration for every screen. A backend route or visual control alone does not mean its user flow is complete.
+
+No million-user capacity or public production readiness is claimed. Those require load tests, production infrastructure, observability, abuse controls and operational support.
+
+## Architecture
+
+- `index.html` — current web client and interface prototype.
+- `server/` — Express API, MongoDB models, JWT auth and Socket.IO.
+- `test/` — model, API, frontend static checks and multi-user integration tests.
+- `desktop/` — Electron Windows shell.
+- `capacitor.config.json` — Android application identity and web asset configuration.
+- `scripts/` — web build and platform asset preparation.
+- `assets/playverse-icon.svg` — original vector application icon.
+
+The API uses MongoDB. Multi-document operations that need transactions require a MongoDB replica set. Configure a real HTTPS origin, production database, exact CORS allowlist, secrets, backups, monitoring and rate limits before public release.
+
+## Development requirements
+
+- Node.js 20 or newer.
+- MongoDB (replica set for transaction-dependent integration tests).
+- Android Studio + Android SDK for Android builds.
+- Windows build environment for Windows installers.
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Validate source and configuration:
+
+```bash
+npm run check:syntax
+npm run check:config
+npm run build:web
+npm test
+```
+
+The multi-user integration suite requires `PLAYVERSE_TEST_MONGODB_URI` to point to an isolated disposable replica-set database. Never point tests at production data.
+
+## Run the API
+
+1. Copy `.env.example` to `.env`.
+2. Configure `MONGODB_URI` and a unique `JWT_SECRET` of at least 32 characters.
+3. Set `CORS_ORIGIN` to the exact trusted client origins.
+4. Run `npm start`.
+
+Never commit `.env`, credentials, signing keys or production user data.
+
+## Android
+
+```bash
+npm run android:add
+npm run android:sync
+npm run android:open
+npm run android:build
+```
+
+The Android project requires Android Studio/SDK and Java/Gradle. A release APK requires secure signing. The adaptive PLAYVERSE launcher icon is generated during add/sync. No APK is considered verified until it is built, installed and tested on real devices.
+
+## Windows
+
+```bash
+npm run desktop
+npm run build:win
+```
+
+Build and test the NSIS installer on a supported Windows machine. Installer configuration is not proof of a tested release.
+
+## Product completion standard
+
+Every feature must have a real implementation, server-side authorization where applicable, persistence where required, tests, error handling, privacy and safety review, observability and documented deployment. Live streaming and monetization must not be represented as available until their full operational pipelines are integrated and verified.

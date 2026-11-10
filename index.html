@@ -3,9 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Omlet Arcade - Oficial & Global</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="theme-color" content="#080b16">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="application-name" content="PLAYVERSE">
+    <meta name="apple-mobile-web-app-title" content="PLAYVERSE">
+    <meta name="description" content="PLAYVERSE: tu comunidad gamer para jugar, conectar y compartir.">
+    <link rel="icon" type="image/svg+xml" href="/assets/playverse-icon.svg">
+    <link rel="shortcut icon" href="/assets/playverse-icon.svg">
+    <title>PLAYVERSE</title>
+    <link href="/styles.css" rel="stylesheet">
     <!-- FontAwesome Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -15,58 +21,58 @@
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #0b0f19; }
         ::-webkit-scrollbar-thumb { background: #1f293d; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #f97316; }
-        .omlet-gradient { background: linear-gradient(135deg, #f97316 0%, #ea580c 50%, #9333ea 100%); }
-        .omlet-card { background: #0f172a; border: 1px solid #1e293b; }
+        ::-webkit-scrollbar-thumb:hover { background: #22d3ee; }
+        .PLAYVERSE-gradient { background: linear-gradient(135deg, #22d3ee 0%, #2563eb 50%, #7c3aed 100%); }
+        .PLAYVERSE-card { background: #0f172a; border: 1px solid #1e293b; }
         .neon-border { box-shadow: 0 0 15px rgba(249, 115, 22, 0.3); }
     </style>
 </head>
 <body class="h-screen w-screen flex flex-col justify-between relative">
 
     <!-- 1. INTRO / SPLASH SCREEN OFICIAL -->
-    <div id="splash-screen" class="fixed inset-0 z-50 omlet-gradient flex flex-col items-center justify-center text-white transition-all duration-700">
+    <div id="splash-screen" class="fixed inset-0 z-50 PLAYVERSE-gradient flex flex-col items-center justify-center text-white transition-all duration-700">
         <div class="relative mb-6">
             <div class="absolute inset-0 bg-white/20 rounded-3xl blur-xl animate-pulse"></div>
-            <div class="relative w-28 h-28 bg-slate-950 rounded-3xl flex items-center justify-center shadow-2xl border-2 border-orange-400/50">
-                <i class="fa-solid fa-gamepad text-5xl text-orange-500 animate-bounce"></i>
+            <div class="relative w-28 h-28 bg-slate-950 rounded-3xl flex items-center justify-center shadow-2xl border-2 border-cyan-400/50">
+                <i class="fa-solid fa-gamepad text-5xl text-cyan-500 animate-bounce"></i>
             </div>
         </div>
-        <h1 class="text-4xl font-black tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white via-orange-200 to-amber-300">OMLET ARCADE</h1>
-        <p class="text-xs text-orange-200/80 mt-2 font-mono tracking-widest uppercase">Versión Oficial Global & Avanzada</p>
+        <h1 class="text-4xl font-black tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white via-cyan-200 to-blue-300">PLAYVERSE</h1>
+        <p class="text-xs text-cyan-200/80 mt-2 font-mono tracking-widest uppercase">GAMING • COMMUNITY • LIVE</p>
         <div class="mt-10 w-48 h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/10">
-            <div id="splash-progress" class="h-full bg-gradient-to-r from-orange-400 to-amber-300 w-0 transition-all duration-1000"></div>
+            <div id="splash-progress" class="h-full bg-gradient-to-r from-cyan-400 to-blue-300 w-0 transition-all duration-1000"></div>
         </div>
     </div>
 
     <!-- 2. PANTALLA DE AUTENTICACIÓN (LOGIN/REG) -->
     <div id="auth-screen" class="fixed inset-0 z-40 bg-slate-950 flex items-center justify-center p-4 hidden">
-        <div class="w-full max-w-md omlet-card rounded-3xl p-8 shadow-2xl relative z-10 border border-slate-800">
+        <div class="w-full max-w-md PLAYVERSE-card rounded-3xl p-8 shadow-2xl relative z-10 border border-slate-800">
             <div class="text-center mb-6">
-                <div class="w-16 h-16 omlet-gradient rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg neon-border">
+                <div class="w-16 h-16 PLAYVERSE-gradient rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg neon-border">
                     <i class="fa-solid fa-gamepad text-2xl text-white"></i>
                 </div>
-                <h2 id="auth-title" class="text-2xl font-black tracking-tight text-white">Iniciar Sesión en Omlet</h2>
-                <p id="auth-subtitle" class="text-xs text-slate-400 mt-1">Tu comunidad gamer móvil definitiva</p>
+                <h2 id="auth-title" class="text-2xl font-black tracking-tight text-white">Iniciar Sesión en PLAYVERSE</h2>
+                <p id="auth-subtitle" class="text-xs text-slate-400 mt-1">Tu universo gamer comienza aquí</p>
             </div>
 
             <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-4">
                 <div>
                     <label class="text-xs font-semibold text-slate-400 block mb-1">Nombre de usuario</label>
-                    <input type="text" id="input-username" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-orange-500" placeholder="Ej. WachinGamer">
+                    <input type="text" id="input-username" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500" placeholder="Ej. WachinGamer">
                 </div>
                 <div id="email-field-container" class="hidden">
                     <label class="text-xs font-semibold text-slate-400 block mb-1">Correo Electrónico</label>
-                    <input type="email" id="input-email" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-orange-500" placeholder="tu@email.com">
+                    <input type="email" id="input-email" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500" placeholder="tu@email.com">
                 </div>
                 <div>
                     <label class="text-xs font-semibold text-slate-400 block mb-1">Contraseña</label>
-                    <input type="password" id="input-password" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-orange-500" placeholder="••••••••">
+                    <input type="password" id="input-password" required minlength="1" maxlength="128" autocomplete="current-password" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500" placeholder="••••••••">
                 </div>
-                <button type="submit" id="auth-submit-btn" class="w-full omlet-gradient text-white font-bold py-3.5 rounded-xl shadow-lg neon-border hover:brightness-110">Iniciar Sesión</button>
+                <button type="submit" id="auth-submit-btn" class="w-full PLAYVERSE-gradient text-white font-bold py-3.5 rounded-xl shadow-lg neon-border hover:brightness-110">Iniciar Sesión</button>
             </form>
 
             <div class="mt-6 text-center text-xs text-slate-400">
-                <p id="auth-switch-text">¿No tienes cuenta? <button type="button" onclick="toggleAuthMode()" class="text-orange-400 font-bold hover:underline">Regístrate gratis</button></p>
+                <p id="auth-switch-text">¿No tienes cuenta? <button type="button" onclick="toggleAuthMode()" class="text-cyan-400 font-bold hover:underline">Regístrate gratis</button></p>
             </div>
         </div>
     </div>
@@ -75,71 +81,75 @@
     <div id="main-app" class="h-full w-full flex flex-col justify-between hidden">
         <header class="h-14 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 flex items-center justify-between shrink-0 z-30">
             <div class="flex items-center space-x-3">
-                <button onclick="toggleDrawer(true)" class="p-2 hover:bg-slate-800 rounded-xl text-orange-400"><i class="fa-solid fa-bars text-xl"></i></button>
+                <button onclick="toggleDrawer(true)" class="p-2 hover:bg-slate-800 rounded-xl text-cyan-400"><i class="fa-solid fa-bars text-xl"></i></button>
                 <div class="flex items-center space-x-2.5">
-                    <div class="w-9 h-9 omlet-gradient rounded-xl flex items-center justify-center font-bold text-white shadow-md"><i class="fa-solid fa-gamepad text-lg"></i></div>
+                    <div class="w-9 h-9 PLAYVERSE-gradient rounded-xl flex items-center justify-center font-bold text-white shadow-md"><i class="fa-solid fa-gamepad text-lg"></i></div>
                     <div>
-                        <span class="font-black text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-amber-300">OMLET</span>
-                        <span class="text-[10px] block font-mono text-orange-500/80 -mt-1 font-bold">ARCADE OFICIAL</span>
+                        <span class="font-black text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-300">PLAYVERSE</span>
+                        <span class="text-[10px] block font-mono text-cyan-500/80 -mt-1 font-bold">GAMING · COMMUNITY · LIVE</span>
                     </div>
                 </div>
             </div>
             <div class="flex items-center space-x-3">
-                <button onclick="switchTab('events')" class="flex items-center space-x-1.5 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-full hover:border-amber-500/50">
-                    <i class="fa-solid fa-coins text-amber-400 animate-pulse"></i>
-                    <span id="header-tokens" class="text-xs font-bold text-amber-300">2500</span>
+                <button onclick="switchTab('events')" class="flex items-center space-x-1.5 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-full hover:border-blue-500/50">
+                    <i class="fa-solid fa-coins text-blue-400 animate-pulse"></i>
+                    <span id="header-créditos" class="text-xs font-bold text-blue-300">2500</span>
                 </button>
-                <button onclick="openPostModal()" class="bg-orange-500/20 text-orange-400 border border-orange-500/40 p-2 rounded-xl hover:bg-orange-500 hover:text-white"><i class="fa-solid fa-plus text-sm"></i></button>
-                <button onclick="switchTab('profile')" class="w-8 h-8 rounded-full omlet-gradient p-0.5 shadow-md flex items-center justify-center text-xs">🎮</button>
+                <button onclick="openPostModal()" class="bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 p-2 rounded-xl hover:bg-cyan-500 hover:text-white"><i class="fa-solid fa-plus text-sm"></i></button>
+                <button onclick="switchTab('profile')" class="w-8 h-8 rounded-full PLAYVERSE-gradient p-0.5 shadow-md flex items-center justify-center text-xs">🎮</button>
             </div>
         </header>
 
         <!-- DRAWER LATERAL -->
         <div id="drawer-backdrop" onclick="toggleDrawer(false)" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden"></div>
         <div id="drawer-panel" class="fixed inset-y-0 left-0 w-80 bg-slate-900 border-r border-slate-800 z-50 flex flex-col transform -translate-x-full transition-transform duration-300 shadow-2xl">
-            <div class="p-5 border-b border-slate-800 flex items-center justify-between omlet-gradient">
+            <div class="p-5 border-b border-slate-800 flex items-center justify-between PLAYVERSE-gradient">
                 <div class="flex items-center space-x-3">
                     <div class="w-12 h-12 rounded-full bg-slate-950 border-2 border-white/40 flex items-center justify-center text-2xl shadow-lg">🎮</div>
                     <div>
                         <h4 id="drawer-username" class="font-bold text-sm text-white">Wachin Gamer</h4>
-                        <span class="text-[10px] text-orange-200 font-mono font-bold">Nivel 42 • VIP</span>
+                        <span id="drawer-profile-subtitle" class="text-[10px] text-cyan-200 font-mono font-bold">Comunidad gamer</span>
                     </div>
                 </div>
                 <button onclick="toggleDrawer(false)" class="text-white hover:bg-black/20 p-2 rounded-xl"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <nav class="p-3 space-y-1.5 flex-1 overflow-y-auto">
-                <button onclick="switchTab('feed'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-tv text-orange-400 w-5"></i><span>Feed y Transmisiones</span></button>
+                <button onclick="switchTab('feed'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-tv text-cyan-400 w-5"></i><span>Feed y Transmisiones</span></button>
                 <button onclick="switchTab('lobbies'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-gamepad text-emerald-400 w-5"></i><span>Salas Multijugador</span></button>
                 <button onclick="switchTab('shop'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-store text-purple-400 w-5"></i><span>Tienda Arcade & Marcos</span></button>
-                <button onclick="switchTab('events'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-sparkles text-amber-400 w-5"></i><span>Ruleta y Sorteos</span></button>
+                <button onclick="switchTab('events'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-sparkles text-blue-400 w-5"></i><span>Ruleta y Sorteos</span></button>
                 <button onclick="switchTab('profile'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-user-gear text-cyan-400 w-5"></i><span>Mi Perfil</span></button>
+                <button onclick="switchTab('friends'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-user-group text-pink-400 w-5"></i><span>Amigos y solicitudes</span></button>
             </nav>
-            <div class="p-4 border-t border-slate-800">
+            <div class="p-4 border-t border-slate-800 space-y-2">
                 <button onclick="openSettingsModal(); toggleDrawer(false);" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold text-slate-300">
                     <i class="fa-solid fa-gear text-slate-400 w-5"></i><span>Ajustes de Stream y App</span>
+                </button>
+                <button onclick="logout()" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-red-950/40 text-sm font-semibold text-red-300">
+                    <i class="fa-solid fa-right-from-bracket w-5"></i><span>Cerrar sesión</span>
                 </button>
             </div>
         </div>
 
         <!-- CONTENIDO TABS -->
-        <main class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-4xl mx-auto w-full">
+        <main class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-4xl mx-auto w-full"><div class="rounded-xl border border-cyan-500/30 bg-cyan-950/40 px-4 py-3 text-xs text-cyan-100"><strong>PLAYVERSE · CONSTRUCCIÓN EN CURSO</strong><br>Registro, inicio de sesión y perfil básico conectados a la API. Feed, transmisiones, tienda, créditos y herramientas sociales siguen en desarrollo.</div>
             <!-- TAB FEED -->
             <div id="tab-feed" class="space-y-6">
-                <div class="omlet-card rounded-2xl p-4 flex items-center justify-between border-orange-500/30 neon-border">
+                <div class="PLAYVERSE-card rounded-2xl p-4 flex items-center justify-between border-cyan-500/30 neon-border">
                     <div class="flex items-center space-x-3">
-                        <div class="w-12 h-12 rounded-xl omlet-gradient flex items-center justify-center text-white text-xl shadow-md"><i class="fa-solid fa-video"></i></div>
+                        <div class="w-12 h-12 rounded-xl PLAYVERSE-gradient flex items-center justify-center text-white text-xl shadow-md"><i class="fa-solid fa-video"></i></div>
                         <div>
                             <h4 class="font-bold text-sm">¿Qué estás jugando hoy?</h4>
                             <p class="text-xs text-slate-400">Inicia un stream o comparte un clip con el mundo</p>
                         </div>
                     </div>
-                    <button onclick="openStreamStudio()" class="omlet-gradient text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md hover:scale-105">Transmitir</button>
+                    <button onclick="openStreamStudio()" class="PLAYVERSE-gradient text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md hover:scale-105">Transmitir</button>
                 </div>
 
                 <div class="space-y-4">
-                    <h3 class="font-black text-base flex items-center gap-2"><i class="fa-solid fa-fire text-orange-500"></i> Streams en Vivo Populares</h3>
+                    <h3 class="font-black text-base flex items-center gap-2"><i class="fa-solid fa-fire text-cyan-500"></i> Streams en Vivo Populares</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="omlet-card rounded-2xl overflow-hidden shadow-lg">
+                        <div class="PLAYVERSE-card rounded-2xl overflow-hidden shadow-lg">
                             <div class="relative aspect-video bg-slate-950 flex items-center justify-center">
                                 <img src="https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=80" alt="Minecraft" class="w-full h-full object-cover opacity-75">
                                 <div class="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded flex items-center gap-1">EN VIVO</div>
@@ -150,7 +160,7 @@
                                     <div class="w-9 h-9 rounded-full bg-purple-500/20 border border-purple-400 flex items-center justify-center text-lg">🧙‍♂️</div>
                                     <div><h5 class="font-bold text-sm">GamerPro_MC</h5><p class="text-[10px] text-slate-400">1,420 espectadores</p></div>
                                 </div>
-                                <button onclick="alert('Conectando...')" class="bg-orange-500/20 text-orange-400 border border-orange-500/40 text-xs px-3.5 py-1.5 rounded-xl font-bold">Ver Stream</button>
+                                <button onclick="alert('Conectando...')" class="bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 text-xs px-3.5 py-1.5 rounded-xl font-bold">Ver Stream</button>
                             </div>
                         </div>
                     </div>
@@ -158,89 +168,104 @@
 
                 <div class="space-y-4 pt-2">
                     <h3 class="font-black text-base flex items-center gap-2"><i class="fa-solid fa-earth-americas text-purple-400"></i> Publicaciones de la Comunidad</h3>
-                    <div id="community-posts-container" class="space-y-4">
-                        <div class="omlet-card rounded-2xl p-4 space-y-3">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center space-x-3">
-                                    <div class="w-10 h-10 rounded-full omlet-gradient flex items-center justify-center text-lg font-bold text-white">🔥</div>
-                                    <div><h5 class="font-bold text-sm">Alex_Craft_YT</h5><p class="text-[10px] text-slate-400">Hace 15 minutos</p></div>
-                                </div>
-                                <span class="text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">Mundo Abierto</span>
-                            </div>
-                            <p class="text-sm text-slate-200">¡Acabo de terminar mi granja automática en Omlet Arcade! ¿Quién se une? 🛡️✨</p>
-                            <div class="flex items-center space-x-4 pt-2 text-xs text-slate-400 border-t border-slate-800">
-                                <button class="hover:text-orange-400"><i class="fa-solid fa-heart"></i> 342 Me gusta</button>
-                                <button class="hover:text-orange-400"><i class="fa-solid fa-comment"></i> 48 Comentarios</button>
-                            </div>
-                        </div>
+                    <p id="community-posts-status" class="text-xs text-slate-400" role="status">Cargando publicaciones…</p>
+                    <div id="community-posts-container" class="space-y-4" aria-live="polite"></div>
+                    <button id="community-load-more" type="button" class="hidden w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-xs font-bold text-cyan-300 hover:border-cyan-500 disabled:opacity-50">Cargar más publicaciones</button>
                     </div>
                 </div>
             </div>
 
             <!-- TAB LOBBIES -->
             <div id="tab-lobbies" class="space-y-6 hidden">
-                <div class="flex items-center justify-between">
-                    <div><h3 class="font-black text-lg">Salas Multijugador</h3><p class="text-xs text-slate-400">Mundos abiertos sin IPs</p></div>
-                    <button onclick="alert('Creando sala...')" class="bg-emerald-500 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-xl">+ Crear Sala</button>
+                <div class="flex items-center justify-between gap-3">
+                    <div><h3 class="font-black text-lg">Salas Multijugador</h3><p class="text-xs text-slate-400">Salas reales de la comunidad</p></div>
+                    <button onclick="openCreateRoomModal()" class="bg-emerald-500 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-xl">+ Crear Sala</button>
                 </div>
-                <div class="grid gap-3">
-                    <div class="omlet-card p-4 rounded-2xl flex items-center justify-between">
-                        <div>
-                            <span class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">MINECRAFT</span>
-                            <h4 class="font-bold text-sm mt-1 text-white">Mundo Survival Técnico 1.20</h4>
-                            <p class="text-xs text-slate-400">Host: AlexCraft • Ping: 18ms</p>
-                        </div>
-                        <button onclick="alert('Entrando...')" class="bg-emerald-500 text-slate-950 text-xs font-black px-4 py-2.5 rounded-xl">Unirse</button>
-                    </div>
+                <p id="rooms-status" class="text-xs text-slate-400" role="status">Cargando salas…</p>
+                <div id="rooms-container" class="grid gap-3" aria-live="polite"></div>
+            </div>
+
+            <!-- TAB FRIENDS -->
+            <div id="tab-friends" class="space-y-6 hidden">
+                <div class="space-y-2">
+                    <h3 class="font-black text-lg">Amigos de PLAYVERSE</h3>
+                    <p class="text-xs text-slate-400">Buscá jugadores por su nombre de usuario y conectá con la comunidad.</p>
                 </div>
+                <form id="friends-search-form" class="flex gap-2">
+                    <input id="friends-search-input" maxlength="24" required pattern="[A-Za-z0-9_]{3,24}" class="min-w-0 flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white" placeholder="Nombre de usuario">
+                    <button id="friends-search-button" class="PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white">Buscar</button>
+                </form>
+                <p id="friends-status" class="text-xs text-slate-400" role="status"></p>
+                <div id="friends-search-result" class="space-y-2"></div>
+                <section class="space-y-3">
+                    <h4 class="font-bold text-sm text-white">Solicitudes recibidas</h4>
+                    <div id="friends-incoming" class="space-y-2"></div>
+                </section>
+                <section class="space-y-3">
+                    <h4 class="font-bold text-sm text-white">Solicitudes enviadas</h4>
+                    <div id="friends-outgoing" class="space-y-2"></div>
+                </section>
+                <section class="space-y-3">
+                    <h4 class="font-bold text-sm text-white">Mis amigos</h4>
+                    <div id="friends-list" class="space-y-2"></div>
+                </section>
             </div>
 
             <!-- TAB SHOP -->
             <div id="tab-shop" class="space-y-6 hidden">
                 <h3 class="font-black text-lg">Tienda Arcade & Personalización</h3>
                 <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div class="omlet-card p-4 rounded-2xl text-center space-y-3">
+                    <div class="PLAYVERSE-card p-4 rounded-2xl text-center space-y-3">
                         <div class="text-4xl my-2 bg-slate-950 w-16 h-16 rounded-2xl mx-auto flex items-center justify-center border border-slate-800">💫</div>
                         <h4 class="font-bold text-sm text-white">Marco Neón Cyber</h4>
-                        <button onclick="buyShopItem('Marco Neón Cyber', 1500)" class="w-full bg-slate-800 border border-slate-700 text-amber-300 text-xs font-bold py-2 rounded-xl"><i class="fa-solid fa-coins text-amber-400"></i> 1500</button>
+                        <button onclick="buyShopItem('Marco Neón Cyber', 1500)" class="w-full bg-slate-800 border border-slate-700 text-blue-300 text-xs font-bold py-2 rounded-xl"><i class="fa-solid fa-coins text-blue-400"></i> 1500</button>
                     </div>
-                    <div class="omlet-card p-4 rounded-2xl text-center space-y-3">
+                    <div class="PLAYVERSE-card p-4 rounded-2xl text-center space-y-3">
                         <div class="text-4xl my-2 bg-slate-950 w-16 h-16 rounded-2xl mx-auto flex items-center justify-center border border-slate-800">🔥</div>
                         <h4 class="font-bold text-sm text-white">HUD Stream Fuego</h4>
-                        <button onclick="buyShopItem('HUD Stream Fuego', 3000)" class="w-full bg-slate-800 border border-slate-700 text-amber-300 text-xs font-bold py-2 rounded-xl"><i class="fa-solid fa-coins text-amber-400"></i> 3000</button>
+                        <button onclick="buyShopItem('HUD Stream Fuego', 3000)" class="w-full bg-slate-800 border border-slate-700 text-blue-300 text-xs font-bold py-2 rounded-xl"><i class="fa-solid fa-coins text-blue-400"></i> 3000</button>
                     </div>
                 </div>
             </div>
 
             <!-- TAB EVENTS -->
             <div id="tab-events" class="space-y-6 hidden text-center max-w-lg mx-auto">
-                <h3 class="font-black text-xl">Ruleta Diaria Omlet</h3>
+                <h3 class="font-black text-xl">Ruleta Diaria PLAYVERSE</h3>
                 <div class="relative w-64 h-64 mx-auto my-6">
-                    <div id="roulette-wheel" class="w-full h-full rounded-full border-4 border-amber-400 omlet-gradient shadow-2xl flex items-center justify-center transition-all duration-[3000ms] ease-out">
-                        <div class="text-xs font-black text-white grid grid-cols-2 gap-8 p-4 text-center"><span>500 Tokens</span><span>Marco VIP</span><span>Huevo Oro</span><span>100 Tokens</span></div>
+                    <div id="roulette-wheel" class="w-full h-full rounded-full border-4 border-blue-400 PLAYVERSE-gradient shadow-2xl flex items-center justify-center transition-all duration-[3000ms] ease-out">
+                        <div class="text-xs font-black text-white grid grid-cols-2 gap-8 p-4 text-center"><span>500 Créditos</span><span>Marco VIP</span><span>Bonus sorpresa</span><span>100 Créditos</span></div>
                     </div>
                 </div>
-                <button onclick="spinRoulette()" class="omlet-gradient text-white font-black px-8 py-3.5 rounded-2xl shadow-xl uppercase">Girar Ruleta (100 Tokens)</button>
+                <button onclick="spinRoulette()" class="PLAYVERSE-gradient text-white font-black px-8 py-3.5 rounded-2xl shadow-xl uppercase">Girar Ruleta (100 Créditos)</button>
                 <p id="roulette-result" class="text-sm font-bold text-emerald-400 h-6"></p>
             </div>
 
             <!-- TAB PROFILE -->
             <div id="tab-profile" class="space-y-6 hidden max-w-xl mx-auto">
-                <div class="omlet-card rounded-3xl p-6 text-center space-y-4">
-                    <div class="w-24 h-24 mx-auto rounded-full omlet-gradient p-1 shadow-2xl flex items-center justify-center text-4xl">🎮</div>
-                    <div><h3 id="profile-username" class="font-black text-xl text-white">Wachin Gamer</h3><p class="text-xs text-orange-400 font-mono mt-0.5">#OMLET1337</p></div>
-                    <div class="grid grid-cols-3 gap-3">
-                        <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800"><span class="block text-[10px] text-slate-400 font-bold">NIVEL</span><span class="font-black text-base text-white">42</span></div>
-                        <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800"><span class="block text-[10px] text-slate-400 font-bold">TOKENS</span><span id="profile-tokens" class="font-black text-base text-amber-400">2500</span></div>
-                        <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800"><span class="block text-[10px] text-slate-400 font-bold">RANGO</span><span class="font-black text-base text-purple-400">VIP</span></div>
+                <div class="PLAYVERSE-card rounded-3xl p-6 text-center space-y-4">
+                    <div class="w-24 h-24 mx-auto rounded-full PLAYVERSE-gradient p-1 shadow-2xl flex items-center justify-center text-4xl overflow-hidden">
+                        <span id="profile-avatar-placeholder">🎮</span>
+                        <img id="profile-avatar" class="hidden w-full h-full object-cover rounded-full" alt="Avatar del perfil">
                     </div>
+                    <div>
+                        <h3 id="profile-display-name" class="font-black text-xl text-white">Jugador PLAYVERSE</h3>
+                        <p id="profile-username" class="text-xs text-cyan-400 font-mono mt-0.5">@usuario</p>
+                        <p id="profile-bio" class="text-sm text-slate-300 mt-3 whitespace-pre-wrap break-words">Todavía no agregaste una biografía.</p>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800"><span class="block text-[10px] text-slate-400 font-bold">ROL</span><span id="profile-role" class="font-black text-sm text-white">Jugador</span></div>
+                        <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800"><span class="block text-[10px] text-slate-400 font-bold">CUENTA</span><span class="font-black text-sm text-emerald-400">Activa</span></div>
+                        <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800"><span class="block text-[10px] text-slate-400 font-bold">MIEMBRO DESDE</span><span id="profile-member-since" class="font-black text-sm text-white">—</span></div>
+                    </div>
+                    <button type="button" onclick="openProfileEditor()" class="w-full rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-4 py-3 text-xs font-bold text-cyan-300">Editar perfil</button>
+                    <p id="profile-status" class="text-xs text-slate-400" role="status"></p>
                 </div>
             </div>
         </main>
 
         <!-- OVERLAY FLOTANTE -->
         <div id="floating-widget" class="fixed top-28 left-6 z-40 flex items-center gap-2 cursor-grab active:cursor-grabbing select-none" style="touch-action: none;">
-            <div class="w-12 h-12 omlet-gradient rounded-full flex items-center justify-center shadow-2xl border-2 border-white/50 text-white font-bold"><i class="fa-solid fa-gamepad text-lg"></i></div>
+            <div class="w-12 h-12 PLAYVERSE-gradient rounded-full flex items-center justify-center shadow-2xl border-2 border-white/50 text-white font-bold"><i class="fa-solid fa-gamepad text-lg"></i></div>
             <div class="bg-slate-900/90 backdrop-blur-md border border-slate-700 rounded-2xl p-2 flex items-center gap-2 shadow-2xl">
                 <button onclick="openStreamStudio()" class="bg-red-600 text-white px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5"><i class="fa-solid fa-video"></i> STREAM</button>
                 <button onclick="toggleMic()" id="widget-mic-btn" class="p-2 rounded-xl bg-slate-800 text-slate-200"><i class="fa-solid fa-microphone text-xs" id="mic-icon"></i></button>
@@ -249,9 +274,9 @@
 
         <!-- BOTTOM NAV -->
         <nav class="h-16 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 grid grid-cols-5 items-center shrink-0 z-30">
-            <button onclick="switchTab('feed')" id="nav-btn-feed" class="flex flex-col items-center justify-center text-orange-400"><i class="fa-solid fa-tv text-lg"></i><span class="text-[10px] mt-1 font-semibold">Transmitir</span></button>
+            <button onclick="switchTab('feed')" id="nav-btn-feed" class="flex flex-col items-center justify-center text-cyan-400"><i class="fa-solid fa-tv text-lg"></i><span class="text-[10px] mt-1 font-semibold">Transmitir</span></button>
             <button onclick="switchTab('lobbies')" id="nav-btn-lobbies" class="flex flex-col items-center justify-center text-slate-400"><i class="fa-solid fa-gamepad text-lg"></i><span class="text-[10px] mt-1 font-semibold">Salas</span></button>
-            <div class="flex justify-center -mt-5"><button onclick="openPostModal()" class="w-14 h-14 omlet-gradient rounded-full flex items-center justify-center text-white shadow-xl border-4 border-slate-950 text-xl"><i class="fa-solid fa-plus"></i></button></div>
+            <div class="flex justify-center -mt-5"><button onclick="openPostModal()" class="w-14 h-14 PLAYVERSE-gradient rounded-full flex items-center justify-center text-white shadow-xl border-4 border-slate-950 text-xl"><i class="fa-solid fa-plus"></i></button></div>
             <button onclick="switchTab('shop')" id="nav-btn-shop" class="flex flex-col items-center justify-center text-slate-400"><i class="fa-solid fa-store text-lg"></i><span class="text-[10px] mt-1 font-semibold">Tienda</span></button>
             <button onclick="switchTab('events')" id="nav-btn-events" class="flex flex-col items-center justify-center text-slate-400"><i class="fa-solid fa-sparkles text-lg"></i><span class="text-[10px] mt-1 font-semibold">Ruleta</span></button>
         </nav>
@@ -259,66 +284,499 @@
 
     <!-- MODAL POST -->
     <div id="post-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
-        <div class="omlet-card rounded-3xl w-full max-w-md p-6 space-y-4 border border-slate-800">
+        <div class="PLAYVERSE-card rounded-3xl w-full max-w-md p-6 space-y-4 border border-slate-800">
             <div class="flex items-center justify-between pb-3 border-b border-slate-800"><h3 class="font-black text-base text-white">Crear Publicación</h3><button onclick="closePostModal()" class="text-slate-400"><i class="fa-solid fa-xmark text-lg"></i></button></div>
-            <textarea id="post-text-input" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-sm text-white focus:outline-none focus:border-orange-500 resize-none" placeholder="¿Qué quieres compartir con la comunidad de Omlet?..."></textarea>
-            <div class="flex justify-end pt-2"><button onclick="submitPost()" class="omlet-gradient text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md">Publicar</button></div>
+            <textarea id="post-text-input" rows="4" maxlength="2000" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-sm text-white focus:outline-none focus:border-cyan-500 resize-none" placeholder="¿Qué quieres compartir con la comunidad de PLAYVERSE?..."></textarea>
+            <p id="post-form-status" class="text-xs text-slate-400" role="status">Máximo 2000 caracteres.</p>
+            <div class="flex justify-end pt-2"><button id="post-submit-btn" onclick="submitPost()" class="PLAYVERSE-gradient text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md">Publicar</button></div>
         </div>
     </div>
 
-    <!-- MODAL SETTINGS -->
+    <!-- MODAL SETTINGS: PREFERENCIAS DE CREADOR PERSISTIDAS EN LA API -->
     <div id="settings-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
-        <div class="omlet-card rounded-3xl w-full max-w-lg p-6 space-y-5 border border-slate-800">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-800"><h3 class="font-black text-lg text-white">Ajustes de Stream y App</h3><button onclick="closeSettingsModal()" class="text-slate-400"><i class="fa-solid fa-xmark text-lg"></i></button></div>
-            <div class="space-y-4 text-sm">
-                <div><label class="text-xs font-bold text-slate-400 block mb-1">Calidad de Transmisión</label><select class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option>1080p HD</option><option selected>720p HD</option></select></div>
+        <form id="streaming-settings-form" onsubmit="saveStreamingPreferences(event)" class="PLAYVERSE-card rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-5 border border-slate-800">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800"><div><h3 class="font-black text-lg text-white">Preferencias de creador</h3><p class="text-xs text-slate-400">Se guardan en tu cuenta PLAYVERSE</p></div><button type="button" onclick="closeSettingsModal()" class="text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+            <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-cyan-300">Calidad de salida</h4>
+                <label class="block text-xs text-slate-400">Resolución preferida<select id="stream-resolution" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="auto">Automática</option><option value="720p">720p</option><option value="1080p">1080p</option><option value="1440p">1440p</option><option value="2160p">2160p (4K)</option></select></label>
+                <div class="grid grid-cols-2 gap-3"><label class="text-xs text-slate-400">Fotogramas por segundo<select id="stream-fps" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="24">24 FPS</option><option value="30">30 FPS</option><option value="60">60 FPS</option><option value="120">120 FPS</option></select></label><label class="text-xs text-slate-400">Bitrate objetivo<select id="stream-bitrate" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="3">3 Mbps</option><option value="6">6 Mbps</option><option value="8">8 Mbps</option><option value="12">12 Mbps</option><option value="20">20 Mbps</option><option value="30">30 Mbps</option><option value="50">50 Mbps</option></select></label></div>
+            </section>
+            <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-cyan-300">Captura y audio</h4>
+                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Cámara habilitada<input id="stream-camera" type="checkbox" class="accent-cyan-400 w-5 h-5"></label>
+                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Micrófono habilitado<input id="stream-microphone" type="checkbox" class="accent-cyan-400 w-5 h-5"></label>
+                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Audio del sistema habilitado<input id="stream-system-audio" type="checkbox" class="accent-cyan-400 w-5 h-5"></label>
+            </section>
+            <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-cyan-300">Presentación</h4>
+                <div class="grid grid-cols-2 gap-3"><label class="text-xs text-slate-400">Orientación<select id="stream-orientation" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="auto">Automática</option><option value="portrait">Vertical</option><option value="landscape">Horizontal</option></select></label><label class="text-xs text-slate-400">Posición de cámara<select id="stream-camera-position" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="top-left">Arriba izquierda</option><option value="top-right">Arriba derecha</option><option value="bottom-left">Abajo izquierda</option><option value="bottom-right">Abajo derecha</option></select></label></div>
+                <label class="block text-xs text-slate-400">Marco de cámara<select id="stream-camera-frame" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="none">Sin marco</option><option value="cyan">Cian</option><option value="violet">Violeta</option></select></label>
+            </section>
+            <p id="streaming-settings-status" class="text-xs text-slate-400" role="status">Cargando preferencias guardadas…</p>
+            <p class="text-[11px] text-amber-300/90">Estas opciones guardan tus preferencias. No activan todavía la captura de pantalla/cámara ni inician una transmisión real.</p>
+            <div class="flex gap-2"><button type="button" onclick="closeSettingsModal()" class="flex-1 rounded-xl border border-slate-700 px-4 py-3 text-xs font-bold text-slate-300">Cancelar</button><button id="streaming-settings-save" type="submit" class="flex-1 PLAYVERSE-gradient text-white font-bold py-3 rounded-xl shadow-md">Guardar preferencias</button></div>
+        </form>
+    </div>
+
+    <!-- MODAL EDITAR PERFIL -->
+    <div id="profile-editor-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <form id="profile-editor-form" class="PLAYVERSE-card rounded-3xl w-full max-w-lg p-6 space-y-4 border border-slate-800">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                <h3 class="font-black text-lg text-white">Editar perfil</h3>
+                <button type="button" onclick="closeProfileEditor()" class="text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            <button onclick="closeSettingsModal()" class="w-full omlet-gradient text-white font-bold py-3 rounded-xl shadow-md">Guardar Ajustes</button>
-        </div>
+            <div><label for="profile-display-name-input" class="text-xs font-bold text-slate-400 block mb-1">Nombre visible</label><input id="profile-display-name-input" maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="Cómo querés que te vean"></div>
+            <div><label for="profile-bio-input" class="text-xs font-bold text-slate-400 block mb-1">Biografía (máximo 160 caracteres)</label><textarea id="profile-bio-input" maxlength="160" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white resize-y" placeholder="Contá algo sobre vos y tus juegos"></textarea></div>
+            <div><label for="profile-avatar-url-input" class="text-xs font-bold text-slate-400 block mb-1">Avatar (URL HTTPS)</label><input id="profile-avatar-url-input" type="url" maxlength="500" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="https://..."></div>
+            <p id="profile-editor-status" class="text-xs text-slate-400" role="status"></p>
+            <div class="flex gap-2"><button type="button" onclick="closeProfileEditor()" class="flex-1 rounded-xl border border-slate-700 px-4 py-3 text-xs font-bold text-slate-300">Cancelar</button><button id="profile-save-button" type="submit" class="flex-1 PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white">Guardar perfil</button></div>
+        </form>
+    </div>
+
+    <!-- MODAL CREAR SALA -->
+    <div id="room-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <form id="room-form" onsubmit="handleCreateRoom(event)" class="PLAYVERSE-card rounded-3xl w-full max-w-md p-6 space-y-4 border border-slate-800">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800"><h3 class="font-black text-base text-white">Crear sala multijugador</h3><button type="button" onclick="closeCreateRoomModal()" class="text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+            <label class="block text-xs font-semibold text-slate-400">Nombre de la sala<input id="room-name" required minlength="3" maxlength="60" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-sm text-white" placeholder="Ej. Supervivencia con amigos"></label>
+            <label class="block text-xs font-semibold text-slate-400">Juego<input id="room-game" required minlength="2" maxlength="40" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-sm text-white" placeholder="Ej. Minecraft"></label>
+            <label class="block text-xs font-semibold text-slate-400">Capacidad máxima<select id="room-capacity" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-sm text-white"><option value="2">2 jugadores</option><option value="4">4 jugadores</option><option value="8">8 jugadores</option><option value="12" selected>12 jugadores</option><option value="20">20 jugadores</option><option value="50">50 jugadores</option><option value="100">100 jugadores</option></select></label>
+            <p id="room-form-status" class="text-xs text-slate-400" role="status"></p>
+            <div class="flex gap-2"><button type="button" onclick="closeCreateRoomModal()" class="flex-1 bg-slate-800 text-white font-bold py-3 rounded-xl">Cancelar</button><button id="room-submit" type="submit" class="flex-1 PLAYVERSE-gradient text-white font-bold py-3 rounded-xl">Crear sala</button></div>
+        </form>
+    </div>
+
+    <div id="room-chat-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 hidden">
+        <section class="PLAYVERSE-card rounded-3xl w-full max-w-xl h-[80vh] max-h-[720px] p-4 flex flex-col border border-slate-700">
+            <div class="flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                <div class="min-w-0"><h3 id="room-chat-title" class="font-black text-base text-white truncate">Chat de sala</h3><p id="room-chat-status" class="text-xs text-slate-400" role="status">Conectando…</p></div>
+                <button type="button" onclick="closeRoomChat()" class="text-slate-400 p-2" aria-label="Cerrar chat"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div id="room-chat-messages" class="flex-1 overflow-y-auto py-3 space-y-2" aria-live="polite"></div>
+            <form id="room-chat-form" onsubmit="sendRoomMessage(event)" class="flex gap-2 border-t border-slate-800 pt-3">
+                <input id="room-chat-input" maxlength="1000" required autocomplete="off" class="min-w-0 flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-sm text-white" placeholder="Escribí un mensaje…">
+                <button id="room-chat-send" type="submit" class="PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white">Enviar</button>
+            </form>
+        </section>
     </div>
 
     <script>
-        let appState = { username: "Wachin Gamer", tokens: 2500 };
-        window.addEventListener('DOMContentLoaded', () => {
+        const API_URL = window.PLAYVERSE_API_URL || 'https://playverse-api-bgyg.onrender.com';
+        const SESSION_KEY = 'playverse_session_token';
+        let authToken = sessionStorage.getItem(SESSION_KEY);
+        let appState = { username: '', créditos: 0 };
+        let activeRoomId = null;
+        let activeRoomName = '';
+        let roomSocket = null;
+        let roomSocketJoined = false;
+        let socketScriptLoading = false;
+
+        function setAuthMessage(message, isError = true) {
+            let status = document.getElementById('auth-status');
+            if (!status) {
+                status = document.createElement('p');
+                status.id = 'auth-status';
+                status.className = 'text-xs text-center mt-3';
+                document.getElementById('auth-form').after(status);
+            }
+            status.className = isError ? 'text-xs text-center mt-3 text-red-400' : 'text-xs text-center mt-3 text-emerald-400';
+            status.textContent = message;
+        }
+
+        function applyProfileData(user) {
+            appState.username = user.username;
+            appState.profile = user;
+            const displayName = user.displayName || user.username;
+            document.getElementById('drawer-username').textContent = displayName;
+            document.getElementById('profile-display-name').textContent = displayName;
+            document.getElementById('profile-username').textContent = '@' + user.username;
+            document.getElementById('profile-bio').textContent = user.bio || 'Todavía no agregaste una biografía.';
+            const roleLabels = { user: 'Jugador', moderator: 'Moderador', admin: 'Administrador' };
+            document.getElementById('profile-role').textContent = roleLabels[user.role] || 'Jugador';
+            document.getElementById('drawer-profile-subtitle').textContent = roleLabels[user.role] || 'Comunidad gamer';
+            const memberSince = user.createdAt ? new Date(user.createdAt) : null;
+            document.getElementById('profile-member-since').textContent =
+                memberSince && !Number.isNaN(memberSince.getTime()) ? memberSince.toLocaleDateString('es-AR', { month: 'short', year: 'numeric' }) : '—';
+
+            const avatar = document.getElementById('profile-avatar');
+            const placeholder = document.getElementById('profile-avatar-placeholder');
+            if (user.avatarUrl) {
+                avatar.onerror = () => {
+                    avatar.classList.add('hidden');
+                    placeholder.classList.remove('hidden');
+                };
+                avatar.src = user.avatarUrl;
+                avatar.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+            } else {
+                avatar.removeAttribute('src');
+                avatar.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+            }
+        }
+
+        async function loadMyProfile() {
+            try {
+                const data = await apiRequest('/api/me');
+                if (data.user) applyProfileData(data.user);
+            } catch (error) {
+                const status = document.getElementById('profile-status');
+                if (status) status.textContent = error.message;
+            }
+        }
+
+        function showAuthenticatedApp(user) {
+            applyProfileData(user);
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            loadMyProfile();
+            loadRooms();
+            loadCommunityPosts();
+        }
+
+        async function restoreSession() {
+            if (!authToken) return false;
+            try {
+                const response = await fetch(API_URL + '/api/me', {
+                    headers: { Authorization: 'Bearer ' + authToken }
+                });
+                if (!response.ok) throw new Error('SESSION_EXPIRED');
+                const data = await response.json();
+                if (!data.success || !data.user) throw new Error('SESSION_INVALID');
+                showAuthenticatedApp(data.user);
+                return true;
+            } catch (error) {
+                authToken = null;
+                sessionStorage.removeItem(SESSION_KEY);
+                return false;
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
             const progress = document.getElementById('splash-progress');
             setTimeout(() => { progress.style.width = '100%'; }, 200);
-            setTimeout(() => {
+            setTimeout(async () => {
                 const splash = document.getElementById('splash-screen');
                 splash.style.opacity = '0';
-                setTimeout(() => { splash.remove(); document.getElementById('auth-screen').classList.remove('hidden'); }, 500);
-            }, 1800);
+                setTimeout(async () => {
+                    splash.remove();
+                    const restored = await restoreSession();
+                    if (!restored) document.getElementById('auth-screen').classList.remove('hidden');
+                }, 500);
+            }, 900);
         });
 
         let isRegisterMode = false;
         function toggleAuthMode() {
             isRegisterMode = !isRegisterMode;
-            document.getElementById('auth-title').innerText = isRegisterMode ? 'Crear Cuenta en Omlet' : 'Iniciar Sesión en Omlet';
+            document.getElementById('auth-title').innerText = isRegisterMode ? 'Crear Cuenta en PLAYVERSE' : 'Iniciar Sesión en PLAYVERSE';
             document.getElementById('auth-submit-btn').innerText = isRegisterMode ? 'Registrarse' : 'Iniciar Sesión';
-            document.getElementById('email-field-container').classList.toggle('hidden', !isRegisterMode);
+            document.getElementById('input-password').setAttribute('minlength', isRegisterMode ? '12' : '1');
+            document.getElementById('auth-subtitle').innerText = isRegisterMode ? 'Usá una contraseña de al menos 12 caracteres' : 'Tu universo gamer comienza aquí';
+            document.getElementById('auth-status')?.remove();
         }
 
-        function handleAuthSubmit(e) {
+        async function handleAuthSubmit(e) {
             e.preventDefault();
-            const username = document.getElementById('input-username').value;
-            if(username) appState.username = username;
-            document.getElementById('drawer-username').innerText = appState.username;
-            document.getElementById('profile-username').innerText = appState.username;
-            document.getElementById('auth-screen').classList.add('hidden');
-            document.getElementById('main-app').classList.remove('hidden');
+            const username = document.getElementById('input-username').value.trim();
+            const password = document.getElementById('input-password').value;
+            const button = document.getElementById('auth-submit-btn');
+            const endpoint = isRegisterMode ? '/api/register' : '/api/login';
+            button.disabled = true;
+            button.textContent = isRegisterMode ? 'Creando cuenta…' : 'Ingresando…';
+            setAuthMessage('Conectando con PLAYVERSE…', false);
+            try {
+                const response = await fetch(API_URL + endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(data.message || 'No se pudo completar la autenticación.');
+                if (!data.token || !data.user) throw new Error('El servidor respondió sin una sesión válida.');
+                authToken = data.token;
+                sessionStorage.setItem(SESSION_KEY, authToken);
+                setAuthMessage('Sesión iniciada correctamente.', false);
+                showAuthenticatedApp(data.user);
+            } catch (error) {
+                const message = error instanceof TypeError
+                    ? 'No se pudo conectar con la API. Revisá la dirección del servidor y que esté encendido.'
+                    : error.message;
+                setAuthMessage(message);
+            } finally {
+                button.disabled = false;
+                button.textContent = isRegisterMode ? 'Registrarse' : 'Iniciar Sesión';
+            }
+        }
+
+        function logout() {
+            authToken = null;
+            sessionStorage.removeItem(SESSION_KEY);
+            document.getElementById('main-app').classList.add('hidden');
+            document.getElementById('auth-screen').classList.remove('hidden');
+            document.getElementById('auth-form').reset();
+            setAuthMessage('Cerraste tu sesión.', false);
         }
 
         function switchTab(tabName) {
-            ['feed', 'lobbies', 'shop', 'events', 'profile'].forEach(t => {
+            ['feed', 'lobbies', 'shop', 'events', 'profile', 'friends'].forEach(t => {
                 const el = document.getElementById('tab-' + t);
                 if(el) el.classList.add('hidden');
             });
             document.getElementById('tab-' + tabName).classList.remove('hidden');
+            if (tabName === 'lobbies') loadRooms();
+            if (tabName === 'feed') loadCommunityPosts();
+            if (tabName === 'friends') loadFriends();
             ['feed', 'lobbies', 'shop', 'events'].forEach(t => {
                 const btn = document.getElementById('nav-btn-' + t);
-                if(btn) { btn.classList.remove('text-orange-400'); btn.classList.add('text-slate-400'); }
+                if(btn) { btn.classList.remove('text-cyan-400'); btn.classList.add('text-slate-400'); }
             });
             const activeNav = document.getElementById('nav-btn-' + tabName);
-            if(activeNav) { activeNav.classList.remove('text-slate-400'); activeNav.classList.add('text-orange-400'); }
+            if(activeNav) { activeNav.classList.remove('text-slate-400'); activeNav.classList.add('text-cyan-400'); }
+        }
+
+        async function apiRequest(path, options = {}) {
+            const response = await fetch(API_URL + path, {
+                ...options,
+                headers: {
+                    ...(options.headers || {}),
+                    ...(authToken ? { Authorization: 'Bearer ' + authToken } : {})
+                }
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.message || 'No se pudo completar la operación.');
+            return data;
+        }
+
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>"']/g, (char) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[char]);
+        }
+
+        async function loadRooms() {
+            const container = document.getElementById('rooms-container');
+            const status = document.getElementById('rooms-status');
+            if (!container || !status || !authToken) return;
+            status.textContent = 'Buscando salas públicas…';
+            try {
+                const data = await apiRequest('/api/rooms');
+                container.replaceChildren();
+                if (!data.rooms || data.rooms.length === 0) {
+                    status.textContent = 'Todavía no hay salas públicas. ¡Podés crear la primera!';
+                    return;
+                }
+                status.textContent = data.rooms.length + ' sala(s) pública(s)';
+                data.rooms.forEach((room) => {
+                    const card = document.createElement('article');
+                    card.className = 'PLAYVERSE-card p-4 rounded-2xl flex items-center justify-between gap-3';
+                    const isMember = room.isMember === true;
+                    const isOwner = room.isOwner === true;
+                    card.innerHTML = '<div class="min-w-0 flex-1"><span class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">' + escapeHtml(room.game.toUpperCase()) + '</span><h4 class="font-bold text-sm mt-1 text-white break-words">' + escapeHtml(room.name) + '</h4><p class="text-xs text-slate-400">Host: ' + escapeHtml(room.ownerUsername) + ' · ' + Number(room.memberCount) + '/' + Number(room.capacity) + ' jugadores</p></div><div class="flex flex-col gap-2 shrink-0"></div>';
+                    const actions = card.querySelector('div.flex.flex-col');
+                    if (isMember) {
+                        const chatButton = document.createElement('button');
+                        chatButton.type = 'button';
+                        chatButton.className = 'bg-cyan-500 text-slate-950 text-xs font-black px-3 py-2 rounded-xl';
+                        chatButton.textContent = 'Abrir chat';
+                        chatButton.addEventListener('click', () => openRoomChat(room.id, room.name));
+                        actions.appendChild(chatButton);
+                        const membershipButton = document.createElement('button');
+                        membershipButton.type = 'button';
+                        membershipButton.className = (isOwner ? 'bg-rose-500 text-white' : 'bg-slate-700 text-white') + ' text-xs font-black px-3 py-2 rounded-xl';
+                        membershipButton.textContent = isOwner ? 'Cerrar sala' : 'Abandonar';
+                        membershipButton.addEventListener('click', () => {
+                            if (isOwner) closeRoom(room.id);
+                            else leaveRoom(room.id);
+                        });
+                        actions.appendChild(membershipButton);
+                    } else {
+                        const joinButton = document.createElement('button');
+                        joinButton.type = 'button';
+                        joinButton.className = 'bg-emerald-500 text-slate-950 text-xs font-black px-3 py-2 rounded-xl';
+                        joinButton.textContent = Number(room.memberCount) >= Number(room.capacity) ? 'Completa' : 'Unirse';
+                        joinButton.disabled = Number(room.memberCount) >= Number(room.capacity);
+                        joinButton.classList.toggle('opacity-50', joinButton.disabled);
+                        joinButton.addEventListener('click', () => joinRoom(room.id, room.name));
+                        actions.appendChild(joinButton);
+                    }
+                    container.appendChild(card);
+                });
+            } catch (error) {
+                status.textContent = error.message;
+            }
+        }
+
+        function openCreateRoomModal() {
+            document.getElementById('room-form-status').textContent = '';
+            document.getElementById('room-modal').classList.remove('hidden');
+        }
+
+        function closeCreateRoomModal() {
+            document.getElementById('room-modal').classList.add('hidden');
+        }
+
+        async function handleCreateRoom(event) {
+            event.preventDefault();
+            const button = document.getElementById('room-submit');
+            const status = document.getElementById('room-form-status');
+            button.disabled = true;
+            button.textContent = 'Creando…';
+            try {
+                await apiRequest('/api/rooms', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: document.getElementById('room-name').value.trim(),
+                        game: document.getElementById('room-game').value.trim(),
+                        capacity: Number(document.getElementById('room-capacity').value)
+                    })
+                });
+                document.getElementById('room-form').reset();
+                closeCreateRoomModal();
+                await loadRooms();
+            } catch (error) {
+                status.textContent = error.message;
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Crear sala';
+            }
+        }
+
+        async function joinRoom(roomId, roomName) {
+            try {
+                await apiRequest('/api/rooms/' + encodeURIComponent(roomId) + '/join', { method: 'POST' });
+                document.getElementById('rooms-status').textContent = '¡Te uniste a la sala correctamente!';
+                await loadRooms();
+                await openRoomChat(roomId, roomName);
+            } catch (error) {
+                document.getElementById('rooms-status').textContent = error.message;
+            }
+        }
+
+        function appendRoomMessage(message) {
+            const container = document.getElementById('room-chat-messages');
+            if (!container || !message) return;
+            const item = document.createElement('article');
+            item.className = 'rounded-xl bg-slate-900 px-3 py-2';
+            const heading = document.createElement('p');
+            heading.className = 'text-[11px] font-bold text-cyan-400';
+            heading.textContent = String(message.username || 'Jugador') + ' · ' + new Date(message.sentAt || Date.now()).toLocaleTimeString();
+            const body = document.createElement('p');
+            body.className = 'text-sm text-slate-100 whitespace-pre-wrap break-words';
+            body.textContent = String(message.message || '');
+            item.append(heading, body);
+            container.appendChild(item);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function loadRoomMessages(roomId) {
+            const container = document.getElementById('room-chat-messages');
+            container.replaceChildren();
+            const data = await apiRequest('/api/rooms/' + encodeURIComponent(roomId) + '/messages');
+            data.messages.forEach(appendRoomMessage);
+        }
+
+        function connectRoomSocket(roomId) {
+            if (!window.io) {
+                if (socketScriptLoading) return;
+                socketScriptLoading = true;
+                const script = document.createElement('script');
+                script.src = API_URL + '/socket.io/socket.io.js';
+                script.onload = () => {
+                    socketScriptLoading = false;
+                    connectRoomSocket(roomId);
+                };
+                script.onerror = () => {
+                    socketScriptLoading = false;
+                    document.getElementById('room-chat-status').textContent = 'Chat en vivo no disponible; podés seguir enviando mensajes.';
+                };
+                document.head.appendChild(script);
+                return;
+            }
+            if (roomSocket) roomSocket.disconnect();
+            roomSocketJoined = false;
+            roomSocket = window.io(API_URL, { auth: { token: authToken } });
+            roomSocket.on('connect', () => {
+                roomSocket.emit('join_room', { roomId }, (result) => {
+                    roomSocketJoined = Boolean(result && result.success);
+                    document.getElementById('room-chat-status').textContent = roomSocketJoined
+                        ? 'Chat en vivo conectado'
+                        : (result && result.message) || 'No se pudo entrar al chat en vivo.';
+                });
+            });
+            roomSocket.on('receive_message', appendRoomMessage);
+            roomSocket.on('connect_error', () => {
+                roomSocketJoined = false;
+                document.getElementById('room-chat-status').textContent = 'Chat en vivo no disponible; modo de mensajes guardados.';
+            });
+            roomSocket.on('disconnect', () => {
+                roomSocketJoined = false;
+                document.getElementById('room-chat-status').textContent = 'Reconectando chat…';
+            });
+        }
+
+        async function openRoomChat(roomId, roomName) {
+            activeRoomId = roomId;
+            activeRoomName = roomName || 'Sala PLAYVERSE';
+            document.getElementById('room-chat-title').textContent = activeRoomName;
+            document.getElementById('room-chat-status').textContent = 'Cargando mensajes…';
+            document.getElementById('room-chat-modal').classList.remove('hidden');
+            try {
+                await loadRoomMessages(roomId);
+                connectRoomSocket(roomId);
+            } catch (error) {
+                document.getElementById('room-chat-status').textContent = error.message;
+            }
+        }
+
+        function closeRoomChat() {
+            document.getElementById('room-chat-modal').classList.add('hidden');
+            if (roomSocket) roomSocket.disconnect();
+            roomSocket = null;
+            roomSocketJoined = false;
+            activeRoomId = null;
+        }
+
+        async function sendRoomMessage(event) {
+            event.preventDefault();
+            if (!activeRoomId) return;
+            const input = document.getElementById('room-chat-input');
+            const button = document.getElementById('room-chat-send');
+            const message = input.value.trim();
+            if (!message) return;
+            button.disabled = true;
+            try {
+                const data = await apiRequest('/api/rooms/' + encodeURIComponent(activeRoomId) + '/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+                if (!roomSocketJoined) appendRoomMessage(data.message);
+                input.value = '';
+            } catch (error) {
+                document.getElementById('room-chat-status').textContent = error.message;
+            } finally {
+                button.disabled = false;
+                input.focus();
+            }
+        }
+
+        async function leaveRoom(roomId) {
+            try {
+                await apiRequest('/api/rooms/' + encodeURIComponent(roomId) + '/leave', { method: 'POST' });
+                document.getElementById('rooms-status').textContent = 'Saliste de la sala.';
+                await loadRooms();
+            } catch (error) {
+                document.getElementById('rooms-status').textContent = error.message;
+            }
+        }
+
+        async function closeRoom(roomId) {
+            if (!window.confirm('¿Querés cerrar esta sala para todos los jugadores?')) return;
+            try {
+                await apiRequest('/api/rooms/' + encodeURIComponent(roomId), { method: 'DELETE' });
+                document.getElementById('rooms-status').textContent = 'Sala cerrada correctamente.';
+                await loadRooms();
+            } catch (error) {
+                document.getElementById('rooms-status').textContent = error.message;
+            }
         }
 
         function toggleDrawer(open) {
@@ -328,48 +786,620 @@
             else { drawer.classList.add('-translate-x-full'); backdrop.classList.add('hidden'); }
         }
 
-        function updateTokensUI() {
-            document.getElementById('header-tokens').innerText = appState.tokens;
-            document.getElementById('profile-tokens').innerText = appState.tokens;
+        function updateCréditosUI() {
+            const headerCredits = document.getElementById('header-créditos');
+            const profileCredits = document.getElementById('profile-créditos');
+            if (headerCredits) headerCredits.textContent = appState.créditos;
+            if (profileCredits) profileCredits.textContent = appState.créditos;
         }
 
         function buyShopItem(itemName, cost) {
-            if(appState.tokens >= cost) { appState.tokens -= cost; updateTokensUI(); alert(`¡Compra exitosa! "${itemName}" equipado.`); }
-            else { alert('Tokens insuficientes.'); }
+            if(appState.créditos >= cost) { appState.créditos -= cost; updateCréditosUI(); alert(`¡Compra exitosa! "${itemName}" equipado.`); }
+            else { alert('Créditos insuficientes.'); }
         }
 
         let isSpinning = false;
         function spinRoulette() {
-            if(isSpinning || appState.tokens < 100) return;
-            appState.tokens -= 100; updateTokensUI(); isSpinning = true;
+            if(isSpinning || appState.créditos < 100) return;
+            appState.créditos -= 100; updateCréditosUI(); isSpinning = true;
             const wheel = document.getElementById('roulette-wheel');
             const resultText = document.getElementById('roulette-result');
             resultText.innerText = 'Girando...';
             wheel.style.transform = `rotate(1800deg)`;
             setTimeout(() => {
-                isSpinning = false; appState.tokens += 500; updateTokensUI();
-                resultText.innerText = '¡Ganaste 500 Tokens!';
+                isSpinning = false; appState.créditos += 500; updateCréditosUI();
+                resultText.innerText = '¡Ganaste 500 Créditos!';
                 wheel.style.transform = `rotate(0deg)`;
             }, 3000);
         }
 
-        function openPostModal() { document.getElementById('post-modal').classList.remove('hidden'); }
+        function openPostModal() {
+            document.getElementById('post-form-status').textContent = 'Máximo 2000 caracteres.';
+            document.getElementById('post-modal').classList.remove('hidden');
+        }
         function closePostModal() { document.getElementById('post-modal').classList.add('hidden'); }
-        function submitPost() {
-            const text = document.getElementById('post-text-input').value;
-            if(!text) return;
-            const container = document.getElementById('community-posts-container');
-            const newPost = document.createElement('div');
-            newPost.className = 'omlet-card rounded-2xl p-4 space-y-3';
-            newPost.innerHTML = `<div class="flex items-center space-x-3"><div class="w-10 h-10 rounded-full omlet-gradient flex items-center justify-center font-bold text-white">🎮</div><div><h5 class="font-bold text-sm">${appState.username}</h5><p class="text-[10px] text-slate-400">Hace un momento</p></div></div><p class="text-sm text-slate-200">${text}</p>`;
-            container.prepend(newPost);
-            document.getElementById('post-text-input').value = '';
-            closePostModal();
+
+        function renderCommunityPost(post) {
+            const card = document.createElement('article');
+            card.className = 'PLAYVERSE-card rounded-2xl p-4 space-y-3';
+            const header = document.createElement('div');
+            header.className = 'flex items-center space-x-3';
+            const avatar = document.createElement('div');
+            avatar.className = 'w-10 h-10 rounded-full PLAYVERSE-gradient flex items-center justify-center text-lg font-bold text-white';
+            avatar.textContent = '🎮';
+            const identity = document.createElement('div');
+            const author = document.createElement('h5');
+            author.className = 'font-bold text-sm';
+            author.textContent = post.authorUsername;
+            const date = document.createElement('p');
+            date.className = 'text-[10px] text-slate-400';
+            const parsedDate = new Date(post.createdAt);
+            date.textContent = Number.isNaN(parsedDate.getTime()) ? 'Fecha no disponible' : parsedDate.toLocaleString('es-AR');
+            identity.append(author, date);
+            header.append(avatar, identity);
+            if (post.authorUsername === appState.username) {
+                const ownerActions = document.createElement('div');
+                ownerActions.className = 'ml-auto flex items-center gap-2';
+                const editPostButton = document.createElement('button');
+                editPostButton.type = 'button';
+                editPostButton.className = 'text-[11px] text-cyan-300 px-2 py-1 rounded-lg border border-slate-700';
+                editPostButton.textContent = 'Editar';
+                editPostButton.addEventListener('click', async () => {
+                    const updatedContent = window.prompt('Editar publicación:', post.content);
+                    if (updatedContent === null || !updatedContent.trim()) return;
+                    editPostButton.disabled = true;
+                    try {
+                        const result = await apiRequest('/api/posts/' + encodeURIComponent(post.id), {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ content: updatedContent.trim() })
+                        });
+                        post.content = result.post.content;
+                        content.textContent = post.content;
+                    } catch (error) {
+                        window.alert(error.message);
+                    } finally {
+                        editPostButton.disabled = false;
+                    }
+                });
+                const deletePostButton = document.createElement('button');
+                deletePostButton.type = 'button';
+                deletePostButton.className = 'text-[11px] text-red-300 px-2 py-1 rounded-lg border border-slate-700';
+                deletePostButton.textContent = 'Eliminar';
+                deletePostButton.addEventListener('click', async () => {
+                    if (!window.confirm('¿Eliminar esta publicación y sus comentarios? Esta acción no se puede deshacer.')) return;
+                    deletePostButton.disabled = true;
+                    try {
+                        await apiRequest('/api/posts/' + encodeURIComponent(post.id), { method: 'DELETE' });
+                        card.remove();
+                        const feedStatus = document.getElementById('community-posts-status');
+                        if (feedStatus) feedStatus.textContent = 'Publicación eliminada.';
+                    } catch (error) {
+                        window.alert(error.message);
+                        deletePostButton.disabled = false;
+                    }
+                });
+                ownerActions.append(editPostButton, deletePostButton);
+                header.appendChild(ownerActions);
+            }
+            const content = document.createElement('p');
+            content.className = 'text-sm text-slate-200 whitespace-pre-wrap break-words';
+            content.textContent = post.content;
+
+            const actions = document.createElement('div');
+            actions.className = 'flex items-center gap-3 border-t border-slate-800 pt-3';
+            const likeButton = document.createElement('button');
+            likeButton.type = 'button';
+            likeButton.className = 'text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 hover:border-pink-400';
+            likeButton.textContent = (post.likedByMe ? '❤️' : '🤍') + ' Me gusta · ' + (Number(post.likeCount) || 0);
+            likeButton.setAttribute('aria-pressed', String(Boolean(post.likedByMe)));
+            const commentToggle = document.createElement('button');
+            commentToggle.type = 'button';
+            commentToggle.className = 'text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 hover:border-cyan-400 text-cyan-300';
+            commentToggle.textContent = '💬 Comentarios · ' + (Number(post.commentCount) || 0);
+            actions.append(likeButton, commentToggle);
+
+            const commentsPanel = document.createElement('section');
+            commentsPanel.className = 'hidden space-y-3 border-t border-slate-800 pt-3';
+            const commentsStatus = document.createElement('p');
+            commentsStatus.className = 'text-xs text-slate-400';
+            commentsStatus.textContent = 'Abrí los comentarios para ver la conversación.';
+            const commentsList = document.createElement('div');
+            commentsList.className = 'space-y-2';
+            const commentForm = document.createElement('form');
+            commentForm.className = 'space-y-2';
+            const commentInput = document.createElement('textarea');
+            commentInput.rows = 2;
+            commentInput.maxLength = 1000;
+            commentInput.required = true;
+            commentInput.placeholder = 'Escribí un comentario…';
+            commentInput.className = 'w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-cyan-500 resize-y';
+            const commentSubmit = document.createElement('button');
+            commentSubmit.type = 'submit';
+            commentSubmit.className = 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs font-bold px-3 py-2 rounded-xl';
+            commentSubmit.textContent = 'Comentar';
+            commentForm.append(commentInput, commentSubmit);
+            commentsPanel.append(commentsStatus, commentsList, commentForm);
+
+            likeButton.addEventListener('click', async () => {
+                likeButton.disabled = true;
+                try {
+                    const liked = likeButton.getAttribute('aria-pressed') === 'true';
+                    const result = await apiRequest('/api/posts/' + encodeURIComponent(post.id) + '/like', {
+                        method: liked ? 'DELETE' : 'PUT'
+                    });
+                    likeButton.setAttribute('aria-pressed', String(result.likedByMe));
+                    likeButton.textContent = (result.likedByMe ? '❤️' : '🤍') + ' Me gusta · ' + result.likeCount;
+                } catch (error) {
+                    commentsStatus.textContent = error.message;
+                    commentsPanel.classList.remove('hidden');
+                } finally {
+                    likeButton.disabled = false;
+                }
+            });
+
+            let commentsLoaded = false;
+            function appendCommentItem(comment) {
+                const item = document.createElement('div');
+                item.className = 'bg-slate-950/70 rounded-xl p-3';
+                item.dataset.commentId = comment.id;
+                const header = document.createElement('div');
+                header.className = 'flex items-center gap-2';
+                const name = document.createElement('p');
+                name.className = 'text-xs font-bold text-cyan-300';
+                name.textContent = comment.authorUsername;
+                header.appendChild(name);
+
+                const body = document.createElement('p');
+                body.className = 'text-xs text-slate-200 whitespace-pre-wrap break-words mt-1';
+                body.textContent = comment.content;
+                item.append(header, body);
+
+                if (comment.authorUsername === appState.username) {
+                    const controls = document.createElement('div');
+                    controls.className = 'flex items-center gap-2 mt-2';
+                    const editButton = document.createElement('button');
+                    editButton.type = 'button';
+                    editButton.className = 'text-[11px] text-cyan-300 px-2 py-1 rounded-lg border border-slate-700';
+                    editButton.textContent = 'Editar';
+                    editButton.addEventListener('click', async () => {
+                        const updatedContent = window.prompt('Editar comentario:', comment.content);
+                        if (updatedContent === null || !updatedContent.trim()) return;
+                        editButton.disabled = true;
+                        try {
+                            const result = await apiRequest('/api/posts/' + encodeURIComponent(post.id) + '/comments/' + encodeURIComponent(comment.id), {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ content: updatedContent.trim() })
+                            });
+                            comment.content = result.comment.content;
+                            body.textContent = comment.content;
+                            commentsStatus.textContent = 'Comentario actualizado.';
+                        } catch (error) {
+                            commentsStatus.textContent = error.message;
+                        } finally {
+                            editButton.disabled = false;
+                        }
+                    });
+                    const deleteButton = document.createElement('button');
+                    deleteButton.type = 'button';
+                    deleteButton.className = 'text-[11px] text-red-300 px-2 py-1 rounded-lg border border-slate-700';
+                    deleteButton.textContent = 'Eliminar';
+                    deleteButton.addEventListener('click', async () => {
+                        if (!window.confirm('¿Eliminar este comentario?')) return;
+                        deleteButton.disabled = true;
+                        try {
+                            await apiRequest('/api/posts/' + encodeURIComponent(post.id) + '/comments/' + encodeURIComponent(comment.id), { method: 'DELETE' });
+                            item.remove();
+                            post.commentCount = Math.max(0, (Number(post.commentCount) || 0) - 1);
+                            commentToggle.textContent = '💬 Comentarios · ' + post.commentCount;
+                            commentsStatus.textContent = 'Comentario eliminado.';
+                        } catch (error) {
+                            commentsStatus.textContent = error.message;
+                            deleteButton.disabled = false;
+                        }
+                    });
+                    controls.append(editButton, deleteButton);
+                    item.appendChild(controls);
+                }
+                commentsList.appendChild(item);
+            }
+
+            async function loadPostComments() {
+                commentsStatus.textContent = 'Cargando comentarios…';
+                try {
+                    const result = await apiRequest('/api/posts/' + encodeURIComponent(post.id) + '/comments');
+                    commentsList.replaceChildren();
+                    (result.comments || []).forEach(appendCommentItem);
+                    commentsStatus.textContent = result.comments.length
+                        ? result.comments.length + ' comentario(s)'
+                        : 'Todavía no hay comentarios. ¡Empezá la charla!';
+                    commentsLoaded = true;
+                } catch (error) {
+                    commentsStatus.textContent = error.message;
+                }
+            }
+
+            commentToggle.addEventListener('click', async () => {
+                const opening = commentsPanel.classList.contains('hidden');
+                commentsPanel.classList.toggle('hidden');
+                if (opening && !commentsLoaded) await loadPostComments();
+            });
+
+            commentForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const contentValue = commentInput.value.trim();
+                if (!contentValue) return;
+                commentSubmit.disabled = true;
+                commentSubmit.textContent = 'Enviando…';
+                try {
+                    const result = await apiRequest('/api/posts/' + encodeURIComponent(post.id) + '/comments', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ content: contentValue })
+                    });
+                    appendCommentItem(result.comment);
+                    commentInput.value = '';
+                    commentsLoaded = true;
+                    commentsStatus.textContent = 'Comentario publicado.';
+                    post.commentCount = (Number(post.commentCount) || 0) + 1;
+                    commentToggle.textContent = '💬 Comentarios · ' + post.commentCount;
+                } catch (error) {
+                    commentsStatus.textContent = error.message;
+                } finally {
+                    commentSubmit.disabled = false;
+                    commentSubmit.textContent = 'Comentar';
+                }
+            });
+
+            card.append(header, content, actions, commentsPanel);
+            return card;
         }
 
-        function openSettingsModal() { document.getElementById('settings-modal').classList.remove('hidden'); }
+        let communityNextCursor = null;
+        let communityLoading = false;
+
+        async function loadCommunityPosts(append = false) {
+            const container = document.getElementById('community-posts-container');
+            const status = document.getElementById('community-posts-status');
+            const loadMoreButton = document.getElementById('community-load-more');
+            if (!container || !status || !authToken || communityLoading) return;
+            if (append && !communityNextCursor) return;
+
+            communityLoading = true;
+            if (loadMoreButton) loadMoreButton.disabled = true;
+            status.textContent = append ? 'Cargando más publicaciones…' : 'Cargando publicaciones…';
+            try {
+                const endpoint = append
+                    ? '/api/posts?before=' + encodeURIComponent(communityNextCursor)
+                    : '/api/posts';
+                const data = await apiRequest(endpoint);
+                if (!append) {
+                    container.replaceChildren();
+                    communityNextCursor = null;
+                }
+                if (!Array.isArray(data.posts) || data.posts.length === 0) {
+                    status.textContent = append
+                        ? 'No hay más publicaciones para mostrar.'
+                        : 'Todavía no hay publicaciones. ¡Compartí la primera!';
+                } else {
+                    data.posts.forEach((post) => container.appendChild(renderCommunityPost(post)));
+                    status.textContent = append
+                        ? 'Se cargaron ' + data.posts.length + ' publicaciones más.'
+                        : data.posts.length + ' publicación(es) recientes';
+                }
+                communityNextCursor = data.nextCursor || null;
+                if (loadMoreButton) {
+                    loadMoreButton.classList.toggle('hidden', !communityNextCursor);
+                    loadMoreButton.disabled = !communityNextCursor;
+                }
+            } catch (error) {
+                status.textContent = error.message;
+                if (loadMoreButton) loadMoreButton.classList.toggle('hidden', !communityNextCursor);
+            } finally {
+                communityLoading = false;
+                if (loadMoreButton && communityNextCursor) loadMoreButton.disabled = false;
+            }
+        }
+
+        const communityLoadMoreButton = document.getElementById('community-load-more');
+        if (communityLoadMoreButton) {
+            communityLoadMoreButton.addEventListener('click', () => loadCommunityPosts(true));
+        }
+        function createFriendRow(person, type) {
+            const card = document.createElement('div');
+            card.className = 'PLAYVERSE-card rounded-xl border border-slate-800 p-3 flex flex-wrap items-center gap-3';
+            const avatar = document.createElement('div');
+            avatar.className = 'w-10 h-10 rounded-full PLAYVERSE-gradient flex items-center justify-center text-white font-black';
+            avatar.textContent = (person.displayName || person.username || '?').slice(0, 1).toUpperCase();
+            const details = document.createElement('div');
+            details.className = 'min-w-0 flex-1';
+            const display = document.createElement('p');
+            display.className = 'text-sm font-bold text-white truncate';
+            display.textContent = person.displayName || person.username;
+            const handle = document.createElement('p');
+            handle.className = 'text-xs text-slate-400';
+            handle.textContent = '@' + person.username;
+            details.append(display, handle);
+            card.append(avatar, details);
+
+            const action = (label, style, callback) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = style;
+                button.textContent = label;
+                button.addEventListener('click', callback);
+                card.appendChild(button);
+            };
+            if (type === 'incoming') {
+                action('Aceptar', 'text-xs font-bold rounded-lg px-3 py-2 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30', () => acceptFriendRequest(person.friendshipId));
+                action('Rechazar', 'text-xs font-bold rounded-lg px-3 py-2 bg-red-500/10 text-red-300 border border-red-500/30', () => removeFriendship(person.friendshipId));
+            } else if (type === 'outgoing') {
+                action('Cancelar', 'text-xs font-bold rounded-lg px-3 py-2 border border-slate-700 text-slate-300', () => removeFriendship(person.friendshipId));
+            } else if (type === 'friend') {
+                action('Eliminar amigo', 'text-xs font-bold rounded-lg px-3 py-2 border border-slate-700 text-slate-300', () => removeFriendship(person.friendshipId));
+            }
+            return card;
+        }
+
+        async function loadFriends() {
+            const status = document.getElementById('friends-status');
+            if (!status || !authToken) return;
+            status.textContent = 'Cargando tus conexiones…';
+            try {
+                const data = await apiRequest('/api/friends');
+                const groups = [
+                    ['friends-incoming', data.incomingRequests || [], 'incoming', 'No tenés solicitudes pendientes.'],
+                    ['friends-outgoing', data.outgoingRequests || [], 'outgoing', 'No enviaste solicitudes.'],
+                    ['friends-list', data.friends || [], 'friend', 'Todavía no tenés amigos agregados.']
+                ];
+                groups.forEach(([id, people, type, emptyMessage]) => {
+                    const container = document.getElementById(id);
+                    container.replaceChildren();
+                    if (!people.length) {
+                        const empty = document.createElement('p');
+                        empty.className = 'text-xs text-slate-500';
+                        empty.textContent = emptyMessage;
+                        container.appendChild(empty);
+                    } else {
+                        people.forEach((person) => container.appendChild(createFriendRow(person, type)));
+                    }
+                });
+                status.textContent = 'Conexiones actualizadas.';
+            } catch (error) {
+                status.textContent = error.message;
+            }
+        }
+
+        async function searchFriendPlayer(username) {
+            const result = document.getElementById('friends-search-result');
+            const status = document.getElementById('friends-status');
+            result.replaceChildren();
+            status.textContent = 'Buscando jugador…';
+            try {
+                const data = await apiRequest('/api/users/' + encodeURIComponent(username));
+                const player = data.profile;
+                const card = document.createElement('div');
+                card.className = 'PLAYVERSE-card rounded-2xl border border-cyan-500/30 p-4 space-y-3';
+                const name = document.createElement('p');
+                name.className = 'font-bold text-white';
+                name.textContent = player.displayName || player.username;
+                const handle = document.createElement('p');
+                handle.className = 'text-xs text-cyan-300';
+                handle.textContent = '@' + player.username;
+                const bio = document.createElement('p');
+                bio.className = 'text-xs text-slate-300 whitespace-pre-wrap';
+                bio.textContent = player.bio || 'Este jugador todavía no agregó una biografía.';
+                const posts = document.createElement('p');
+                posts.className = 'text-xs text-slate-500';
+                posts.textContent = String(player.postCount) + ' publicaciones';
+                card.append(name, handle, bio, posts);
+                if (player.friendship === 'self') {
+                    const relation = document.createElement('p');
+                    relation.className = 'text-xs font-bold text-slate-400';
+                    relation.textContent = 'Este es tu perfil';
+                    card.appendChild(relation);
+                } else if (player.friendship === 'none') {
+                    const add = document.createElement('button');
+                    add.type = 'button';
+                    add.className = 'rounded-xl bg-cyan-500/15 border border-cyan-500/30 px-4 py-2 text-xs font-bold text-cyan-300';
+                    add.textContent = 'Enviar solicitud';
+                    add.addEventListener('click', async () => {
+                        add.disabled = true;
+                        try {
+                            const response = await apiRequest('/api/friends/requests/' + encodeURIComponent(player.username), { method: 'POST' });
+                            status.textContent = response.message || 'Solicitud enviada.';
+                            await loadFriends();
+                            await searchFriendPlayer(player.username);
+                        } catch (error) {
+                            status.textContent = error.message;
+                            add.disabled = false;
+                        }
+                    });
+                    card.appendChild(add);
+                } else {
+                    const relation = document.createElement('p');
+                    relation.className = 'text-xs font-bold text-emerald-300';
+                    relation.textContent = player.friendship === 'friends' ? 'Ya son amigos'
+                        : player.friendship === 'outgoing_pending' ? 'Solicitud enviada'
+                        : 'Este jugador te envió una solicitud';
+                    card.appendChild(relation);
+                }
+                result.appendChild(card);
+                status.textContent = 'Jugador encontrado.';
+            } catch (error) {
+                status.textContent = error.message;
+            }
+        }
+
+        async function acceptFriendRequest(friendshipId) {
+            try {
+                await apiRequest('/api/friends/requests/' + encodeURIComponent(friendshipId) + '/accept', { method: 'PUT' });
+                await loadFriends();
+            } catch (error) {
+                document.getElementById('friends-status').textContent = error.message;
+            }
+        }
+
+        async function removeFriendship(friendshipId) {
+            if (!window.confirm('¿Querés eliminar esta amistad o solicitud?')) return;
+            try {
+                await apiRequest('/api/friends/' + encodeURIComponent(friendshipId), { method: 'DELETE' });
+                await loadFriends();
+            } catch (error) {
+                document.getElementById('friends-status').textContent = error.message;
+            }
+        }
+
+        document.getElementById('friends-search-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const input = document.getElementById('friends-search-input');
+            const username = input.value.trim();
+            if (username) await searchFriendPlayer(username);
+        });
+
+        async function submitPost() {
+            const input = document.getElementById('post-text-input');
+            const status = document.getElementById('post-form-status');
+            const button = document.getElementById('post-submit-btn');
+            const content = input.value.trim();
+            if (!content) {
+                status.textContent = 'Escribí algo antes de publicar.';
+                return;
+            }
+            if (content.length > 2000) {
+                status.textContent = 'La publicación supera el máximo de 2000 caracteres.';
+                return;
+            }
+            button.disabled = true;
+            button.textContent = 'Publicando…';
+            status.textContent = 'Guardando tu publicación…';
+            try {
+                const data = await apiRequest('/api/posts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content })
+                });
+                if (!data.post) throw new Error('El servidor no devolvió la publicación guardada.');
+                const container = document.getElementById('community-posts-container');
+                container.prepend(renderCommunityPost(data.post));
+                const feedStatus = document.getElementById('community-posts-status');
+                if (feedStatus) feedStatus.textContent = 'Publicación compartida correctamente.';
+                input.value = '';
+                closePostModal();
+            } catch (error) {
+                status.textContent = error.message;
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Publicar';
+            }
+        }
+
+        function openProfileEditor() {
+            const profile = appState.profile || {};
+            document.getElementById('profile-display-name-input').value = profile.displayName || '';
+            document.getElementById('profile-bio-input').value = profile.bio || '';
+            document.getElementById('profile-avatar-url-input').value = profile.avatarUrl || '';
+            document.getElementById('profile-editor-status').textContent = '';
+            document.getElementById('profile-editor-modal').classList.remove('hidden');
+        }
+
+        function closeProfileEditor() {
+            document.getElementById('profile-editor-modal').classList.add('hidden');
+        }
+
+        document.getElementById('profile-editor-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const button = document.getElementById('profile-save-button');
+            const status = document.getElementById('profile-editor-status');
+            button.disabled = true;
+            button.textContent = 'Guardando…';
+            status.textContent = 'Guardando los cambios en tu cuenta…';
+            try {
+                const result = await apiRequest('/api/me/profile', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        displayName: document.getElementById('profile-display-name-input').value,
+                        bio: document.getElementById('profile-bio-input').value,
+                        avatarUrl: document.getElementById('profile-avatar-url-input').value
+                    })
+                });
+                applyProfileData(result.user);
+                document.getElementById('profile-status').textContent = 'Perfil actualizado.';
+                status.textContent = 'Perfil guardado correctamente.';
+                closeProfileEditor();
+            } catch (error) {
+                status.textContent = error.message;
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Guardar perfil';
+            }
+        });
+
+        async function loadStreamingPreferences() {
+            const status = document.getElementById('streaming-settings-status');
+            status.textContent = 'Cargando preferencias de tu cuenta…';
+            try {
+                const data = await apiRequest('/api/me/streaming-preferences');
+                const preferences = data.preferences || {};
+                document.getElementById('stream-resolution').value = preferences.resolution || 'auto';
+                document.getElementById('stream-fps').value = String(preferences.fps || 30);
+                document.getElementById('stream-bitrate').value = String(preferences.bitrateMbps || 6);
+                document.getElementById('stream-camera').checked = preferences.cameraEnabled === true;
+                document.getElementById('stream-microphone').checked = preferences.microphoneEnabled !== false;
+                document.getElementById('stream-system-audio').checked = preferences.systemAudioEnabled !== false;
+                document.getElementById('stream-orientation').value = preferences.orientation || 'auto';
+                document.getElementById('stream-camera-position').value = preferences.cameraPosition || 'bottom-right';
+                document.getElementById('stream-camera-frame').value = preferences.cameraFrame || 'none';
+                status.textContent = data.capabilityNote || 'Preferencias cargadas desde tu cuenta.';
+            } catch (error) {
+                status.textContent = 'No se pudieron cargar las preferencias: ' + error.message;
+            }
+        }
+
+        async function saveStreamingPreferences(event) {
+            event.preventDefault();
+            const button = document.getElementById('streaming-settings-save');
+            const status = document.getElementById('streaming-settings-status');
+            button.disabled = true;
+            button.textContent = 'Guardando…';
+            status.textContent = 'Sincronizando preferencias con tu cuenta…';
+            const preferences = {
+                resolution: document.getElementById('stream-resolution').value,
+                fps: Number(document.getElementById('stream-fps').value),
+                bitrateMbps: Number(document.getElementById('stream-bitrate').value),
+                cameraEnabled: document.getElementById('stream-camera').checked,
+                microphoneEnabled: document.getElementById('stream-microphone').checked,
+                systemAudioEnabled: document.getElementById('stream-system-audio').checked,
+                orientation: document.getElementById('stream-orientation').value,
+                cameraPosition: document.getElementById('stream-camera-position').value,
+                cameraFrame: document.getElementById('stream-camera-frame').value
+            };
+            try {
+                const data = await apiRequest('/api/me/streaming-preferences', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(preferences)
+                });
+                status.textContent = data.capabilityNote || 'Preferencias guardadas en tu cuenta.';
+            } catch (error) {
+                status.textContent = 'No se pudieron guardar los cambios: ' + error.message;
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Guardar preferencias';
+            }
+        }
+
+        function openSettingsModal() {
+            document.getElementById('settings-modal').classList.remove('hidden');
+            if (authToken) loadStreamingPreferences();
+        }
         function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
-        function openStreamStudio() { alert('Iniciando Stream Studio Omlet...'); }
+        function openStreamStudio() {
+            document.getElementById('streaming-settings-status').textContent = 'Primero configurá tus preferencias. El motor de captura y emisión todavía está pendiente de integración.';
+            openSettingsModal();
+        }
 
         const widget = document.getElementById('floating-widget');
         let isDragging = false, startX, startY, initialX, initialY;
@@ -386,5 +1416,6 @@
             icon.className = micState ? 'fa-solid fa-microphone text-xs' : 'fa-solid fa-microphone-slash text-xs';
         }
     </script>
+    <script src="/app-update.js" defer></script>
 </body>
 </html>

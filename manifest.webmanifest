@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "PLAYVERSE",
+  "short_name": "PLAYVERSE",
+  "description": "Tu comunidad gamer. Jugá, conectá y compartí.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#080b16",
+  "theme_color": "#080b16",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "/assets/playverse-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
