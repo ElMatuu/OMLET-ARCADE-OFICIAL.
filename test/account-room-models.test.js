@@ -32,6 +32,16 @@ test('User enforces a bounded platform username and hides password hashes', asyn
     username: 'ab',
     passwordHash: 'hashed-password'
   }).validate());
+  await assert.rejects(new User({
+    username: 'LongDisplay',
+    passwordHash: 'hashed-password',
+    displayName: 'x'.repeat(31)
+  }).validate());
+  await assert.rejects(new User({
+    username: 'LongBio',
+    passwordHash: 'hashed-password',
+    bio: 'x'.repeat(161)
+  }).validate());
 });
 
 test('Room starts with its owner as a member and validates capacity', async () => {
