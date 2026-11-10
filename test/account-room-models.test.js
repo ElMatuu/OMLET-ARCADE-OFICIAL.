@@ -90,3 +90,45 @@ test('Friendship enforces unique pair identity and valid request states', async 
     status: 'blocked'
   }).validate());
 });
+
+
+test('User stores bounded creator streaming preferences with safe defaults', async () => {
+  const user = new User({ username: 'Creator_01', passwordHash: 'hashed-password' });
+  await user.validate();
+  assert.equal(user.streamingPreferences.resolution, 'auto');
+  assert.equal(user.streamingPreferences.fps, 30);
+  assert.equal(user.streamingPreferences.bitrateMbps, 6);
+  assert.equal(user.streamingPreferences.cameraEnabled, false);
+
+  const configured = new User({
+    username: 'Creator_02',
+    passwordHash: 'hashed-password',
+    streamingPreferences: {
+      resolution: '2160p',
+      fps: 60,
+      bitrateMbps: 20,
+      cameraEnabled: true,
+      cameraFrame: 'cyan'
+    }
+  });
+  await configured.validate();
+  assert.equal(configured.streamingPreferences.resolution, '2160p');
+  assert.equal(configured.streamingPreferences.fps, 60);
+  assert.equal(configured.streamingPreferences.cameraFrame, 'cyan');
+
+  await assert.rejects(new User({
+    username: 'Creator_03',
+    passwordHash: 'hashed-password',
+    streamingPreferences: { resolution: '8k' }
+  }).validate());
+  await assert.rejects(new User({
+    username: 'Creator_04',
+    passwordHash: 'hashed-password',
+    streamingPreferences: { fps: 240 }
+  }).validate());
+  await assert.rejects(new User({
+    username: 'Creator_05',
+    passwordHash: 'hashed-password',
+    streamingPreferences: { bitrateMbps: 100 }
+  }).validate());
+});
