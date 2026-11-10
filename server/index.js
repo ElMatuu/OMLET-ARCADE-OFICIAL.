@@ -842,12 +842,16 @@ async function start() {
   });
 }
 
-start().catch((error) => {
-  console.error('Unable to start PLAYVERSE API:', error.message);
-  process.exit(1);
-});
+if (require.main === module) {
+  start().catch((error) => {
+    console.error('Unable to start PLAYVERSE API:', error.message);
+    process.exit(1);
+  });
 
-process.on('SIGTERM', async () => {
-  await mongoose.disconnect();
-  httpServer.close(() => process.exit(0));
-});
+  process.on('SIGTERM', async () => {
+    await mongoose.disconnect();
+    httpServer.close(() => process.exit(0));
+  });
+}
+
+module.exports = { app, httpServer, start };
