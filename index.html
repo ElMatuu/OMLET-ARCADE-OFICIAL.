@@ -735,7 +735,7 @@
             if (tabName === 'feed') loadCommunityPosts();
             if (tabName === 'saved') loadSavedPosts();
             if (tabName === 'events') loadMissions();
-            if (tabName === 'friends') { loadFriends(); loadFollowLists(); }
+            if (tabName === 'friends') loadFriends();
             if (tabName === 'profile') { loadMyProfile(); loadProfileSummary(); }
             if (tabName === 'shop') loadStore();
             ['feed', 'live', 'chat', 'lobbies', 'shop', 'events', 'friends', 'profile'].forEach(t => {
