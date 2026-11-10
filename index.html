@@ -250,7 +250,7 @@
                     <div id="live-streams-container" class="grid gap-3" aria-live="polite"><p class="text-xs text-slate-500">Cargando transmisiones…</p></div>
                 </section>
                 <section id="live-player-panel" class="hidden PLAYVERSE-card rounded-2xl p-4 space-y-3">
-                    <div class="flex items-center justify-between gap-2"><div class="min-w-0"><h4 id="live-player-title" class="font-bold text-sm truncate">Transmisión</h4><p id="live-player-role" class="text-[11px] text-slate-400"></p></div><button type="button" onclick="leaveLiveStream()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs">Salir</button></div>
+                    <div class="flex items-center justify-between gap-2"><div class="min-w-0"><h4 id="live-player-title" class="font-bold text-sm truncate">Transmisión</h4><p id="live-player-role" class="text-[11px] text-slate-400"></p><p id="live-player-participant-count" class="text-[11px] text-emerald-300">Conectando participantes…</p></div><button type="button" onclick="leaveLiveStream()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs">Salir</button></div>
                     <video id="live-local-preview" class="hidden w-full max-h-56 rounded-xl bg-black" autoplay muted playsinline></video>
                     <div id="live-player-tracks" class="grid gap-2"></div>
                     <div id="live-host-controls" class="hidden flex flex-wrap gap-2">
@@ -2776,12 +2776,21 @@
                 const status = document.getElementById('live-player-status');
                 if (status) status.textContent = 'Conectado · recibiendo audio/video en tiempo real.';
             });
+            const updateParticipantCount = () => {
+                const count = room.numParticipants;
+                const counter = document.getElementById('live-player-participant-count');
+                if (counter) counter.textContent = count + (count === 1 ? ' participante conectado' : ' participantes conectados');
+            };
+            room.on(LivekitClient.RoomEvent.ParticipantConnected, updateParticipantCount);
+            room.on(LivekitClient.RoomEvent.ParticipantDisconnected, updateParticipantCount);
             room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => detachLiveTrack(track));
             room.on(LivekitClient.RoomEvent.Disconnected, () => {
                 const status = document.getElementById('live-player-status');
                 if (status) status.textContent = 'Conexión de video finalizada.';
             });
             await room.connect(connection.url, connection.token);
+            const initialParticipantCount = document.getElementById('live-player-participant-count');
+            if (initialParticipantCount) initialParticipantCount.textContent = room.numParticipants + (room.numParticipants === 1 ? ' participante conectado' : ' participantes conectados');
             activeLiveStream = stream;
             activeLiveStreamRole = role;
             document.getElementById('live-player-panel').classList.remove('hidden');
