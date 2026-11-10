@@ -230,8 +230,9 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
     message: 'La transmisión en vivo todavía no está configurada en el servidor.'
   });
   try {
-    const title = typeof req.body.title === 'string' ? req.body.title.trim() : '';
-    const description = typeof req.body.description === 'string' ? req.body.description.trim() : '';
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const title = typeof body.title === 'string' ? body.title.trim() : '';
+    const description = typeof body.description === 'string' ? body.description.trim() : '';
     if (!title || title.length > 100 || description.length > 500) {
       return res.status(400).json({ success: false, message: 'El título es obligatorio (máximo 100 caracteres) y la descripción admite hasta 500.' });
     }
