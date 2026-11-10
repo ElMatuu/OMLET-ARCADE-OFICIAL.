@@ -11,6 +11,7 @@ const { rateLimit } = require('express-rate-limit');
 const User = require('./models/User');
 const Room = require('./models/Room');
 const Post = require('./models/Post');
+const Comment = require('./models/Comment');
 const { requireAuth } = require('./middleware/auth');
 const { attachSocketServer } = require('./socket');
 
@@ -36,7 +37,7 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error('Origin not allowed by CORS'));
   },
-  methods: ['GET', 'POST'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json({ limit: '20kb' }));
@@ -141,7 +142,7 @@ const postLimiter = rateLimit({
 app.get('/api/posts', requireAuth, async (req, res, next) => {
   try {
     const posts = await Post.find({})
-      .select('authorUsername content createdAt')
+      .select('authorUsername content likes commentCount createdAt')
       .sort({ createdAt: -1, _id: -1 })
       .limit(30)
       .lean();
@@ -151,6 +152,9 @@ app.get('/api/posts', requireAuth, async (req, res, next) => {
         id: String(post._id),
         authorUsername: post.authorUsername,
         content: post.content,
+        likeCount: Array.isArray(post.likes) ? post.likes.length : 0,
+        likedByMe: Array.isArray(post.likes) && post.likes.some((id) => String(id) === req.auth.sub),
+        commentCount: Number(post.commentCount) || 0,
         createdAt: post.createdAt
       }))
     });
@@ -182,9 +186,117 @@ app.post('/api/posts', requireAuth, postLimiter, async (req, res, next) => {
         id: String(post._id),
         authorUsername: post.authorUsername,
         content: post.content,
+        likeCount: 0,
+        likedByMe: false,
+        commentCount: 0,
         createdAt: post.createdAt
       }
     });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+const commentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, message: 'Comentaste demasiado rápido. Probá más tarde.' }
+});
+
+app.put('/api/posts/:postId/like', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.postId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de publicación inválido.' });
+    }
+    const post = await Post.findByIdAndUpdate(
+      req.params.postId,
+      { $addToSet: { likes: req.auth.sub } },
+      { new: true }
+    ).select('likes commentCount').lean();
+    if (!post) return res.status(404).json({ success: false, message: 'Publicación no encontrada.' });
+    return res.json({
+      success: true,
+      likeCount: Array.isArray(post.likes) ? post.likes.length : 0,
+      likedByMe: true
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.delete('/api/posts/:postId/like', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.postId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de publicación inválido.' });
+    }
+    const post = await Post.findByIdAndUpdate(
+      req.params.postId,
+      { $pull: { likes: req.auth.sub } },
+      { new: true }
+    ).select('likes').lean();
+    if (!post) return res.status(404).json({ success: false, message: 'Publicación no encontrada.' });
+    return res.json({
+      success: true,
+      likeCount: Array.isArray(post.likes) ? post.likes.length : 0,
+      likedByMe: false
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/api/posts/:postId/comments', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.postId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de publicación inválido.' });
+    }
+    const exists = await Post.exists({ _id: req.params.postId });
+    if (!exists) return res.status(404).json({ success: false, message: 'Publicación no encontrada.' });
+    const comments = await Comment.find({ post: req.params.postId })
+      .select('authorUsername content createdAt')
+      .sort({ createdAt: 1, _id: 1 })
+      .limit(50)
+      .lean();
+    return res.json({ success: true, comments: comments.map((comment) => ({
+      id: String(comment._id),
+      authorUsername: comment.authorUsername,
+      content: comment.content,
+      createdAt: comment.createdAt
+    })) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/posts/:postId/comments', requireAuth, commentLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.postId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de publicación inválido.' });
+    }
+    const content = typeof req.body.content === 'string' ? req.body.content.trim() : '';
+    if (!content || content.length > 1000) {
+      return res.status(400).json({ success: false, message: 'El comentario debe tener entre 1 y 1000 caracteres.' });
+    }
+    const post = await Post.findById(req.params.postId).select('_id');
+    if (!post) return res.status(404).json({ success: false, message: 'Publicación no encontrada.' });
+    const user = await User.findById(req.auth.sub).select('username').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+
+    const comment = await Comment.create({
+      post: post._id,
+      author: req.auth.sub,
+      authorUsername: user.username,
+      content
+    });
+    await Post.updateOne({ _id: post._id }, { $inc: { commentCount: 1 } });
+    return res.status(201).json({ success: true, comment: {
+      id: String(comment._id),
+      authorUsername: comment.authorUsername,
+      content: comment.content,
+      createdAt: comment.createdAt
+    } });
   } catch (error) {
     return next(error);
   }
