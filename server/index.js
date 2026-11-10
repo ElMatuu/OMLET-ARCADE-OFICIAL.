@@ -1333,7 +1333,7 @@ app.get('/api/me/missions', requireAuth, async (req, res, next) => {
         $or: [{ requester: userId }, { recipient: userId }]
       }),
       Follow.countDocuments({ follower: userId }),
-      Post.countDocuments({ likes: userId }),
+      Post.countDocuments({ likes: userId, author: { $ne: userId } }),
       DirectMessage.countDocuments({ sender: userId })
     ]);
 
@@ -1344,7 +1344,7 @@ app.get('/api/me/missions', requireAuth, async (req, res, next) => {
       { id: 'welcome-message-1', chapter: 'Primeros pasos', title: 'Romper el hielo', description: 'Mandá tu primer mensaje privado a una amistad.', current: directMessageCount, target: 1 },
 
       { id: 'creator-post-10', chapter: 'Camino del creador', title: 'Voz reconocible', description: 'Llegá a diez publicaciones y mantené activa tu presencia en la comunidad.', current: postCount, target: 10 },
-      { id: 'creator-comment-1', chapter: 'Camino del creador', title: 'Conversación iniciada', description: 'Comentá una publicación de otro jugador y sumate al intercambio.', current: commentCount, target: 1 },
+      { id: 'creator-comment-1', chapter: 'Camino del creador', title: 'Conversación iniciada', description: 'Comentá una publicación de la comunidad y sumate al intercambio.', current: commentCount, target: 1 },
       { id: 'creator-comment-5', chapter: 'Camino del creador', title: 'Siempre hay algo para aportar', description: 'Escribí cinco comentarios útiles en publicaciones de la comunidad.', current: commentCount, target: 5 },
       { id: 'creator-like-1', chapter: 'Camino del creador', title: 'Buena onda', description: 'Dale tu primer me gusta a una publicación que te interese.', current: likedPostCount, target: 1 },
 
