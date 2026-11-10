@@ -32,15 +32,15 @@
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.9.5",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "tailwindcss": "^3.4.17"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.2.0",
     "@capacitor/android": "^6.2.0",
     "electron": "^30.5.1",
     "electron-builder": "^24.13.3",
-    "socket.io-client": "^4.8.1",
-    "tailwindcss": "^3.4.17"
+    "socket.io-client": "^4.8.1"
   },
   "build": {
     "appId": "com.playverse.desktop",
