@@ -13,3 +13,10 @@ Thumbs.db
 *.jks
 *.p12
 *.pem
+
+# Generated application build output
+www/
+release/
+android/.gradle/
+android/local.properties
+android/app/build/
