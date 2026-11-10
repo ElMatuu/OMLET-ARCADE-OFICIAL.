@@ -6,6 +6,7 @@ const directMessageSchema = new mongoose.Schema({
   senderUsername: { type: String, required: true, trim: true, maxlength: 24 },
   recipient: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   body: { type: String, required: true, trim: true, minlength: 1, maxlength: 2000 },
+  readAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now, index: true }
 }, { versionKey: false });
 
