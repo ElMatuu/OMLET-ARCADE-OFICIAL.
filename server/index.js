@@ -1563,10 +1563,22 @@ function serializeDirectMessage(message) {
 app.get('/api/me/conversations', requireAuth, async (req, res, next) => {
   try {
     const userId = req.auth.sub;
-    const records = await Conversation.find({
-      $or: [{ participantA: userId }, { participantB: userId }]
-    }).sort({ lastMessageAt: -1, updatedAt: -1 }).limit(100).lean();
-    const otherIds = records.map((item) =>
+    const [records, friendshipRecords] = await Promise.all([
+      Conversation.find({
+        $or: [{ participantA: userId }, { participantB: userId }]
+      }).sort({ lastMessageAt: -1, updatedAt: -1 }).limit(100).lean(),
+      Friendship.find({
+        status: 'accepted',
+        $or: [{ requester: userId }, { recipient: userId }]
+      }).select('requester recipient').lean()
+    ]);
+    const friendIds = new Set(friendshipRecords.map((record) =>
+      String(record.requester) === userId ? String(record.recipient) : String(record.requester)
+    ));
+    const activeRecords = records.filter((item) => friendIds.has(
+      String(item.participantA) === userId ? String(item.participantB) : String(item.participantA)
+    ));
+    const otherIds = activeRecords.map((item) =>
       String(item.participantA) === userId ? item.participantB : item.participantA
     );
     const users = await User.find({ _id: { $in: otherIds } })
@@ -1574,7 +1586,7 @@ app.get('/api/me/conversations', requireAuth, async (req, res, next) => {
     const userMap = new Map(users.map((user) => [String(user._id), user]));
     return res.json({
       success: true,
-      conversations: records.map((item) => {
+      conversations: activeRecords.map((item) => {
         const otherId = String(item.participantA) === userId ? item.participantB : item.participantA;
         const other = userMap.get(String(otherId));
         if (!other) return null;
@@ -1652,6 +1664,11 @@ app.get('/api/conversations/:conversationId/messages', requireAuth, async (req, 
       $or: [{ participantA: req.auth.sub }, { participantB: req.auth.sub }]
     }).lean();
     if (!conversation) return res.status(404).json({ success: false, message: 'Conversación no encontrada.' });
+    const otherId = String(conversation.participantA) === req.auth.sub
+      ? conversation.participantB : conversation.participantA;
+    if (!(await areAcceptedFriends(req.auth.sub, otherId))) {
+      return res.status(403).json({ success: false, message: 'Ya no tienen una amistad activa para acceder a este chat.' });
+    }
     const messages = await DirectMessage.find({ conversation: conversationId })
       .sort({ createdAt: -1, _id: -1 }).limit(100).lean();
     return res.json({ success: true, messages: messages.reverse().map(serializeDirectMessage) });
