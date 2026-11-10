@@ -426,6 +426,16 @@
                         </div>
                         <p class="text-[10px] text-slate-500">Las estadísticas se calculan con la actividad guardada en PLAYVERSE. Visualizaciones y experiencia estarán disponibles cuando se implemente su seguimiento.</p>
                     </section>
+                    <section class="text-left space-y-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                        <div class="flex items-center justify-between gap-3">
+                            <h4 class="text-xs font-black uppercase tracking-wider text-slate-300">Historial real de actividad</h4>
+                            <span id="profile-activity-status" class="text-[10px] text-slate-500" role="status">Cargando…</span>
+                        </div>
+                        <div id="profile-activity-list" class="space-y-2" aria-live="polite">
+                            <p class="text-xs text-slate-500">Cargando actividad de tu cuenta…</p>
+                        </div>
+                        <button id="profile-activity-more" type="button" onclick="loadProfileActivity(false)" class="hidden w-full rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800">Cargar más actividad</button>
+                    </section>
                     <button type="button" onclick="openProfileEditor()" class="w-full rounded-xl border border-orange-500/40 bg-orange-500/10 px-4 py-3 text-xs font-bold text-orange-300">Editar perfil</button>
                     <p id="profile-status" class="text-xs text-slate-400" role="status"></p>
                 </div>
@@ -638,6 +648,68 @@
             }
         }
 
+
+        let profileActivityCursor = null;
+        let profileActivityLoading = false;
+
+        async function loadProfileActivity(reset = false) {
+            if (profileActivityLoading) return;
+            const list = document.getElementById('profile-activity-list');
+            const status = document.getElementById('profile-activity-status');
+            const more = document.getElementById('profile-activity-more');
+            if (!list || !status || !more) return;
+            profileActivityLoading = true;
+            if (reset) {
+                profileActivityCursor = null;
+                list.replaceChildren();
+                list.textContent = 'Cargando actividad de tu cuenta…';
+            }
+            status.textContent = 'Actualizando…';
+            more.disabled = true;
+            try {
+                const query = new URLSearchParams({ limit: '10' });
+                if (profileActivityCursor) query.set('cursor', profileActivityCursor);
+                const data = await apiRequest('/api/me/activity?' + query.toString());
+                if (reset) list.replaceChildren();
+                (data.activities || []).forEach((activity) => {
+                    const item = document.createElement('article');
+                    item.className = 'rounded-xl border border-slate-800 bg-slate-900/70 p-3';
+                    const title = document.createElement('p');
+                    title.className = 'text-xs font-bold text-white';
+                    title.textContent = activity.title || 'Actividad de PLAYVERSE';
+                    const description = document.createElement('p');
+                    description.className = 'mt-1 text-[11px] text-slate-400';
+                    description.textContent = activity.description || '';
+                    const date = document.createElement('time');
+                    date.className = 'mt-2 block text-[10px] text-slate-500';
+                    const timestamp = new Date(activity.createdAt);
+                    date.textContent = Number.isNaN(timestamp.getTime())
+                        ? 'Fecha no disponible'
+                        : timestamp.toLocaleString('es-AR');
+                    if (!Number.isNaN(timestamp.getTime())) date.dateTime = timestamp.toISOString();
+                    item.append(title, description, date);
+                    list.append(item);
+                });
+                profileActivityCursor = data.page?.nextCursor || null;
+                more.classList.toggle('hidden', !data.page?.hasMore);
+                if (!(data.activities || []).length && reset) {
+                    const empty = document.createElement('p');
+                    empty.className = 'text-xs text-slate-500';
+                    empty.textContent = 'Todavía no hay actividad registrada en tu cuenta.';
+                    list.append(empty);
+                }
+                status.textContent = (data.activities || []).length
+                    ? 'Actividad real sincronizada'
+                    : 'Sin actividad nueva';
+            } catch (error) {
+                status.textContent = 'No se pudo cargar el historial';
+                if (reset) list.textContent = 'No pudimos obtener tu actividad. Volvé a intentarlo.';
+            } finally {
+                profileActivityLoading = false;
+                more.disabled = false;
+            }
+        }
+
         function showAuthenticatedApp(user) {
             applyProfileData(user);
             document.getElementById('auth-screen').classList.add('hidden');
@@ -750,7 +822,7 @@
             if (tabName === 'saved') loadSavedPosts();
             if (tabName === 'events') loadMissions();
             if (tabName === 'friends') loadFriends();
-            if (tabName === 'profile') { loadMyProfile(); loadProfileSummary(); }
+            if (tabName === 'profile') { loadMyProfile(); loadProfileSummary(); loadProfileActivity(true); }
             if (tabName === 'shop') loadStore();
             ['feed', 'live', 'chat', 'lobbies', 'shop', 'events', 'friends', 'profile'].forEach(t => {
                 const btn = document.getElementById('nav-btn-' + t);
