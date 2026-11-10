@@ -48,6 +48,10 @@ This repository contains a working backend foundation and a web client that is s
 
 No million-user capacity or public production readiness is claimed. Those require load tests, production infrastructure, observability, abuse controls and operational support.
 
+## LiveKit Cloud setup
+
+See [`docs/LIVEKIT_SETUP.md`](docs/LIVEKIT_SETUP.md) for the exact environment variables, webhook endpoint, and end-to-end validation sequence. Do not put LiveKit credentials in source control or client-side settings.
+
 ## Architecture
 
 - `index.html` — current web client and interface prototype.
