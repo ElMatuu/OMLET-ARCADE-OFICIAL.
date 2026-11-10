@@ -32,12 +32,12 @@ This repository contains a working backend foundation and a web client that is s
 ### Not yet implemented or verified as production features
 
 - LiveKit server integration foundation: persistent live-session records, authenticated room creation, short-lived publisher/viewer JWTs, owner-only stream termination and a public live-session directory are implemented. The feature remains disabled until valid LiveKit Cloud/self-host credentials are configured.
-- Actual client capture and playback are not yet integrated: no verified camera/microphone/screen publishing UI, remote track rendering, device permission flow, mobile native capture validation, recording pipeline or media CDN is available.
+- LiveKit browser client is now bundled locally into the web build. The live screen has real authenticated publisher/viewer token flows, camera/microphone controls, screen-share control and remote audio/video track rendering. These flows still require real-browser and physical-device end-to-end testing; they are not yet a verified public streaming service.
 - Camera/screen/audio capture on Android and Windows, including device capability detection and permissions.
 - 8K capture or any guaranteed 4K/120 FPS mode. Stored preferences are requests, not proof that a device or encoder can deliver them.
 - Mobile push notifications, message attachments, voice/video calls and invitations.
 - Creator clips/video uploads, playback storage, profile media galleries and favorites collections.
-- LiveKit client SDK integration in the web/Android/Electron UI, live viewer player, screen-share/camera controls, participant count synchronization and stream lifecycle webhooks.
+- Android native camera/microphone permission and capture validation, Electron desktop capture validation, synchronized participant counts, stream lifecycle webhooks, recording/egress, adaptive playback delivery and a media CDN.
 - Full communities/servers with roles, moderation tools and membership management beyond multiplayer rooms.
 - User reporting, moderator queues, moderation actions, appeals and operational trust-and-safety tooling beyond player blocking.
 - Store top-ups, real-money checkout, gifting, donations, paid subscriptions, creator payouts, fraud controls and legal/tax workflows.
