@@ -8,7 +8,21 @@ test('User enforces a bounded platform username and hides password hashes', asyn
   const user = new User({ username: 'Player_123', passwordHash: 'hashed-password' });
   await user.validate();
   assert.equal(user.username, 'Player_123');
+  assert.equal(user.displayName, '');
+  assert.equal(user.bio, '');
+  assert.equal(user.avatarUrl, '');
   assert.equal(User.schema.path('passwordHash').options.select, false);
+
+  const customized = new User({
+    username: 'Gamer_Profile',
+    passwordHash: 'hashed-password',
+    displayName: '  Gamer One  ',
+    bio: '  Juego con amigos  ',
+    avatarUrl: 'https://cdn.example.com/avatar.png'
+  });
+  await customized.validate();
+  assert.equal(customized.displayName, 'Gamer One');
+  assert.equal(customized.bio, 'Juego con amigos');
 
   await assert.rejects(new User({
     username: 'bad name',
