@@ -3,7 +3,7 @@
 const CACHE_PREFIX = 'playverse-shell-';
 const CACHE_VERSION = '__PLAYVERSE_BUILD_VERSION__';
 const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
-const APP_SHELL = ['/index.html', '/manifest.webmanifest', '/styles.css'];
+const APP_SHELL = ['/index.html', '/manifest.webmanifest', '/styles.css', '/assets/playverse-icon.svg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
