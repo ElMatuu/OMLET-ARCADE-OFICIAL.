@@ -1,5 +1,33 @@
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, shell, dialog, session } = require('electron');
 const path = require('node:path');
+
+let mainWindow = null;
+
+function isTrustedAppContent(webContents) {
+  const url = webContents && webContents.getURL();
+  return typeof url === 'string' && url.startsWith('file://') && url.includes('/www/');
+}
+
+function configureMediaPermissions() {
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details = {}) => {
+    if (permission !== 'media' || !isTrustedAppContent(webContents)) {
+      callback(false);
+      return;
+    }
+    const requested = Array.isArray(details.mediaTypes) && details.mediaTypes.length
+      ? details.mediaTypes.join(' y ')
+      : 'cámara o micrófono';
+    dialog.showMessageBox(mainWindow, {
+      type: 'question',
+      buttons: ['Permitir', 'Bloquear'],
+      defaultId: 1,
+      cancelId: 1,
+      title: 'Permisos multimedia de PLAYVERSE',
+      message: 'PLAYVERSE solicita acceso a ' + requested + '.',
+      detail: 'El acceso se usa únicamente cuando iniciás una transmisión. Podés bloquearlo si no querés emitir.'
+    }).then((result) => callback(result.response === 0)).catch(() => callback(false));
+  });
+}
 
 function createWindow() {
   const window = new BrowserWindow({
@@ -18,6 +46,7 @@ function createWindow() {
     }
   });
 
+  mainWindow = window;
   window.once('ready-to-show', () => window.show());
 
   window.webContents.setWindowOpenHandler(({ url }) => {
@@ -42,6 +71,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  configureMediaPermissions();
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
