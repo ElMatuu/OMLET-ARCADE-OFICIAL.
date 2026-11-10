@@ -123,9 +123,76 @@ app.post('/api/login', authLimiter, async (req, res, next) => {
 
 app.get('/api/me', requireAuth, async (req, res, next) => {
   try {
-    const user = await User.findById(req.auth.sub).select('username role createdAt').lean();
+    const user = await User.findById(req.auth.sub)
+      .select('username role displayName bio avatarUrl createdAt')
+      .lean();
     if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
-    return res.json({ success: true, user: { id: String(user._id), username: user.username, role: user.role, createdAt: user.createdAt } });
+    return res.json({ success: true, user: {
+      id: String(user._id),
+      username: user.username,
+      role: user.role,
+      displayName: user.displayName || '',
+      bio: user.bio || '',
+      avatarUrl: user.avatarUrl || '',
+      createdAt: user.createdAt
+    } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.put('/api/me/profile', requireAuth, async (req, res, next) => {
+  try {
+    const updates = {};
+    if (Object.prototype.hasOwnProperty.call(req.body, 'displayName')) {
+      if (typeof req.body.displayName !== 'string' || req.body.displayName.trim().length > 30) {
+        return res.status(400).json({ success: false, message: 'El nombre visible admite hasta 30 caracteres.' });
+      }
+      updates.displayName = req.body.displayName.trim();
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body, 'bio')) {
+      if (typeof req.body.bio !== 'string' || req.body.bio.trim().length > 160) {
+        return res.status(400).json({ success: false, message: 'La biografía admite hasta 160 caracteres.' });
+      }
+      updates.bio = req.body.bio.trim();
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body, 'avatarUrl')) {
+      if (typeof req.body.avatarUrl !== 'string' || req.body.avatarUrl.trim().length > 500) {
+        return res.status(400).json({ success: false, message: 'La dirección de imagen no es válida.' });
+      }
+      const avatarUrl = req.body.avatarUrl.trim();
+      if (avatarUrl) {
+        let parsedUrl;
+        try {
+          parsedUrl = new URL(avatarUrl);
+        } catch {
+          return res.status(400).json({ success: false, message: 'La imagen debe usar una dirección HTTPS válida.' });
+        }
+        if (parsedUrl.protocol !== 'https:') {
+          return res.status(400).json({ success: false, message: 'La imagen debe usar HTTPS.' });
+        }
+      }
+      updates.avatarUrl = avatarUrl;
+    }
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ success: false, message: 'No hay cambios de perfil para guardar.' });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.auth.sub,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).select('username role displayName bio avatarUrl createdAt').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    return res.json({ success: true, user: {
+      id: String(user._id),
+      username: user.username,
+      role: user.role,
+      displayName: user.displayName || '',
+      bio: user.bio || '',
+      avatarUrl: user.avatarUrl || '',
+      createdAt: user.createdAt
+    } });
   } catch (error) {
     return next(error);
   }
