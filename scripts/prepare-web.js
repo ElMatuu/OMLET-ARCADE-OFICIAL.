@@ -19,6 +19,9 @@ for (const asset of ['service-worker.js', 'app-update.js', 'manifest.webmanifest
     console.error('Required web update asset was not found: ' + asset);
     process.exit(1);
   }
-  fs.copyFileSync(assetSource, path.join(outputDir, asset));
+  const assetContent = asset === 'service-worker.js'
+    ? fs.readFileSync(assetSource, 'utf8').replace('__PLAYVERSE_BUILD_VERSION__', 'build-' + Date.now())
+    : fs.readFileSync(assetSource);
+  fs.writeFileSync(path.join(outputDir, asset), assetContent);
 }
 console.log('Prepared PLAYVERSE web client and update assets in ./www');
