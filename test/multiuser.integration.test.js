@@ -308,7 +308,7 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     const charlieDirectSocket = await connectSocket(baseUrl, charlie.body.token);
     liveSockets.push(aliceSocket, memberSocket, outsiderSocket, bobDirectSocket, charlieDirectSocket);
 
-    const bobPresenceHeartbeat = await emitSocketAck(bobDirectSocket, 'presence_heartbeat');
+    const bobPresenceHeartbeat = await emitSocketAck(bobDirectSocket, 'presence_heartbeat', {});
     assert.equal(bobPresenceHeartbeat.success, true);
     const aliceFriendsPresence = await request(baseUrl, '/api/friends', {}, alice.body.token);
     const bobPresenceForAlice = aliceFriendsPresence.body.friends.find((friend) => friend.id === bob.body.user.id);
