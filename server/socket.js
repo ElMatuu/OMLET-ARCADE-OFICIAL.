@@ -127,8 +127,10 @@ function attachSocketServer(httpServer, allowedOrigins) {
           return acknowledge({ success: false, message: 'No tenés acceso a esta conversación.' });
         }
         const now = Date.now();
-        if (now - lastTypingEventAt < 100) return acknowledge({ success: true, throttled: true });
-        lastTypingEventAt = now;
+        if (isTyping && now - lastTypingEventAt < 250) {
+          return acknowledge({ success: true, throttled: true });
+        }
+        if (isTyping) lastTypingEventAt = now;
         const event = isTyping ? 'direct_typing' : 'direct_typing_stopped';
         socket.to('dm:' + conversationId).emit(event, {
           conversationId,
