@@ -769,12 +769,15 @@ app.post('/api/rooms', requireAuth, async (req, res, next) => {
   try {
     const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
     const game = typeof req.body.game === 'string' ? req.body.game.trim() : '';
-    if (name.length < 3 || name.length > 60 || game.length < 2 || game.length > 40) {
-      return res.status(400).json({ success: false, message: 'El nombre de sala (3-60) y el juego (2-40) son obligatorios.' });
+    const capacity = req.body.capacity === undefined ? 12 : Number(req.body.capacity);
+    if (name.length < 3 || name.length > 60 || game.length < 2 || game.length > 40 ||
+        !Number.isInteger(capacity) || capacity < 2 || capacity > 100) {
+      return res.status(400).json({ success: false, message: 'Nombre (3-60), juego (2-40) y capacidad (2-100) inválidos.' });
     }
     const room = await Room.create({
       name,
       game,
+      capacity,
       owner: req.auth.sub,
       ownerUsername: req.auth.username,
       members: [req.auth.sub],
@@ -791,6 +794,59 @@ app.post('/api/rooms', requireAuth, async (req, res, next) => {
         capacity: room.capacity
       }
     });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/rooms/:roomId/leave', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.roomId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
+    }
+    const room = await Room.findOneAndUpdate(
+      {
+        _id: req.params.roomId,
+        status: 'open',
+        members: req.auth.sub,
+        owner: { $ne: req.auth.sub },
+        memberCount: { $gt: 1 }
+      },
+      { $pull: { members: req.auth.sub }, $inc: { memberCount: -1 } },
+      { new: true, runValidators: true }
+    ).select('name memberCount capacity').lean();
+    if (!room) {
+      const existing = await Room.findById(req.params.roomId).select('owner status members').lean();
+      if (!existing) return res.status(404).json({ success: false, message: 'Sala no encontrada.' });
+      if (String(existing.owner) === req.auth.sub) {
+        return res.status(409).json({ success: false, message: 'El anfitrión debe cerrar la sala, no puede abandonarla.' });
+      }
+      return res.status(409).json({ success: false, message: 'No pertenecés a esta sala o ya está cerrada.' });
+    }
+    return res.json({ success: true, room: { id: String(req.params.roomId), name: room.name, memberCount: room.memberCount, capacity: room.capacity } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.delete('/api/rooms/:roomId', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.roomId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
+    }
+    const room = await Room.findOneAndUpdate(
+      { _id: req.params.roomId, owner: req.auth.sub, status: 'open' },
+      { $set: { status: 'closed' } },
+      { new: true }
+    ).select('_id status').lean();
+    if (!room) {
+      const exists = await Room.exists({ _id: req.params.roomId });
+      return res.status(exists ? 403 : 404).json({
+        success: false,
+        message: exists ? 'Solo el anfitrión puede cerrar esta sala.' : 'Sala no encontrada.'
+      });
+    }
+    return res.json({ success: true, room: { id: String(room._id), status: room.status } });
   } catch (error) {
     return next(error);
   }
