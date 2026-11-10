@@ -113,6 +113,7 @@
                 <button onclick="switchTab('shop'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-store text-purple-400 w-5"></i><span>Tienda Arcade & Marcos</span></button>
                 <button onclick="switchTab('events'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-sparkles text-blue-400 w-5"></i><span>Ruleta y Sorteos</span></button>
                 <button onclick="switchTab('profile'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-user-gear text-cyan-400 w-5"></i><span>Mi Perfil</span></button>
+                <button onclick="switchTab('friends'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-user-group text-pink-400 w-5"></i><span>Amigos y solicitudes</span></button>
             </nav>
             <div class="p-4 border-t border-slate-800 space-y-2">
                 <button onclick="openSettingsModal(); toggleDrawer(false);" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold text-slate-300">
@@ -176,6 +177,32 @@
                 </div>
                 <p id="rooms-status" class="text-xs text-slate-400" role="status">Cargando salas…</p>
                 <div id="rooms-container" class="grid gap-3" aria-live="polite"></div>
+            </div>
+
+            <!-- TAB FRIENDS -->
+            <div id="tab-friends" class="space-y-6 hidden">
+                <div class="space-y-2">
+                    <h3 class="font-black text-lg">Amigos de PLAYVERSE</h3>
+                    <p class="text-xs text-slate-400">Buscá jugadores por su nombre de usuario y conectá con la comunidad.</p>
+                </div>
+                <form id="friends-search-form" class="flex gap-2">
+                    <input id="friends-search-input" maxlength="24" required pattern="[A-Za-z0-9_]{3,24}" class="min-w-0 flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white" placeholder="Nombre de usuario">
+                    <button id="friends-search-button" class="PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white">Buscar</button>
+                </form>
+                <p id="friends-status" class="text-xs text-slate-400" role="status"></p>
+                <div id="friends-search-result" class="space-y-2"></div>
+                <section class="space-y-3">
+                    <h4 class="font-bold text-sm text-white">Solicitudes recibidas</h4>
+                    <div id="friends-incoming" class="space-y-2"></div>
+                </section>
+                <section class="space-y-3">
+                    <h4 class="font-bold text-sm text-white">Solicitudes enviadas</h4>
+                    <div id="friends-outgoing" class="space-y-2"></div>
+                </section>
+                <section class="space-y-3">
+                    <h4 class="font-bold text-sm text-white">Mis amigos</h4>
+                    <div id="friends-list" class="space-y-2"></div>
+                </section>
             </div>
 
             <!-- TAB SHOP -->
@@ -450,13 +477,14 @@
         }
 
         function switchTab(tabName) {
-            ['feed', 'lobbies', 'shop', 'events', 'profile'].forEach(t => {
+            ['feed', 'lobbies', 'shop', 'events', 'profile', 'friends'].forEach(t => {
                 const el = document.getElementById('tab-' + t);
                 if(el) el.classList.add('hidden');
             });
             document.getElementById('tab-' + tabName).classList.remove('hidden');
             if (tabName === 'lobbies') loadRooms();
             if (tabName === 'feed') loadCommunityPosts();
+            if (tabName === 'friends') loadFriends();
             ['feed', 'lobbies', 'shop', 'events'].forEach(t => {
                 const btn = document.getElementById('nav-btn-' + t);
                 if(btn) { btn.classList.remove('text-cyan-400'); btn.classList.add('text-slate-400'); }
