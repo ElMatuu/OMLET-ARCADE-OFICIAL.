@@ -54,7 +54,9 @@ function attachSocketServer(httpServer, allowedOrigins) {
     refreshSocketPresence(socket).catch((error) => {
       console.error('Unable to register socket presence:', error.message);
     });
-    socket.on('presence_heartbeat', async (acknowledge = () => {}) => {
+    socket.on('presence_heartbeat', async (payload, acknowledge = () => {}) => {
+      if (typeof payload === 'function') acknowledge = payload;
+      if (typeof acknowledge !== 'function') acknowledge = () => {};
       try {
         await refreshSocketPresence(socket);
         acknowledge({ success: true, expiresInMs: PRESENCE_TTL_MS });
