@@ -233,7 +233,8 @@ app.get('/api/users/:username', requireAuth, async (req, res, next) => {
         pairKey: makeFriendshipPairKey(req.auth.sub, user._id)
       }).select('status requester recipient').lean()
     ]);
-    const relation = !friendship ? 'none'
+    const relation = String(user._id) === req.auth.sub ? 'self'
+      : !friendship ? 'none'
       : friendship.status === 'accepted' ? 'friends'
       : String(friendship.requester) === req.auth.sub ? 'outgoing_pending'
       : 'incoming_pending';
