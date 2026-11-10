@@ -26,6 +26,7 @@ test('importing the API does not connect to MongoDB or start a listener', () => 
   const mongoose = require('mongoose');
   assert.equal(mongoose.connection.readyState, 0);
   assert.equal(typeof app, 'function');
+  assert.equal(app.get('trust proxy'), 1);
   assert.equal(httpServer.listening, false);
 });
 
