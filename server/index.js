@@ -1358,11 +1358,11 @@ app.get('/api/me/missions', requireAuth, async (req, res, next) => {
       { id: 'social-friends-5', chapter: 'Leyenda de comunidad', title: 'Punto de encuentro', description: 'Llegá a cinco amistades aceptadas en PLAYVERSE.', current: friendshipCount, target: 5 },
       { id: 'social-follow-1', chapter: 'Leyenda de comunidad', title: 'Seguí a un creador', description: 'Empezá a seguir a otro jugador para no perderte sus novedades.', current: followCount, target: 1 },
       { id: 'social-follow-5', chapter: 'Leyenda de comunidad', title: 'Radar de comunidad', description: 'Seguí a cinco jugadores cuyos contenidos te interesen.', current: followCount, target: 5 },
-      { id: 'social-like-10', chapter: 'Leyenda de comunidad', title: 'Apoyo constante', description: 'Reaccioná a diez publicaciones de otros jugadores.', current: likedPostCount, target: 10 },
-      { id: 'social-save-1', chapter: 'Leyenda de comunidad', title: 'Para después', description: 'Guardá tu primera publicación para volver a encontrarla.', current: savedCount, target: 1 },
-      { id: 'social-save-5', chapter: 'Leyenda de comunidad', title: 'Coleccionista de ideas', description: 'Guardá cinco publicaciones que quieras consultar más tarde.', current: savedCount, target: 5 },
-      { id: 'social-dm-10', chapter: 'Leyenda de comunidad', title: 'Compañero de equipo', description: 'Enviá diez mensajes privados a tus amistades.', current: directMessageCount, target: 10 },
-      { id: 'social-dm-30', chapter: 'Leyenda de comunidad', title: 'Conexiones duraderas', description: 'Alcanzá treinta mensajes privados enviados.', current: directMessageCount, target: 30 }
+      { id: 'social-like-10', chapter: 'Coleccionista y comunicador', title: 'Apoyo constante', description: 'Reaccioná a diez publicaciones de otros jugadores.', current: likedPostCount, target: 10 },
+      { id: 'social-save-1', chapter: 'Coleccionista y comunicador', title: 'Para después', description: 'Guardá tu primera publicación para volver a encontrarla.', current: savedCount, target: 1 },
+      { id: 'social-save-5', chapter: 'Coleccionista y comunicador', title: 'Coleccionista de ideas', description: 'Guardá cinco publicaciones que quieras consultar más tarde.', current: savedCount, target: 5 },
+      { id: 'social-dm-10', chapter: 'Coleccionista y comunicador', title: 'Compañero de equipo', description: 'Enviá diez mensajes privados a tus amistades.', current: directMessageCount, target: 10 },
+      { id: 'social-dm-30', chapter: 'Coleccionista y comunicador', title: 'Conexiones duraderas', description: 'Alcanzá treinta mensajes privados enviados.', current: directMessageCount, target: 30 }
     ];
 
     const missions = missionDefinitions.map((mission) => ({
