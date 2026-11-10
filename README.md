@@ -31,7 +31,7 @@ This repository contains a working backend foundation and a web client that is s
 
 ### Not yet implemented or verified as production features
 
-- LiveKit server integration foundation: persistent live-session records, authenticated room creation, short-lived publisher/viewer JWTs, owner-only stream termination and a public live-session directory are implemented. The feature remains disabled until valid LiveKit Cloud/self-host credentials are configured.
+- LiveKit server integration foundation: persistent live-session records, authenticated room creation, short-lived publisher/viewer JWTs, owner-only stream termination, a signature-verified `room_finished` webhook and a public live-session directory are implemented. The feature remains disabled until valid LiveKit Cloud/self-host credentials are configured.
 - LiveKit browser client is now bundled locally into the web build. The live screen has real authenticated publisher/viewer token flows, camera/microphone controls, screen-share control and remote audio/video track rendering. These flows still require real-browser and physical-device end-to-end testing; they are not yet a verified public streaming service.
 - Camera/screen/audio capture on Android and Windows, including device capability detection and permissions.
 - 8K capture or any guaranteed 4K/120 FPS mode. Stored preferences are requests, not proof that a device or encoder can deliver them.
@@ -58,7 +58,7 @@ No million-user capacity or public production readiness is claimed. Those requir
 - `scripts/` — web build and platform asset preparation.
 - `assets/playverse-icon.svg` — original vector application icon.
 
-The API uses MongoDB. LiveKit requires `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` to enable live-session endpoints; API secrets must exist only in backend environment settings. The current backend issues 10-minute role-scoped tokens and never sends the API secret to clients. The client-side LiveKit SDK and camera/screen playback UI are a separate pending stage. Multi-document operations that need transactions require a MongoDB replica set. Configure a real HTTPS origin, production database, exact CORS allowlist, secrets, backups, monitoring and rate limits before public release.
+The API uses MongoDB. LiveKit requires `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` to enable live-session endpoints; API secrets must exist only in backend environment settings. The current backend issues 10-minute role-scoped tokens and never sends the API secret to clients. The web client SDK and camera/screen playback UI are integrated; Android native permissions and device-level verification remain pending. Multi-document operations that need transactions require a MongoDB replica set. Configure a real HTTPS origin, production database, exact CORS allowlist, secrets, backups, monitoring and rate limits before public release.
 
 ## Development requirements
 
