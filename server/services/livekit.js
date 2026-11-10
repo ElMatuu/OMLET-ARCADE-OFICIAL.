@@ -1,5 +1,5 @@
 const crypto = require('node:crypto');
-const { AccessToken, LiveKitAPI } = require('livekit-server-sdk');
+const { AccessToken, LiveKitAPI, WebhookReceiver } = require('livekit-server-sdk');
 
 function getLiveKitConfig(env = process.env) {
   const url = typeof env.LIVEKIT_URL === 'string' ? env.LIVEKIT_URL.trim() : '';
@@ -41,6 +41,10 @@ async function createParticipantToken({ config, identity, name, metadata, roomNa
   return token.toJwt();
 }
 
+function createWebhookReceiver(config) {
+  return new WebhookReceiver(config.apiKey, config.apiSecret);
+}
+
 function createLiveKitApi(config) {
   return new LiveKitAPI({
     host: config.apiHost,
@@ -52,6 +56,7 @@ function createLiveKitApi(config) {
 module.exports = {
   createLiveKitApi,
   createParticipantToken,
+  createWebhookReceiver,
   createRoomName,
   getLiveKitConfig,
   isLiveKitConfigured
