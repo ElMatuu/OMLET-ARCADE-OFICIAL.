@@ -117,7 +117,9 @@
             </div>
             <nav class="p-3 space-y-1.5 flex-1 overflow-y-auto">
                 <button onclick="switchTab('feed'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-tv text-orange-400 w-5"></i><span>Feed y Transmisiones</span></button>
-                <button onclick="switchTab('lobbies'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-gamepad text-emerald-400 w-5"></i><span>Salas Multijugador</span></button>
+                <button onclick="switchTab('live'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-tower-broadcast text-rose-400 w-5"></i><span>En Vivo</span></button>
+                <button onclick="switchTab('lobbies'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-gamepad text-emerald-400 w-5"></i><span>Juegos y Salas</span></button>
+                <button onclick="switchTab('chat'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-comments text-sky-400 w-5"></i><span>Chat y Grupos</span></button>
                 <button onclick="switchTab('shop'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-store text-purple-400 w-5"></i><span>Tienda Arcade & Marcos</span></button>
                 <button onclick="switchTab('events'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-sparkles text-amber-400 w-5"></i><span>Ruleta y Sorteos</span></button>
                 <button onclick="switchTab('profile'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-user-gear text-orange-400 w-5"></i><span>Mi Perfil</span></button>
@@ -202,6 +204,48 @@
                     <button id="community-load-more" type="button" class="hidden w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-xs font-bold text-orange-300 hover:border-orange-500 disabled:opacity-50">Cargar más publicaciones</button>
                     </div>
                 </div>
+            </div>
+
+            <!-- TAB LIVE -->
+            <div id="tab-live" class="space-y-6 hidden">
+                <section class="space-y-2">
+                    <div class="flex items-center justify-between"><div><h3 class="font-black text-lg">En Vivo</h3><p class="text-xs text-slate-400">Descubrí transmisiones de la comunidad</p></div><span class="text-[10px] font-bold text-rose-300 bg-rose-500/10 border border-rose-500/20 px-2 py-1 rounded-full">LIVE</span></div>
+                    <div class="flex gap-2 overflow-x-auto pb-2" aria-label="Filtrar transmisiones por juego">
+                        <button type="button" class="rounded-full border border-orange-500/40 bg-orange-500/10 text-orange-300 px-3 py-2 text-xs font-bold">Todos</button>
+                        <button type="button" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">Minecraft</button>
+                        <button type="button" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">Roblox</button>
+                        <button type="button" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">Free Fire</button>
+                        <button type="button" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">PUBG Mobile</button>
+                        <button type="button" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">Otros</button>
+                    </div>
+                </section>
+                <section class="PLAYVERSE-card rounded-2xl p-5 space-y-3">
+                    <div class="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-300 flex items-center justify-center text-xl"><i class="fa-solid fa-tower-broadcast"></i></div>
+                    <h4 class="font-bold text-base">Todavía no hay transmisiones disponibles</h4>
+                    <p class="text-xs text-slate-400 leading-relaxed">El catálogo está preparado para recibir streams. La emisión y reproducción en vivo necesitan integrar el motor de video y la infraestructura multimedia.</p>
+                    <button type="button" onclick="openStreamStudio()" class="PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white">Configurar mi transmisión</button>
+                </section>
+                <section class="PLAYVERSE-card rounded-2xl p-4 space-y-2">
+                    <h4 class="font-bold text-sm">Multi-Stream Squads</h4>
+                    <p class="text-xs text-slate-400">Las transmisiones compartidas de varios jugadores estarán disponibles cuando se integre el servicio de video en tiempo real.</p>
+                    <span class="inline-flex text-[10px] text-amber-300 border border-amber-500/20 bg-amber-500/10 px-2 py-1 rounded-full">En desarrollo</span>
+                </section>
+            </div>
+
+            <!-- TAB CHAT / GRUPOS -->
+            <div id="tab-chat" class="space-y-6 hidden">
+                <section class="space-y-2"><h3 class="font-black text-lg">Chat y Grupos</h3><p class="text-xs text-slate-400">Conversá con jugadores dentro de las salas multijugador.</p></section>
+                <button type="button" onclick="switchTab('lobbies')" class="w-full PLAYVERSE-card rounded-2xl p-4 flex items-center gap-3 text-left hover:border-orange-500/50">
+                    <span class="w-11 h-11 rounded-xl bg-orange-500/10 text-orange-300 flex items-center justify-center"><i class="fa-solid fa-people-group"></i></span>
+                    <span class="flex-1"><strong class="block text-sm">Chats de salas y grupos</strong><span class="text-xs text-slate-400">Entrá a una sala para abrir su chat grupal.</span></span>
+                    <i class="fa-solid fa-chevron-right text-slate-500"></i>
+                </button>
+                <button type="button" onclick="switchTab('friends')" class="w-full PLAYVERSE-card rounded-2xl p-4 flex items-center gap-3 text-left hover:border-orange-500/50">
+                    <span class="w-11 h-11 rounded-xl bg-fuchsia-500/10 text-fuchsia-300 flex items-center justify-center"><i class="fa-solid fa-user-group"></i></span>
+                    <span class="flex-1"><strong class="block text-sm">Amigos y comunidad</strong><span class="text-xs text-slate-400">Buscá jugadores y administrá solicitudes.</span></span>
+                    <i class="fa-solid fa-chevron-right text-slate-500"></i>
+                </button>
+                <p class="text-[11px] text-slate-500">Los mensajes privados uno a uno todavía no están implementados. El chat grupal disponible funciona dentro de las salas y requiere pertenecer a ellas.</p>
             </div>
 
             <!-- TAB LOBBIES -->
@@ -304,14 +348,26 @@
         <!-- NAVEGACIÓN PRINCIPAL PLAYVERSE -->
         <nav aria-label="Navegación principal" class="h-[4.5rem] bg-slate-900/95 backdrop-blur-md border-t border-slate-800 grid grid-cols-5 items-center shrink-0 z-30 pb-[env(safe-area-inset-bottom)]">
             <button type="button" onclick="switchTab('feed')" id="nav-btn-feed" aria-current="page" class="flex flex-col items-center justify-center gap-1 text-orange-400"><i class="fa-solid fa-house text-lg"></i><span class="text-[10px] font-semibold">Inicio</span></button>
+            <button type="button" onclick="switchTab('live')" id="nav-btn-live" class="flex flex-col items-center justify-center gap-1 text-slate-400"><i class="fa-solid fa-tower-broadcast text-lg"></i><span class="text-[10px] font-semibold">En Vivo</span></button>
+            <div class="flex justify-center -mt-5"><button type="button" onclick="openActionSelector()" aria-label="Crear y transmitir" class="w-14 h-14 PLAYVERSE-gradient rounded-full flex items-center justify-center text-white shadow-xl border-4 border-slate-950 text-xl"><i class="fa-solid fa-plus"></i></button></div>
             <button type="button" onclick="switchTab('lobbies')" id="nav-btn-lobbies" class="flex flex-col items-center justify-center gap-1 text-slate-400"><i class="fa-solid fa-gamepad text-lg"></i><span class="text-[10px] font-semibold">Juegos</span></button>
-            <div class="flex justify-center -mt-5"><button type="button" onclick="openPostModal()" aria-label="Crear publicación" class="w-14 h-14 PLAYVERSE-gradient rounded-full flex items-center justify-center text-white shadow-xl border-4 border-slate-950 text-xl"><i class="fa-solid fa-plus"></i></button></div>
-            <button type="button" onclick="switchTab('friends')" id="nav-btn-friends" class="flex flex-col items-center justify-center gap-1 text-slate-400"><i class="fa-solid fa-users text-lg"></i><span class="text-[10px] font-semibold">Amigos</span></button>
-            <button type="button" onclick="switchTab('profile')" id="nav-btn-profile" class="flex flex-col items-center justify-center gap-1 text-slate-400"><i class="fa-solid fa-user text-lg"></i><span class="text-[10px] font-semibold">Perfil</span></button>
+            <button type="button" onclick="switchTab('chat')" id="nav-btn-chat" class="flex flex-col items-center justify-center gap-1 text-slate-400"><i class="fa-solid fa-comments text-lg"></i><span class="text-[10px] font-semibold">Chat</span></button>
         </nav>
     </div>
 
     <!-- MODAL POST -->
+    <div id="action-selector-modal" class="fixed inset-0 z-[60] bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 hidden" role="dialog" aria-modal="true" aria-labelledby="action-selector-title">
+        <section class="PLAYVERSE-card rounded-3xl w-full max-w-md p-5 space-y-4 border border-orange-500/30">
+            <div class="flex items-center justify-between"><div><h3 id="action-selector-title" class="font-black text-lg">Crear en PLAYVERSE</h3><p class="text-xs text-slate-400">Elegí qué querés hacer</p></div><button type="button" onclick="closeActionSelector()" class="p-2 text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button></div>
+            <div class="grid grid-cols-2 gap-3">
+                <button type="button" onclick="closeActionSelector(); openStreamStudio();" class="PLAYVERSE-card rounded-2xl p-4 text-left space-y-2"><i class="fa-solid fa-tower-broadcast text-xl text-rose-400"></i><strong class="block text-sm">Transmitir</strong><span class="block text-[10px] text-slate-400">Configurar emisión</span></button>
+                <button type="button" disabled class="PLAYVERSE-card rounded-2xl p-4 text-left space-y-2 opacity-60 cursor-not-allowed"><i class="fa-solid fa-record-vinyl text-xl text-slate-300"></i><strong class="block text-sm">Grabar</strong><span class="block text-[10px] text-amber-300">En desarrollo</span></button>
+                <button type="button" onclick="closeActionSelector(); openPostModal();" class="PLAYVERSE-card rounded-2xl p-4 text-left space-y-2"><i class="fa-solid fa-pen-to-square text-xl text-orange-300"></i><strong class="block text-sm">Publicar</strong><span class="block text-[10px] text-slate-400">Compartir con la comunidad</span></button>
+                <button type="button" onclick="closeActionSelector(); openCreateRoomModal();" class="PLAYVERSE-card rounded-2xl p-4 text-left space-y-2"><i class="fa-solid fa-gamepad text-xl text-emerald-300"></i><strong class="block text-sm">Host multijugador</strong><span class="block text-[10px] text-slate-400">Crear una sala</span></button>
+            </div>
+        </section>
+    </div>
+
     <div id="post-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
         <div class="PLAYVERSE-card rounded-3xl w-full max-w-md p-6 space-y-4 border border-slate-800">
             <div class="flex items-center justify-between pb-3 border-b border-slate-800"><h3 class="font-black text-base text-white">Crear Publicación</h3><button onclick="closePostModal()" class="text-slate-400"><i class="fa-solid fa-xmark text-lg"></i></button></div>
@@ -543,8 +599,15 @@
             setAuthMessage('Cerraste tu sesión.', false);
         }
 
+        function openActionSelector() {
+            document.getElementById('action-selector-modal').classList.remove('hidden');
+        }
+        function closeActionSelector() {
+            document.getElementById('action-selector-modal').classList.add('hidden');
+        }
+
         function switchTab(tabName) {
-            ['feed', 'lobbies', 'shop', 'events', 'profile', 'friends'].forEach(t => {
+            ['feed', 'live', 'chat', 'lobbies', 'shop', 'events', 'profile', 'friends'].forEach(t => {
                 const el = document.getElementById('tab-' + t);
                 if(el) el.classList.add('hidden');
             });
@@ -552,7 +615,7 @@
             if (tabName === 'lobbies') loadRooms();
             if (tabName === 'feed') loadCommunityPosts();
             if (tabName === 'friends') loadFriends();
-            ['feed', 'lobbies', 'shop', 'events', 'friends', 'profile'].forEach(t => {
+            ['feed', 'live', 'chat', 'lobbies', 'shop', 'events', 'friends', 'profile'].forEach(t => {
                 const btn = document.getElementById('nav-btn-' + t);
                 if(btn) {
                     btn.classList.remove('text-orange-400');
