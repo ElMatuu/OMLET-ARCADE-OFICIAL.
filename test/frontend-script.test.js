@@ -14,6 +14,7 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /id="tab-friends"/, 'The friends screen must be present');
   assert.match(html, /\/api\/friends\/requests\//, 'The friends interface must call the friend request API');
   assert.match(html, /id="profile-editor-form"/, 'The profile editor must be present');
+  assert.match(html, /if \(profileCredits\) profileCredits\.textContent/, 'Legacy credit updates must tolerate the profile economy being disabled');
 
   inlineScripts.forEach((match, index) => {
     assert.doesNotThrow(
