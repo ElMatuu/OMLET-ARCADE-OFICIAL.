@@ -5,7 +5,11 @@ function verifyToken(token) {
   if (!secret || secret.length < 32) {
     throw new Error('JWT_SECRET must contain at least 32 characters');
   }
-  return jwt.verify(token, secret, { algorithms: ['HS256'] });
+  return jwt.verify(token, secret, {
+    algorithms: ['HS256'],
+    issuer: 'playverse-api',
+    audience: 'playverse-clients'
+  });
 }
 
 function requireAuth(req, res, next) {
