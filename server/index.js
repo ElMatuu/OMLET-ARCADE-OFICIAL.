@@ -259,6 +259,78 @@ app.put('/api/me/profile', requireAuth, profileLimiter, async (req, res, next) =
 });
 
 
+
+const DEFAULT_STREAMING_PREFERENCES = {
+  resolution: 'auto',
+  fps: 30,
+  bitrateMbps: 6,
+  cameraEnabled: false,
+  microphoneEnabled: true,
+  systemAudioEnabled: true,
+  orientation: 'auto',
+  cameraPosition: 'bottom-right',
+  cameraFrame: 'none'
+};
+
+const STREAMING_PREFERENCE_RULES = {
+  resolution: (value) => ['auto', '720p', '1080p', '1440p', '2160p'].includes(value),
+  fps: (value) => [24, 30, 60, 120].includes(value),
+  bitrateMbps: (value) => Number.isInteger(value) && value >= 1 && value <= 50,
+  cameraEnabled: (value) => typeof value === 'boolean',
+  microphoneEnabled: (value) => typeof value === 'boolean',
+  systemAudioEnabled: (value) => typeof value === 'boolean',
+  orientation: (value) => ['auto', 'portrait', 'landscape'].includes(value),
+  cameraPosition: (value) => ['top-left', 'top-right', 'bottom-left', 'bottom-right'].includes(value),
+  cameraFrame: (value) => ['none', 'cyan', 'violet'].includes(value)
+};
+
+app.get('/api/me/streaming-preferences', requireAuth, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.auth.sub).select('streamingPreferences').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    return res.json({
+      success: true,
+      preferences: { ...DEFAULT_STREAMING_PREFERENCES, ...(user.streamingPreferences || {}) },
+      capabilityNote: 'La resolución, FPS y bitrate efectivos dependerán del dispositivo, permisos y motor de captura disponibles.'
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.put('/api/me/streaming-preferences', requireAuth, profileLimiter, async (req, res, next) => {
+  try {
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ success: false, message: 'Configuración de transmisión inválida.' });
+    }
+    const keys = Object.keys(req.body);
+    if (!keys.length || keys.some((key) => !Object.prototype.hasOwnProperty.call(STREAMING_PREFERENCE_RULES, key))) {
+      return res.status(400).json({ success: false, message: 'Hay opciones de transmisión desconocidas o no válidas.' });
+    }
+    for (const key of keys) {
+      if (!STREAMING_PREFERENCE_RULES[key](req.body[key])) {
+        return res.status(400).json({ success: false, message: 'Valor no válido para la opción: ' + key + '.' });
+      }
+    }
+    const updates = {};
+    keys.forEach((key) => { updates['streamingPreferences.' + key] = req.body[key]; });
+    const user = await User.findByIdAndUpdate(
+      req.auth.sub,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).select('streamingPreferences').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    return res.json({
+      success: true,
+      preferences: { ...DEFAULT_STREAMING_PREFERENCES, ...(user.streamingPreferences || {}) },
+      capabilityNote: 'Preferencias guardadas. Esto no inicia una transmisión ni garantiza capacidades que el dispositivo no soporte.'
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+
 app.get('/api/users/:username', requireAuth, async (req, res, next) => {
   try {
     const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
