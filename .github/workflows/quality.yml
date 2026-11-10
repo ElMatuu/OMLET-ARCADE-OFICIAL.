@@ -54,4 +54,4 @@ jobs:
         env:
           PLAYVERSE_TEST_MONGODB_URI: mongodb://127.0.0.1:27017/playverse_ci?replicaSet=rs0
       - name: Verify web update assets are packaged
-        run: test -s www/service-worker.js && test -s www/app-update.js && test -s www/manifest.webmanifest
+        run: test -s www/service-worker.js && test -s www/app-update.js && test -s www/manifest.webmanifest && test -s www/styles.css
