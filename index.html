@@ -102,7 +102,7 @@
                     <div class="w-12 h-12 rounded-full bg-slate-950 border-2 border-white/40 flex items-center justify-center text-2xl shadow-lg">🎮</div>
                     <div>
                         <h4 id="drawer-username" class="font-bold text-sm text-white">Wachin Gamer</h4>
-                        <span class="text-[10px] text-cyan-200 font-mono font-bold">Nivel 42 • VIP</span>
+                        <span id="drawer-profile-subtitle" class="text-[10px] text-cyan-200 font-mono font-bold">Comunidad gamer</span>
                     </div>
                 </div>
                 <button onclick="toggleDrawer(false)" class="text-white hover:bg-black/20 p-2 rounded-xl"><i class="fa-solid fa-xmark text-lg"></i></button>
@@ -210,13 +210,22 @@
             <!-- TAB PROFILE -->
             <div id="tab-profile" class="space-y-6 hidden max-w-xl mx-auto">
                 <div class="PLAYVERSE-card rounded-3xl p-6 text-center space-y-4">
-                    <div class="w-24 h-24 mx-auto rounded-full PLAYVERSE-gradient p-1 shadow-2xl flex items-center justify-center text-4xl">🎮</div>
-                    <div><h3 id="profile-username" class="font-black text-xl text-white">Wachin Gamer</h3><p class="text-xs text-cyan-400 font-mono mt-0.5">#PLAYVERSE1337</p></div>
-                    <div class="grid grid-cols-3 gap-3">
-                        <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800"><span class="block text-[10px] text-slate-400 font-bold">NIVEL</span><span class="font-black text-base text-white">42</span></div>
-                        <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800"><span class="block text-[10px] text-slate-400 font-bold">TOKENS</span><span id="profile-créditos" class="font-black text-base text-blue-400">2500</span></div>
-                        <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800"><span class="block text-[10px] text-slate-400 font-bold">RANGO</span><span class="font-black text-base text-purple-400">VIP</span></div>
+                    <div class="w-24 h-24 mx-auto rounded-full PLAYVERSE-gradient p-1 shadow-2xl flex items-center justify-center text-4xl overflow-hidden">
+                        <span id="profile-avatar-placeholder">🎮</span>
+                        <img id="profile-avatar" class="hidden w-full h-full object-cover rounded-full" alt="Avatar del perfil">
                     </div>
+                    <div>
+                        <h3 id="profile-display-name" class="font-black text-xl text-white">Jugador PLAYVERSE</h3>
+                        <p id="profile-username" class="text-xs text-cyan-400 font-mono mt-0.5">@usuario</p>
+                        <p id="profile-bio" class="text-sm text-slate-300 mt-3 whitespace-pre-wrap break-words">Todavía no agregaste una biografía.</p>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800"><span class="block text-[10px] text-slate-400 font-bold">ROL</span><span id="profile-role" class="font-black text-sm text-white">Jugador</span></div>
+                        <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800"><span class="block text-[10px] text-slate-400 font-bold">CUENTA</span><span class="font-black text-sm text-emerald-400">Activa</span></div>
+                        <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800"><span class="block text-[10px] text-slate-400 font-bold">MIEMBRO DESDE</span><span id="profile-member-since" class="font-black text-sm text-white">—</span></div>
+                    </div>
+                    <button type="button" onclick="openProfileEditor()" class="w-full rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-4 py-3 text-xs font-bold text-cyan-300">Editar perfil</button>
+                    <p id="profile-status" class="text-xs text-slate-400" role="status"></p>
                 </div>
             </div>
         </main>
@@ -259,6 +268,21 @@
             </div>
             <button onclick="closeSettingsModal()" class="w-full PLAYVERSE-gradient text-white font-bold py-3 rounded-xl shadow-md">Guardar Ajustes</button>
         </div>
+    </div>
+
+    <!-- MODAL EDITAR PERFIL -->
+    <div id="profile-editor-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <form id="profile-editor-form" class="PLAYVERSE-card rounded-3xl w-full max-w-lg p-6 space-y-4 border border-slate-800">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                <h3 class="font-black text-lg text-white">Editar perfil</h3>
+                <button type="button" onclick="closeProfileEditor()" class="text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div><label for="profile-display-name-input" class="text-xs font-bold text-slate-400 block mb-1">Nombre visible</label><input id="profile-display-name-input" maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="Cómo querés que te vean"></div>
+            <div><label for="profile-bio-input" class="text-xs font-bold text-slate-400 block mb-1">Biografía (máximo 160 caracteres)</label><textarea id="profile-bio-input" maxlength="160" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white resize-y" placeholder="Contá algo sobre vos y tus juegos"></textarea></div>
+            <div><label for="profile-avatar-url-input" class="text-xs font-bold text-slate-400 block mb-1">Avatar (URL HTTPS)</label><input id="profile-avatar-url-input" type="url" maxlength="500" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="https://..."></div>
+            <p id="profile-editor-status" class="text-xs text-slate-400" role="status"></p>
+            <div class="flex gap-2"><button type="button" onclick="closeProfileEditor()" class="flex-1 rounded-xl border border-slate-700 px-4 py-3 text-xs font-bold text-slate-300">Cancelar</button><button id="profile-save-button" type="submit" class="flex-1 PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white">Guardar perfil</button></div>
+        </form>
     </div>
 
     <!-- MODAL CREAR SALA -->
