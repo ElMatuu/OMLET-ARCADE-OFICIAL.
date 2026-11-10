@@ -6,6 +6,7 @@ on:
       - main
       - feat/playverse-brand-foundation
       - fix/livekit-token-ttl-10m
+      - feat/mission-campaign-expansion
   pull_request:
     branches:
       - main
