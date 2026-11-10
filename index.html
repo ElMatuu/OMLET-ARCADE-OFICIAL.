@@ -879,6 +879,8 @@
         }
 
         function logout() {
+            closeDirectConversation();
+            closeRoomChat();
             if (presenceSocket) presenceSocket.disconnect();
             presenceSocket = null;
             if (presenceHeartbeatTimer) clearInterval(presenceHeartbeatTimer);
