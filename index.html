@@ -310,6 +310,11 @@
                     <h4 class="font-bold text-sm text-white">Siguiendo</h4>
                     <div id="following-list" class="space-y-2"><p class="text-xs text-slate-500">Cargando…</p></div>
                 </section>
+                <section class="space-y-3">
+                    <h4 class="font-bold text-sm text-white">Jugadores bloqueados</h4>
+                    <p class="text-xs text-slate-500">Los jugadores bloqueados no pueden enviarte solicitudes ni mensajes privados.</p>
+                    <div id="blocked-users-list" class="space-y-2"><p class="text-xs text-slate-500">Cargando…</p></div>
+                </section>
 
             </div>
 
@@ -1903,8 +1908,55 @@
                 });
                 status.textContent = 'Conexiones actualizadas.';
                 await loadFollowLists();
+                await loadBlockedUsers();
             } catch (error) {
                 status.textContent = error.message;
+            }
+        }
+
+        async function loadBlockedUsers() {
+            const container = document.getElementById('blocked-users-list');
+            if (!container || !authToken) return;
+            container.replaceChildren();
+            try {
+                const data = await apiRequest('/api/me/blocked-users');
+                const users = data.users || [];
+                if (!users.length) {
+                    const empty = document.createElement('p');
+                    empty.className = 'text-xs text-slate-500';
+                    empty.textContent = 'No bloqueaste a ningún jugador.';
+                    container.appendChild(empty);
+                    return;
+                }
+                users.forEach((user) => {
+                    const row = document.createElement('div');
+                    row.className = 'PLAYVERSE-card rounded-xl border border-slate-800 p-3 flex items-center gap-3';
+                    const name = document.createElement('span');
+                    name.className = 'min-w-0 flex-1 text-sm font-semibold truncate';
+                    name.textContent = user.displayName || '@' + user.username;
+                    const unblock = document.createElement('button');
+                    unblock.type = 'button';
+                    unblock.className = 'rounded-lg border border-slate-700 px-3 py-2 text-xs text-orange-200';
+                    unblock.textContent = 'Desbloquear';
+                    unblock.addEventListener('click', async () => {
+                        unblock.disabled = true;
+                        try {
+                            await apiRequest('/api/users/' + encodeURIComponent(user.username) + '/block', { method: 'DELETE' });
+                            await loadBlockedUsers();
+                            document.getElementById('friends-status').textContent = 'Jugador desbloqueado. La amistad no se restaura automáticamente.';
+                        } catch (error) {
+                            document.getElementById('friends-status').textContent = error.message;
+                            unblock.disabled = false;
+                        }
+                    });
+                    row.append(name, unblock);
+                    container.appendChild(row);
+                });
+            } catch (error) {
+                const message = document.createElement('p');
+                message.className = 'text-xs text-red-300';
+                message.textContent = error.message;
+                container.appendChild(message);
             }
         }
 
@@ -1996,7 +2048,7 @@
                 audience.className = 'text-xs text-slate-400';
                 audience.textContent = String(player.followersCount || 0) + ' seguidores · ' + String(player.followingCount || 0) + ' siguiendo';
                 card.append(name, handle, bio, posts, audience);
-                if (player.friendship !== 'self') {
+                if (player.friendship !== 'self' && player.friendship !== 'blocked') {
                     const follow = document.createElement('button');
                     follow.type = 'button';
                     follow.className = 'rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/10 px-4 py-2 text-xs font-bold text-fuchsia-200';
@@ -2017,7 +2069,12 @@
                     });
                     card.appendChild(follow);
                 }
-                if (player.friendship === 'self') {
+                if (player.friendship === 'blocked') {
+                    const relation = document.createElement('p');
+                    relation.className = 'text-xs font-bold text-rose-300';
+                    relation.textContent = 'La interacción con este jugador está bloqueada.';
+                    card.appendChild(relation);
+                } else if (player.friendship === 'self') {
                     const relation = document.createElement('p');
                     relation.className = 'text-xs font-bold text-slate-400';
                     relation.textContent = 'Este es tu perfil';
@@ -2047,6 +2104,26 @@
                         : player.friendship === 'outgoing_pending' ? 'Solicitud enviada'
                         : 'Este jugador te envió una solicitud';
                     card.appendChild(relation);
+                }
+                if (player.friendship !== 'self' && player.friendship !== 'blocked') {
+                    const block = document.createElement('button');
+                    block.type = 'button';
+                    block.className = 'rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-xs font-bold text-rose-200';
+                    block.textContent = 'Bloquear jugador';
+                    block.addEventListener('click', async () => {
+                        if (!window.confirm('¿Querés bloquear a @' + player.username + '? Se eliminarán la amistad y los seguimientos entre ambas cuentas.')) return;
+                        block.disabled = true;
+                        try {
+                            await apiRequest('/api/users/' + encodeURIComponent(player.username) + '/block', { method: 'POST' });
+                            await loadFriends();
+                            await searchFriendPlayer(player.username);
+                            status.textContent = 'Jugador bloqueado. Podés desbloquearlo desde la lista de bloqueados.';
+                        } catch (error) {
+                            status.textContent = error.message;
+                            block.disabled = false;
+                        }
+                    });
+                    card.appendChild(block);
                 }
                 result.appendChild(card);
                 status.textContent = 'Jugador encontrado.';
