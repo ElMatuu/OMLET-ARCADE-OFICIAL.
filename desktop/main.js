@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, dialog, session } = require('electron');
+const { app, BrowserWindow, shell, dialog, session, desktopCapturer } = require('electron');
 const path = require('node:path');
 
 let mainWindow = null;
@@ -10,6 +10,10 @@ function isTrustedAppContent(webContents) {
 
 function configureMediaPermissions() {
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details = {}) => {
+    if (permission === 'display-capture' && isTrustedAppContent(webContents)) {
+      callback(true);
+      return;
+    }
     if (permission !== 'media' || !isTrustedAppContent(webContents)) {
       callback(false);
       return;
@@ -26,6 +30,40 @@ function configureMediaPermissions() {
       message: 'PLAYVERSE solicita acceso a ' + requested + '.',
       detail: 'El acceso se usa únicamente cuando iniciás una transmisión. Podés bloquearlo si no querés emitir.'
     }).then((result) => callback(result.response === 0)).catch(() => callback(false));
+  });
+
+  session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
+    if (!request.frame || !isTrustedAppContent(request.frame.top && request.frame.top.webContents ? request.frame.top.webContents : mainWindow && mainWindow.webContents)) {
+      callback(null);
+      return;
+    }
+    try {
+      const sources = await desktopCapturer.getSources({
+        types: ['screen', 'window'],
+        thumbnailSize: { width: 240, height: 135 }
+      });
+      if (!sources.length) {
+        callback(null);
+        return;
+      }
+      const choices = sources.map((source) => source.name).concat('Cancelar');
+      const result = await dialog.showMessageBox(mainWindow, {
+        type: 'question',
+        buttons: choices,
+        cancelId: choices.length - 1,
+        defaultId: choices.length - 1,
+        title: 'Compartir pantalla en PLAYVERSE',
+        message: 'Elegí la pantalla o ventana que querés compartir.'
+      });
+      const selected = sources[result.response];
+      if (!selected) {
+        callback(null);
+        return;
+      }
+      callback({ video: selected, ...(request.audioRequested ? { audio: 'loopback' } : {}) });
+    } catch {
+      callback(null);
+    }
   });
 }
 
