@@ -13,6 +13,7 @@ const User = require('./models/User');
 const Room = require('./models/Room');
 const RoomMessage = require('./models/RoomMessage');
 const Post = require('./models/Post');
+const SavedPost = require('./models/SavedPost');
 const Comment = require('./models/Comment');
 const Friendship = require('./models/Friendship');
 const Inventory = require('./models/Inventory');
@@ -703,6 +704,71 @@ const postLimiter = rateLimit({
   message: { success: false, message: 'Publicaste demasiado rápido. Probá más tarde.' }
 });
 
+app.get('/api/me/saved-posts', requireAuth, async (req, res, next) => {
+  try {
+    const savedRecords = await SavedPost.find({ user: req.auth.sub })
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(100)
+      .lean();
+    if (!savedRecords.length) return res.json({ success: true, posts: [] });
+    const posts = await Post.find({ _id: { $in: savedRecords.map((item) => item.post) } })
+      .select('authorUsername content likes commentCount createdAt')
+      .lean();
+    const postById = new Map(posts.map((post) => [String(post._id), post]));
+    return res.json({
+      success: true,
+      posts: savedRecords.map((record) => {
+        const post = postById.get(String(record.post));
+        if (!post) return null;
+        return {
+          id: String(post._id),
+          authorUsername: post.authorUsername,
+          content: post.content,
+          likeCount: Array.isArray(post.likes) ? post.likes.length : 0,
+          likedByMe: Array.isArray(post.likes) && post.likes.some((id) => String(id) === req.auth.sub),
+          commentCount: Number(post.commentCount) || 0,
+          createdAt: post.createdAt,
+          savedByMe: true,
+          savedAt: record.createdAt
+        };
+      }).filter(Boolean)
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.put('/api/posts/:postId/save', requireAuth, postLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.postId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de publicación inválido.' });
+    }
+    const exists = await Post.exists({ _id: req.params.postId });
+    if (!exists) return res.status(404).json({ success: false, message: 'Publicación no encontrada.' });
+    await SavedPost.updateOne(
+      { user: req.auth.sub, post: req.params.postId },
+      { $setOnInsert: { user: req.auth.sub, post: req.params.postId } },
+      { upsert: true }
+    );
+    return res.json({ success: true, saved: true });
+  } catch (error) {
+    if (error && error.code === 11000) return res.json({ success: true, saved: true });
+    return next(error);
+  }
+});
+
+app.delete('/api/posts/:postId/save', requireAuth, postLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.postId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de publicación inválido.' });
+    }
+    await SavedPost.deleteOne({ user: req.auth.sub, post: req.params.postId });
+    return res.json({ success: true, saved: false });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.get('/api/posts', requireAuth, async (req, res, next) => {
   try {
     const filter = {};
@@ -735,6 +801,11 @@ app.get('/api/posts', requireAuth, async (req, res, next) => {
       .lean();
     const hasMore = fetchedPosts.length > 30;
     const posts = fetchedPosts.slice(0, 30);
+    const savedRecords = await SavedPost.find({
+      user: req.auth.sub,
+      post: { $in: posts.map((post) => post._id) }
+    }).select('post').lean();
+    const savedPostIds = new Set(savedRecords.map((record) => String(record.post)));
     return res.json({
       success: true,
       hasMore,
@@ -749,7 +820,8 @@ app.get('/api/posts', requireAuth, async (req, res, next) => {
         likeCount: Array.isArray(post.likes) ? post.likes.length : 0,
         likedByMe: Array.isArray(post.likes) && post.likes.some((id) => String(id) === req.auth.sub),
         commentCount: Number(post.commentCount) || 0,
-        createdAt: post.createdAt
+        createdAt: post.createdAt,
+        savedByMe: savedPostIds.has(String(post._id))
       }))
     });
   } catch (error) {
