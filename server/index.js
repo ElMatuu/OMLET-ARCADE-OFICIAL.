@@ -17,6 +17,7 @@ const SavedPost = require('./models/SavedPost');
 const Comment = require('./models/Comment');
 const Friendship = require('./models/Friendship');
 const Follow = require('./models/Follow');
+const Block = require('./models/Block');
 const Conversation = require('./models/Conversation');
 const DirectMessage = require('./models/DirectMessage');
 const Inventory = require('./models/Inventory');
@@ -617,6 +618,59 @@ app.get('/api/me/following', requireAuth, async (req, res, next) => {
   } catch (error) { return next(error); }
 });
 
+
+app.get('/api/me/blocked-users', requireAuth, async (req, res, next) => {
+  try {
+    const records = await Block.find({ blocker: req.auth.sub })
+      .populate('blocked', 'username displayName avatarUrl')
+      .sort({ createdAt: -1, _id: -1 }).limit(200).lean();
+    return res.json({ success: true, users: records.filter((record) => record.blocked).map((record) => ({
+      id: String(record.blocked._id),
+      username: record.blocked.username,
+      displayName: record.blocked.displayName || '',
+      avatarUrl: record.blocked.avatarUrl || '',
+      blockedAt: record.createdAt
+    })) });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/users/:username/block', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
+    const target = await User.findOne({ username }).select('_id').lean();
+    if (!target) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    if (String(target._id) === req.auth.sub) return res.status(400).json({ success: false, message: 'No podés bloquear tu propia cuenta.' });
+    try {
+      await Block.create({ blocker: req.auth.sub, blocked: target._id });
+    } catch (error) {
+      if (error && error.code === 11000) return res.status(409).json({ success: false, message: 'Ya bloqueaste a este jugador.' });
+      throw error;
+    }
+    const pairKey = makeFriendshipPairKey(req.auth.sub, target._id);
+    await Promise.all([
+      Friendship.deleteOne({ pairKey }),
+      Follow.deleteMany({
+        $or: [
+          { follower: req.auth.sub, following: target._id },
+          { follower: target._id, following: req.auth.sub }
+        ]
+      })
+    ]);
+    return res.status(201).json({ success: true, blocked: true, username });
+  } catch (error) { return next(error); }
+});
+
+app.delete('/api/users/:username/block', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
+    const target = await User.findOne({ username }).select('_id username').lean();
+    if (!target) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    const result = await Block.deleteOne({ blocker: req.auth.sub, blocked: target._id });
+    if (!result.deletedCount) return res.status(404).json({ success: false, message: 'Ese jugador no está en tu lista de bloqueados.' });
+    return res.json({ success: true, blocked: false, username: target.username });
+  } catch (error) { return next(error); }
+});
+
 app.post('/api/users/:username/follow', requireAuth, friendshipLimiter, async (req, res, next) => {
   try {
     const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
@@ -624,6 +678,9 @@ app.post('/api/users/:username/follow', requireAuth, friendshipLimiter, async (r
     if (!target) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
     if (String(target._id) === req.auth.sub) {
       return res.status(400).json({ success: false, message: 'No podés seguirte a vos mismo.' });
+    }
+    if (await hasBlockBetween(req.auth.sub, target._id)) {
+      return res.status(403).json({ success: false, message: 'No podés seguir a un jugador bloqueado.' });
     }
     try {
       await Follow.create({ follower: req.auth.sub, following: target._id });
@@ -663,16 +720,22 @@ app.get('/api/users/:username', requireAuth, async (req, res, next) => {
       .select('username displayName bio avatarUrl createdAt')
       .lean();
     if (!user) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
-    const [postCount, friendship, followersCount, followingCount, followRecord] = await Promise.all([
+    const [postCount, friendship, followersCount, followingCount, followRecord, blockedRecord] = await Promise.all([
       Post.countDocuments({ author: user._id }),
       Friendship.findOne({
         pairKey: makeFriendshipPairKey(req.auth.sub, user._id)
       }).select('status requester recipient').lean(),
       Follow.countDocuments({ following: user._id }),
       Follow.countDocuments({ follower: user._id }),
-      Follow.exists({ follower: req.auth.sub, following: user._id })
+      Follow.exists({ follower: req.auth.sub, following: user._id }),
+      Block.exists({ $or: [
+        { blocker: req.auth.sub, blocked: user._id },
+        { blocker: user._id, blocked: req.auth.sub }
+      ] })
     ]);
+    const isBlocked = String(user._id) !== req.auth.sub && Boolean(blockedRecord);
     const relation = String(user._id) === req.auth.sub ? 'self'
+      : isBlocked ? 'blocked'
       : !friendship ? 'none'
       : friendship.status === 'accepted' ? 'friends'
       : String(friendship.requester) === req.auth.sub ? 'outgoing_pending'
@@ -687,8 +750,9 @@ app.get('/api/users/:username', requireAuth, async (req, res, next) => {
       postCount,
       followersCount,
       followingCount,
-      isFollowing: Boolean(followRecord),
-      friendship: relation
+      isFollowing: Boolean(followRecord) && !isBlocked,
+      friendship: relation,
+      isBlocked
     } });
   } catch (error) {
     return next(error);
@@ -742,6 +806,9 @@ app.post('/api/friends/requests/:username', requireAuth, friendshipLimiter, asyn
     if (!target) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
     if (String(target._id) === req.auth.sub) {
       return res.status(400).json({ success: false, message: 'No podés enviarte una solicitud a vos mismo.' });
+    }
+    if (await hasBlockBetween(req.auth.sub, target._id)) {
+      return res.status(403).json({ success: false, message: 'No podés enviar solicitudes a un jugador bloqueado.' });
     }
 
     const pairKey = makeFriendshipPairKey(req.auth.sub, target._id);
@@ -1547,9 +1614,22 @@ function getDirectPairKey(firstId, secondId) {
   return [String(firstId), String(secondId)].sort().join(':');
 }
 
+async function hasBlockBetween(firstId, secondId) {
+  return Boolean(await Block.exists({
+    $or: [
+      { blocker: firstId, blocked: secondId },
+      { blocker: secondId, blocked: firstId }
+    ]
+  }));
+}
+
 async function areAcceptedFriends(firstId, secondId) {
   const pairKey = makeFriendshipPairKey(firstId, secondId);
-  return Boolean(await Friendship.exists({ pairKey, status: 'accepted' }));
+  const [friendship, blocked] = await Promise.all([
+    Friendship.exists({ pairKey, status: 'accepted' }),
+    hasBlockBetween(firstId, secondId)
+  ]);
+  return Boolean(friendship && !blocked);
 }
 
 function serializeDirectMessage(message) {
@@ -1568,21 +1648,26 @@ function serializeDirectMessage(message) {
 app.get('/api/me/conversations', requireAuth, async (req, res, next) => {
   try {
     const userId = req.auth.sub;
-    const [records, friendshipRecords] = await Promise.all([
+    const [records, friendshipRecords, blockRecords] = await Promise.all([
       Conversation.find({
         $or: [{ participantA: userId }, { participantB: userId }]
       }).sort({ lastMessageAt: -1, updatedAt: -1 }).limit(100).lean(),
       Friendship.find({
         status: 'accepted',
         $or: [{ requester: userId }, { recipient: userId }]
-      }).select('requester recipient').lean()
+      }).select('requester recipient').lean(),
+      Block.find({ $or: [{ blocker: userId }, { blocked: userId }] }).select('blocker blocked').lean()
     ]);
     const friendIds = new Set(friendshipRecords.map((record) =>
       String(record.requester) === userId ? String(record.recipient) : String(record.requester)
     ));
-    const activeRecords = records.filter((item) => friendIds.has(
-      String(item.participantA) === userId ? String(item.participantB) : String(item.participantA)
+    const blockedIds = new Set(blockRecords.map((record) =>
+      String(record.blocker) === userId ? String(record.blocked) : String(record.blocker)
     ));
+    const activeRecords = records.filter((item) => {
+      const otherId = String(item.participantA) === userId ? String(item.participantB) : String(item.participantA);
+      return friendIds.has(otherId) && !blockedIds.has(otherId);
+    });
     const otherIds = activeRecords.map((item) =>
       String(item.participantA) === userId ? item.participantB : item.participantA
     );
