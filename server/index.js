@@ -178,26 +178,41 @@ app.post('/api/rooms/:roomId/join', requireAuth, async (req, res, next) => {
     if (!mongoose.isValidObjectId(req.params.roomId)) {
       return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
     }
+    const existingMembership = await Room.findOne({
+      _id: req.params.roomId,
+      members: req.auth.sub,
+      visibility: 'public',
+      status: 'open'
+    }).select('name game ownerUsername memberCount capacity').lean();
+
+    if (existingMembership) {
+      return res.json({
+        success: true,
+        room: {
+          id: String(existingMembership._id),
+          name: existingMembership.name,
+          game: existingMembership.game,
+          ownerUsername: existingMembership.ownerUsername,
+          memberCount: existingMembership.memberCount,
+          capacity: existingMembership.capacity
+        }
+      });
+    }
+
     const room = await Room.findOneAndUpdate(
       {
         _id: req.params.roomId,
         visibility: 'public',
         status: 'open',
-        $or: [
-          { members: req.auth.sub },
-          { $expr: { $lt: ['$memberCount', '$capacity'] } }
-        ]
+        members: { $ne: req.auth.sub },
+        $expr: { $lt: ['$memberCount', '$capacity'] }
       },
       { $addToSet: { members: req.auth.sub }, $inc: { memberCount: 1 } },
       { new: true, runValidators: true }
-    ).select('name game ownerUsername members memberCount capacity').lean();
+    ).select('name game ownerUsername memberCount capacity').lean();
 
     if (!room) {
       return res.status(404).json({ success: false, message: 'Sala no disponible o completa.' });
-    }
-    const alreadyMember = room.members.some((id) => String(id) === String(req.auth.sub));
-    if (!alreadyMember) {
-      return res.status(409).json({ success: false, message: 'No se pudo confirmar tu membresía.' });
     }
     return res.json({
       success: true,
