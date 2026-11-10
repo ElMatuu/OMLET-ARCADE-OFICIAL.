@@ -19,6 +19,13 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /● En línea/, 'Friend rows must show online status');
   assert.match(html, /○ Desconectado/, 'Friend rows must show offline status');
   assert.match(html, /closeDirectConversation\(\);\s*closeRoomChat\(\);/, 'Logout must close authenticated chat sockets');
+  assert.match(html, /id="dm-typing-status"/, 'Private conversations must expose an accessible typing status');
+  assert.match(html, /directSocket\.on\('direct_typing'/, 'Private chats must receive typing indicators');
+  assert.match(html, /directSocket\.emit\('direct_typing_start'/, 'Private chats must send typing start events');
+  assert.match(html, /directSocket\.emit\('direct_typing_stop'/, 'Private chats must send typing stop events');
+  assert.match(html, /directSocket\.on\('direct_messages_read'/, 'Private chats must receive read receipts');
+  assert.match(html, /mark_direct_messages_read/, 'Opening and receiving messages must update read state');
+  assert.match(html, /✓✓ Leído/, 'Own messages must show their read receipt state');
 
   assert.match(html, /\/api\/friends\/requests\//, 'The friends interface must call the friend request API');
   assert.match(html, /id="profile-editor-form"/, 'The profile editor must be present');
