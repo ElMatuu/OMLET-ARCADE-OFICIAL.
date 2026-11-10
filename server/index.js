@@ -141,13 +141,33 @@ const postLimiter = rateLimit({
 
 app.get('/api/posts', requireAuth, async (req, res, next) => {
   try {
-    const posts = await Post.find({})
+    const filter = {};
+    const before = typeof req.query.before === 'string' ? req.query.before : '';
+    if (before) {
+      if (!mongoose.isValidObjectId(before)) {
+        return res.status(400).json({ success: false, message: 'Cursor de publicaciones inválido.' });
+      }
+      const cursorPost = await Post.findById(before).select('createdAt').lean();
+      if (!cursorPost) {
+        return res.status(400).json({ success: false, message: 'El cursor de publicaciones ya no existe.' });
+      }
+      filter.$or = [
+        { createdAt: { $lt: cursorPost.createdAt } },
+        { createdAt: cursorPost.createdAt, _id: { $lt: cursorPost._id } }
+      ];
+    }
+
+    const fetchedPosts = await Post.find(filter)
       .select('authorUsername content likes commentCount createdAt')
       .sort({ createdAt: -1, _id: -1 })
-      .limit(30)
+      .limit(31)
       .lean();
+    const hasMore = fetchedPosts.length > 30;
+    const posts = fetchedPosts.slice(0, 30);
     return res.json({
       success: true,
+      hasMore,
+      nextCursor: hasMore && posts.length ? String(posts[posts.length - 1]._id) : null,
       posts: posts.map((post) => ({
         id: String(post._id),
         authorUsername: post.authorUsername,
