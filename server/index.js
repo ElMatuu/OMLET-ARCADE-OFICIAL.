@@ -269,7 +269,7 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
       return res.status(201).json({
         success: true,
         stream: { id: String(session._id), title: session.title, description: session.description, status: session.status, startedAt: session.startedAt },
-        liveKit: { url: config.clientUrl, token, role: 'publisher', expiresInSeconds: 21600 }
+        liveKit: { url: config.clientUrl, token, role: 'publisher', expiresInSeconds: 600 }
       });
     } catch (error) {
       await LiveStream.deleteOne({ _id: session._id });
@@ -322,7 +322,7 @@ app.post('/api/streams/:streamId/token', requireAuth, streamLimiter, async (req,
     return res.json({
       success: true,
       stream: { id: String(session._id), title: session.title, creator: session.ownerUsername, status: session.status },
-      liveKit: { url: config.clientUrl, token, role, expiresInSeconds: 21600 }
+      liveKit: { url: config.clientUrl, token, role, expiresInSeconds: 600 }
     });
   } catch (error) { return next(error); }
 });
@@ -1319,55 +1319,64 @@ const postLimiter = rateLimit({
 app.get('/api/me/missions', requireAuth, async (req, res, next) => {
   try {
     const userId = req.auth.sub;
-    const [postCount, roomCount, messageCount, savedCount] = await Promise.all([
+    const [
+      postCount, roomCount, roomMessageCount, savedCount, commentCount,
+      friendshipCount, followCount, likedPostCount, directMessageCount
+    ] = await Promise.all([
       Post.countDocuments({ author: userId }),
       Room.countDocuments({ owner: userId }),
       RoomMessage.countDocuments({ author: userId }),
-      SavedPost.countDocuments({ user: userId })
+      SavedPost.countDocuments({ user: userId }),
+      Comment.countDocuments({ author: userId }),
+      Friendship.countDocuments({
+        status: 'accepted',
+        $or: [{ requester: userId }, { recipient: userId }]
+      }),
+      Follow.countDocuments({ follower: userId }),
+      Post.countDocuments({ likes: userId }),
+      DirectMessage.countDocuments({ sender: userId })
     ]);
-    const missions = [
-      {
-        id: 'first-post',
-        title: 'Compartí tu primera publicación',
-        description: 'Publicá algo en la comunidad de PLAYVERSE.',
-        current: Math.min(postCount, 1),
-        target: 1,
-        completed: postCount >= 1
-      },
-      {
-        id: 'first-room',
-        title: 'Creá tu primera sala',
-        description: 'Organizá una sala para jugar con la comunidad.',
-        current: Math.min(roomCount, 1),
-        target: 1,
-        completed: roomCount >= 1
-      },
-      {
-        id: 'first-room-message',
-        title: 'Participá en el chat de una sala',
-        description: 'Enviá un mensaje en una sala a la que pertenecés.',
-        current: Math.min(messageCount, 1),
-        target: 1,
-        completed: messageCount >= 1
-      },
-      {
-        id: 'first-saved-post',
-        title: 'Guardá una publicación',
-        description: 'Guardá una publicación para encontrarla más tarde.',
-        current: Math.min(savedCount, 1),
-        target: 1,
-        completed: savedCount >= 1
-      }
+
+    const missionDefinitions = [
+      { id: 'welcome-post-1', chapter: 'Primeros pasos', title: 'Tu voz en PLAYVERSE', description: 'Publicá tu primera idea, captura o presentación para que la comunidad te conozca.', current: postCount, target: 1 },
+      { id: 'welcome-post-3', chapter: 'Primeros pasos', title: 'Creador en movimiento', description: 'Compartí tres publicaciones diferentes y empezá a construir tu perfil.', current: postCount, target: 3 },
+      { id: 'welcome-friend-1', chapter: 'Primeros pasos', title: 'Tu primera conexión', description: 'Aceptá o conseguí tu primera amistad dentro de PLAYVERSE.', current: friendshipCount, target: 1 },
+      { id: 'welcome-message-1', chapter: 'Primeros pasos', title: 'Romper el hielo', description: 'Mandá tu primer mensaje privado a una amistad.', current: directMessageCount, target: 1 },
+
+      { id: 'creator-post-10', chapter: 'Camino del creador', title: 'Voz reconocible', description: 'Llegá a diez publicaciones y mantené activa tu presencia en la comunidad.', current: postCount, target: 10 },
+      { id: 'creator-comment-1', chapter: 'Camino del creador', title: 'Conversación iniciada', description: 'Comentá una publicación de otro jugador y sumate al intercambio.', current: commentCount, target: 1 },
+      { id: 'creator-comment-5', chapter: 'Camino del creador', title: 'Siempre hay algo para aportar', description: 'Escribí cinco comentarios útiles en publicaciones de la comunidad.', current: commentCount, target: 5 },
+      { id: 'creator-like-1', chapter: 'Camino del creador', title: 'Buena onda', description: 'Dale tu primer me gusta a una publicación que te interese.', current: likedPostCount, target: 1 },
+
+      { id: 'party-room-1', chapter: 'Líder de escuadra', title: 'Armá la escuadra', description: 'Creá tu primera sala pública para reunir jugadores.', current: roomCount, target: 1 },
+      { id: 'party-room-3', chapter: 'Líder de escuadra', title: 'Organizador habitual', description: 'Creá tres salas para organizar distintas sesiones de juego.', current: roomCount, target: 3 },
+      { id: 'party-chat-1', chapter: 'Líder de escuadra', title: 'Primera llamada al equipo', description: 'Mandá un mensaje en el chat de una sala.', current: roomMessageCount, target: 1 },
+      { id: 'party-chat-10', chapter: 'Líder de escuadra', title: 'Capitán comunicador', description: 'Participá con diez mensajes en chats de salas.', current: roomMessageCount, target: 10 },
+      { id: 'party-chat-30', chapter: 'Líder de escuadra', title: 'La voz de la sala', description: 'Alcanzá treinta mensajes en chats de salas y mantené viva la coordinación.', current: roomMessageCount, target: 30 },
+
+      { id: 'social-friends-3', chapter: 'Leyenda de comunidad', title: 'Círculo cercano', description: 'Formá un grupo de tres amistades aceptadas.', current: friendshipCount, target: 3 },
+      { id: 'social-friends-5', chapter: 'Leyenda de comunidad', title: 'Punto de encuentro', description: 'Llegá a cinco amistades aceptadas en PLAYVERSE.', current: friendshipCount, target: 5 },
+      { id: 'social-follow-1', chapter: 'Leyenda de comunidad', title: 'Seguí a un creador', description: 'Empezá a seguir a otro jugador para no perderte sus novedades.', current: followCount, target: 1 },
+      { id: 'social-follow-5', chapter: 'Leyenda de comunidad', title: 'Radar de comunidad', description: 'Seguí a cinco jugadores cuyos contenidos te interesen.', current: followCount, target: 5 },
+      { id: 'social-like-10', chapter: 'Leyenda de comunidad', title: 'Apoyo constante', description: 'Reaccioná a diez publicaciones de otros jugadores.', current: likedPostCount, target: 10 },
+      { id: 'social-save-1', chapter: 'Leyenda de comunidad', title: 'Para después', description: 'Guardá tu primera publicación para volver a encontrarla.', current: savedCount, target: 1 },
+      { id: 'social-save-5', chapter: 'Leyenda de comunidad', title: 'Coleccionista de ideas', description: 'Guardá cinco publicaciones que quieras consultar más tarde.', current: savedCount, target: 5 },
+      { id: 'social-dm-10', chapter: 'Leyenda de comunidad', title: 'Compañero de equipo', description: 'Enviá diez mensajes privados a tus amistades.', current: directMessageCount, target: 10 },
+      { id: 'social-dm-30', chapter: 'Leyenda de comunidad', title: 'Conexiones duraderas', description: 'Alcanzá treinta mensajes privados enviados.', current: directMessageCount, target: 30 }
     ];
+
+    const missions = missionDefinitions.map((mission) => ({
+      ...mission,
+      current: Math.min(mission.current, mission.target),
+      completed: mission.current >= mission.target
+    }));
+    const completed = missions.filter((mission) => mission.completed).length;
     return res.json({
       success: true,
       missions,
-      summary: {
-        completed: missions.filter((mission) => mission.completed).length,
-        total: missions.length
-      },
+      summary: { completed, total: missions.length, percentage: Math.round((completed / missions.length) * 100) },
       rewardsEnabled: false,
-      note: 'El progreso se calcula con actividad real de tu cuenta. Las recompensas todavía no están habilitadas.'
+      note: 'Las 22 misiones avanzan con acciones reales guardadas en tu cuenta. Las recompensas automáticas todavía no están habilitadas; no se otorgan XP ni Tokens ficticios.'
     });
   } catch (error) {
     return next(error);
