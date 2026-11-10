@@ -374,6 +374,30 @@ app.get('/api/me/inventory', requireAuth, async (req, res, next) => {
   }
 });
 
+
+app.get('/api/me/wallet/transactions', requireAuth, async (req, res, next) => {
+  try {
+    const records = await TokenTransaction.find({ user: req.auth.sub })
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(50)
+      .lean();
+    const transactions = records.map((record) => {
+      const item = STORE_CATALOG.find((entry) => entry.id === record.itemId);
+      return {
+        id: String(record._id),
+        type: record.type,
+        amount: record.amount,
+        itemName: item ? item.name : null,
+        balanceAfter: record.balanceAfter,
+        createdAt: record.createdAt
+      };
+    });
+    return res.json({ success: true, transactions });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next) => {
   const itemId = typeof req.body.itemId === 'string' ? req.body.itemId : '';
   const product = STORE_CATALOG.find((entry) => entry.id === itemId);
