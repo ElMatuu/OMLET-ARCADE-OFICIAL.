@@ -18,6 +18,7 @@ const Comment = require('./models/Comment');
 const Friendship = require('./models/Friendship');
 const Follow = require('./models/Follow');
 const Block = require('./models/Block');
+const Notification = require('./models/Notification');
 const Conversation = require('./models/Conversation');
 const DirectMessage = require('./models/DirectMessage');
 const Inventory = require('./models/Inventory');
@@ -124,6 +125,12 @@ function makeFriendshipPairKey(firstId, secondId) {
   return [String(firstId), String(secondId)].sort().join(':');
 }
 
+async function createNotification({ recipient, actor = null, type, title, body = '', entityId = null }) {
+  if (!recipient || (actor && String(recipient) === String(actor))) return null;
+  return Notification.create({ recipient, actor, type, title, body, entityId });
+}
+
+
 function issueToken(user) {
   return jwt.sign(
     { sub: user.id, username: user.username, role: user.role },
@@ -223,6 +230,112 @@ app.get('/api/me', requireAuth, async (req, res, next) => {
       avatarUrl: user.avatarUrl || '',
       createdAt: user.createdAt
     } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/api/me/notifications', requireAuth, async (req, res, next) => {
+  try {
+    const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
+      return res.status(400).json({ success: false, message: 'El límite debe ser un número entero entre 1 y 50.' });
+    }
+    const filter = { recipient: req.auth.sub };
+    if (typeof req.query.before === 'string' && req.query.before) {
+      if (req.query.before.length > 256) {
+        return res.status(400).json({ success: false, message: 'Cursor de notificaciones inválido.' });
+      }
+      let cursor;
+      try {
+        cursor = JSON.parse(Buffer.from(req.query.before, 'base64url').toString('utf8'));
+      } catch {
+        return res.status(400).json({ success: false, message: 'Cursor de notificaciones inválido.' });
+      }
+      const cursorDate = cursor && typeof cursor.createdAt === 'string' ? new Date(cursor.createdAt) : null;
+      if (!cursor || !mongoose.isValidObjectId(cursor.id) || !cursorDate ||
+          !Number.isFinite(cursorDate.getTime()) || cursorDate.toISOString() !== cursor.createdAt) {
+        return res.status(400).json({ success: false, message: 'Cursor de notificaciones inválido.' });
+      }
+      filter.$or = [
+        { createdAt: { $lt: cursorDate } },
+        { createdAt: cursorDate, _id: { $lt: new mongoose.Types.ObjectId(cursor.id) } }
+      ];
+    }
+    const [records, unreadCount] = await Promise.all([
+      Notification.find(filter)
+        .populate('actor', 'username displayName avatarUrl')
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(limit + 1)
+        .lean(),
+      Notification.countDocuments({ recipient: req.auth.sub, readAt: null })
+    ]);
+    const hasMore = records.length > limit;
+    const notifications = records.slice(0, limit);
+    const last = notifications[notifications.length - 1];
+    return res.json({
+      success: true,
+      notifications: notifications.map((record) => ({
+        id: String(record._id),
+        type: record.type,
+        title: record.title,
+        body: record.body,
+        actor: record.actor ? {
+          id: String(record.actor._id),
+          username: record.actor.username,
+          displayName: record.actor.displayName || '',
+          avatarUrl: record.actor.avatarUrl || ''
+        } : null,
+        entityId: record.entityId ? String(record.entityId) : null,
+        readAt: record.readAt,
+        createdAt: record.createdAt
+      })),
+      unreadCount,
+      page: {
+        limit,
+        hasMore,
+        nextCursor: hasMore && last ? Buffer.from(JSON.stringify({
+          createdAt: last.createdAt.toISOString(),
+          id: String(last._id)
+        })).toString('base64url') : null
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.put('/api/me/notifications/read-all', requireAuth, async (req, res, next) => {
+  try {
+    const result = await Notification.updateMany(
+      { recipient: req.auth.sub, readAt: null },
+      { $set: { readAt: new Date() } }
+    );
+    return res.json({ success: true, modifiedCount: result.modifiedCount });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.put('/api/me/notifications/:notificationId/read', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.notificationId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de notificación inválido.' });
+    }
+    const notification = await Notification.findOneAndUpdate(
+      { _id: req.params.notificationId, recipient: req.auth.sub, readAt: null },
+      { $set: { readAt: new Date() } },
+      { new: true }
+    ).select('_id readAt').lean();
+    if (!notification) {
+      const exists = await Notification.exists({ _id: req.params.notificationId, recipient: req.auth.sub });
+      return res.status(exists ? 200 : 404).json({
+        success: Boolean(exists),
+        alreadyRead: Boolean(exists),
+        message: exists ? 'La notificación ya estaba leída.' : 'Notificación no encontrada.'
+      });
+    }
+    return res.json({ success: true, notification: { id: String(notification._id), readAt: notification.readAt } });
   } catch (error) {
     return next(error);
   }
@@ -916,6 +1029,14 @@ app.post('/api/friends/requests/:username', requireAuth, friendshipLimiter, asyn
       requester: req.auth.sub,
       recipient: target._id
     });
+    await createNotification({
+      recipient: target._id,
+      actor: req.auth.sub,
+      type: 'friend_request',
+      title: 'Nueva solicitud de amistad',
+      body: '@' + req.auth.username + ' quiere agregarte como amigo.',
+      entityId: friendship._id
+    });
     return res.status(201).json({
       success: true,
       status: friendship.status,
@@ -947,6 +1068,14 @@ app.put('/api/friends/requests/:friendshipId/accept', requireAuth, friendshipLim
         message: exists ? 'No podés aceptar esta solicitud o ya fue procesada.' : 'Solicitud no encontrada.'
       });
     }
+    await createNotification({
+      recipient: friendship.requester,
+      actor: req.auth.sub,
+      type: 'friend_accepted',
+      title: 'Solicitud de amistad aceptada',
+      body: '@' + req.auth.username + ' aceptó tu solicitud.',
+      entityId: friendship._id
+    });
     return res.json({ success: true, status: 'accepted', friendshipId: String(friendship._id) });
   } catch (error) {
     return next(error);
