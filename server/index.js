@@ -37,8 +37,13 @@ app.disable('x-powered-by');
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrcAttr: ["'unsafe-inline'"]
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.tailwindcss.com'],
+      scriptSrcAttr: ["'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com', 'https://fonts.googleapis.com'],
+      styleSrcAttr: ["'unsafe-inline'"],
+      fontSrc: ["'self'", 'https://cdnjs.cloudflare.com', 'https://fonts.gstatic.com', 'data:'],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'", 'https://playverse-api-bgyg.onrender.com', 'wss://playverse-api-bgyg.onrender.com', 'https://cdn.tailwindcss.com']
     }
   }
 }));
