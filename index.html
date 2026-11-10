@@ -734,6 +734,7 @@
             loadMyProfile();
             loadRooms();
             loadCommunityPosts();
+            refreshNotificationBadge();
         }
 
         async function restoreSession() {
@@ -963,6 +964,19 @@
                 if (status) status.textContent = error.message || 'No se pudieron marcar como leídas.';
             } finally {
                 if (button) button.disabled = false;
+            }
+        }
+
+        async function refreshNotificationBadge() {
+            if (!authToken) {
+                updateNotificationBadge(0);
+                return;
+            }
+            try {
+                const data = await apiRequest('/api/me/notifications?limit=1');
+                updateNotificationBadge(data.unreadCount);
+            } catch (error) {
+                // Badge refresh is non-critical; the inbox shows actionable errors when opened.
             }
         }
 
