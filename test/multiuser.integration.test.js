@@ -134,6 +134,31 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     const unauthenticatedProfileRequest = await request(baseUrl, '/api/me');
     assert.equal(unauthenticatedProfileRequest.status, 401);
 
+    const aliceAppPreferences = await request(baseUrl, '/api/me/app-preferences', {
+      method: 'PUT',
+      body: { reduceMotion: true, highContrast: true }
+    }, alice.body.token);
+    assert.equal(aliceAppPreferences.status, 200);
+    assert.deepEqual(aliceAppPreferences.body.preferences, { reduceMotion: true, highContrast: true });
+    const aliceAppPreferencesReloaded = await request(baseUrl, '/api/me/app-preferences', {}, alice.body.token);
+    assert.equal(aliceAppPreferencesReloaded.status, 200);
+    assert.deepEqual(aliceAppPreferencesReloaded.body.preferences, { reduceMotion: true, highContrast: true });
+    const bobAppPreferences = await request(baseUrl, '/api/me/app-preferences', {}, bob.body.token);
+    assert.equal(bobAppPreferences.status, 200);
+    assert.deepEqual(bobAppPreferences.body.preferences, { reduceMotion: false, highContrast: false });
+    const invalidAppPreferences = await request(baseUrl, '/api/me/app-preferences', {
+      method: 'PUT',
+      body: { reduceMotion: 'yes' }
+    }, alice.body.token);
+    assert.equal(invalidAppPreferences.status, 400);
+    const unknownAppPreference = await request(baseUrl, '/api/me/app-preferences', {
+      method: 'PUT',
+      body: { adminMode: true }
+    }, alice.body.token);
+    assert.equal(unknownAppPreference.status, 400);
+    const unauthenticatedAppPreferences = await request(baseUrl, '/api/me/app-preferences');
+    assert.equal(unauthenticatedAppPreferences.status, 401);
+
     const sentRequest = await request(baseUrl, '/api/friends/requests/bob_test', {
       method: 'POST'
     }, alice.body.token);
