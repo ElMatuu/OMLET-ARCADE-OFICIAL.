@@ -1,3 +1,18 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --pv-bg: #08090d;
+  --pv-surface: #111318;
+  --pv-surface-raised: #191c23;
+  --pv-border: #292d36;
+  --pv-text: #f4f4f5;
+  --pv-muted: #a1a1aa;
+  --pv-primary: #FF5232;
+  --pv-primary-strong: #e84428;
+  --pv-accent: #FFC107;
+}
+html { background: var(--pv-bg); }
+body { background: var(--pv-bg); color: var(--pv-text); }
