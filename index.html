@@ -245,19 +245,27 @@
             </div>
 
             <!-- TAB CHAT / GRUPOS -->
-            <div id="tab-chat" class="space-y-6 hidden">
-                <section class="space-y-2"><h3 class="font-black text-lg">Chat y Grupos</h3><p class="text-xs text-slate-400">Conversá con jugadores dentro de las salas multijugador.</p></section>
-                <button type="button" onclick="switchTab('lobbies')" class="w-full PLAYVERSE-card rounded-2xl p-4 flex items-center gap-3 text-left hover:border-orange-500/50">
-                    <span class="w-11 h-11 rounded-xl bg-orange-500/10 text-orange-300 flex items-center justify-center"><i class="fa-solid fa-people-group"></i></span>
-                    <span class="flex-1"><strong class="block text-sm">Chats de salas y grupos</strong><span class="text-xs text-slate-400">Entrá a una sala para abrir su chat grupal.</span></span>
-                    <i class="fa-solid fa-chevron-right text-slate-500"></i>
-                </button>
-                <button type="button" onclick="switchTab('friends')" class="w-full PLAYVERSE-card rounded-2xl p-4 flex items-center gap-3 text-left hover:border-orange-500/50">
-                    <span class="w-11 h-11 rounded-xl bg-fuchsia-500/10 text-fuchsia-300 flex items-center justify-center"><i class="fa-solid fa-user-group"></i></span>
-                    <span class="flex-1"><strong class="block text-sm">Amigos y comunidad</strong><span class="text-xs text-slate-400">Buscá jugadores y administrá solicitudes.</span></span>
-                    <i class="fa-solid fa-chevron-right text-slate-500"></i>
-                </button>
-                <p class="text-[11px] text-slate-500">Los mensajes privados uno a uno todavía no están implementados. El chat grupal disponible funciona dentro de las salas y requiere pertenecer a ellas.</p>
+            <div id="tab-chat" class="space-y-5 hidden">
+                <section class="space-y-1"><h3 class="font-black text-lg">Mensajes privados</h3><p class="text-xs text-slate-400">Conversaciones guardadas entre jugadores que ya son amigos.</p></section>
+                <form id="dm-start-form" class="flex gap-2">
+                    <input id="dm-username-input" maxlength="24" required pattern="[A-Za-z0-9_]{3,24}" class="min-w-0 flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white" placeholder="Usuario de tu amigo">
+                    <button id="dm-start-button" type="submit" class="PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white">Nuevo chat</button>
+                </form>
+                <p id="dm-inbox-status" class="text-xs text-slate-400" role="status"></p>
+                <div id="dm-inbox-list" class="space-y-2" aria-live="polite"></div>
+                <section id="dm-thread" class="hidden PLAYVERSE-card rounded-2xl p-3 space-y-3">
+                    <div class="flex items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                        <div class="min-w-0"><h4 id="dm-thread-title" class="font-bold text-sm truncate">Conversación</h4><p id="dm-thread-status" class="text-[11px] text-slate-400" role="status">Conectando…</p></div>
+                        <button type="button" onclick="closeDirectConversation()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs">Cerrar</button>
+                    </div>
+                    <div id="dm-messages" class="h-72 overflow-y-auto space-y-2 py-2" aria-live="polite"></div>
+                    <form id="dm-send-form" class="flex gap-2 border-t border-slate-800 pt-3">
+                        <input id="dm-message-input" maxlength="2000" required autocomplete="off" class="min-w-0 flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-sm text-white" placeholder="Escribí un mensaje…">
+                        <button id="dm-send-button" type="submit" class="PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white">Enviar</button>
+                    </form>
+                </section>
+                <button type="button" onclick="switchTab('friends')" class="w-full PLAYVERSE-card rounded-xl p-3 text-left text-xs text-fuchsia-200">Ver amigos y comunidad →</button>
+                <button type="button" onclick="switchTab('lobbies')" class="w-full PLAYVERSE-card rounded-xl p-3 text-left text-xs text-orange-200">Abrir chats de salas y grupos →</button>
             </div>
 
             <!-- TAB LOBBIES -->
@@ -732,6 +740,7 @@
             });
             document.getElementById('tab-' + tabName).classList.remove('hidden');
             if (tabName === 'lobbies') loadRooms();
+            if (tabName === 'chat') loadDirectConversations();
             if (tabName === 'feed') loadCommunityPosts();
             if (tabName === 'saved') loadSavedPosts();
             if (tabName === 'events') loadMissions();
@@ -772,6 +781,202 @@
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
             })[char]);
         }
+
+
+        let activeDirectConversationId = null;
+        let activeDirectParticipant = null;
+        let directSocket = null;
+        let directSocketJoined = false;
+        let directSocketScriptLoading = false;
+        const renderedDirectMessageIds = new Set();
+
+        function appendDirectMessage(message) {
+            if (!message || !message.id || renderedDirectMessageIds.has(message.id)) return;
+            renderedDirectMessageIds.add(message.id);
+            const container = document.getElementById('dm-messages');
+            if (!container) return;
+            const own = String(message.senderId) === String(appState.profile && appState.profile.id);
+            const item = document.createElement('article');
+            item.className = 'max-w-[88%] rounded-2xl px-3 py-2 ' + (own ? 'ml-auto bg-orange-500/15 border border-orange-500/20' : 'mr-auto bg-slate-800/80');
+            const heading = document.createElement('p');
+            heading.className = 'text-[10px] text-slate-400 mb-1';
+            heading.textContent = (own ? 'Vos' : '@' + (message.senderUsername || activeDirectParticipant?.username || 'jugador')) + ' · ' +
+                (message.createdAt ? new Date(message.createdAt).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : 'ahora');
+            const body = document.createElement('p');
+            body.className = 'text-sm text-slate-100 whitespace-pre-wrap break-words';
+            body.textContent = String(message.body || '');
+            item.append(heading, body);
+            container.appendChild(item);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function loadDirectConversations() {
+            const status = document.getElementById('dm-inbox-status');
+            const list = document.getElementById('dm-inbox-list');
+            if (!status || !list || !authToken) return;
+            status.textContent = 'Cargando conversaciones guardadas…';
+            try {
+                const data = await apiRequest('/api/me/conversations');
+                list.replaceChildren();
+                const conversations = data.conversations || [];
+                if (!conversations.length) {
+                    status.textContent = 'Todavía no tenés mensajes privados. Iniciá uno con un amigo.';
+                    return;
+                }
+                status.textContent = conversations.length + ' conversación(es)';
+                conversations.forEach((conversation) => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'w-full PLAYVERSE-card rounded-xl p-3 flex items-center gap-3 text-left hover:border-orange-500/40';
+                    const avatar = document.createElement('div');
+                    avatar.className = 'w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center overflow-hidden';
+                    if (conversation.participant.avatarUrl) {
+                        const image = document.createElement('img');
+                        image.src = conversation.participant.avatarUrl;
+                        image.alt = '';
+                        image.className = 'w-full h-full object-cover';
+                        avatar.appendChild(image);
+                    } else avatar.textContent = '🎮';
+                    const details = document.createElement('div');
+                    details.className = 'min-w-0 flex-1';
+                    const name = document.createElement('p');
+                    name.className = 'text-sm font-bold truncate';
+                    name.textContent = conversation.participant.displayName || '@' + conversation.participant.username;
+                    const preview = document.createElement('p');
+                    preview.className = 'text-xs text-slate-400 truncate';
+                    preview.textContent = conversation.lastMessage || 'Todavía no hay mensajes.';
+                    details.append(name, preview);
+                    const date = document.createElement('span');
+                    date.className = 'text-[10px] text-slate-500';
+                    date.textContent = conversation.lastMessageAt ? new Date(conversation.lastMessageAt).toLocaleDateString('es-AR') : '';
+                    button.append(avatar, details, date);
+                    button.addEventListener('click', () => openDirectConversation(conversation.id, conversation.participant));
+                    list.appendChild(button);
+                });
+            } catch (error) {
+                status.textContent = 'No se pudieron cargar tus conversaciones: ' + error.message;
+            }
+        }
+
+        async function startDirectConversation(event) {
+            event.preventDefault();
+            const input = document.getElementById('dm-username-input');
+            const button = document.getElementById('dm-start-button');
+            const status = document.getElementById('dm-inbox-status');
+            const username = input.value.trim();
+            if (!username) return;
+            button.disabled = true;
+            try {
+                const data = await apiRequest('/api/conversations/' + encodeURIComponent(username), { method: 'POST' });
+                input.value = '';
+                await loadDirectConversations();
+                await openDirectConversation(data.conversation.id, data.conversation.participant);
+                status.textContent = 'Conversación lista.';
+            } catch (error) {
+                status.textContent = error.message;
+            } finally { button.disabled = false; }
+        }
+
+        async function openDirectConversation(conversationId, participant) {
+            if (directSocket) directSocket.disconnect();
+            directSocket = null;
+            directSocketJoined = false;
+            activeDirectConversationId = conversationId;
+            activeDirectParticipant = participant;
+            renderedDirectMessageIds.clear();
+            const panel = document.getElementById('dm-thread');
+            const title = document.getElementById('dm-thread-title');
+            const status = document.getElementById('dm-thread-status');
+            const messages = document.getElementById('dm-messages');
+            panel.classList.remove('hidden');
+            title.textContent = participant.displayName || '@' + participant.username;
+            status.textContent = 'Cargando historial…';
+            messages.replaceChildren();
+            try {
+                const data = await apiRequest('/api/conversations/' + encodeURIComponent(conversationId) + '/messages');
+                data.messages.forEach(appendDirectMessage);
+                status.textContent = 'Historial sincronizado. Conectando tiempo real…';
+                connectDirectSocket(conversationId);
+            } catch (error) { status.textContent = error.message; }
+        }
+
+        function connectDirectSocket(conversationId) {
+            if (!window.io) {
+                if (directSocketScriptLoading) return;
+                directSocketScriptLoading = true;
+                const script = document.createElement('script');
+                script.src = API_URL + '/socket.io/socket.io.js';
+                script.onload = () => { directSocketScriptLoading = false; connectDirectSocket(conversationId); };
+                script.onerror = () => {
+                    directSocketScriptLoading = false;
+                    const status = document.getElementById('dm-thread-status');
+                    if (status) status.textContent = 'Tiempo real no disponible. Podés enviar por conexión segura.';
+                };
+                document.head.appendChild(script);
+                return;
+            }
+            directSocket = window.io(API_URL, { auth: { token: authToken } });
+            directSocket.on('connect', () => {
+                directSocket.emit('join_direct_conversation', { conversationId }, (result) => {
+                    directSocketJoined = Boolean(result && result.success);
+                    const status = document.getElementById('dm-thread-status');
+                    if (status) status.textContent = directSocketJoined ? 'Chat en tiempo real conectado' :
+                        ((result && result.message) || 'No se pudo conectar al chat en tiempo real.');
+                });
+            });
+            directSocket.on('receive_direct_message', (message) => {
+                if (String(message.conversationId) === String(activeDirectConversationId)) appendDirectMessage(message);
+                loadDirectConversations();
+            });
+            directSocket.on('connect_error', () => {
+                directSocketJoined = false;
+                const status = document.getElementById('dm-thread-status');
+                if (status) status.textContent = 'Tiempo real no disponible. Podés seguir enviando mensajes.';
+            });
+        }
+
+        function closeDirectConversation() {
+            if (directSocket) directSocket.disconnect();
+            directSocket = null;
+            directSocketJoined = false;
+            activeDirectConversationId = null;
+            activeDirectParticipant = null;
+            document.getElementById('dm-thread').classList.add('hidden');
+        }
+
+        async function sendDirectMessage(event) {
+            event.preventDefault();
+            if (!activeDirectConversationId) return;
+            const input = document.getElementById('dm-message-input');
+            const button = document.getElementById('dm-send-button');
+            const body = input.value.trim();
+            if (!body) return;
+            button.disabled = true;
+            try {
+                if (directSocket && directSocket.connected && directSocketJoined) {
+                    await new Promise((resolve, reject) => {
+                        directSocket.emit('send_direct_message', {
+                            conversationId: activeDirectConversationId, body
+                        }, (result) => result && result.success ? resolve(result) :
+                            reject(new Error((result && result.message) || 'No se pudo enviar el mensaje.')));
+                    });
+                } else {
+                    const data = await apiRequest('/api/conversations/' + encodeURIComponent(activeDirectConversationId) + '/messages', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ body })
+                    });
+                    appendDirectMessage(data.message);
+                }
+                input.value = '';
+                await loadDirectConversations();
+            } catch (error) {
+                document.getElementById('dm-thread-status').textContent = error.message;
+            } finally { button.disabled = false; input.focus(); }
+        }
+
+        document.getElementById('dm-start-form').addEventListener('submit', startDirectConversation);
+        document.getElementById('dm-send-form').addEventListener('submit', sendDirectMessage);
 
         async function loadRooms() {
             const container = document.getElementById('rooms-container');
