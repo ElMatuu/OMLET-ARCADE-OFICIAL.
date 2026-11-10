@@ -890,6 +890,17 @@ app.post('/api/rooms/:roomId/leave', requireAuth, async (req, res, next) => {
       }
       return res.status(409).json({ success: false, message: 'No pertenecés a esta sala o ya está cerrada.' });
     }
+    const io = httpServer.io;
+    if (io) {
+      try {
+        const sockets = await io.in(String(req.params.roomId)).fetchSockets();
+        await Promise.all(sockets
+          .filter((socket) => socket.data && socket.data.userId === req.auth.sub)
+          .map((socket) => socket.leave(String(req.params.roomId))));
+      } catch (socketError) {
+        console.warn('Unable to remove departed member from room sockets:', socketError.message);
+      }
+    }
     return res.json({ success: true, room: { id: String(req.params.roomId), name: room.name, memberCount: room.memberCount, capacity: room.capacity } });
   } catch (error) {
     return next(error);
@@ -913,6 +924,8 @@ app.delete('/api/rooms/:roomId', requireAuth, async (req, res, next) => {
         message: exists ? 'Solo el anfitrión puede cerrar esta sala.' : 'Sala no encontrada.'
       });
     }
+    const io = httpServer.io;
+    if (io) io.in(String(room._id)).socketsLeave(String(room._id));
     return res.json({ success: true, room: { id: String(room._id), status: room.status } });
   } catch (error) {
     return next(error);
