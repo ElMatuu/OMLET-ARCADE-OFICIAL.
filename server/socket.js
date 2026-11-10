@@ -7,6 +7,17 @@ const DirectMessage = require('./models/DirectMessage');
 const Friendship = require('./models/Friendship');
 const Block = require('./models/Block');
 const Notification = require('./models/Notification');
+const UserPresence = require('./models/UserPresence');
+
+const PRESENCE_TTL_MS = 70 * 1000;
+
+async function refreshSocketPresence(socket) {
+  return UserPresence.findOneAndUpdate(
+    { socketId: socket.id },
+    { $set: { user: socket.user.sub, expiresAt: new Date(Date.now() + PRESENCE_TTL_MS) } },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+}
 
 const ROOM_ID_PATTERN = /^[a-zA-Z0-9_-]{3,64}$/;
 const MESSAGE_MAX_LENGTH = 1000;
@@ -34,6 +45,22 @@ function attachSocketServer(httpServer, allowedOrigins) {
 
   io.on('connection', (socket) => {
     socket.join('user:' + String(socket.user.sub));
+    refreshSocketPresence(socket).catch((error) => {
+      console.error('Unable to register socket presence:', error.message);
+    });
+    socket.on('presence_heartbeat', async (acknowledge = () => {}) => {
+      try {
+        await refreshSocketPresence(socket);
+        acknowledge({ success: true, expiresInMs: PRESENCE_TTL_MS });
+      } catch (error) {
+        acknowledge({ success: false, message: 'No se pudo actualizar tu presencia.' });
+      }
+    });
+    socket.on('disconnect', () => {
+      UserPresence.deleteOne({ socketId: socket.id }).catch((error) => {
+        console.error('Unable to clear socket presence:', error.message);
+      });
+    });
     let messageWindowStart = Date.now();
     let messageCount = 0;
 
