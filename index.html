@@ -163,6 +163,7 @@
                     <h3 class="font-black text-base flex items-center gap-2"><i class="fa-solid fa-earth-americas text-purple-400"></i> Publicaciones de la Comunidad</h3>
                     <p id="community-posts-status" class="text-xs text-slate-400" role="status">Cargando publicaciones…</p>
                     <div id="community-posts-container" class="space-y-4" aria-live="polite"></div>
+                    <button id="community-load-more" type="button" class="hidden w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-xs font-bold text-cyan-300 hover:border-cyan-500 disabled:opacity-50">Cargar más publicaciones</button>
                     </div>
                 </div>
             </div>
@@ -764,25 +765,56 @@
             return card;
         }
 
-        async function loadCommunityPosts() {
+        let communityNextCursor = null;
+        let communityLoading = false;
+
+        async function loadCommunityPosts(append = false) {
             const container = document.getElementById('community-posts-container');
             const status = document.getElementById('community-posts-status');
-            if (!container || !status || !authToken) return;
-            status.textContent = 'Cargando publicaciones…';
+            const loadMoreButton = document.getElementById('community-load-more');
+            if (!container || !status || !authToken || communityLoading) return;
+            if (append && !communityNextCursor) return;
+
+            communityLoading = true;
+            if (loadMoreButton) loadMoreButton.disabled = true;
+            status.textContent = append ? 'Cargando más publicaciones…' : 'Cargando publicaciones…';
             try {
-                const data = await apiRequest('/api/posts');
-                container.replaceChildren();
-                if (!Array.isArray(data.posts) || data.posts.length === 0) {
-                    status.textContent = 'Todavía no hay publicaciones. ¡Compartí la primera!';
-                    return;
+                const endpoint = append
+                    ? '/api/posts?before=' + encodeURIComponent(communityNextCursor)
+                    : '/api/posts';
+                const data = await apiRequest(endpoint);
+                if (!append) {
+                    container.replaceChildren();
+                    communityNextCursor = null;
                 }
-                data.posts.forEach((post) => container.appendChild(renderCommunityPost(post)));
-                status.textContent = data.posts.length + ' publicación(es) recientes';
+                if (!Array.isArray(data.posts) || data.posts.length === 0) {
+                    status.textContent = append
+                        ? 'No hay más publicaciones para mostrar.'
+                        : 'Todavía no hay publicaciones. ¡Compartí la primera!';
+                } else {
+                    data.posts.forEach((post) => container.appendChild(renderCommunityPost(post)));
+                    status.textContent = append
+                        ? 'Se cargaron ' + data.posts.length + ' publicaciones más.'
+                        : data.posts.length + ' publicación(es) recientes';
+                }
+                communityNextCursor = data.nextCursor || null;
+                if (loadMoreButton) {
+                    loadMoreButton.classList.toggle('hidden', !communityNextCursor);
+                    loadMoreButton.disabled = !communityNextCursor;
+                }
             } catch (error) {
                 status.textContent = error.message;
+                if (loadMoreButton) loadMoreButton.classList.toggle('hidden', !communityNextCursor);
+            } finally {
+                communityLoading = false;
+                if (loadMoreButton && communityNextCursor) loadMoreButton.disabled = false;
             }
         }
 
+        const communityLoadMoreButton = document.getElementById('community-load-more');
+        if (communityLoadMoreButton) {
+            communityLoadMoreButton.addEventListener('click', () => loadCommunityPosts(true));
+        }
         async function submitPost() {
             const input = document.getElementById('post-text-input');
             const status = document.getElementById('post-form-status');
