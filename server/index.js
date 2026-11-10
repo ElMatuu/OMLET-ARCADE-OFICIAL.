@@ -17,6 +17,8 @@ const SavedPost = require('./models/SavedPost');
 const Comment = require('./models/Comment');
 const Friendship = require('./models/Friendship');
 const Follow = require('./models/Follow');
+const Conversation = require('./models/Conversation');
+const DirectMessage = require('./models/DirectMessage');
 const Inventory = require('./models/Inventory');
 const TokenTransaction = require('./models/TokenTransaction');
 const { STORE_CATALOG } = require('./data/storeCatalog');
@@ -104,6 +106,14 @@ const friendshipLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { success: false, message: 'Hiciste demasiadas acciones de amistad. Probá más tarde.' }
+});
+
+const directMessageLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, message: 'Enviaste demasiados mensajes. Probá en un minuto.' }
 });
 
 function makeFriendshipPairKey(firstId, secondId) {
@@ -1524,6 +1534,164 @@ app.post('/api/rooms/:roomId/join', requireAuth, async (req, res, next) => {
 });
 
 
+
+function isValidObjectId(value) {
+  return typeof value === 'string' && /^[a-fA-F0-9]{24}$/.test(value);
+}
+
+function getDirectPairKey(firstId, secondId) {
+  return [String(firstId), String(secondId)].sort().join(':');
+}
+
+async function areAcceptedFriends(firstId, secondId) {
+  const pairKey = makeFriendshipPairKey(firstId, secondId);
+  return Boolean(await Friendship.exists({ pairKey, status: 'accepted' }));
+}
+
+function serializeDirectMessage(message) {
+  return {
+    id: String(message._id),
+    conversationId: String(message.conversation),
+    senderId: String(message.sender),
+    senderUsername: message.senderUsername,
+    recipientId: String(message.recipient),
+    body: message.body,
+    createdAt: message.createdAt
+  };
+}
+
+app.get('/api/me/conversations', requireAuth, async (req, res, next) => {
+  try {
+    const userId = req.auth.sub;
+    const records = await Conversation.find({
+      $or: [{ participantA: userId }, { participantB: userId }]
+    }).sort({ lastMessageAt: -1, updatedAt: -1 }).limit(100).lean();
+    const otherIds = records.map((item) =>
+      String(item.participantA) === userId ? item.participantB : item.participantA
+    );
+    const users = await User.find({ _id: { $in: otherIds } })
+      .select('username displayName avatarUrl').lean();
+    const userMap = new Map(users.map((user) => [String(user._id), user]));
+    return res.json({
+      success: true,
+      conversations: records.map((item) => {
+        const otherId = String(item.participantA) === userId ? item.participantB : item.participantA;
+        const other = userMap.get(String(otherId));
+        if (!other) return null;
+        return {
+          id: String(item._id),
+          participant: {
+            id: String(other._id),
+            username: other.username,
+            displayName: other.displayName || '',
+            avatarUrl: other.avatarUrl || ''
+          },
+          lastMessage: item.lastMessage || '',
+          lastMessageAt: item.lastMessageAt || item.updatedAt,
+          lastMessageSender: item.lastMessageSender ? String(item.lastMessageSender) : null
+        };
+      }).filter(Boolean)
+    });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/conversations/:username', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
+    const target = await User.findOne({ username }).select('_id username displayName avatarUrl').lean();
+    if (!target) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    if (String(target._id) === req.auth.sub) {
+      return res.status(400).json({ success: false, message: 'No podés abrir un chat con vos mismo.' });
+    }
+    if (!(await areAcceptedFriends(req.auth.sub, target._id))) {
+      return res.status(403).json({ success: false, message: 'Para enviar mensajes privados primero tienen que ser amigos.' });
+    }
+    const pairKey = getDirectPairKey(req.auth.sub, target._id);
+    const conversation = await Conversation.findOneAndUpdate(
+      { pairKey },
+      {
+        $setOnInsert: {
+          pairKey,
+          participantA: [req.auth.sub, String(target._id)].sort()[0],
+          participantB: [req.auth.sub, String(target._id)].sort()[1]
+        }
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+    return res.status(200).json({
+      success: true,
+      conversation: {
+        id: String(conversation._id),
+        participant: {
+          id: String(target._id), username: target.username,
+          displayName: target.displayName || '', avatarUrl: target.avatarUrl || ''
+        }
+      }
+    });
+  } catch (error) {
+    if (error && error.code === 11000) {
+      try {
+        const target = await User.findOne({ username: req.params.username }).select('_id username displayName avatarUrl').lean();
+        const conversation = target && await Conversation.findOne({ pairKey: getDirectPairKey(req.auth.sub, target._id) });
+        if (conversation && target) return res.json({ success: true, conversation: {
+          id: String(conversation._id),
+          participant: { id: String(target._id), username: target.username, displayName: target.displayName || '', avatarUrl: target.avatarUrl || '' }
+        } });
+      } catch {}
+    }
+    return next(error);
+  }
+});
+
+app.get('/api/conversations/:conversationId/messages', requireAuth, async (req, res, next) => {
+  try {
+    const { conversationId } = req.params;
+    if (!isValidObjectId(conversationId)) return res.status(400).json({ success: false, message: 'Conversación inválida.' });
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      $or: [{ participantA: req.auth.sub }, { participantB: req.auth.sub }]
+    }).lean();
+    if (!conversation) return res.status(404).json({ success: false, message: 'Conversación no encontrada.' });
+    const messages = await DirectMessage.find({ conversation: conversationId })
+      .sort({ createdAt: -1, _id: -1 }).limit(100).lean();
+    return res.json({ success: true, messages: messages.reverse().map(serializeDirectMessage) });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/conversations/:conversationId/messages', requireAuth, directMessageLimiter, async (req, res, next) => {
+  try {
+    const { conversationId } = req.params;
+    const body = typeof req.body.body === 'string' ? req.body.body.trim() : '';
+    if (!isValidObjectId(conversationId)) return res.status(400).json({ success: false, message: 'Conversación inválida.' });
+    if (!body || body.length > 2000) return res.status(400).json({ success: false, message: 'El mensaje debe tener entre 1 y 2000 caracteres.' });
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      $or: [{ participantA: req.auth.sub }, { participantB: req.auth.sub }]
+    });
+    if (!conversation) return res.status(404).json({ success: false, message: 'Conversación no encontrada.' });
+    const recipientId = String(conversation.participantA) === req.auth.sub
+      ? conversation.participantB : conversation.participantA;
+    if (!(await areAcceptedFriends(req.auth.sub, recipientId))) {
+      return res.status(403).json({ success: false, message: 'Ya no tienen una amistad activa para usar este chat.' });
+    }
+    const saved = await DirectMessage.create({
+      conversation: conversation._id,
+      sender: req.auth.sub,
+      senderUsername: req.auth.username,
+      recipient: recipientId,
+      body
+    });
+    conversation.lastMessage = body;
+    conversation.lastMessageAt = saved.createdAt;
+    conversation.lastMessageSender = req.auth.sub;
+    await conversation.save();
+    const message = serializeDirectMessage(saved);
+    const io = req.app.get('io');
+    if (io) io.to('dm:' + String(conversation._id)).emit('receive_direct_message', message);
+    return res.status(201).json({ success: true, message });
+  } catch (error) { return next(error); }
+});
+
 app.use((error, req, res, next) => {
   if (res.headersSent) return next(error);
   console.error('API error:', error.message);
@@ -1533,6 +1701,7 @@ app.use((error, req, res, next) => {
 async function start() {
   await mongoose.connect(process.env.MONGODB_URI);
   httpServer.io = attachSocketServer(httpServer, allowedOrigins);
+  app.set('io', httpServer.io);
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`PLAYVERSE API listening on port ${PORT}`);
   });
