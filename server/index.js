@@ -20,6 +20,7 @@ const Follow = require('./models/Follow');
 const Block = require('./models/Block');
 const Notification = require('./models/Notification');
 const UserPresence = require('./models/UserPresence');
+const LiveStream = require('./models/LiveStream');
 const Conversation = require('./models/Conversation');
 const DirectMessage = require('./models/DirectMessage');
 const Inventory = require('./models/Inventory');
@@ -27,6 +28,7 @@ const TokenTransaction = require('./models/TokenTransaction');
 const { STORE_CATALOG } = require('./data/storeCatalog');
 const { requireAuth } = require('./middleware/auth');
 const { attachSocketServer } = require('./socket');
+const { createLiveKitApi, createParticipantToken, createRoomName, getLiveKitConfig } = require('./services/livekit');
 
 const app = express();
 // Render terminates the public connection in one trusted proxy hop.
@@ -38,6 +40,7 @@ const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
+const liveKitConfigForCsp = getLiveKitConfig();
 
 if (!process.env.MONGODB_URI) {
   throw new Error('MONGODB_URI is required. Copy .env.example to .env and configure it.');
@@ -56,7 +59,7 @@ app.use(helmet({
       styleSrcAttr: ["'unsafe-inline'"],
       fontSrc: ["'self'", 'https://cdnjs.cloudflare.com', 'https://fonts.gstatic.com', 'data:'],
       imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'", 'https://playverse-api-bgyg.onrender.com', 'wss://playverse-api-bgyg.onrender.com']
+      connectSrc: ["'self'", 'https://playverse-api-bgyg.onrender.com', 'wss://playverse-api-bgyg.onrender.com', ...(liveKitConfigForCsp ? [liveKitConfigForCsp.clientUrl] : [])]
     }
   }
 }));
@@ -114,6 +117,14 @@ const friendshipLimiter = rateLimit({
   message: { success: false, message: 'Hiciste demasiadas acciones de amistad. Probá más tarde.' }
 });
 
+const streamLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, message: 'Demasiadas operaciones de streaming. Probá en un minuto.' }
+});
+
 const directMessageLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 30,
@@ -164,6 +175,126 @@ app.get('/api/health/ready', (req, res) => {
     service: 'PLAYVERSE API',
     status: ready ? 'ready' : 'database-disconnected'
   });
+});
+
+app.get('/api/streams', async (req, res, next) => {
+  try {
+    const streams = await LiveStream.find({ status: 'live' })
+      .sort({ startedAt: -1 }).limit(50)
+      .select('ownerUsername title description startedAt').lean();
+    return res.json({
+      success: true,
+      streamingEnabled: Boolean(getLiveKitConfig()),
+      streams: streams.map((stream) => ({
+        id: String(stream._id),
+        creator: stream.ownerUsername,
+        title: stream.title,
+        description: stream.description,
+        startedAt: stream.startedAt
+      }))
+    });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) => {
+  const config = getLiveKitConfig();
+  if (!config) return res.status(503).json({
+    success: false,
+    code: 'LIVE_STREAMING_NOT_CONFIGURED',
+    message: 'La transmisión en vivo todavía no está configurada en el servidor.'
+  });
+  try {
+    const title = typeof req.body.title === 'string' ? req.body.title.trim() : '';
+    const description = typeof req.body.description === 'string' ? req.body.description.trim() : '';
+    if (!title || title.length > 100 || description.length > 500) {
+      return res.status(400).json({ success: false, message: 'El título es obligatorio (máximo 100 caracteres) y la descripción admite hasta 500.' });
+    }
+    const user = await User.findById(req.auth.sub).select('username').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    const roomName = createRoomName();
+    const liveKit = createLiveKitApi(config);
+    const session = await LiveStream.create({
+      owner: req.auth.sub,
+      ownerUsername: user.username,
+      title,
+      description,
+      roomName,
+      status: 'live'
+    });
+    try {
+      await liveKit.room.createRoom({ name: roomName, emptyTimeout: 60, maxParticipants: 100 });
+      const identity = String(req.auth.sub) + ':' + require('node:crypto').randomUUID();
+      const token = await createParticipantToken({
+        config,
+        identity,
+        name: user.username,
+        metadata: { userId: String(req.auth.sub), username: user.username, role: 'publisher', streamId: String(session._id) },
+        roomName,
+        canPublish: true
+      });
+      return res.status(201).json({
+        success: true,
+        stream: { id: String(session._id), title: session.title, description: session.description, status: session.status, startedAt: session.startedAt },
+        liveKit: { url: config.clientUrl, token, role: 'publisher', expiresInSeconds: 600 }
+      });
+    } catch (error) {
+      await LiveStream.deleteOne({ _id: session._id });
+      try { await liveKit.room.deleteRoom(roomName); } catch {}
+      throw error;
+    }
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/streams/:streamId/token', requireAuth, streamLimiter, async (req, res, next) => {
+  const config = getLiveKitConfig();
+  if (!config) return res.status(503).json({
+    success: false,
+    code: 'LIVE_STREAMING_NOT_CONFIGURED',
+    message: 'La transmisión en vivo todavía no está configurada en el servidor.'
+  });
+  try {
+    if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
+    const session = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).lean();
+    if (!session) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
+    const isOwner = String(session.owner) === String(req.auth.sub);
+    const user = await User.findById(req.auth.sub).select('username').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    const identity = String(req.auth.sub) + ':' + require('node:crypto').randomUUID();
+    const role = isOwner ? 'publisher' : 'viewer';
+    const token = await createParticipantToken({
+      config,
+      identity,
+      name: user.username,
+      metadata: { userId: String(req.auth.sub), username: user.username, role, streamId: String(session._id) },
+      roomName: session.roomName,
+      canPublish: isOwner
+    });
+    return res.json({
+      success: true,
+      stream: { id: String(session._id), title: session.title, creator: session.ownerUsername, status: session.status },
+      liveKit: { url: config.clientUrl, token, role, expiresInSeconds: 600 }
+    });
+  } catch (error) { return next(error); }
+});
+
+app.delete('/api/me/streams/:streamId', requireAuth, streamLimiter, async (req, res, next) => {
+  const config = getLiveKitConfig();
+  if (!config) return res.status(503).json({
+    success: false,
+    code: 'LIVE_STREAMING_NOT_CONFIGURED',
+    message: 'La transmisión en vivo todavía no está configurada en el servidor.'
+  });
+  try {
+    if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
+    const session = await LiveStream.findOne({ _id: req.params.streamId, owner: req.auth.sub, status: 'live' });
+    if (!session) return res.status(404).json({ success: false, message: 'No se encontró una transmisión activa propia.' });
+    const liveKit = createLiveKitApi(config);
+    await liveKit.room.deleteRoom(session.roomName);
+    session.status = 'ended';
+    session.endedAt = new Date();
+    await session.save();
+    return res.json({ success: true, stream: { id: String(session._id), status: session.status, endedAt: session.endedAt } });
+  } catch (error) { return next(error); }
 });
 
 app.post('/api/register', authLimiter, async (req, res, next) => {
