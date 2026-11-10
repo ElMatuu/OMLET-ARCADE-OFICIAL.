@@ -27,6 +27,15 @@
         .neon-border { box-shadow: 0 0 15px rgba(249, 115, 22, 0.3); }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
         .gpu-layer { transform: translate3d(0,0,0); backface-visibility: hidden; }
+        body.pv-reduce-motion *, body.pv-reduce-motion *::before, body.pv-reduce-motion *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            scroll-behavior: auto !important;
+            transition-duration: 0.01ms !important;
+        }
+        body.pv-high-contrast .PLAYVERSE-card { border-color: #94a3b8 !important; }
+        body.pv-high-contrast .text-slate-400 { color: #e2e8f0 !important; }
+        body.pv-high-contrast .text-slate-500 { color: #cbd5e1 !important; }
     </style>
 </head>
 <body class="h-screen w-screen flex flex-col justify-between relative">
@@ -130,7 +139,7 @@
             </nav>
             <div class="p-4 border-t border-slate-800 space-y-2">
                 <button onclick="openSettingsModal(); toggleDrawer(false);" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold text-slate-300">
-                    <i class="fa-solid fa-gear text-slate-400 w-5"></i><span>Preferencias de creador</span>
+                    <i class="fa-solid fa-gear text-slate-400 w-5"></i><span>Ajustes de PLAYVERSE</span>
                 </button>
                 <button onclick="logout()" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-red-950/40 text-sm font-semibold text-red-300">
                     <i class="fa-solid fa-right-from-bracket w-5"></i><span>Cerrar sesión</span>
@@ -427,7 +436,14 @@
     <!-- MODAL SETTINGS: PREFERENCIAS DE CREADOR PERSISTIDAS EN LA API -->
     <div id="settings-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
         <form id="streaming-settings-form" onsubmit="saveStreamingPreferences(event)" class="PLAYVERSE-card rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-5 border border-slate-800">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-800"><div><h3 class="font-black text-lg text-white">Preferencias de creador</h3><p class="text-xs text-slate-400">Se guardan en tu cuenta PLAYVERSE</p></div><button type="button" onclick="closeSettingsModal()" class="text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800"><div><h3 class="font-black text-lg text-white">Ajustes de PLAYVERSE</h3><p class="text-xs text-slate-400">Accesibilidad y preferencias de creador</p></div><button type="button" onclick="closeSettingsModal()" class="text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+            <section class="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <div><h4 class="text-xs font-black uppercase tracking-wider text-orange-300">Accesibilidad de la aplicación</h4><p class="text-[11px] text-slate-400 mt-1">Se guardan en tu cuenta y se aplican a esta interfaz.</p></div>
+                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Reducir animaciones<input id="app-reduce-motion" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
+                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Mayor contraste<input id="app-high-contrast" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
+                <p id="app-preferences-status" class="text-[11px] text-slate-400" role="status">Cargando ajustes de la aplicación…</p>
+                <button id="app-preferences-save" type="button" onclick="saveApplicationPreferences()" class="w-full rounded-xl border border-orange-500/40 bg-orange-500/10 px-4 py-2.5 text-xs font-bold text-orange-200">Guardar ajustes de aplicación</button>
+            </section>
             <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-orange-300">Calidad de salida</h4>
                 <label class="block text-xs text-slate-400">Resolución preferida<select id="stream-resolution" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="auto">Automática</option><option value="720p">720p</option><option value="1080p">1080p</option><option value="1440p">1440p</option><option value="2160p">2160p (4K)</option></select></label>
                 <div class="grid grid-cols-2 gap-3"><label class="text-xs text-slate-400">Fotogramas por segundo<select id="stream-fps" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="24">24 FPS</option><option value="30">30 FPS</option><option value="60">60 FPS</option><option value="120">120 FPS</option></select></label><label class="text-xs text-slate-400">Bitrate objetivo<select id="stream-bitrate" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="3">3 Mbps</option><option value="6">6 Mbps</option><option value="8">8 Mbps</option><option value="12">12 Mbps</option><option value="20">20 Mbps</option><option value="30">30 Mbps</option><option value="50">50 Mbps</option></select></label></div>
@@ -1743,9 +1759,56 @@
             }
         }
 
+        function applyApplicationPreferences(preferences) {
+            document.body.classList.toggle('pv-reduce-motion', preferences.reduceMotion === true);
+            document.body.classList.toggle('pv-high-contrast', preferences.highContrast === true);
+            document.getElementById('app-reduce-motion').checked = preferences.reduceMotion === true;
+            document.getElementById('app-high-contrast').checked = preferences.highContrast === true;
+        }
+
+        async function loadApplicationPreferences() {
+            const status = document.getElementById('app-preferences-status');
+            status.textContent = 'Cargando ajustes de tu cuenta…';
+            try {
+                const data = await apiRequest('/api/me/app-preferences');
+                applyApplicationPreferences(data.preferences || {});
+                status.textContent = 'Ajustes cargados desde tu cuenta.';
+            } catch (error) {
+                status.textContent = 'No se pudieron cargar los ajustes: ' + error.message;
+            }
+        }
+
+        async function saveApplicationPreferences() {
+            const button = document.getElementById('app-preferences-save');
+            const status = document.getElementById('app-preferences-status');
+            button.disabled = true;
+            button.textContent = 'Guardando…';
+            const preferences = {
+                reduceMotion: document.getElementById('app-reduce-motion').checked,
+                highContrast: document.getElementById('app-high-contrast').checked
+            };
+            try {
+                const data = await apiRequest('/api/me/app-preferences', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(preferences)
+                });
+                applyApplicationPreferences(data.preferences || preferences);
+                status.textContent = 'Ajustes guardados en tu cuenta PLAYVERSE.';
+            } catch (error) {
+                status.textContent = 'No se pudieron guardar los ajustes: ' + error.message;
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Guardar ajustes de aplicación';
+            }
+        }
+
         function openSettingsModal() {
             document.getElementById('settings-modal').classList.remove('hidden');
-            if (authToken) loadStreamingPreferences();
+            if (authToken) {
+                loadStreamingPreferences();
+                loadApplicationPreferences();
+            }
         }
         function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
         function openStreamStudio() {
