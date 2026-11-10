@@ -30,14 +30,14 @@ async function createParticipantToken({ config, identity, name, metadata, roomNa
     identity,
     name,
     metadata: JSON.stringify(metadata),
-    ttl: '10m'
+    ttl: '6h'
   });
   token.addGrant({
     roomJoin: true,
     room: roomName,
     canPublish: Boolean(canPublish),
     canSubscribe: true,
-    canPublishData: true
+    canPublishData: Boolean(canPublish)
   });
   return token.toJwt();
 }
