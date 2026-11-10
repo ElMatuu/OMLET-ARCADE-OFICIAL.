@@ -49,8 +49,6 @@ jobs:
         run: npm run check:syntax
       - name: Check JSON configuration
         run: npm run check:config
-      - name: Prepare web assets
-        run: npm run build:web
       - name: Run unit and multi-user integration tests
         run: npm test
         env:
