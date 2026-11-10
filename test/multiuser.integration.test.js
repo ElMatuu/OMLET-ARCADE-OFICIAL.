@@ -233,6 +233,31 @@ integrationTest('multiple independent accounts can interact concurrently with ow
       method: 'POST', body: { name: 'Sala de integración', game: 'PLAYVERSE Test', capacity: 2 }
     }, alice.body.token);
     assert.equal(room.status, 201);
+
+    const unauthenticatedActivity = await request(baseUrl, '/api/me/activity');
+    assert.equal(unauthenticatedActivity.status, 401);
+    const invalidActivityLimit = await request(baseUrl, '/api/me/activity?limit=51', {}, alice.body.token);
+    assert.equal(invalidActivityLimit.status, 400);
+    const firstActivityPage = await request(baseUrl, '/api/me/activity?limit=1', {}, alice.body.token);
+    assert.equal(firstActivityPage.status, 200);
+    assert.equal(firstActivityPage.body.success, true);
+    assert.equal(firstActivityPage.body.activities.length, 1);
+    assert.equal(firstActivityPage.body.page.hasMore, true);
+    assert.ok(firstActivityPage.body.page.nextCursor);
+    const secondActivityPage = await request(
+      baseUrl,
+      '/api/me/activity?limit=1&cursor=' + encodeURIComponent(firstActivityPage.body.page.nextCursor),
+      {},
+      alice.body.token
+    );
+    assert.equal(secondActivityPage.status, 200);
+    assert.equal(secondActivityPage.body.activities.length, 1);
+    assert.notEqual(firstActivityPage.body.activities[0].id, secondActivityPage.body.activities[0].id);
+    const aliceActivityTypes = [firstActivityPage.body.activities[0].type, secondActivityPage.body.activities[0].type].sort();
+    assert.deepEqual(aliceActivityTypes, ['post', 'room']);
+    const bobActivity = await request(baseUrl, '/api/me/activity?limit=50', {}, bob.body.token);
+    assert.equal(bobActivity.status, 200);
+    assert.ok(bobActivity.body.activities.every((item) => item.type !== 'post' && item.type !== 'room'));
     const aliceRooms = await request(baseUrl, '/api/rooms', {}, alice.body.token);
     assert.equal(aliceRooms.status, 200);
     assert.equal(aliceRooms.body.rooms[0].isOwner, true);
