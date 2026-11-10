@@ -9,7 +9,7 @@
     "start:dev": "node --watch server/index.js",
     "preview": "npx serve www",
     "test": "npm run build:web && node --test",
-    "check:syntax": "node --check server/index.js && node --check server/models/User.js && node --check server/models/Room.js && node --check server/models/Post.js && node --check server/models/Comment.js && node --check server/models/Friendship.js && node --check server/middleware/auth.js && node --check server/socket.js && node --check desktop/main.js && node --check scripts/prepare-web.js && node --check test/server-app.test.js && node --check test/multiuser.integration.test.js && node --check app-update.js && node --check service-worker.js",
+    "check:syntax": "node --check server/index.js && node --check server/models/User.js && node --check server/models/Room.js && node --check server/models/Post.js && node --check server/models/Comment.js && node --check server/models/RoomMessage.js && node --check test/room-message-model.test.js && node --check server/models/Friendship.js && node --check server/middleware/auth.js && node --check server/socket.js && node --check desktop/main.js && node --check scripts/prepare-web.js && node --check test/server-app.test.js && node --check test/multiuser.integration.test.js && node --check app-update.js && node --check service-worker.js",
     "build:web": "node scripts/prepare-web.js",
     "desktop": "npm run build:web && electron .",
     "build:win": "npm run build:web && electron-builder --win nsis",
