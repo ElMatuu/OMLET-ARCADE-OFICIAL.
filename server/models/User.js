@@ -1,5 +1,17 @@
 const mongoose = require('mongoose');
 
+const streamingPreferencesSchema = new mongoose.Schema({
+  resolution: { type: String, enum: ['auto', '720p', '1080p', '1440p', '2160p'], default: 'auto' },
+  fps: { type: Number, enum: [24, 30, 60, 120], default: 30 },
+  bitrateMbps: { type: Number, min: 1, max: 50, default: 6 },
+  cameraEnabled: { type: Boolean, default: false },
+  microphoneEnabled: { type: Boolean, default: true },
+  systemAudioEnabled: { type: Boolean, default: true },
+  orientation: { type: String, enum: ['auto', 'portrait', 'landscape'], default: 'auto' },
+  cameraPosition: { type: String, enum: ['top-left', 'top-right', 'bottom-left', 'bottom-right'], default: 'bottom-right' },
+  cameraFrame: { type: String, enum: ['none', 'cyan', 'violet'], default: 'none' }
+}, { _id: false });
+
 const userSchema = new mongoose.Schema({
   username: {
     type: String,
@@ -32,6 +44,10 @@ const userSchema = new mongoose.Schema({
     trim: true,
     maxlength: 500,
     default: ''
+  },
+  streamingPreferences: {
+    type: streamingPreferencesSchema,
+    default: () => ({})
   },
   role: {
     type: String,
