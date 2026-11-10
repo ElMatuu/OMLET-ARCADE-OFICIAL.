@@ -1,0 +1,12 @@
+{
+  "id": "/",
+  "name": "PLAYVERSE — Gaming Community Live",
+  "short_name": "PLAYVERSE",
+  "description": "Gaming · Community · Live",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#050509",
+  "theme_color": "#0f172a",
+  "lang": "es"
+}
