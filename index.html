@@ -125,7 +125,7 @@
         </div>
 
         <!-- CONTENIDO TABS -->
-        <main class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-4xl mx-auto w-full"><div class="rounded-xl border border-cyan-500/30 bg-cyan-950/40 px-4 py-3 text-xs text-cyan-100"><strong>PLAYVERSE · VERSIÓN DEMO</strong><br>Esta interfaz es una demostración local. Las cuentas, publicaciones, salas, créditos y transmisiones todavía no están conectados a servicios reales.</div>
+        <main class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-4xl mx-auto w-full"><div class="rounded-xl border border-cyan-500/30 bg-cyan-950/40 px-4 py-3 text-xs text-cyan-100"><strong>PLAYVERSE · CONSTRUCCIÓN EN CURSO</strong><br>Registro, inicio de sesión y perfil básico conectados a la API. Feed, transmisiones, tienda, créditos y herramientas sociales siguen en desarrollo.</div>
             <!-- TAB FEED -->
             <div id="tab-feed" class="space-y-6">
                 <div class="PLAYVERSE-card rounded-2xl p-4 flex items-center justify-between border-cyan-500/30 neon-border">
@@ -304,7 +304,6 @@
             document.getElementById('profile-username').textContent = user.username;
             document.getElementById('auth-screen').classList.add('hidden');
             document.getElementById('main-app').classList.remove('hidden');
-            document.querySelector('main > .rounded-xl')?.remove();
         }
 
         async function restoreSession() {
