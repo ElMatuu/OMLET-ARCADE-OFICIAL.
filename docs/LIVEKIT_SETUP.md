@@ -38,7 +38,7 @@ Subscribe to the `room_finished` event. The endpoint verifies the LiveKit Author
 6. End the stream from the creator account.
 7. Confirm the viewer disconnects, the LiveKit room closes, the signed webhook marks the session ended and the stream disappears from the active catalog.
 
-The API returns a clear `503 LIVE_STREAMING_NOT_CONFIGURED` response until all three server environment variables are valid.
+The API issues role-scoped participant tokens that expire after **10 minutes**; publisher and viewer permissions are restricted to the requested room. Clients must request a fresh token when a new session is needed. The API returns a clear `503 LIVE_STREAMING_NOT_CONFIGURED` response until all three server environment variables are valid.
 
 ## 5. Platform validation still required
 

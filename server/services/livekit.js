@@ -30,7 +30,8 @@ async function createParticipantToken({ config, identity, name, metadata, roomNa
     identity,
     name,
     metadata: JSON.stringify(metadata),
-    ttl: '6h'
+    // Keep participant credentials short-lived; clients must request a fresh token to rejoin later.
+    ttl: '10m'
   });
   token.addGrant({
     roomJoin: true,

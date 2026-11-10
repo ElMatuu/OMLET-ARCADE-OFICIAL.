@@ -68,6 +68,15 @@ test('LiveKit participant tokens are short-lived and role-scoped', async () => {
   assert.ok(viewer.split('.').length === 3);
   const publisherClaims = JSON.parse(Buffer.from(publisher.split('.')[1], 'base64url').toString('utf8'));
   const viewerClaims = JSON.parse(Buffer.from(viewer.split('.')[1], 'base64url').toString('utf8'));
+  const now = Math.floor(Date.now() / 1000);
+  assert.ok(Number.isInteger(publisherClaims.exp), 'publisher token must contain an expiry');
+  assert.ok(Number.isInteger(viewerClaims.exp), 'viewer token must contain an expiry');
+  assert.ok(publisherClaims.exp > now + 590 && publisherClaims.exp <= now + 600, 'publisher token must expire within ten minutes');
+  assert.ok(viewerClaims.exp > now + 590 && viewerClaims.exp <= now + 600, 'viewer token must expire within ten minutes');
+  assert.equal(publisherClaims.video.room, 'pv_test_room');
+  assert.equal(viewerClaims.video.room, 'pv_test_room');
+  assert.equal(publisherClaims.video.roomJoin, true);
+  assert.equal(viewerClaims.video.roomJoin, true);
   assert.equal(publisherClaims.video.canPublish, true);
   assert.equal(publisherClaims.video.canPublishData, true);
   assert.equal(viewerClaims.video.canPublish, false);
