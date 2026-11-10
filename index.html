@@ -314,12 +314,53 @@
             status.textContent = message;
         }
 
-        function showAuthenticatedApp(user) {
+        function applyProfileData(user) {
             appState.username = user.username;
-            document.getElementById('drawer-username').textContent = user.username;
-            document.getElementById('profile-username').textContent = user.username;
+            appState.profile = user;
+            const displayName = user.displayName || user.username;
+            document.getElementById('drawer-username').textContent = displayName;
+            document.getElementById('profile-display-name').textContent = displayName;
+            document.getElementById('profile-username').textContent = '@' + user.username;
+            document.getElementById('profile-bio').textContent = user.bio || 'Todavía no agregaste una biografía.';
+            const roleLabels = { user: 'Jugador', moderator: 'Moderador', admin: 'Administrador' };
+            document.getElementById('profile-role').textContent = roleLabels[user.role] || 'Jugador';
+            document.getElementById('drawer-profile-subtitle').textContent = roleLabels[user.role] || 'Comunidad gamer';
+            const memberSince = user.createdAt ? new Date(user.createdAt) : null;
+            document.getElementById('profile-member-since').textContent =
+                memberSince && !Number.isNaN(memberSince.getTime()) ? memberSince.toLocaleDateString('es-AR', { month: 'short', year: 'numeric' }) : '—';
+
+            const avatar = document.getElementById('profile-avatar');
+            const placeholder = document.getElementById('profile-avatar-placeholder');
+            if (user.avatarUrl) {
+                avatar.onerror = () => {
+                    avatar.classList.add('hidden');
+                    placeholder.classList.remove('hidden');
+                };
+                avatar.src = user.avatarUrl;
+                avatar.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+            } else {
+                avatar.removeAttribute('src');
+                avatar.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+            }
+        }
+
+        async function loadMyProfile() {
+            try {
+                const data = await apiRequest('/api/me');
+                if (data.user) applyProfileData(data.user);
+            } catch (error) {
+                const status = document.getElementById('profile-status');
+                if (status) status.textContent = error.message;
+            }
+        }
+
+        function showAuthenticatedApp(user) {
+            applyProfileData(user);
             document.getElementById('auth-screen').classList.add('hidden');
             document.getElementById('main-app').classList.remove('hidden');
+            loadMyProfile();
             loadRooms();
             loadCommunityPosts();
         }
@@ -875,6 +916,48 @@
                 button.textContent = 'Publicar';
             }
         }
+
+        function openProfileEditor() {
+            const profile = appState.profile || {};
+            document.getElementById('profile-display-name-input').value = profile.displayName || '';
+            document.getElementById('profile-bio-input').value = profile.bio || '';
+            document.getElementById('profile-avatar-url-input').value = profile.avatarUrl || '';
+            document.getElementById('profile-editor-status').textContent = '';
+            document.getElementById('profile-editor-modal').classList.remove('hidden');
+        }
+
+        function closeProfileEditor() {
+            document.getElementById('profile-editor-modal').classList.add('hidden');
+        }
+
+        document.getElementById('profile-editor-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const button = document.getElementById('profile-save-button');
+            const status = document.getElementById('profile-editor-status');
+            button.disabled = true;
+            button.textContent = 'Guardando…';
+            status.textContent = 'Guardando los cambios en tu cuenta…';
+            try {
+                const result = await apiRequest('/api/me/profile', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        displayName: document.getElementById('profile-display-name-input').value,
+                        bio: document.getElementById('profile-bio-input').value,
+                        avatarUrl: document.getElementById('profile-avatar-url-input').value
+                    })
+                });
+                applyProfileData(result.user);
+                document.getElementById('profile-status').textContent = 'Perfil actualizado.';
+                status.textContent = 'Perfil guardado correctamente.';
+                closeProfileEditor();
+            } catch (error) {
+                status.textContent = error.message;
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Guardar perfil';
+            }
+        });
 
         function openSettingsModal() { document.getElementById('settings-modal').classList.remove('hidden'); }
         function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
