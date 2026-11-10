@@ -1,20 +1,14 @@
-name: PLAYVERSE Android APK
+name: PLAYVERSE Android build (manual)
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feat/playverse-brand-foundation
-    paths:
-      - 'index.html'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'capacitor.config.json'
-      - 'scripts/**'
-      - '.github/workflows/android-apk.yml'
 
 permissions:
   contents: read
+
+concurrency:
+  group: playverse-android-build
+  cancel-in-progress: true
 
 jobs:
   build-android:
@@ -27,6 +21,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -35,7 +30,7 @@ jobs:
           java-version: '17'
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Prepare web app
         run: npm run build:web
@@ -52,10 +47,10 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Upload installable debug APK
+      - name: Upload test APK (not an official release)
         uses: actions/upload-artifact@v4
         with:
-          name: PLAYVERSE-Android-debug
+          name: PLAYVERSE-Android-test
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 14
