@@ -2,32 +2,59 @@
 
 **Gaming · Community · Live**
 
-PLAYVERSE is an independent social gaming platform project for **Android and Windows**. Its planned features include player profiles, communities, posts, chat, multiplayer rooms, creator tools and live streaming.
+PLAYVERSE is an independent gaming and creator-community platform for Android and Windows. It is inspired by broad social-gaming workflows (profiles, communities, creator tools, multiplayer rooms and live video), while using its own brand, interface implementation, code and services.
 
-> **Current status: prototype + initial API + native build configuration.** The web interface is still a prototype and is not yet connected to the API. The API foundation includes MongoDB-backed account registration/login, password hashing, JWT sessions and an initial authenticated Socket.IO chat layer. No production database, deployed API, persistent room permissions, message history, moderation system or live-streaming pipeline is configured yet.
+## Honest implementation status
 
-## Product principles
+This repository contains a working backend foundation and a web client that is still being integrated feature by feature. A configured build is not the same as a verified production release.
 
-- Original brand, interface, code and service architecture.
-- Supported application targets: Android and Windows.
-- Privacy, account security, moderation and user safety are core requirements.
-- No use of another platform's branding, proprietary assets or claims of affiliation.
+### Implemented in the codebase
 
-## Repository structure
+- MongoDB-backed account registration and login with password hashing and JWT authentication.
+- Editable user profiles and public profile lookup.
+- Friend requests, acceptance, friend lists and removal.
+- Persistent posts, comments and reactions with pagination and ownership checks.
+- Public multiplayer rooms with capacity, membership, leave/close controls and server-side checks.
+- Persistent room message history and authenticated Socket.IO room chat.
+- Authenticated creator streaming-preference storage (resolution preference up to 2160p/4K, FPS presets, bitrate, camera, microphone, system audio, orientation and camera overlay position/frame).
+- Health liveness/readiness endpoints.
+- Web asset build, service-worker update foundation, Android Capacitor configuration and Windows Electron packaging configuration.
+- PLAYVERSE install name and original vector icon resources.
 
-- `index.html` — browser UI prototype.
-- `server/` — Express API, MongoDB user model, JWT authentication and initial Socket.IO foundation.
-- `desktop/main.js` — hardened Electron window for Windows.
-- `scripts/prepare-web.js` — prepares the web entry point for native wrappers.
+### Not yet implemented or verified as production features
+
+- Actual live streaming: no working capture/encoder, RTMP/SRT/WebRTC ingest, SFU, transcoding, adaptive playback, recording pipeline or media CDN is configured.
+- Camera/screen/audio capture on Android and Windows, including device capability detection and permissions.
+- 8K capture or any guaranteed 4K/120 FPS mode. Stored preferences are requests, not proof that a device or encoder can deliver them.
+- Private one-to-one messaging, online presence, push notifications and invitations.
+- Creator clips/video uploads, playback storage, profile media galleries and favorites collections.
+- Full communities/servers with roles, moderation tools and membership management beyond multiplayer rooms.
+- Moderation/report/block workflows and operational trust-and-safety tooling.
+- Store, virtual items, gifting, donations, paid subscriptions, payment processing, creator payouts, fraud controls and legal/tax workflows.
+- Native Android OTA updater integration and a verified installed APK.
+- Signed and tested Windows installer, production monitoring, load testing and scale validation.
+- A complete UI-to-API integration for every screen. A backend route or visual control alone does not mean its user flow is complete.
+
+No million-user capacity or public production readiness is claimed. Those require load tests, production infrastructure, observability, abuse controls and operational support.
+
+## Architecture
+
+- `index.html` — current web client and interface prototype.
+- `server/` — Express API, MongoDB models, JWT auth and Socket.IO.
+- `test/` — model, API, frontend static checks and multi-user integration tests.
+- `desktop/` — Electron Windows shell.
 - `capacitor.config.json` — Android application identity and web asset configuration.
-- `.env.example` — local API configuration template.
+- `scripts/` — web build and platform asset preparation.
+- `assets/playverse-icon.svg` — original vector application icon.
 
-## Requirements
+The API uses MongoDB. Multi-document operations that need transactions require a MongoDB replica set. Configure a real HTTPS origin, production database, exact CORS allowlist, secrets, backups, monitoring and rate limits before public release.
+
+## Development requirements
 
 - Node.js 20 or newer.
-- MongoDB for running the API.
+- MongoDB (replica set for transaction-dependent integration tests).
 - Android Studio + Android SDK for Android builds.
-- Windows environment for producing and testing the Windows installer.
+- Windows build environment for Windows installers.
 
 Install dependencies:
 
@@ -35,81 +62,46 @@ Install dependencies:
 npm install
 ```
 
-## Validate the project
+Validate source and configuration:
 
 ```bash
 npm run check:syntax
 npm run check:config
 npm run build:web
+npm test
 ```
 
-These checks validate JavaScript syntax, JSON configuration and creation of the web asset folder. They do **not** prove that the API, database, Android package or Windows installer works at runtime.
+The multi-user integration suite requires `PLAYVERSE_TEST_MONGODB_URI` to point to an isolated disposable replica-set database. Never point tests at production data.
 
-## Run the API locally
+## Run the API
 
 1. Copy `.env.example` to `.env`.
-2. Set `MONGODB_URI` to a MongoDB connection string.
-3. Generate a unique random `JWT_SECRET` with at least 32 characters.
-4. Set `CORS_ORIGIN` to the exact client origins.
-5. Run `npm start`.
+2. Configure `MONGODB_URI` and a unique `JWT_SECRET` of at least 32 characters.
+3. Set `CORS_ORIGIN` to the exact trusted client origins.
+4. Run `npm start`.
 
-The API exposes `GET /api/health`, `POST /api/register`, `POST /api/login` and authenticated `GET /api/me`. Do not commit `.env`, credentials, signing keys or production user data.
-
-## Windows desktop
-
-Build and open the Electron app in development:
-
-```bash
-npm run desktop
-```
-
-Create a Windows NSIS installer:
-
-```bash
-npm run build:win
-```
-
-The installer output is written to `release/`. Build and test the Windows installer on a supported Windows build machine.
+Never commit `.env`, credentials, signing keys or production user data.
 
 ## Android
 
-Add the native Android project once:
-
 ```bash
 npm run android:add
-```
-
-Then synchronize web assets and native dependencies:
-
-```bash
 npm run android:sync
-```
-
-Open the native project in Android Studio:
-
-```bash
 npm run android:open
-```
-
-Build using the configured Android toolchain:
-
-```bash
 npm run android:build
 ```
 
-Android APK generation requires Android Studio/SDK and a configured Java/Gradle environment. A release APK also needs a securely managed signing key. Never commit that key to Git.
+The Android project requires Android Studio/SDK and Java/Gradle. A release APK requires secure signing. The adaptive PLAYVERSE launcher icon is generated during add/sync. No APK is considered verified until it is built, installed and tested on real devices.
 
-## Important integration gap
+## Windows
 
-The UI prototype does not yet call the PLAYVERSE API. The example API origin, production domain and streaming infrastructure must not be guessed or hardcoded. Before public release, configure a real HTTPS API origin, production database, CORS allowlist, persistent room membership/authorization, message storage, moderation and monitoring. Socket authentication alone does not grant permission to join every room.
+```bash
+npm run desktop
+npm run build:win
+```
 
-## Development roadmap
+Build and test the NSIS installer on a supported Windows machine. Installer configuration is not proof of a tested release.
 
-1. **Foundation:** project structure, design system, security baseline and automated checks.
-2. **Identity:** connect registration/login UI to the API, session handling and profile management.
-3. **Community:** posts, comments, follows, reporting and moderation.
-4. **Real-time:** private chat, presence, notifications and persisted room membership.
-5. **Live:** screen capture, broadcast pipeline, playback, moderation and operational monitoring.
-6. **Release:** Android and Windows builds, signing, automated tests, crash reporting and store/distribution preparation.
+## Product completion standard
 
-A feature is complete only after implementation, integration and verification. A visual prototype or build configuration is not a working production service.
+Every feature must have a real implementation, server-side authorization where applicable, persistence where required, tests, error handling, privacy and safety review, observability and documented deployment. Live streaming and monetization must not be represented as available until their full operational pipelines are integrated and verified.
