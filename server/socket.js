@@ -1,5 +1,6 @@
 const { Server } = require('socket.io');
 const { verifyToken } = require('./middleware/auth');
+const Room = require('./models/Room');
 
 const ROOM_ID_PATTERN = /^[a-zA-Z0-9_-]{3,64}$/;
 const MESSAGE_MAX_LENGTH = 1000;
@@ -25,13 +26,25 @@ function attachSocketServer(httpServer, allowedOrigins) {
   });
 
   io.on('connection', (socket) => {
-    socket.on('join_room', (payload, acknowledge = () => {}) => {
+    socket.on('join_room', async (payload, acknowledge = () => {}) => {
       const roomId = payload && payload.roomId;
       if (typeof roomId !== 'string' || !ROOM_ID_PATTERN.test(roomId)) {
         return acknowledge({ success: false, message: 'Identificador de sala inválido' });
       }
-      socket.join(roomId);
-      return acknowledge({ success: true, roomId });
+      try {
+        const membership = await Room.exists({
+          _id: roomId,
+          members: socket.user.sub,
+          status: 'open'
+        });
+        if (!membership) {
+          return acknowledge({ success: false, message: 'No pertenecés a esta sala.' });
+        }
+        await socket.join(roomId);
+        return acknowledge({ success: true, roomId });
+      } catch {
+        return acknowledge({ success: false, message: 'No se pudo validar el acceso a la sala.' });
+      }
     });
 
     socket.on('send_message', (payload, acknowledge = () => {}) => {
