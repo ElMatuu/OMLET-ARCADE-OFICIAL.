@@ -238,7 +238,19 @@ app.delete('/api/posts/:postId', requireAuth, postLimiter, async (req, res, next
     if (!mongoose.isValidObjectId(req.params.postId)) {
       return res.status(400).json({ success: false, message: 'Identificador de publicación inválido.' });
     }
-    const post = await Post.findOneAndDelete({ _id: req.params.postId, author: req.auth.sub });
+    const session = await mongoose.startSession();
+    let post;
+    try {
+      await session.withTransaction(async () => {
+        post = await Post.findOneAndDelete({
+          _id: req.params.postId,
+          author: req.auth.sub
+        }).session(session);
+        if (post) await Comment.deleteMany({ post: post._id }, { session });
+      });
+    } finally {
+      await session.endSession();
+    }
     if (!post) {
       const exists = await Post.exists({ _id: req.params.postId });
       return res.status(exists ? 403 : 404).json({
@@ -246,7 +258,6 @@ app.delete('/api/posts/:postId', requireAuth, postLimiter, async (req, res, next
         message: exists ? 'Solo quien publicó puede eliminar esta publicación.' : 'Publicación no encontrada.'
       });
     }
-    await Comment.deleteMany({ post: post._id });
     return res.json({ success: true, deletedPostId: String(post._id) });
   } catch (error) {
     return next(error);
@@ -335,18 +346,28 @@ app.post('/api/posts/:postId/comments', requireAuth, commentLimiter, async (req,
     if (!content || content.length > 1000) {
       return res.status(400).json({ success: false, message: 'El comentario debe tener entre 1 y 1000 caracteres.' });
     }
-    const post = await Post.findById(req.params.postId).select('_id');
-    if (!post) return res.status(404).json({ success: false, message: 'Publicación no encontrada.' });
     const user = await User.findById(req.auth.sub).select('username').lean();
     if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
 
-    const comment = await Comment.create({
-      post: post._id,
-      author: req.auth.sub,
-      authorUsername: user.username,
-      content
-    });
-    await Post.updateOne({ _id: post._id }, { $inc: { commentCount: 1 } });
+    const session = await mongoose.startSession();
+    let comment;
+    try {
+      await session.withTransaction(async () => {
+        const post = await Post.findById(req.params.postId).select('_id').session(session);
+        if (!post) return;
+        const created = await Comment.create([{
+          post: post._id,
+          author: req.auth.sub,
+          authorUsername: user.username,
+          content
+        }], { session });
+        comment = created[0];
+        await Post.updateOne({ _id: post._id }, { $inc: { commentCount: 1 } }, { session });
+      });
+    } finally {
+      await session.endSession();
+    }
+    if (!comment) return res.status(404).json({ success: false, message: 'Publicación no encontrada.' });
     return res.status(201).json({ success: true, comment: {
       id: String(comment._id),
       authorUsername: comment.authorUsername,
@@ -398,11 +419,26 @@ app.delete('/api/posts/:postId/comments/:commentId', requireAuth, commentLimiter
     if (!mongoose.isValidObjectId(postId) || !mongoose.isValidObjectId(commentId)) {
       return res.status(400).json({ success: false, message: 'Identificador inválido.' });
     }
-    const comment = await Comment.findOneAndDelete({
-      _id: commentId,
-      post: postId,
-      author: req.auth.sub
-    });
+    const session = await mongoose.startSession();
+    let comment;
+    try {
+      await session.withTransaction(async () => {
+        comment = await Comment.findOneAndDelete({
+          _id: commentId,
+          post: postId,
+          author: req.auth.sub
+        }).session(session);
+        if (comment) {
+          await Post.updateOne(
+            { _id: postId, commentCount: { $gt: 0 } },
+            { $inc: { commentCount: -1 } },
+            { session }
+          );
+        }
+      });
+    } finally {
+      await session.endSession();
+    }
     if (!comment) {
       const exists = await Comment.exists({ _id: commentId, post: postId });
       return res.status(exists ? 403 : 404).json({
@@ -410,7 +446,6 @@ app.delete('/api/posts/:postId/comments/:commentId', requireAuth, commentLimiter
         message: exists ? 'Solo quien comentó puede eliminar este comentario.' : 'Comentario no encontrado.'
       });
     }
-    await Post.updateOne({ _id: postId, commentCount: { $gt: 0 } }, { $inc: { commentCount: -1 } });
     return res.json({ success: true, deletedCommentId: String(comment._id) });
   } catch (error) {
     return next(error);
