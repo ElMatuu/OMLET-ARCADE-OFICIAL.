@@ -31,11 +31,13 @@ This repository contains a working backend foundation and a web client that is s
 
 ### Not yet implemented or verified as production features
 
-- Actual live streaming: no working capture/encoder, RTMP/SRT/WebRTC ingest, SFU, transcoding, adaptive playback, recording pipeline or media CDN is configured.
+- LiveKit server integration foundation: persistent live-session records, authenticated room creation, short-lived publisher/viewer JWTs, owner-only stream termination and a public live-session directory are implemented. The feature remains disabled until valid LiveKit Cloud/self-host credentials are configured.
+- Actual client capture and playback are not yet integrated: no verified camera/microphone/screen publishing UI, remote track rendering, device permission flow, mobile native capture validation, recording pipeline or media CDN is available.
 - Camera/screen/audio capture on Android and Windows, including device capability detection and permissions.
 - 8K capture or any guaranteed 4K/120 FPS mode. Stored preferences are requests, not proof that a device or encoder can deliver them.
 - Mobile push notifications, message attachments, voice/video calls and invitations.
 - Creator clips/video uploads, playback storage, profile media galleries and favorites collections.
+- LiveKit client SDK integration in the web/Android/Electron UI, live viewer player, screen-share/camera controls, participant count synchronization and stream lifecycle webhooks.
 - Full communities/servers with roles, moderation tools and membership management beyond multiplayer rooms.
 - User reporting, moderator queues, moderation actions, appeals and operational trust-and-safety tooling beyond player blocking.
 - Store top-ups, real-money checkout, gifting, donations, paid subscriptions, creator payouts, fraud controls and legal/tax workflows.
@@ -56,7 +58,7 @@ No million-user capacity or public production readiness is claimed. Those requir
 - `scripts/` — web build and platform asset preparation.
 - `assets/playverse-icon.svg` — original vector application icon.
 
-The API uses MongoDB. Multi-document operations that need transactions require a MongoDB replica set. Configure a real HTTPS origin, production database, exact CORS allowlist, secrets, backups, monitoring and rate limits before public release.
+The API uses MongoDB. LiveKit requires `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` to enable live-session endpoints; API secrets must exist only in backend environment settings. The current backend issues 10-minute role-scoped tokens and never sends the API secret to clients. The client-side LiveKit SDK and camera/screen playback UI are a separate pending stage. Multi-document operations that need transactions require a MongoDB replica set. Configure a real HTTPS origin, production database, exact CORS allowlist, secrets, backups, monitoring and rate limits before public release.
 
 ## Development requirements
 
