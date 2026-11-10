@@ -16,6 +16,7 @@ const Post = require('./models/Post');
 const SavedPost = require('./models/SavedPost');
 const Comment = require('./models/Comment');
 const Friendship = require('./models/Friendship');
+const Follow = require('./models/Follow');
 const Inventory = require('./models/Inventory');
 const TokenTransaction = require('./models/TokenTransaction');
 const { STORE_CATALOG } = require('./data/storeCatalog');
@@ -216,7 +217,7 @@ app.get('/api/me', requireAuth, async (req, res, next) => {
 app.get('/api/me/profile-summary', requireAuth, async (req, res, next) => {
   try {
     const userId = req.auth.sub;
-    const [postCount, roomCount, messageCount, savedPostCount, friendCount] = await Promise.all([
+    const [postCount, roomCount, messageCount, savedPostCount, friendCount, followersCount, followingCount] = await Promise.all([
       Post.countDocuments({ author: userId }),
       Room.countDocuments({ owner: userId }),
       RoomMessage.countDocuments({ author: userId }),
@@ -224,7 +225,9 @@ app.get('/api/me/profile-summary', requireAuth, async (req, res, next) => {
       Friendship.countDocuments({
         status: 'accepted',
         $or: [{ requester: userId }, { recipient: userId }]
-      })
+      }),
+      Follow.countDocuments({ following: userId }),
+      Follow.countDocuments({ follower: userId })
     ]);
 
     return res.json({
@@ -235,6 +238,8 @@ app.get('/api/me/profile-summary', requireAuth, async (req, res, next) => {
         roomMessages: messageCount,
         savedPosts: savedPostCount,
         friends: friendCount,
+        followers: followersCount,
+        following: followingCount,
         views: null,
         experience: null
       },
@@ -576,6 +581,71 @@ app.put('/api/me/inventory/:itemId/equip', requireAuth, storeLimiter, async (req
   }
 });
 
+app.get('/api/me/followers', requireAuth, async (req, res, next) => {
+  try {
+    const records = await Follow.find({ following: req.auth.sub })
+      .populate('follower', 'username displayName avatarUrl')
+      .sort({ createdAt: -1, _id: -1 }).limit(100).lean();
+    return res.json({ success: true, users: records.filter((item) => item.follower).map((item) => ({
+      id: String(item.follower._id), username: item.follower.username,
+      displayName: item.follower.displayName || '', avatarUrl: item.follower.avatarUrl || '',
+      followedAt: item.createdAt
+    })) });
+  } catch (error) { return next(error); }
+});
+
+app.get('/api/me/following', requireAuth, async (req, res, next) => {
+  try {
+    const records = await Follow.find({ follower: req.auth.sub })
+      .populate('following', 'username displayName avatarUrl')
+      .sort({ createdAt: -1, _id: -1 }).limit(100).lean();
+    return res.json({ success: true, users: records.filter((item) => item.following).map((item) => ({
+      id: String(item.following._id), username: item.following.username,
+      displayName: item.following.displayName || '', avatarUrl: item.following.avatarUrl || '',
+      followedAt: item.createdAt
+    })) });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/users/:username/follow', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
+    const target = await User.findOne({ username }).select('_id username').lean();
+    if (!target) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    if (String(target._id) === req.auth.sub) {
+      return res.status(400).json({ success: false, message: 'No podés seguirte a vos mismo.' });
+    }
+    try {
+      await Follow.create({ follower: req.auth.sub, following: target._id });
+    } catch (error) {
+      if (error && error.code === 11000) {
+        return res.status(409).json({ success: false, message: 'Ya seguís a este jugador.' });
+      }
+      throw error;
+    }
+    const [followersCount, followingCount] = await Promise.all([
+      Follow.countDocuments({ following: target._id }),
+      Follow.countDocuments({ follower: target._id })
+    ]);
+    return res.status(201).json({ success: true, following: true, followersCount, followingCount });
+  } catch (error) { return next(error); }
+});
+
+app.delete('/api/users/:username/follow', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
+    const target = await User.findOne({ username }).select('_id').lean();
+    if (!target) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    const result = await Follow.deleteOne({ follower: req.auth.sub, following: target._id });
+    if (!result.deletedCount) return res.status(404).json({ success: false, message: 'No seguís a este jugador.' });
+    const [followersCount, followingCount] = await Promise.all([
+      Follow.countDocuments({ following: target._id }),
+      Follow.countDocuments({ follower: target._id })
+    ]);
+    return res.json({ success: true, following: false, followersCount, followingCount });
+  } catch (error) { return next(error); }
+});
+
 app.get('/api/users/:username', requireAuth, async (req, res, next) => {
   try {
     const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
@@ -583,11 +653,14 @@ app.get('/api/users/:username', requireAuth, async (req, res, next) => {
       .select('username displayName bio avatarUrl createdAt')
       .lean();
     if (!user) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
-    const [postCount, friendship] = await Promise.all([
+    const [postCount, friendship, followersCount, followingCount, followRecord] = await Promise.all([
       Post.countDocuments({ author: user._id }),
       Friendship.findOne({
         pairKey: makeFriendshipPairKey(req.auth.sub, user._id)
-      }).select('status requester recipient').lean()
+      }).select('status requester recipient').lean(),
+      Follow.countDocuments({ following: user._id }),
+      Follow.countDocuments({ follower: user._id }),
+      Follow.exists({ follower: req.auth.sub, following: user._id })
     ]);
     const relation = String(user._id) === req.auth.sub ? 'self'
       : !friendship ? 'none'
@@ -602,6 +675,9 @@ app.get('/api/users/:username', requireAuth, async (req, res, next) => {
       avatarUrl: user.avatarUrl || '',
       createdAt: user.createdAt,
       postCount,
+      followersCount,
+      followingCount,
+      isFollowing: Boolean(followRecord),
       friendship: relation
     } });
   } catch (error) {
