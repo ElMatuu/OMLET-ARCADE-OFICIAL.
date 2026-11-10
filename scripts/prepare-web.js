@@ -32,11 +32,11 @@ if (!fs.existsSync(iconSource)) {
 fs.mkdirSync(path.join(outputDir, 'assets'), { recursive: true });
 fs.copyFileSync(iconSource, path.join(outputDir, 'assets', 'playverse-icon.svg'));
 
-const liveKitClientSource = path.join(root, 'node_modules', 'livekit-client', 'dist', 'livekit-client.umd.min.js');
+const liveKitClientSource = path.join(root, 'node_modules', 'livekit-client', 'dist', 'livekit-client.umd.js');
 if (!fs.existsSync(liveKitClientSource)) {
   console.error('LiveKit browser SDK was not installed. Run npm install before building PLAYVERSE.');
   process.exit(1);
 }
-fs.copyFileSync(liveKitClientSource, path.join(outputDir, 'livekit-client.umd.min.js'));
+fs.copyFileSync(liveKitClientSource, path.join(outputDir, 'livekit-client.umd.js'));
 
 console.log('Prepared PLAYVERSE web client, LiveKit SDK and update assets in ./www');
