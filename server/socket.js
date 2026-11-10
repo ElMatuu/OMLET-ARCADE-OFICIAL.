@@ -31,6 +31,7 @@ function attachSocketServer(httpServer, allowedOrigins) {
   });
 
   io.on('connection', (socket) => {
+    socket.join('user:' + String(socket.user.sub));
     let messageWindowStart = Date.now();
     let messageCount = 0;
 
@@ -95,10 +96,13 @@ function attachSocketServer(httpServer, allowedOrigins) {
           recipient: recipientId,
           body
         });
-        conversation.lastMessage = body;
-        conversation.lastMessageAt = saved.createdAt;
-        conversation.lastMessageSender = socket.user.sub;
-        await conversation.save();
+        await Conversation.updateOne(
+          { _id: conversation._id },
+          {
+            $set: { lastMessage: body, lastMessageAt: saved.createdAt, lastMessageSender: socket.user.sub },
+            $inc: { [String(conversation.participantA) === String(recipientId) ? 'unreadCountA' : 'unreadCountB']: 1 }
+          }
+        );
         const message = {
           id: String(saved._id),
           conversationId,
@@ -106,9 +110,16 @@ function attachSocketServer(httpServer, allowedOrigins) {
           senderUsername: saved.senderUsername,
           recipientId: String(recipientId),
           body: saved.body,
-          createdAt: saved.createdAt
+          createdAt: saved.createdAt,
+          readAt: null
         };
         io.to('dm:' + conversationId).emit('receive_direct_message', message);
+        io.to('user:' + String(recipientId)).emit('direct_message_notification', {
+          conversationId,
+          senderUsername: socket.user.username,
+          body,
+          createdAt: saved.createdAt
+        });
         return acknowledge({ success: true, message });
       } catch {
         return acknowledge({ success: false, message: 'No se pudo guardar el mensaje.' });
