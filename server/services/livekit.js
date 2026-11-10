@@ -8,11 +8,12 @@ function getLiveKitConfig(env = process.env) {
   if (!url || !apiKey || !apiSecret) return null;
   let parsed;
   try { parsed = new URL(url); } catch { return null; }
-  if (!['ws:', 'wss:', 'http:', 'https:'].includes(parsed.protocol) || !parsed.host) return null;
-  const clientUrl = parsed.protocol === 'http:' ? 'ws:' + url.slice(5)
-    : parsed.protocol === 'https:' ? 'wss:' + url.slice(6) : url;
-  const apiHost = parsed.protocol === 'ws:' ? 'http:' + url.slice(3)
-    : parsed.protocol === 'wss:' ? 'https:' + url.slice(4) : url;
+  if (!['ws:', 'wss:', 'http:', 'https:'].includes(parsed.protocol) || !parsed.host ||
+      (parsed.pathname && parsed.pathname !== '/') || parsed.search || parsed.hash) return null;
+  const clientProtocol = parsed.protocol === 'http:' || parsed.protocol === 'ws:' ? 'ws:' : 'wss:';
+  const apiProtocol = parsed.protocol === 'ws:' || parsed.protocol === 'http:' ? 'http:' : 'https:';
+  const clientUrl = clientProtocol + '//' + parsed.host;
+  const apiHost = apiProtocol + '//' + parsed.host;
   return { clientUrl, apiHost, apiKey, apiSecret };
 }
 
