@@ -1,0 +1,10 @@
+{
+  "name": "omlet-arcade-oficial",
+  "version": "1.0.0",
+  "description": "Omlet Arcade Official & Global Web Client",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve"
+  },
+  "dependencies": {}
+}
