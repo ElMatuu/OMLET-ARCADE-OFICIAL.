@@ -49,6 +49,9 @@ const userSchema = new mongoose.Schema({
     type: streamingPreferencesSchema,
     default: () => ({})
   },
+  walletTokens: { type: Number, min: 0, default: 0 },
+  activeAvatarFrame: { type: String, default: null },
+  activeStreamOverlay: { type: String, default: null },
   role: {
     type: String,
     enum: ['user', 'moderator', 'admin'],
