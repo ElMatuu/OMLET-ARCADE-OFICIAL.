@@ -290,10 +290,25 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.equal(aliceMissions.body.missions.length, 22);
     assert.equal(aliceMissions.body.summary.total, 22);
     assert.equal(new Set(aliceMissions.body.missions.map((mission) => mission.chapter)).size, 5);
-    assert.equal(aliceMissions.body.rewardsEnabled, false);
+    assert.equal(aliceMissions.body.rewardsEnabled, true);
     assert.equal(aliceMissions.body.missions.find((mission) => mission.id === 'welcome-post-1').completed, true);
     assert.equal(aliceMissions.body.missions.find((mission) => mission.id === 'party-room-1').completed, true);
     assert.equal(aliceMissions.body.missions.find((mission) => mission.id === 'social-save-1').completed, false);
+    assert.equal(aliceMissions.body.missions.find((mission) => mission.id === 'welcome-post-1').claimable, true);
+    const missionReward = await request(baseUrl, '/api/me/missions/welcome-post-1/claim', { method: 'POST' }, alice.body.token);
+    assert.equal(missionReward.status, 201);
+    assert.equal(missionReward.body.rewardTokens, 10);
+    assert.equal(missionReward.body.wallet.tokens, 10);
+    const duplicateMissionReward = await request(baseUrl, '/api/me/missions/welcome-post-1/claim', { method: 'POST' }, alice.body.token);
+    assert.equal(duplicateMissionReward.status, 409);
+    const incompleteMissionReward = await request(baseUrl, '/api/me/missions/social-save-1/claim', { method: 'POST' }, alice.body.token);
+    assert.equal(incompleteMissionReward.status, 409);
+    const aliceWallet = await request(baseUrl, '/api/me/inventory', {}, alice.body.token);
+    assert.equal(aliceWallet.body.wallet.tokens, 10);
+    const aliceWalletHistory = await request(baseUrl, '/api/me/wallet/transactions', {}, alice.body.token);
+    assert.ok(aliceWalletHistory.body.transactions.some((item) => item.itemName === 'Misión: Tu voz en PLAYVERSE' && item.amount === 10));
+    const missionsAfterClaim = await request(baseUrl, '/api/me/missions', {}, alice.body.token);
+    assert.equal(missionsAfterClaim.body.missions.find((mission) => mission.id === 'welcome-post-1').claimed, true);
     const unauthenticatedMissions = await request(baseUrl, '/api/me/missions');
     assert.equal(unauthenticatedMissions.status, 401);
 
