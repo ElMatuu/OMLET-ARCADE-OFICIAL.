@@ -14,7 +14,7 @@ This repository contains a working backend foundation and a web client that is s
 - Editable user profiles and public profile lookup.
 - Friend requests, acceptance, friend lists and removal.
 - Followers/following with separate persistent relationships and public profile counts.
-- Private one-to-one conversations for accepted friends, persisted message history, authenticated Socket.IO delivery, unread counters, read timestamps and connected-device notification events.
+- Private one-to-one conversations for accepted friends, persisted message history, authenticated Socket.IO delivery, unread counters, read receipts, ephemeral typing indicators and connected-device notification events.
 - Player block/unblock controls. Blocking removes the friendship and both follow directions, hides the conversation from the inbox and prevents new friend requests, follows and private messages.
 - Saved posts, activity-derived starter missions and profile statistics based on persisted account activity.
 - Persistent store catalog, inventory, token ledger and server-validated purchases/equipping for supported cosmetic categories. Token top-ups and real-money purchases are not enabled.
@@ -34,7 +34,7 @@ This repository contains a working backend foundation and a web client that is s
 - Actual live streaming: no working capture/encoder, RTMP/SRT/WebRTC ingest, SFU, transcoding, adaptive playback, recording pipeline or media CDN is configured.
 - Camera/screen/audio capture on Android and Windows, including device capability detection and permissions.
 - 8K capture or any guaranteed 4K/120 FPS mode. Stored preferences are requests, not proof that a device or encoder can deliver them.
-- Mobile push notifications, typing indicators, attachments, voice/video calls and invitations.
+- Mobile push notifications, message attachments, voice/video calls and invitations.
 - Creator clips/video uploads, playback storage, profile media galleries and favorites collections.
 - Full communities/servers with roles, moderation tools and membership management beyond multiplayer rooms.
 - User reporting, moderator queues, moderation actions, appeals and operational trust-and-safety tooling beyond player blocking.
