@@ -173,11 +173,18 @@ integrationTest('multiple independent accounts can interact concurrently with ow
 
     const aliceSocket = await connectSocket(baseUrl, alice.body.token);
     const memberSocket = await connectSocket(baseUrl, winningToken);
-    liveSockets.push(aliceSocket, memberSocket);
+    const outsiderSocket = await connectSocket(baseUrl, waitingToken);
+    liveSockets.push(aliceSocket, memberSocket, outsiderSocket);
     const aliceRoomJoin = await emitSocketAck(aliceSocket, 'join_room', { roomId: room.body.room.id });
     const memberRoomJoin = await emitSocketAck(memberSocket, 'join_room', { roomId: room.body.room.id });
     assert.equal(aliceRoomJoin.success, true);
     assert.equal(memberRoomJoin.success, true);
+    const outsiderRoomJoin = await emitSocketAck(outsiderSocket, 'join_room', { roomId: room.body.room.id });
+    assert.equal(outsiderRoomJoin.success, false);
+    const outsiderCannotSendChat = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/messages', {
+      method: 'POST', body: { message: 'No pertenezco a esta sala.' }
+    }, waitingToken);
+    assert.equal(outsiderCannotSendChat.status, 403);
 
     const realtimeDelivery = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('Live room message was not delivered')), 5000);
