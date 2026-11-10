@@ -53,6 +53,7 @@ integrationTest('multiple independent accounts can interact concurrently with ow
   const server = httpServer;
   const ioServer = attachSocketServer(server, ['http://127.0.0.1']);
   server.io = ioServer;
+  app.set('io', ioServer);
   const liveSockets = [];
   await new Promise((resolve, reject) => {
     server.once('error', reject);
@@ -148,6 +149,28 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.equal(accepted.status, 200);
     assert.equal(accepted.body.status, 'accepted');
 
+    const aliceConversation = await request(baseUrl, '/api/conversations/bob_test', {
+      method: 'POST'
+    }, alice.body.token);
+    assert.equal(aliceConversation.status, 200);
+    const conversationId = aliceConversation.body.conversation.id;
+    const bobInbox = await request(baseUrl, '/api/me/conversations', {}, bob.body.token);
+    assert.equal(bobInbox.status, 200);
+    assert.equal(bobInbox.body.conversations.length, 1);
+    const charlieCannotStartPrivateChat = await request(baseUrl, '/api/conversations/alice_test', {
+      method: 'POST'
+    }, charlie.body.token);
+    assert.equal(charlieCannotStartPrivateChat.status, 403);
+    const privateMessage = await request(baseUrl, '/api/conversations/' + conversationId + '/messages', {
+      method: 'POST', body: { body: 'Mensaje privado persistente' }
+    }, alice.body.token);
+    assert.equal(privateMessage.status, 201);
+    assert.equal(privateMessage.body.message.body, 'Mensaje privado persistente');
+    const bobPrivateHistory = await request(baseUrl, '/api/conversations/' + conversationId + '/messages', {}, bob.body.token);
+    assert.equal(bobPrivateHistory.status, 200);
+    assert.equal(bobPrivateHistory.body.messages.length, 1);
+    assert.equal(bobPrivateHistory.body.messages[0].senderUsername, 'alice_test');
+
     const post = await request(baseUrl, '/api/posts', {
       method: 'POST', body: { content: 'Publicación de Alice en una prueba multiusuario.' }
     }, alice.body.token);
@@ -209,7 +232,44 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     const aliceSocket = await connectSocket(baseUrl, alice.body.token);
     const memberSocket = await connectSocket(baseUrl, winningToken);
     const outsiderSocket = await connectSocket(baseUrl, waitingToken);
-    liveSockets.push(aliceSocket, memberSocket, outsiderSocket);
+    const bobDirectSocket = await connectSocket(baseUrl, bob.body.token);
+    const charlieDirectSocket = await connectSocket(baseUrl, charlie.body.token);
+    liveSockets.push(aliceSocket, memberSocket, outsiderSocket, bobDirectSocket, charlieDirectSocket);
+
+    const aliceDirectJoin = await emitSocketAck(aliceSocket, 'join_direct_conversation', { conversationId });
+    const bobDirectJoin = await emitSocketAck(bobDirectSocket, 'join_direct_conversation', { conversationId });
+    const charlieDirectJoin = await emitSocketAck(charlieDirectSocket, 'join_direct_conversation', { conversationId });
+    assert.equal(aliceDirectJoin.success, true);
+    assert.equal(bobDirectJoin.success, true);
+    assert.equal(charlieDirectJoin.success, false);
+    const privateRealtimeDelivery = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Private message was not delivered in real time')), 5000);
+      bobDirectSocket.once('receive_direct_message', (message) => {
+        clearTimeout(timer);
+        resolve(message);
+      });
+    });
+    const privateSocketAck = await emitSocketAck(aliceSocket, 'send_direct_message', {
+      conversationId, body: 'Privado por Socket.IO'
+    });
+    assert.equal(privateSocketAck.success, true);
+    const privateRealtimeMessage = await privateRealtimeDelivery;
+    assert.equal(privateRealtimeMessage.body, 'Privado por Socket.IO');
+    assert.equal(privateRealtimeMessage.senderUsername, 'alice_test');
+
+    const privateRestRealtimeDelivery = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('REST private message was not delivered to connected recipient')), 5000);
+      aliceSocket.once('receive_direct_message', (message) => {
+        clearTimeout(timer);
+        resolve(message);
+      });
+    });
+    const privateRestSend = await request(baseUrl, '/api/conversations/' + conversationId + '/messages', {
+      method: 'POST', body: { body: 'Privado por API' }
+    }, bob.body.token);
+    assert.equal(privateRestSend.status, 201);
+    const privateRestRealtimeMessage = await privateRestRealtimeDelivery;
+    assert.equal(privateRestRealtimeMessage.body, 'Privado por API');
     const aliceRoomJoin = await emitSocketAck(aliceSocket, 'join_room', { roomId: room.body.room.id });
     const memberRoomJoin = await emitSocketAck(memberSocket, 'join_room', { roomId: room.body.room.id });
     assert.equal(aliceRoomJoin.success, true);
