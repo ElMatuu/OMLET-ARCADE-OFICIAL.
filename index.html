@@ -353,11 +353,11 @@
 
             <!-- TAB SAVED -->
             <div id="tab-saved" class="space-y-4 hidden max-w-lg mx-auto">
-                <section class="PLAYVERSE-card rounded-2xl p-5 space-y-3">
-                    <div class="flex items-center gap-3"><i class="fa-solid fa-bookmark text-2xl text-cyan-300"></i><h3 class="font-black text-xl">Guardados y VODs</h3></div>
-                    <p class="text-sm text-slate-300">Este espacio queda preparado para tus publicaciones guardadas y repeticiones de transmisiones.</p>
-                    <p class="text-xs text-slate-500">Todavía no existe un servicio de guardados ni almacenamiento de VODs conectado. No mostraremos contenido de ejemplo como si fuera tuyo.</p>
+                <section class="PLAYVERSE-card rounded-2xl p-5 space-y-2">
+                    <div class="flex items-center gap-3"><i class="fa-solid fa-bookmark text-2xl text-cyan-300"></i><h3 class="font-black text-xl">Publicaciones guardadas</h3></div>
+                    <p id="saved-posts-status" class="text-xs text-slate-400" role="status">Tus publicaciones guardadas aparecerán acá.</p>
                 </section>
+                <div id="saved-posts-container" class="space-y-4"></div>
             </div>
 
             <!-- TAB HELP -->
@@ -677,6 +677,7 @@
             document.getElementById('tab-' + tabName).classList.remove('hidden');
             if (tabName === 'lobbies') loadRooms();
             if (tabName === 'feed') loadCommunityPosts();
+            if (tabName === 'saved') loadSavedPosts();
             if (tabName === 'friends') loadFriends();
             if (tabName === 'shop') loadStore();
             ['feed', 'live', 'chat', 'lobbies', 'shop', 'events', 'friends', 'profile'].forEach(t => {
@@ -1265,7 +1266,35 @@
             commentToggle.type = 'button';
             commentToggle.className = 'text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 hover:border-orange-400 text-orange-300';
             commentToggle.textContent = '💬 Comentarios · ' + (Number(post.commentCount) || 0);
-            actions.append(likeButton, commentToggle);
+            const saveButton = document.createElement('button');
+            saveButton.type = 'button';
+            saveButton.className = 'text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 hover:border-cyan-400 text-cyan-300';
+            saveButton.textContent = post.savedByMe ? '🔖 Guardado' : '🔖 Guardar';
+            saveButton.setAttribute('aria-pressed', String(Boolean(post.savedByMe)));
+            saveButton.addEventListener('click', async () => {
+                saveButton.disabled = true;
+                try {
+                    const saved = !post.savedByMe;
+                    await apiRequest('/api/posts/' + encodeURIComponent(post.id) + '/save', {
+                        method: saved ? 'PUT' : 'DELETE'
+                    });
+                    post.savedByMe = saved;
+                    saveButton.textContent = saved ? '🔖 Guardado' : '🔖 Guardar';
+                    saveButton.setAttribute('aria-pressed', String(saved));
+                    if (!saved && card.closest('#saved-posts-container')) {
+                        card.remove();
+                        const remaining = document.querySelectorAll('#saved-posts-container article').length;
+                        document.getElementById('saved-posts-status').textContent = remaining
+                            ? remaining + ' publicación(es) guardada(s).'
+                            : 'No tenés publicaciones guardadas.';
+                    }
+                } catch (error) {
+                    window.alert(error.message);
+                } finally {
+                    saveButton.disabled = false;
+                }
+            });
+            actions.append(likeButton, commentToggle, saveButton);
 
             const commentsPanel = document.createElement('section');
             commentsPanel.className = 'hidden space-y-3 border-t border-slate-800 pt-3';
@@ -1422,6 +1451,25 @@
 
             card.append(header, content, actions, commentsPanel);
             return card;
+        }
+
+        async function loadSavedPosts() {
+            const container = document.getElementById('saved-posts-container');
+            const status = document.getElementById('saved-posts-status');
+            if (!container || !status || !authToken) return;
+            status.textContent = 'Cargando publicaciones guardadas…';
+            try {
+                const data = await apiRequest('/api/me/saved-posts');
+                container.replaceChildren();
+                if (!Array.isArray(data.posts) || data.posts.length === 0) {
+                    status.textContent = 'No tenés publicaciones guardadas todavía. Podés guardar una desde Comunidad.';
+                    return;
+                }
+                data.posts.forEach((post) => container.appendChild(renderCommunityPost(post)));
+                status.textContent = data.posts.length + ' publicación(es) guardada(s).';
+            } catch (error) {
+                status.textContent = 'No se pudieron cargar tus guardados: ' + error.message;
+            }
         }
 
         let communityNextCursor = null;
