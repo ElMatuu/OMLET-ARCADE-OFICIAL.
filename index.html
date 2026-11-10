@@ -479,16 +479,6 @@
                 </div>
             </div>
         </main>
-
-        <!-- OVERLAY FLOTANTE -->
-        <div id="floating-widget" class="fixed top-28 left-6 z-40 flex items-center gap-2 cursor-grab active:cursor-grabbing select-none" style="touch-action: none;">
-            <div class="w-12 h-12 PLAYVERSE-gradient rounded-full flex items-center justify-center shadow-2xl border-2 border-white/50 text-white font-bold"><i class="fa-solid fa-gamepad text-lg"></i></div>
-            <div class="bg-slate-900/90 backdrop-blur-md border border-slate-700 rounded-2xl p-2 flex items-center gap-2 shadow-2xl">
-                <button onclick="openStreamStudio()" class="bg-red-600 text-white px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5"><i class="fa-solid fa-video"></i> STREAM</button>
-                <button onclick="toggleMic()" id="widget-mic-btn" class="p-2 rounded-xl bg-slate-800 text-slate-200"><i class="fa-solid fa-microphone text-xs" id="mic-icon"></i></button>
-            </div>
-        </div>
-
         <!-- NAVEGACIÓN PRINCIPAL PLAYVERSE -->
         <nav aria-label="Navegación principal" class="h-[4.5rem] bg-slate-900/95 backdrop-blur-md border-t border-slate-800 grid grid-cols-5 items-center shrink-0 z-30 pb-[env(safe-area-inset-bottom)]">
             <button type="button" onclick="switchTab('feed')" id="nav-btn-feed" aria-current="page" class="flex flex-col items-center justify-center gap-1 text-orange-400"><i class="fa-solid fa-house text-lg"></i><span class="text-[10px] font-semibold">Inicio</span></button>
@@ -2996,21 +2986,6 @@
             switchTab('live');
             document.getElementById('live-stream-title').focus();
             loadLiveStreams();
-        }
-
-        const widget = document.getElementById('floating-widget');
-        let isDragging = false, startX, startY, initialX, initialY;
-        widget.addEventListener('pointerdown', (e) => { isDragging = true; startX = e.clientX; startY = e.clientY; const rect = widget.getBoundingClientRect(); initialX = rect.left; initialY = rect.top; widget.setPointerCapture(e.pointerId); });
-        widget.addEventListener('pointermove', (e) => { if(!isDragging) return; widget.style.left = `${initialX + (e.clientX - startX)}px`; widget.style.top = `${initialY + (e.clientY - startY)}px`; });
-        widget.addEventListener('pointerup', (e) => { isDragging = false; widget.releasePointerCapture(e.pointerId); });
-
-        let micState = true;
-        function toggleMic() {
-            micState = !micState;
-            const btn = document.getElementById('widget-mic-btn');
-            const icon = document.getElementById('mic-icon');
-            btn.className = micState ? 'p-2 rounded-xl bg-slate-800 text-slate-200' : 'p-2 rounded-xl bg-red-500/20 text-red-400';
-            icon.className = micState ? 'fa-solid fa-microphone text-xs' : 'fa-solid fa-microphone-slash text-xs';
         }
     </script>
     <script src="/app-update.js" defer></script>
