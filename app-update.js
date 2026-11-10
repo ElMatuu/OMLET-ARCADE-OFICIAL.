@@ -4,6 +4,7 @@
   if (!('serviceWorker' in navigator) || !window.isSecureContext) return;
 
   let refreshing = false;
+  let hadController = Boolean(navigator.serviceWorker.controller);
   let updateBanner;
 
   function showUpdateNotice(registration) {
@@ -27,6 +28,10 @@
   }
 
   navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) {
+      hadController = true;
+      return;
+    }
     if (refreshing) return;
     refreshing = true;
     window.location.reload();
