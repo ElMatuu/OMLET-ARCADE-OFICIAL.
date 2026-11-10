@@ -264,6 +264,7 @@
                         <button type="button" onclick="closeDirectConversation()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs">Cerrar</button>
                     </div>
                     <div id="dm-messages" class="h-72 overflow-y-auto space-y-2 py-2" aria-live="polite"></div>
+                    <p id="dm-typing-status" class="min-h-4 text-[11px] text-slate-400" aria-live="polite"></p>
                     <form id="dm-send-form" class="flex gap-2 border-t border-slate-800 pt-3">
                         <input id="dm-message-input" maxlength="2000" required autocomplete="off" class="min-w-0 flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-sm text-white" placeholder="Escribí un mensaje…">
                         <button id="dm-send-button" type="submit" class="PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white">Enviar</button>
@@ -1077,6 +1078,9 @@
         let directSocket = null;
         let directSocketJoined = false;
         let directSocketScriptLoading = false;
+        let directTypingActive = false;
+        let directTypingStopTimer = null;
+        let directTypingIndicatorTimer = null;
         const renderedDirectMessageIds = new Set();
 
         function appendDirectMessage(message) {
@@ -1087,6 +1091,8 @@
             const own = String(message.senderId) === String(appState.profile && appState.profile.id);
             const item = document.createElement('article');
             item.className = 'max-w-[88%] rounded-2xl px-3 py-2 ' + (own ? 'ml-auto bg-orange-500/15 border border-orange-500/20' : 'mr-auto bg-slate-800/80');
+            item.dataset.messageId = String(message.id);
+            item.dataset.senderId = String(message.senderId || '');
             const heading = document.createElement('p');
             heading.className = 'text-[10px] text-slate-400 mb-1';
             heading.textContent = (own ? 'Vos' : '@' + (message.senderUsername || activeDirectParticipant?.username || 'jugador')) + ' · ' +
@@ -1095,6 +1101,13 @@
             body.className = 'text-sm text-slate-100 whitespace-pre-wrap break-words';
             body.textContent = String(message.body || '');
             item.append(heading, body);
+            if (own) {
+                const delivery = document.createElement('p');
+                delivery.className = 'text-[10px] text-right text-slate-400 mt-1';
+                delivery.dataset.messageStatus = 'true';
+                delivery.textContent = message.readAt ? '✓✓ Leído' : '✓ Enviado';
+                item.appendChild(delivery);
+            }
             container.appendChild(item);
             container.scrollTop = container.scrollHeight;
         }
@@ -1196,6 +1209,31 @@
             } catch (error) { status.textContent = error.message; }
         }
 
+        function applyDirectReadReceipt(receipt) {
+            if (!receipt || String(receipt.conversationId) !== String(activeDirectConversationId)) return;
+            if (String(receipt.readerId) === String(appState.profile && appState.profile.id)) return;
+            const container = document.getElementById('dm-messages');
+            if (!container) return;
+            const items = Array.from(container.querySelectorAll('[data-message-id]'));
+            const throughIndex = items.findIndex((item) => item.dataset.messageId === String(receipt.throughMessageId));
+            if (throughIndex < 0) return;
+            for (let index = 0; index <= throughIndex; index += 1) {
+                const item = items[index];
+                if (item.dataset.senderId !== String(appState.profile && appState.profile.id)) continue;
+                const status = item.querySelector('[data-message-status]');
+                if (status) status.textContent = '✓✓ Leído';
+            }
+        }
+
+        function stopDirectTyping() {
+            if (directTypingStopTimer) clearTimeout(directTypingStopTimer);
+            directTypingStopTimer = null;
+            if (directTypingActive && directSocket && directSocket.connected && directSocketJoined && activeDirectConversationId) {
+                directSocket.emit('direct_typing_stop', { conversationId: activeDirectConversationId });
+            }
+            directTypingActive = false;
+        }
+
         function connectDirectSocket(conversationId) {
             if (!window.io) {
                 if (directSocketScriptLoading) return;
@@ -1215,14 +1253,38 @@
             directSocket.on('connect', () => {
                 directSocket.emit('join_direct_conversation', { conversationId }, (result) => {
                     directSocketJoined = Boolean(result && result.success);
+                    if (directSocketJoined) directSocket.emit('mark_direct_messages_read', { conversationId });
                     const status = document.getElementById('dm-thread-status');
                     if (status) status.textContent = directSocketJoined ? 'Chat en tiempo real conectado' :
                         ((result && result.message) || 'No se pudo conectar al chat en tiempo real.');
                 });
             });
             directSocket.on('receive_direct_message', (message) => {
-                if (String(message.conversationId) === String(activeDirectConversationId)) appendDirectMessage(message);
+                if (String(message.conversationId) === String(activeDirectConversationId)) {
+                    appendDirectMessage(message);
+                    if (String(message.senderId) !== String(appState.profile && appState.profile.id)) {
+                        directSocket.emit('mark_direct_messages_read', { conversationId: activeDirectConversationId });
+                    }
+                }
                 loadDirectConversations();
+            });
+            directSocket.on('direct_messages_read', applyDirectReadReceipt);
+            directSocket.on('direct_typing', (event) => {
+                if (!event || String(event.conversationId) !== String(activeDirectConversationId)) return;
+                const indicator = document.getElementById('dm-typing-status');
+                if (indicator) indicator.textContent = '@' + String(event.username || 'Tu amigo') + ' está escribiendo…';
+                if (directTypingIndicatorTimer) clearTimeout(directTypingIndicatorTimer);
+                directTypingIndicatorTimer = setTimeout(() => {
+                    const current = document.getElementById('dm-typing-status');
+                    if (current) current.textContent = '';
+                }, 4000);
+            });
+            directSocket.on('direct_typing_stopped', (event) => {
+                if (!event || String(event.conversationId) !== String(activeDirectConversationId)) return;
+                if (directTypingIndicatorTimer) clearTimeout(directTypingIndicatorTimer);
+                directTypingIndicatorTimer = null;
+                const indicator = document.getElementById('dm-typing-status');
+                if (indicator) indicator.textContent = '';
             });
             directSocket.on('direct_message_notification', (notification) => {
                 loadNotifications(true);
@@ -1240,6 +1302,11 @@
         }
 
         function closeDirectConversation() {
+            stopDirectTyping();
+            if (directTypingIndicatorTimer) clearTimeout(directTypingIndicatorTimer);
+            directTypingIndicatorTimer = null;
+            const typingIndicator = document.getElementById('dm-typing-status');
+            if (typingIndicator) typingIndicator.textContent = '';
             if (directSocket) directSocket.disconnect();
             directSocket = null;
             directSocketJoined = false;
@@ -1281,6 +1348,17 @@
 
         document.getElementById('dm-start-form').addEventListener('submit', startDirectConversation);
         document.getElementById('dm-send-form').addEventListener('submit', sendDirectMessage);
+        const directMessageInput = document.getElementById('dm-message-input');
+        directMessageInput.addEventListener('input', () => {
+            if (!directSocket || !directSocket.connected || !directSocketJoined || !activeDirectConversationId) return;
+            if (!directTypingActive) {
+                directTypingActive = true;
+                directSocket.emit('direct_typing_start', { conversationId: activeDirectConversationId });
+            }
+            if (directTypingStopTimer) clearTimeout(directTypingStopTimer);
+            directTypingStopTimer = setTimeout(stopDirectTyping, 1400);
+        });
+        directMessageInput.addEventListener('blur', stopDirectTyping);
 
         async function loadRooms() {
             const container = document.getElementById('rooms-container');
