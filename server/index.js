@@ -1539,6 +1539,10 @@ function isValidObjectId(value) {
   return typeof value === 'string' && /^[a-fA-F0-9]{24}$/.test(value);
 }
 
+function getUnreadCountField(conversation, userId) {
+  return String(conversation.participantA) === String(userId) ? 'unreadCountA' : 'unreadCountB';
+}
+
 function getDirectPairKey(firstId, secondId) {
   return [String(firstId), String(secondId)].sort().join(':');
 }
@@ -1556,7 +1560,8 @@ function serializeDirectMessage(message) {
     senderUsername: message.senderUsername,
     recipientId: String(message.recipient),
     body: message.body,
-    createdAt: message.createdAt
+    createdAt: message.createdAt,
+    readAt: message.readAt || null
   };
 }
 
@@ -1600,7 +1605,8 @@ app.get('/api/me/conversations', requireAuth, async (req, res, next) => {
           },
           lastMessage: item.lastMessage || '',
           lastMessageAt: item.lastMessageAt || item.updatedAt,
-          lastMessageSender: item.lastMessageSender ? String(item.lastMessageSender) : null
+          lastMessageSender: item.lastMessageSender ? String(item.lastMessageSender) : null,
+          unreadCount: String(item.participantA) === userId ? (item.unreadCountA || 0) : (item.unreadCountB || 0)
         };
       }).filter(Boolean)
     });
@@ -1669,6 +1675,14 @@ app.get('/api/conversations/:conversationId/messages', requireAuth, async (req, 
     if (!(await areAcceptedFriends(req.auth.sub, otherId))) {
       return res.status(403).json({ success: false, message: 'Ya no tienen una amistad activa para acceder a este chat.' });
     }
+    await DirectMessage.updateMany(
+      { conversation: conversationId, recipient: req.auth.sub, readAt: null },
+      { $set: { readAt: new Date() } }
+    );
+    await Conversation.updateOne(
+      { _id: conversationId },
+      { $set: { [getUnreadCountField(conversation, req.auth.sub)]: 0 } }
+    );
     const messages = await DirectMessage.find({ conversation: conversationId })
       .sort({ createdAt: -1, _id: -1 }).limit(100).lean();
     return res.json({ success: true, messages: messages.reverse().map(serializeDirectMessage) });
@@ -1698,13 +1712,24 @@ app.post('/api/conversations/:conversationId/messages', requireAuth, directMessa
       recipient: recipientId,
       body
     });
-    conversation.lastMessage = body;
-    conversation.lastMessageAt = saved.createdAt;
-    conversation.lastMessageSender = req.auth.sub;
-    await conversation.save();
+    await Conversation.updateOne(
+      { _id: conversation._id },
+      {
+        $set: { lastMessage: body, lastMessageAt: saved.createdAt, lastMessageSender: req.auth.sub },
+        $inc: { [getUnreadCountField(conversation, recipientId)]: 1 }
+      }
+    );
     const message = serializeDirectMessage(saved);
     const io = req.app.get('io');
-    if (io) io.to('dm:' + String(conversation._id)).emit('receive_direct_message', message);
+    if (io) {
+      io.to('dm:' + String(conversation._id)).emit('receive_direct_message', message);
+      io.to('user:' + String(recipientId)).emit('direct_message_notification', {
+        conversationId: String(conversation._id),
+        senderUsername: req.auth.username,
+        body,
+        createdAt: saved.createdAt
+      });
+    }
     return res.status(201).json({ success: true, message });
   } catch (error) { return next(error); }
 });
