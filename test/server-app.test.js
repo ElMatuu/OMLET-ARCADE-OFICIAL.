@@ -42,6 +42,21 @@ test('health endpoint reports database state without exposing configuration', as
   });
 });
 
+test('web client and update assets are served by the same HTTPS-ready origin', async () => {
+  await withServer(async (baseUrl) => {
+    const page = await fetch(baseUrl + '/');
+    assert.equal(page.status, 200);
+    assert.match(page.headers.get('content-type') || '', /text\/html/);
+    const html = await page.text();
+    assert.match(html, /app-update\.js/);
+
+    for (const asset of ['/service-worker.js', '/app-update.js', '/manifest.webmanifest']) {
+      const response = await fetch(baseUrl + asset);
+      assert.equal(response.status, 200, asset + ' should be served');
+    }
+  });
+});
+
 test('protected profile endpoint rejects unauthenticated requests', async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(baseUrl + '/api/me');
