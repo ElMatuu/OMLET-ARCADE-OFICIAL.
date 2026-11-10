@@ -704,6 +704,64 @@ const postLimiter = rateLimit({
   message: { success: false, message: 'Publicaste demasiado rápido. Probá más tarde.' }
 });
 
+app.get('/api/me/missions', requireAuth, async (req, res, next) => {
+  try {
+    const userId = req.auth.sub;
+    const [postCount, roomCount, messageCount, savedCount] = await Promise.all([
+      Post.countDocuments({ author: userId }),
+      Room.countDocuments({ owner: userId }),
+      RoomMessage.countDocuments({ author: userId }),
+      SavedPost.countDocuments({ user: userId })
+    ]);
+    const missions = [
+      {
+        id: 'first-post',
+        title: 'Compartí tu primera publicación',
+        description: 'Publicá algo en la comunidad de PLAYVERSE.',
+        current: Math.min(postCount, 1),
+        target: 1,
+        completed: postCount >= 1
+      },
+      {
+        id: 'first-room',
+        title: 'Creá tu primera sala',
+        description: 'Organizá una sala para jugar con la comunidad.',
+        current: Math.min(roomCount, 1),
+        target: 1,
+        completed: roomCount >= 1
+      },
+      {
+        id: 'first-room-message',
+        title: 'Participá en el chat de una sala',
+        description: 'Enviá un mensaje en una sala a la que pertenecés.',
+        current: Math.min(messageCount, 1),
+        target: 1,
+        completed: messageCount >= 1
+      },
+      {
+        id: 'first-saved-post',
+        title: 'Guardá una publicación',
+        description: 'Guardá una publicación para encontrarla más tarde.',
+        current: Math.min(savedCount, 1),
+        target: 1,
+        completed: savedCount >= 1
+      }
+    ];
+    return res.json({
+      success: true,
+      missions,
+      summary: {
+        completed: missions.filter((mission) => mission.completed).length,
+        total: missions.length
+      },
+      rewardsEnabled: false,
+      note: 'El progreso se calcula con actividad real de tu cuenta. Las recompensas todavía no están habilitadas.'
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.get('/api/me/saved-posts', requireAuth, async (req, res, next) => {
   try {
     const savedRecords = await SavedPost.find({ user: req.auth.sub })
