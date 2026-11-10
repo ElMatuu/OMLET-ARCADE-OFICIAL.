@@ -366,6 +366,20 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.equal(reloadedPost.status, 200);
     assert.ok(reloadedPost.body.posts.some((item) => item.id === postId && item.likeCount === 1 && item.commentCount === 1));
 
+    const removedFriendship = await request(baseUrl, '/api/friends/' + friendshipId, {
+      method: 'DELETE'
+    }, alice.body.token);
+    assert.equal(removedFriendship.status, 200);
+    const formerFriendInbox = await request(baseUrl, '/api/me/conversations', {}, bob.body.token);
+    assert.equal(formerFriendInbox.status, 200);
+    assert.equal(formerFriendInbox.body.conversations.length, 0);
+    const formerFriendCannotReadPrivateHistory = await request(baseUrl,
+      '/api/conversations/' + conversationId + '/messages', {}, bob.body.token);
+    assert.equal(formerFriendCannotReadPrivateHistory.status, 403);
+    const formerFriendCannotSendPrivateMessage = await emitSocketAck(bobDirectSocket,
+      'send_direct_message', { conversationId, body: 'Ya no somos amigos.' });
+    assert.equal(formerFriendCannotSendPrivateMessage.success, false);
+
     const login = await request(baseUrl, '/api/login', {
       method: 'POST', body: { username: 'alice_test', password }
     });
