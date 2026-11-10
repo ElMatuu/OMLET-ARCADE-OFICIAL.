@@ -908,6 +908,153 @@
         if (communityLoadMoreButton) {
             communityLoadMoreButton.addEventListener('click', () => loadCommunityPosts(true));
         }
+        function createFriendRow(person, type) {
+            const card = document.createElement('div');
+            card.className = 'PLAYVERSE-card rounded-xl border border-slate-800 p-3 flex flex-wrap items-center gap-3';
+            const avatar = document.createElement('div');
+            avatar.className = 'w-10 h-10 rounded-full PLAYVERSE-gradient flex items-center justify-center text-white font-black';
+            avatar.textContent = (person.displayName || person.username || '?').slice(0, 1).toUpperCase();
+            const details = document.createElement('div');
+            details.className = 'min-w-0 flex-1';
+            const display = document.createElement('p');
+            display.className = 'text-sm font-bold text-white truncate';
+            display.textContent = person.displayName || person.username;
+            const handle = document.createElement('p');
+            handle.className = 'text-xs text-slate-400';
+            handle.textContent = '@' + person.username;
+            details.append(display, handle);
+            card.append(avatar, details);
+
+            const action = (label, style, callback) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = style;
+                button.textContent = label;
+                button.addEventListener('click', callback);
+                card.appendChild(button);
+            };
+            if (type === 'incoming') {
+                action('Aceptar', 'text-xs font-bold rounded-lg px-3 py-2 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30', () => acceptFriendRequest(person.friendshipId));
+                action('Rechazar', 'text-xs font-bold rounded-lg px-3 py-2 bg-red-500/10 text-red-300 border border-red-500/30', () => removeFriendship(person.friendshipId));
+            } else if (type === 'outgoing') {
+                action('Cancelar', 'text-xs font-bold rounded-lg px-3 py-2 border border-slate-700 text-slate-300', () => removeFriendship(person.friendshipId));
+            } else if (type === 'friend') {
+                action('Eliminar amigo', 'text-xs font-bold rounded-lg px-3 py-2 border border-slate-700 text-slate-300', () => removeFriendship(person.friendshipId));
+            }
+            return card;
+        }
+
+        async function loadFriends() {
+            const status = document.getElementById('friends-status');
+            if (!status || !authToken) return;
+            status.textContent = 'Cargando tus conexiones…';
+            try {
+                const data = await apiRequest('/api/friends');
+                const groups = [
+                    ['friends-incoming', data.incomingRequests || [], 'incoming', 'No tenés solicitudes pendientes.'],
+                    ['friends-outgoing', data.outgoingRequests || [], 'outgoing', 'No enviaste solicitudes.'],
+                    ['friends-list', data.friends || [], 'friend', 'Todavía no tenés amigos agregados.']
+                ];
+                groups.forEach(([id, people, type, emptyMessage]) => {
+                    const container = document.getElementById(id);
+                    container.replaceChildren();
+                    if (!people.length) {
+                        const empty = document.createElement('p');
+                        empty.className = 'text-xs text-slate-500';
+                        empty.textContent = emptyMessage;
+                        container.appendChild(empty);
+                    } else {
+                        people.forEach((person) => container.appendChild(createFriendRow(person, type)));
+                    }
+                });
+                status.textContent = 'Conexiones actualizadas.';
+            } catch (error) {
+                status.textContent = error.message;
+            }
+        }
+
+        async function searchFriendPlayer(username) {
+            const result = document.getElementById('friends-search-result');
+            const status = document.getElementById('friends-status');
+            result.replaceChildren();
+            status.textContent = 'Buscando jugador…';
+            try {
+                const data = await apiRequest('/api/users/' + encodeURIComponent(username));
+                const player = data.profile;
+                const card = document.createElement('div');
+                card.className = 'PLAYVERSE-card rounded-2xl border border-cyan-500/30 p-4 space-y-3';
+                const name = document.createElement('p');
+                name.className = 'font-bold text-white';
+                name.textContent = player.displayName || player.username;
+                const handle = document.createElement('p');
+                handle.className = 'text-xs text-cyan-300';
+                handle.textContent = '@' + player.username;
+                const bio = document.createElement('p');
+                bio.className = 'text-xs text-slate-300 whitespace-pre-wrap';
+                bio.textContent = player.bio || 'Este jugador todavía no agregó una biografía.';
+                const posts = document.createElement('p');
+                posts.className = 'text-xs text-slate-500';
+                posts.textContent = String(player.postCount) + ' publicaciones';
+                card.append(name, handle, bio, posts);
+                if (player.friendship === 'none') {
+                    const add = document.createElement('button');
+                    add.type = 'button';
+                    add.className = 'rounded-xl bg-cyan-500/15 border border-cyan-500/30 px-4 py-2 text-xs font-bold text-cyan-300';
+                    add.textContent = 'Enviar solicitud';
+                    add.addEventListener('click', async () => {
+                        add.disabled = true;
+                        try {
+                            const response = await apiRequest('/api/friends/requests/' + encodeURIComponent(player.username), { method: 'POST' });
+                            status.textContent = response.message || 'Solicitud enviada.';
+                            await loadFriends();
+                            await searchFriendPlayer(player.username);
+                        } catch (error) {
+                            status.textContent = error.message;
+                            add.disabled = false;
+                        }
+                    });
+                    card.appendChild(add);
+                } else {
+                    const relation = document.createElement('p');
+                    relation.className = 'text-xs font-bold text-emerald-300';
+                    relation.textContent = player.friendship === 'friends' ? 'Ya son amigos'
+                        : player.friendship === 'outgoing_pending' ? 'Solicitud enviada'
+                        : 'Este jugador te envió una solicitud';
+                    card.appendChild(relation);
+                }
+                result.appendChild(card);
+                status.textContent = 'Jugador encontrado.';
+            } catch (error) {
+                status.textContent = error.message;
+            }
+        }
+
+        async function acceptFriendRequest(friendshipId) {
+            try {
+                await apiRequest('/api/friends/requests/' + encodeURIComponent(friendshipId) + '/accept', { method: 'PUT' });
+                await loadFriends();
+            } catch (error) {
+                document.getElementById('friends-status').textContent = error.message;
+            }
+        }
+
+        async function removeFriendship(friendshipId) {
+            if (!window.confirm('¿Querés eliminar esta amistad o solicitud?')) return;
+            try {
+                await apiRequest('/api/friends/' + encodeURIComponent(friendshipId), { method: 'DELETE' });
+                await loadFriends();
+            } catch (error) {
+                document.getElementById('friends-status').textContent = error.message;
+            }
+        }
+
+        document.getElementById('friends-search-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const input = document.getElementById('friends-search-input');
+            const username = input.value.trim();
+            if (username) await searchFriendPlayer(username);
+        });
+
         async function submitPost() {
             const input = document.getElementById('post-text-input');
             const status = document.getElementById('post-form-status');
