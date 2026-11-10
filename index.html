@@ -93,7 +93,7 @@
                 </div>
             </div>
             <div class="flex items-center space-x-3">
-                <button onclick="switchTab('events')" class="flex items-center space-x-1.5 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-full hover:border-amber-500/50">
+                <button type="button" onclick="switchTab('shop')" aria-label="Abrir tienda y monedero PLAYVERSE" class="flex items-center space-x-1.5 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-full hover:border-amber-500/50">
                     <i class="fa-solid fa-coins text-amber-400 animate-pulse"></i>
                     <span id="header-créditos" class="text-xs font-bold text-amber-300">0</span>
                 </button>
@@ -990,15 +990,27 @@
             document.getElementById('store-selection-name').textContent = item.name + ' · ' + STORE_CATEGORY_LABELS[item.category];
             const frame = document.getElementById('store-avatar-preview-frame');
             const overlay = document.getElementById('store-overlay-preview');
-            frame.style.borderColor = item.category === 'avatar-frame' ? '#ff7a18' : '#475569';
-            frame.style.boxShadow = item.category === 'avatar-frame' ? '0 0 18px rgba(255,122,24,.75)' : 'none';
-            if (item.category === 'avatar-frame') {
-                frame.style.borderStyle = 'solid';
-                frame.style.borderWidth = '4px';
-            }
+            const frameLooks = {
+                'frame-neon-pulse': ['#22d3ee', '0 0 18px rgba(34,211,238,.8)', 'solid'],
+                'frame-gamer-rgb': ['#22c55e', '0 0 18px rgba(236,72,153,.8)', 'double'],
+                'frame-cyberpunk': ['#a855f7', '0 0 18px rgba(168,85,247,.8)', 'dashed'],
+                'frame-golden-dragon': ['#fbbf24', '0 0 18px rgba(251,191,36,.8)', 'double'],
+                'frame-seasonal': ['#34d399', '0 0 18px rgba(52,211,153,.7)', 'solid']
+            };
+            const look = frameLooks[item.id];
+            frame.style.borderColor = item.category === 'avatar-frame' && look ? look[0] : '#475569';
+            frame.style.boxShadow = item.category === 'avatar-frame' && look ? look[1] : 'none';
+            frame.style.borderStyle = item.category === 'avatar-frame' && look ? look[2] : 'solid';
+            frame.style.borderWidth = '4px';
             if (item.category === 'stream-overlay') {
+                const overlayLooks = {
+                    'overlay-retro-arcade': 'linear-gradient(135deg, #14532d, #020617)',
+                    'overlay-minimal-black': 'linear-gradient(135deg, #111827, #020617)',
+                    'overlay-flame-rgb': 'linear-gradient(135deg, #7c2d12, #9f1239, #020617)',
+                    'overlay-pro-esports': 'linear-gradient(135deg, #1e3a8a, #111827)'
+                };
                 overlay.style.borderColor = '#ff7a18';
-                overlay.style.background = 'linear-gradient(135deg, rgba(255,82,50,.25), rgba(15,23,42,.95))';
+                overlay.style.background = overlayLooks[item.id] || 'linear-gradient(135deg, rgba(255,82,50,.25), rgba(15,23,42,.95))';
                 overlay.textContent = item.name;
             } else if (item.category !== 'avatar-frame') {
                 overlay.style.borderColor = '#475569';
