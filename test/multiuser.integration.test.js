@@ -190,6 +190,10 @@ integrationTest('two independent accounts can interact while ownership and persi
       method: 'POST'
     }, bob.body.token);
     assert.equal(bobCannotRejoinClosedRoom.status, 404);
+    const closedRoomRejectsNewMessages = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/messages', {
+      method: 'POST', body: { message: 'Este mensaje no debe publicarse.' }
+    }, alice.body.token);
+    assert.equal(closedRoomRejectsNewMessages.status, 403);
 
     const reloadedPost = await request(baseUrl, '/api/posts', {}, bob.body.token);
     assert.equal(reloadedPost.status, 200);
