@@ -137,6 +137,33 @@
         <main class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-4xl mx-auto w-full"><div class="rounded-xl border border-orange-500/30 bg-orange-950/40 px-4 py-3 text-xs text-orange-100"><strong>PLAYVERSE · CONSTRUCCIÓN EN CURSO</strong><br>Registro, inicio de sesión y perfil básico conectados a la API. Feed, transmisiones, tienda, créditos y herramientas sociales siguen en desarrollo.</div>
             <!-- TAB FEED -->
             <div id="tab-feed" class="space-y-6">
+                <section aria-labelledby="highlights-title" class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 id="highlights-title" class="font-black text-base text-white">Highlights de PLAYVERSE</h3>
+                            <p class="text-[11px] text-slate-400">Accesos rápidos para entrar en acción</p>
+                        </div>
+                        <span class="text-[10px] font-bold tracking-wide text-orange-300">EXPLORAR</span>
+                    </div>
+                    <div class="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x" aria-label="Accesos destacados">
+                        <button type="button" onclick="switchTab('profile')" class="snap-start shrink-0 w-28 h-32 rounded-2xl border border-orange-400/40 bg-gradient-to-br from-orange-500/25 to-slate-900 p-3 flex flex-col justify-between text-left">
+                            <span class="w-10 h-10 rounded-full PLAYVERSE-gradient flex items-center justify-center text-white text-lg"><i class="fa-solid fa-user"></i></span>
+                            <span><strong class="block text-xs text-white">Tu perfil</strong><span class="text-[10px] text-slate-300">Personalizalo</span></span>
+                        </button>
+                        <button type="button" onclick="switchTab('lobbies')" class="snap-start shrink-0 w-28 h-32 rounded-2xl border border-slate-700 bg-gradient-to-br from-emerald-500/20 to-slate-900 p-3 flex flex-col justify-between text-left">
+                            <span class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-lg"><i class="fa-solid fa-gamepad"></i></span>
+                            <span><strong class="block text-xs text-white">Salas</strong><span class="text-[10px] text-slate-300">Jugá en grupo</span></span>
+                        </button>
+                        <button type="button" onclick="switchTab('friends')" class="snap-start shrink-0 w-28 h-32 rounded-2xl border border-slate-700 bg-gradient-to-br from-fuchsia-500/20 to-slate-900 p-3 flex flex-col justify-between text-left">
+                            <span class="w-10 h-10 rounded-full bg-fuchsia-500/20 text-fuchsia-300 flex items-center justify-center text-lg"><i class="fa-solid fa-user-group"></i></span>
+                            <span><strong class="block text-xs text-white">Comunidad</strong><span class="text-[10px] text-slate-300">Conectá amigos</span></span>
+                        </button>
+                        <button type="button" onclick="openPostModal()" class="snap-start shrink-0 w-28 h-32 rounded-2xl border border-slate-700 bg-gradient-to-br from-amber-500/20 to-slate-900 p-3 flex flex-col justify-between text-left">
+                            <span class="w-10 h-10 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center text-lg"><i class="fa-solid fa-pen"></i></span>
+                            <span><strong class="block text-xs text-white">Publicar</strong><span class="text-[10px] text-slate-300">Compartí algo</span></span>
+                        </button>
+                    </div>
+                </section>
                 <div class="PLAYVERSE-card rounded-2xl p-4 flex items-center justify-between border-orange-500/30 neon-border">
                     <div class="flex items-center space-x-3">
                         <div class="w-12 h-12 rounded-xl PLAYVERSE-gradient flex items-center justify-center text-white text-xl shadow-md"><i class="fa-solid fa-video"></i></div>
@@ -274,13 +301,13 @@
             </div>
         </div>
 
-        <!-- BOTTOM NAV -->
-        <nav class="h-16 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 grid grid-cols-5 items-center shrink-0 z-30">
-            <button onclick="switchTab('feed')" id="nav-btn-feed" class="flex flex-col items-center justify-center text-orange-400"><i class="fa-solid fa-tv text-lg"></i><span class="text-[10px] mt-1 font-semibold">Transmitir</span></button>
-            <button onclick="switchTab('lobbies')" id="nav-btn-lobbies" class="flex flex-col items-center justify-center text-slate-400"><i class="fa-solid fa-gamepad text-lg"></i><span class="text-[10px] mt-1 font-semibold">Salas</span></button>
-            <div class="flex justify-center -mt-5"><button onclick="openPostModal()" class="w-14 h-14 PLAYVERSE-gradient rounded-full flex items-center justify-center text-white shadow-xl border-4 border-slate-950 text-xl"><i class="fa-solid fa-plus"></i></button></div>
-            <button onclick="switchTab('shop')" id="nav-btn-shop" class="flex flex-col items-center justify-center text-slate-400"><i class="fa-solid fa-store text-lg"></i><span class="text-[10px] mt-1 font-semibold">Tienda</span></button>
-            <button onclick="switchTab('events')" id="nav-btn-events" class="flex flex-col items-center justify-center text-slate-400"><i class="fa-solid fa-sparkles text-lg"></i><span class="text-[10px] mt-1 font-semibold">Ruleta</span></button>
+        <!-- NAVEGACIÓN PRINCIPAL PLAYVERSE -->
+        <nav aria-label="Navegación principal" class="h-[4.5rem] bg-slate-900/95 backdrop-blur-md border-t border-slate-800 grid grid-cols-5 items-center shrink-0 z-30 pb-[env(safe-area-inset-bottom)]">
+            <button type="button" onclick="switchTab('feed')" id="nav-btn-feed" aria-current="page" class="flex flex-col items-center justify-center gap-1 text-orange-400"><i class="fa-solid fa-house text-lg"></i><span class="text-[10px] font-semibold">Inicio</span></button>
+            <button type="button" onclick="switchTab('lobbies')" id="nav-btn-lobbies" class="flex flex-col items-center justify-center gap-1 text-slate-400"><i class="fa-solid fa-gamepad text-lg"></i><span class="text-[10px] font-semibold">Juegos</span></button>
+            <div class="flex justify-center -mt-5"><button type="button" onclick="openPostModal()" aria-label="Crear publicación" class="w-14 h-14 PLAYVERSE-gradient rounded-full flex items-center justify-center text-white shadow-xl border-4 border-slate-950 text-xl"><i class="fa-solid fa-plus"></i></button></div>
+            <button type="button" onclick="switchTab('friends')" id="nav-btn-friends" class="flex flex-col items-center justify-center gap-1 text-slate-400"><i class="fa-solid fa-users text-lg"></i><span class="text-[10px] font-semibold">Amigos</span></button>
+            <button type="button" onclick="switchTab('profile')" id="nav-btn-profile" class="flex flex-col items-center justify-center gap-1 text-slate-400"><i class="fa-solid fa-user text-lg"></i><span class="text-[10px] font-semibold">Perfil</span></button>
         </nav>
     </div>
 
@@ -525,12 +552,20 @@
             if (tabName === 'lobbies') loadRooms();
             if (tabName === 'feed') loadCommunityPosts();
             if (tabName === 'friends') loadFriends();
-            ['feed', 'lobbies', 'shop', 'events'].forEach(t => {
+            ['feed', 'lobbies', 'shop', 'events', 'friends', 'profile'].forEach(t => {
                 const btn = document.getElementById('nav-btn-' + t);
-                if(btn) { btn.classList.remove('text-orange-400'); btn.classList.add('text-slate-400'); }
+                if(btn) {
+                    btn.classList.remove('text-orange-400');
+                    btn.classList.add('text-slate-400');
+                    btn.removeAttribute('aria-current');
+                }
             });
             const activeNav = document.getElementById('nav-btn-' + tabName);
-            if(activeNav) { activeNav.classList.remove('text-slate-400'); activeNav.classList.add('text-orange-400'); }
+            if(activeNav) {
+                activeNav.classList.remove('text-slate-400');
+                activeNav.classList.add('text-orange-400');
+                activeNav.setAttribute('aria-current', 'page');
+            }
         }
 
         async function apiRequest(path, options = {}) {
