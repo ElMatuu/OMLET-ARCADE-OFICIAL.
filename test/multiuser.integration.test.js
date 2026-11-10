@@ -308,6 +308,17 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     const charlieDirectSocket = await connectSocket(baseUrl, charlie.body.token);
     liveSockets.push(aliceSocket, memberSocket, outsiderSocket, bobDirectSocket, charlieDirectSocket);
 
+    const bobPresenceHeartbeat = await emitSocketAck(bobDirectSocket, 'presence_heartbeat');
+    assert.equal(bobPresenceHeartbeat.success, true);
+    const aliceFriendsPresence = await request(baseUrl, '/api/friends', {}, alice.body.token);
+    const bobPresenceForAlice = aliceFriendsPresence.body.friends.find((friend) => friend.id === bob.body.user.id);
+    assert.equal(bobPresenceForAlice.online, true);
+    const bobFriendsPresence = await request(baseUrl, '/api/friends', {}, bob.body.token);
+    const alicePresenceForBob = bobFriendsPresence.body.friends.find((friend) => friend.id === alice.body.user.id);
+    assert.equal(alicePresenceForBob.online, true);
+    const unauthenticatedFriendsPresence = await request(baseUrl, '/api/friends');
+    assert.equal(unauthenticatedFriendsPresence.status, 401);
+
     const aliceDirectJoin = await emitSocketAck(aliceSocket, 'join_direct_conversation', { conversationId });
     const bobDirectJoin = await emitSocketAck(bobDirectSocket, 'join_direct_conversation', { conversationId });
     const charlieDirectJoin = await emitSocketAck(charlieDirectSocket, 'join_direct_conversation', { conversationId });
