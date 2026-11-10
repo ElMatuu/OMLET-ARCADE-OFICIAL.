@@ -545,6 +545,51 @@
             date.textContent = Number.isNaN(parsedDate.getTime()) ? 'Fecha no disponible' : parsedDate.toLocaleString('es-AR');
             identity.append(author, date);
             header.append(avatar, identity);
+            if (post.authorUsername === appState.username) {
+                const ownerActions = document.createElement('div');
+                ownerActions.className = 'ml-auto flex items-center gap-2';
+                const editPostButton = document.createElement('button');
+                editPostButton.type = 'button';
+                editPostButton.className = 'text-[11px] text-cyan-300 px-2 py-1 rounded-lg border border-slate-700';
+                editPostButton.textContent = 'Editar';
+                editPostButton.addEventListener('click', async () => {
+                    const updatedContent = window.prompt('Editar publicación:', post.content);
+                    if (updatedContent === null || !updatedContent.trim()) return;
+                    editPostButton.disabled = true;
+                    try {
+                        const result = await apiRequest('/api/posts/' + encodeURIComponent(post.id), {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ content: updatedContent.trim() })
+                        });
+                        post.content = result.post.content;
+                        content.textContent = post.content;
+                    } catch (error) {
+                        window.alert(error.message);
+                    } finally {
+                        editPostButton.disabled = false;
+                    }
+                });
+                const deletePostButton = document.createElement('button');
+                deletePostButton.type = 'button';
+                deletePostButton.className = 'text-[11px] text-red-300 px-2 py-1 rounded-lg border border-slate-700';
+                deletePostButton.textContent = 'Eliminar';
+                deletePostButton.addEventListener('click', async () => {
+                    if (!window.confirm('¿Eliminar esta publicación y sus comentarios? Esta acción no se puede deshacer.')) return;
+                    deletePostButton.disabled = true;
+                    try {
+                        await apiRequest('/api/posts/' + encodeURIComponent(post.id), { method: 'DELETE' });
+                        card.remove();
+                        const feedStatus = document.getElementById('community-posts-status');
+                        if (feedStatus) feedStatus.textContent = 'Publicación eliminada.';
+                    } catch (error) {
+                        window.alert(error.message);
+                        deletePostButton.disabled = false;
+                    }
+                });
+                ownerActions.append(editPostButton, deletePostButton);
+                header.appendChild(ownerActions);
+            }
             const content = document.createElement('p');
             content.className = 'text-sm text-slate-200 whitespace-pre-wrap break-words';
             content.textContent = post.content;
