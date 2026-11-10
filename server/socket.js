@@ -104,14 +104,18 @@ function attachSocketServer(httpServer, allowedOrigins) {
           recipient: recipientId,
           body
         });
-        await Notification.create({
-          recipient: recipientId,
-          actor: socket.user.sub,
-          type: 'direct_message',
-          title: 'Nuevo mensaje privado',
-          body: '@' + socket.user.username + ': ' + body.slice(0, 180),
-          entityId: conversation._id
-        });
+        try {
+          await Notification.create({
+            recipient: recipientId,
+            actor: socket.user.sub,
+            type: 'direct_message',
+            title: 'Nuevo mensaje privado',
+            body: '@' + socket.user.username + ': ' + body.slice(0, 180),
+            entityId: conversation._id
+          });
+        } catch (notificationError) {
+          console.error('Unable to persist direct message notification:', notificationError.message);
+        }
         await Conversation.updateOne(
           { _id: conversation._id },
           {
