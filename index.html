@@ -996,7 +996,12 @@
                 posts.className = 'text-xs text-slate-500';
                 posts.textContent = String(player.postCount) + ' publicaciones';
                 card.append(name, handle, bio, posts);
-                if (player.friendship === 'none') {
+                if (player.friendship === 'self') {
+                    const relation = document.createElement('p');
+                    relation.className = 'text-xs font-bold text-slate-400';
+                    relation.textContent = 'Este es tu perfil';
+                    card.appendChild(relation);
+                } else if (player.friendship === 'none') {
                     const add = document.createElement('button');
                     add.type = 'button';
                     add.className = 'rounded-xl bg-cyan-500/15 border border-cyan-500/30 px-4 py-2 text-xs font-bold text-cyan-300';
