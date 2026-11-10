@@ -49,6 +49,9 @@ test('web client and update assets are served by the same HTTPS-ready origin', a
     assert.match(page.headers.get('content-type') || '', /text\/html/);
     const html = await page.text();
     assert.match(html, /app-update\.js/);
+    const csp = page.headers.get('content-security-policy') || '';
+    assert.match(csp, /script-src[^;]*'unsafe-inline'/);
+    assert.match(csp, /script-src-attr[^;]*'unsafe-inline'/);
 
     for (const asset of ['/service-worker.js', '/app-update.js', '/manifest.webmanifest']) {
       const response = await fetch(baseUrl + asset);
