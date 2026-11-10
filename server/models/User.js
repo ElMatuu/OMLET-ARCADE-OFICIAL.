@@ -15,6 +15,24 @@ const userSchema = new mongoose.Schema({
     required: true,
     select: false
   },
+  displayName: {
+    type: String,
+    trim: true,
+    maxlength: 30,
+    default: ''
+  },
+  bio: {
+    type: String,
+    trim: true,
+    maxlength: 160,
+    default: ''
+  },
+  avatarUrl: {
+    type: String,
+    trim: true,
+    maxlength: 500,
+    default: ''
+  },
   role: {
     type: String,
     enum: ['user', 'moderator', 'admin'],
