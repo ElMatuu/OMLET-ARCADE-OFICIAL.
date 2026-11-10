@@ -32,7 +32,7 @@ This repository contains a working backend foundation and a web client that is s
 ### Not yet implemented or verified as production features
 
 - LiveKit server integration foundation: persistent live-session records, authenticated room creation, short-lived publisher/viewer JWTs, owner-only stream termination, a signature-verified `room_finished` webhook and a public live-session directory are implemented. The feature remains disabled until valid LiveKit Cloud/self-host credentials are configured.
-- LiveKit browser client is now bundled locally into the web build. The live screen has real authenticated publisher/viewer token flows, camera/microphone controls, screen-share control and remote audio/video track rendering. These flows still require real-browser and physical-device end-to-end testing; they are not yet a verified public streaming service.
+- LiveKit browser client is now bundled locally into the web build. The live screen has authenticated publisher/viewer token flows, camera/microphone controls, screen-share control and remote audio/video track rendering. Windows Electron requests explicit camera/microphone approval and provides a screen/window picker. These flows still require real-browser and physical-device end-to-end testing; they are not yet a verified public streaming service.
 - Camera/screen/audio capture on Android and Windows, including device capability detection and permissions.
 - 8K capture or any guaranteed 4K/120 FPS mode. Stored preferences are requests, not proof that a device or encoder can deliver them.
 - Mobile push notifications, message attachments, voice/video calls and invitations.
