@@ -110,3 +110,17 @@ test('readiness probe returns 503 while database is disconnected', async () => {
     assert.equal(body.status, 'database-disconnected');
   });
 });
+
+
+test('creator streaming preferences remain protected by authentication', async () => {
+  await withServer(async (baseUrl) => {
+    const read = await fetch(baseUrl + '/api/me/streaming-preferences');
+    assert.equal(read.status, 401);
+    const write = await fetch(baseUrl + '/api/me/streaming-preferences', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resolution: '2160p', fps: 60 })
+    });
+    assert.equal(write.status, 401);
+  });
+});
