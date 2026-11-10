@@ -13,6 +13,12 @@ This repository contains a working backend foundation and a web client that is s
 - MongoDB-backed account registration and login with password hashing and JWT authentication.
 - Editable user profiles and public profile lookup.
 - Friend requests, acceptance, friend lists and removal.
+- Followers/following with separate persistent relationships and public profile counts.
+- Private one-to-one conversations for accepted friends, persisted message history, authenticated Socket.IO delivery, unread counters, read timestamps and connected-device notification events.
+- Player block/unblock controls. Blocking removes the friendship and both follow directions, hides the conversation from the inbox and prevents new friend requests, follows and private messages.
+- Saved posts, activity-derived starter missions and profile statistics based on persisted account activity.
+- Persistent store catalog, inventory, token ledger and server-validated purchases/equipping for supported cosmetic categories. Token top-ups and real-money purchases are not enabled.
+- Account-backed accessibility preferences (reduced motion and high contrast).
 - Persistent posts, comments and reactions with pagination and ownership checks.
 - Public multiplayer rooms with capacity, membership, leave/close controls and server-side checks.
 - Persistent room message history and authenticated Socket.IO room chat.
@@ -26,14 +32,15 @@ This repository contains a working backend foundation and a web client that is s
 - Actual live streaming: no working capture/encoder, RTMP/SRT/WebRTC ingest, SFU, transcoding, adaptive playback, recording pipeline or media CDN is configured.
 - Camera/screen/audio capture on Android and Windows, including device capability detection and permissions.
 - 8K capture or any guaranteed 4K/120 FPS mode. Stored preferences are requests, not proof that a device or encoder can deliver them.
-- Private one-to-one messaging, online presence, push notifications and invitations.
+- Online presence, mobile push notifications, a persistent notifications center, typing indicators, attachments, voice/video calls and invitations.
 - Creator clips/video uploads, playback storage, profile media galleries and favorites collections.
 - Full communities/servers with roles, moderation tools and membership management beyond multiplayer rooms.
-- Moderation/report/block workflows and operational trust-and-safety tooling.
-- Store, virtual items, gifting, donations, paid subscriptions, payment processing, creator payouts, fraud controls and legal/tax workflows.
+- User reporting, moderator queues, moderation actions, appeals and operational trust-and-safety tooling beyond player blocking.
+- Store top-ups, real-money checkout, gifting, donations, paid subscriptions, creator payouts, fraud controls and legal/tax workflows.
 - Native Android OTA updater integration and a verified installed APK.
 - Signed and tested Windows installer, production monitoring, load testing and scale validation.
 - A complete UI-to-API integration for every screen. A backend route or visual control alone does not mean its user flow is complete.
+- Runtime validation of the latest private messaging and block workflows against a live test database. Source parsing is not a substitute for executing the automated suite.
 
 No million-user capacity or public production readiness is claimed. Those require load tests, production infrastructure, observability, abuse controls and operational support.
 
@@ -71,7 +78,7 @@ npm run build:web
 npm test
 ```
 
-The multi-user integration suite requires `PLAYVERSE_TEST_MONGODB_URI` to point to an isolated disposable replica-set database. Never point tests at production data.
+The multi-user integration suite requires `PLAYVERSE_TEST_MONGODB_URI` to point to an isolated disposable test database. The GitHub Actions workflow provisions MongoDB for the integration suite. Transaction-dependent store purchase tests require a replica-set database. Never point tests at production data.
 
 ## Run the API
 
