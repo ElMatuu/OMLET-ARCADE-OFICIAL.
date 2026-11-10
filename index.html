@@ -253,6 +253,7 @@
                     <div class="flex items-center justify-between gap-2"><div class="min-w-0"><h4 id="live-player-title" class="font-bold text-sm truncate">Transmisión</h4><p id="live-player-role" class="text-[11px] text-slate-400"></p><p id="live-player-participant-count" class="text-[11px] text-emerald-300">Conectando participantes…</p></div><button type="button" onclick="leaveLiveStream()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs">Salir</button></div>
                     <video id="live-local-preview" class="hidden w-full max-h-56 rounded-xl bg-black" autoplay muted playsinline></video>
                     <div id="live-player-tracks" class="grid gap-2"></div>
+                    <button id="live-audio-enable" type="button" onclick="enableLiveAudio()" class="hidden rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-200 px-3 py-2 text-xs">Activar audio de la transmisión</button>
                     <div id="live-host-controls" class="hidden flex flex-wrap gap-2">
                         <button type="button" onclick="toggleLiveCamera()" class="rounded-xl border border-slate-700 px-3 py-2 text-xs">Cámara</button>
                         <button type="button" onclick="toggleLiveMicrophone()" class="rounded-xl border border-slate-700 px-3 py-2 text-xs">Micrófono</button>
@@ -2784,6 +2785,10 @@
             room.on(LivekitClient.RoomEvent.ParticipantConnected, updateParticipantCount);
             room.on(LivekitClient.RoomEvent.ParticipantDisconnected, updateParticipantCount);
             room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => detachLiveTrack(track));
+            room.on(LivekitClient.RoomEvent.AudioPlaybackStatusChanged, () => {
+                const audioButton = document.getElementById('live-audio-enable');
+                if (audioButton) audioButton.classList.toggle('hidden', room.canPlaybackAudio);
+            });
             room.on(LivekitClient.RoomEvent.Disconnected, () => {
                 const status = document.getElementById('live-player-status');
                 if (status) status.textContent = 'Conexión de video finalizada.';
@@ -2891,6 +2896,16 @@
             } catch (error) { setLiveStatus('No se pudo conectar a la transmisión: ' + error.message); }
         }
 
+        async function enableLiveAudio() {
+            if (!liveKitRoom) return;
+            try {
+                await liveKitRoom.startAudio();
+                document.getElementById('live-audio-enable').classList.add('hidden');
+            } catch (error) {
+                document.getElementById('live-player-status').textContent = 'No se pudo activar el audio: ' + error.message;
+            }
+        }
+
         async function toggleLiveCamera() {
             if (!liveKitRoom || activeLiveStreamRole !== 'publisher') return;
             try { await liveKitRoom.localParticipant.setCameraEnabled(!liveKitRoom.localParticipant.isCameraEnabled); }
@@ -2921,6 +2936,7 @@
             preview.srcObject = null;
             preview.classList.add('hidden');
             document.getElementById('live-player-tracks').replaceChildren();
+            document.getElementById('live-audio-enable').classList.add('hidden');
             document.getElementById('live-host-controls').classList.add('hidden');
             document.getElementById('live-player-panel').classList.add('hidden');
         }
