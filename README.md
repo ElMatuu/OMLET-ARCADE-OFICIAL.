@@ -13,6 +13,14 @@ This repository contains a working backend foundation and a web client that is s
 - MongoDB-backed account registration and login with password hashing and JWT authentication.
 - Editable user profiles and public profile lookup.
 - Friend requests, acceptance, friend lists and removal.
+- Followers/following with separate persistent relationships and public profile counts.
+- Private one-to-one conversations for accepted friends, persisted message history, authenticated Socket.IO delivery, unread counters, read receipts, ephemeral typing indicators and connected-device notification events.
+- Player block/unblock controls. Blocking removes the friendship and both follow directions, hides the conversation from the inbox and prevents new friend requests, follows and private messages.
+- Saved posts, profile statistics and a 22-mission campaign across five chapters. Mission progress is calculated from persisted posts, rooms, room chat, saved posts, comments, accepted friendships, follows, reactions and private messages. Completed missions award one-time Tokens through a server-validated, transaction-backed claim flow. There are no real-money top-ups.
+- Persistent store catalog, inventory, token ledger and server-validated purchases/equipping for supported cosmetic categories. Token top-ups and real-money purchases are not enabled.
+- Account-backed accessibility preferences (reduced motion and high contrast).
+- Persistent account notification center for incoming friend requests, accepted requests and private messages, with unread counts, cursor pagination and read-state controls.
+- Authenticated online friend presence using expiring per-connection heartbeats, a TTL-backed presence collection and online indicators in the friends list. Status is best-effort and currently refreshed while the friends screen is open; multi-instance real-time fan-out is not yet configured.
 - Persistent posts, comments and reactions with pagination and ownership checks.
 - Public multiplayer rooms with capacity, membership, leave/close controls and server-side checks.
 - Persistent room message history and authenticated Socket.IO room chat.
@@ -23,19 +31,26 @@ This repository contains a working backend foundation and a web client that is s
 
 ### Not yet implemented or verified as production features
 
-- Actual live streaming: no working capture/encoder, RTMP/SRT/WebRTC ingest, SFU, transcoding, adaptive playback, recording pipeline or media CDN is configured.
+- LiveKit server integration foundation: persistent live-session records, authenticated room creation, short-lived publisher/viewer JWTs, owner-only stream termination, a signature-verified `room_finished` webhook and a public live-session directory are implemented. The feature remains disabled until valid LiveKit Cloud/self-host credentials are configured.
+- LiveKit browser client is now bundled locally into the web build. The live screen has authenticated publisher/viewer token flows, camera/microphone controls, screen-share control and remote audio/video track rendering. Windows Electron requests explicit camera/microphone approval and provides a screen/window picker. These flows still require real-browser and physical-device end-to-end testing; they are not yet a verified public streaming service.
 - Camera/screen/audio capture on Android and Windows, including device capability detection and permissions.
 - 8K capture or any guaranteed 4K/120 FPS mode. Stored preferences are requests, not proof that a device or encoder can deliver them.
-- Private one-to-one messaging, online presence, push notifications and invitations.
+- Mobile push notifications, message attachments, voice/video calls and invitations.
 - Creator clips/video uploads, playback storage, profile media galleries and favorites collections.
+- Android native camera/microphone permission and capture validation, Electron desktop capture validation, synchronized participant counts, stream lifecycle webhooks, recording/egress, adaptive playback delivery and a media CDN.
 - Full communities/servers with roles, moderation tools and membership management beyond multiplayer rooms.
-- Moderation/report/block workflows and operational trust-and-safety tooling.
-- Store, virtual items, gifting, donations, paid subscriptions, payment processing, creator payouts, fraud controls and legal/tax workflows.
+- User reporting, moderator queues, moderation actions, appeals and operational trust-and-safety tooling beyond player blocking.
+- Store top-ups, real-money checkout, gifting, donations, paid subscriptions, creator payouts, fraud controls and legal/tax workflows.
 - Native Android OTA updater integration and a verified installed APK.
 - Signed and tested Windows installer, production monitoring, load testing and scale validation.
 - A complete UI-to-API integration for every screen. A backend route or visual control alone does not mean its user flow is complete.
+- Manual end-to-end validation on physical Android phones/tablets and Windows devices, plus production smoke tests. GitHub Actions currently runs the automated multi-user integration suite against an isolated MongoDB replica set; CI success does not prove a public production deployment.
 
 No million-user capacity or public production readiness is claimed. Those require load tests, production infrastructure, observability, abuse controls and operational support.
+
+## LiveKit Cloud setup
+
+See [`docs/LIVEKIT_SETUP.md`](docs/LIVEKIT_SETUP.md) for the exact environment variables, webhook endpoint, and end-to-end validation sequence. Do not put LiveKit credentials in source control or client-side settings.
 
 ## Architecture
 
@@ -47,7 +62,7 @@ No million-user capacity or public production readiness is claimed. Those requir
 - `scripts/` — web build and platform asset preparation.
 - `assets/playverse-icon.svg` — original vector application icon.
 
-The API uses MongoDB. Multi-document operations that need transactions require a MongoDB replica set. Configure a real HTTPS origin, production database, exact CORS allowlist, secrets, backups, monitoring and rate limits before public release.
+The API uses MongoDB. LiveKit requires `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` to enable live-session endpoints; API secrets must exist only in backend environment settings. The current backend issues 10-minute role-scoped tokens and never sends the API secret to clients. The web client SDK and camera/screen playback UI are integrated; Android native permissions and device-level verification remain pending. Multi-document operations that need transactions require a MongoDB replica set. Configure a real HTTPS origin, production database, exact CORS allowlist, secrets, backups, monitoring and rate limits before public release.
 
 ## Development requirements
 
@@ -71,7 +86,7 @@ npm run build:web
 npm test
 ```
 
-The multi-user integration suite requires `PLAYVERSE_TEST_MONGODB_URI` to point to an isolated disposable replica-set database. Never point tests at production data.
+The multi-user integration suite requires `PLAYVERSE_TEST_MONGODB_URI` to point to an isolated disposable test database. The GitHub Actions workflow provisions MongoDB for the integration suite. Transaction-dependent store purchase tests require a replica-set database. Never point tests at production data.
 
 ## Run the API
 
@@ -91,7 +106,7 @@ npm run android:open
 npm run android:build
 ```
 
-The Android project requires Android Studio/SDK and Java/Gradle. A release APK requires secure signing. The adaptive PLAYVERSE launcher icon is generated during add/sync. No APK is considered verified until it is built, installed and tested on real devices.
+The Android project requires Android Studio/SDK and Java/Gradle. The Android sync script declares camera and microphone permissions for WebRTC capture in the generated manifest. A release APK requires secure signing. The adaptive PLAYVERSE launcher icon is generated during add/sync. No APK is considered verified until it is built, installed and tested on real devices.
 
 ## Windows
 

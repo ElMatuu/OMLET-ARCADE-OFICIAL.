@@ -62,4 +62,31 @@ for (const [relativePath, content] of Object.entries(resources)) {
   fs.mkdirSync(path.dirname(destination), { recursive: true });
   fs.writeFileSync(destination, content);
 }
-console.log('PLAYVERSE adaptive Android launcher icons generated.');
+const manifestPath = path.join(root, 'android', 'app', 'src', 'main', 'AndroidManifest.xml');
+if (!fs.existsSync(manifestPath)) {
+  console.error('AndroidManifest.xml was not found. Regenerate the Android platform with npm run android:add.');
+  process.exit(1);
+}
+let manifest = fs.readFileSync(manifestPath, 'utf8');
+const permissionDeclarations = [
+  '    <uses-permission android:name="android.permission.CAMERA" />',
+  '    <uses-permission android:name="android.permission.RECORD_AUDIO" />',
+  '    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />',
+  '    <uses-feature android:name="android.hardware.camera" android:required="false" />',
+  '    <uses-feature android:name="android.hardware.microphone" android:required="false" />'
+];
+const missingDeclarations = permissionDeclarations.filter((declaration) => {
+  const name = declaration.match(/android:name="([^"]+)"/)[1];
+  return !manifest.includes('android:name="' + name + '"');
+});
+if (missingDeclarations.length) {
+  const applicationTag = manifest.indexOf('<application');
+  if (applicationTag < 0) {
+    console.error('AndroidManifest.xml does not contain an application element.');
+    process.exit(1);
+  }
+  manifest = manifest.slice(0, applicationTag) + missingDeclarations.join('\n') + '\n    ' + manifest.slice(applicationTag);
+  fs.writeFileSync(manifestPath, manifest);
+}
+
+console.log('PLAYVERSE adaptive launcher icons and camera/microphone permissions generated.');

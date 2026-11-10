@@ -132,3 +132,26 @@ test('User stores bounded creator streaming preferences with safe defaults', asy
     streamingPreferences: { bitrateMbps: 100 }
   }).validate());
 });
+
+
+test('User stores application accessibility preferences with safe defaults', async () => {
+  const user = new User({ username: 'Settings_01', passwordHash: 'hashed-password' });
+  await user.validate();
+  assert.equal(user.appPreferences.reduceMotion, false);
+  assert.equal(user.appPreferences.highContrast, false);
+
+  const configured = new User({
+    username: 'Settings_02',
+    passwordHash: 'hashed-password',
+    appPreferences: { reduceMotion: true, highContrast: true }
+  });
+  await configured.validate();
+  assert.equal(configured.appPreferences.reduceMotion, true);
+  assert.equal(configured.appPreferences.highContrast, true);
+
+  await assert.rejects(new User({
+    username: 'Settings_03',
+    passwordHash: 'hashed-password',
+    appPreferences: { reduceMotion: 'maybe' }
+  }).validate());
+});
