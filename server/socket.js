@@ -5,6 +5,7 @@ const RoomMessage = require('./models/RoomMessage');
 const Conversation = require('./models/Conversation');
 const DirectMessage = require('./models/DirectMessage');
 const Friendship = require('./models/Friendship');
+const Block = require('./models/Block');
 
 const ROOM_ID_PATTERN = /^[a-zA-Z0-9_-]{3,64}$/;
 const MESSAGE_MAX_LENGTH = 1000;
@@ -50,9 +51,11 @@ function attachSocketServer(httpServer, allowedOrigins) {
         const otherId = String(conversation.participantA) === socket.user.sub
           ? conversation.participantB : conversation.participantA;
         const pairKey = [String(socket.user.sub), String(otherId)].sort().join(':');
-        if (!(await Friendship.exists({ pairKey, status: 'accepted' }))) {
-          return acknowledge({ success: false, message: 'La amistad ya no está activa.' });
-        }
+        const [friendship, blocked] = await Promise.all([
+          Friendship.exists({ pairKey, status: 'accepted' }),
+          Block.exists({ $or: [{ blocker: socket.user.sub, blocked: otherId }, { blocker: otherId, blocked: socket.user.sub }] })
+        ]);
+        if (!friendship || blocked) return acknowledge({ success: false, message: 'La amistad ya no está activa.' });
         await socket.join('dm:' + conversationId);
         return acknowledge({ success: true });
       } catch {
@@ -85,7 +88,11 @@ function attachSocketServer(httpServer, allowedOrigins) {
         const recipientId = String(conversation.participantA) === socket.user.sub
           ? conversation.participantB : conversation.participantA;
         const pairKey = [String(socket.user.sub), String(recipientId)].sort().join(':');
-        if (!(await Friendship.exists({ pairKey, status: 'accepted' }))) {
+        const [friendship, blocked] = await Promise.all([
+          Friendship.exists({ pairKey, status: 'accepted' }),
+          Block.exists({ $or: [{ blocker: socket.user.sub, blocked: recipientId }, { blocker: recipientId, blocked: socket.user.sub }] })
+        ]);
+        if (!friendship || blocked) {
           await socket.leave('dm:' + conversationId);
           return acknowledge({ success: false, message: 'La amistad ya no está activa.' });
         }
