@@ -24,4 +24,12 @@ for (const asset of ['service-worker.js', 'app-update.js', 'manifest.webmanifest
     : fs.readFileSync(assetSource);
   fs.writeFileSync(path.join(outputDir, asset), assetContent);
 }
+const iconSource = path.join(root, 'assets', 'playverse-icon.svg');
+if (!fs.existsSync(iconSource)) {
+  console.error('PLAYVERSE application icon was not found: ' + iconSource);
+  process.exit(1);
+}
+fs.mkdirSync(path.join(outputDir, 'assets'), { recursive: true });
+fs.copyFileSync(iconSource, path.join(outputDir, 'assets', 'playverse-icon.svg'));
+
 console.log('Prepared PLAYVERSE web client and update assets in ./www');
