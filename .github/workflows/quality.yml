@@ -23,6 +23,8 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Check JavaScript syntax
         run: npm run check:syntax
+      - name: Run model tests
+        run: npm test
       - name: Check JSON configuration
         run: npm run check:config
       - name: Prepare web assets
