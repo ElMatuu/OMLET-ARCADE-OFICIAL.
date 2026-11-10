@@ -17,6 +17,7 @@ test('LiveKit stays disabled unless all required settings are present and valid'
   assert.equal(getLiveKitConfig({}), null);
   assert.equal(getLiveKitConfig({ ...validEnv, LIVEKIT_API_SECRET: '' }), null);
   assert.equal(getLiveKitConfig({ ...validEnv, LIVEKIT_URL: 'not a url' }), null);
+  assert.equal(getLiveKitConfig({ ...validEnv, LIVEKIT_URL: 'wss://playverse-test.livekit.cloud/path' }), null);
   assert.equal(isLiveKitConfigured(validEnv), true);
 });
 
