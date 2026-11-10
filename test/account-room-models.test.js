@@ -152,6 +152,6 @@ test('User stores application accessibility preferences with safe defaults', asy
   await assert.rejects(new User({
     username: 'Settings_03',
     passwordHash: 'hashed-password',
-    appPreferences: { reduceMotion: 'yes' }
+    appPreferences: { reduceMotion: 'maybe' }
   }).validate());
 });
