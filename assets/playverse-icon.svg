@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">PLAYVERSE</title>
+  <desc id="desc">Símbolo original de PLAYVERSE: una P geométrica integrada en un mando de videojuegos.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#111b35"/><stop offset="1" stop-color="#070a16"/></linearGradient>
+    <linearGradient id="mark" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#48e6f2"/><stop offset=".52" stop-color="#3988ff"/><stop offset="1" stop-color="#9462ff"/></linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff" stop-opacity=".18"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="22"/></filter>
+  </defs>
+  <rect x="28" y="28" width="968" height="968" rx="226" fill="url(#bg)"/>
+  <rect x="30" y="30" width="964" height="964" rx="224" fill="none" stroke="#6de8ff" stroke-opacity=".22" stroke-width="8"/>
+  <path d="M230 690c-35-7-58-42-50-78l40-190c13-61 65-104 127-104h330c62 0 114 43 127 104l40 190c8 36-15 71-50 78-21 4-43-3-58-19l-75-78H363l-75 78c-15 16-37 23-58 19Z" fill="url(#mark)" opacity=".18" filter="url(#glow)"/>
+  <path d="M230 690c-35-7-58-42-50-78l40-190c13-61 65-104 127-104h330c62 0 114 43 127 104l40 190c8 36-15 71-50 78-21 4-43-3-58-19l-75-78H363l-75 78c-15 16-37 23-58 19Z" fill="url(#mark)"/>
+  <path d="M230 690c-35-7-58-42-50-78l40-190c13-61 65-104 127-104h330c62 0 114 43 127 104l40 190c8 36-15 71-50 78-21 4-43-3-58-19l-75-78H363l-75 78c-15 16-37 23-58 19Z" fill="url(#shine)"/>
+  <path d="M330 492h118m-59-59v118" stroke="#071326" stroke-width="34" stroke-linecap="round"/>
+  <circle cx="675" cy="466" r="23" fill="#071326"/>
+  <circle cx="737" cy="526" r="23" fill="#071326"/>
+  <path d="M482 386v-76c0-24 19-43 43-43h130c89 0 151 57 151 139 0 83-62 140-151 140H482" fill="none" stroke="#fff" stroke-width="42" stroke-linecap="round" stroke-linejoin="round" opacity=".96"/>
+  <path d="M482 386v-76c0-24 19-43 43-43h130c89 0 151 57 151 139 0 83-62 140-151 140H482" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity=".2"/>
+</svg>
