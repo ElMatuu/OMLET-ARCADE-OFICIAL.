@@ -27,3 +27,10 @@ test('LiveStream records a live session and supports an ended lifecycle', () => 
   assert.equal(stream.status, 'ended');
   assert.ok(stream.endedAt instanceof Date);
 });
+
+test('LiveStream enforces at most one active session per creator at the database index level', () => {
+  const indexes = LiveStream.schema.indexes();
+  assert.ok(indexes.some(([keys, options]) =>
+    keys.owner === 1 && options.unique === true && options.partialFilterExpression?.status === 'live'
+  ));
+});
