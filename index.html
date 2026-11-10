@@ -102,6 +102,10 @@
                 </div>
             </div>
             <div class="flex items-center space-x-3">
+                <button type="button" onclick="switchTab('notifications')" aria-label="Abrir notificaciones" class="relative p-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 hover:border-orange-500/50">
+                    <i class="fa-solid fa-bell"></i>
+                    <span id="notifications-badge" class="hidden absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-[9px] font-black text-white items-center justify-center">0</span>
+                </button>
                 <button type="button" onclick="switchTab('shop')" aria-label="Abrir tienda y monedero PLAYVERSE" class="flex items-center space-x-1.5 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-full hover:border-amber-500/50">
                     <i class="fa-solid fa-coins text-amber-400 animate-pulse"></i>
                     <span id="header-créditos" class="text-xs font-bold text-amber-300">0</span>
@@ -133,6 +137,7 @@
                 <button onclick="switchTab('events'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-sparkles text-amber-400 w-5"></i><span>Eventos</span></button>
                 <button onclick="switchTab('profile'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-user-gear text-orange-400 w-5"></i><span>Mi Perfil</span></button>
                 <button onclick="switchTab('friends'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-user-group text-pink-400 w-5"></i><span>Amigos y solicitudes</span></button>
+                <button onclick="switchTab('notifications'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-bell text-amber-300 w-5"></i><span>Notificaciones</span><span id="drawer-notifications-count" class="ml-auto text-[10px] text-rose-300"></span></button>
                 <button onclick="switchTab('saved'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-bookmark text-cyan-300 w-5"></i><span>Guardados y VODs</span></button>
                 <button onclick="switchTab('events'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-list-check text-amber-300 w-5"></i><span>Misiones</span></button>
                 <button onclick="switchTab('help'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-circle-question text-sky-300 w-5"></i><span>Ayuda y soporte</span></button>
@@ -384,6 +389,18 @@
                     <p id="saved-posts-status" class="text-xs text-slate-400" role="status">Tus publicaciones guardadas aparecerán acá.</p>
                 </section>
                 <div id="saved-posts-container" class="space-y-4"></div>
+            </div>
+
+            <!-- TAB NOTIFICATIONS -->
+            <div id="tab-notifications" class="space-y-4 hidden max-w-2xl mx-auto">
+                <section class="PLAYVERSE-card rounded-2xl p-5 space-y-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <div><h3 class="font-black text-xl">Notificaciones</h3><p id="notifications-status" class="text-xs text-slate-400">Avisos reales de tu cuenta y actividad social.</p></div>
+                        <button type="button" id="notifications-read-all" onclick="markAllNotificationsRead()" class="text-xs font-bold text-orange-300 hover:text-orange-200">Marcar todo leído</button>
+                    </div>
+                </section>
+                <div id="notifications-list" class="space-y-2" aria-live="polite"></div>
+                <button type="button" id="notifications-more" onclick="loadNotifications(false)" class="hidden w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-xs font-bold text-slate-200">Cargar más</button>
             </div>
 
             <!-- TAB HELP -->
@@ -811,7 +828,7 @@
         }
 
         function switchTab(tabName) {
-            ['feed', 'live', 'chat', 'lobbies', 'shop', 'events', 'profile', 'friends', 'saved', 'help'].forEach(t => {
+            ['feed', 'live', 'chat', 'lobbies', 'shop', 'events', 'profile', 'friends', 'saved', 'notifications', 'help'].forEach(t => {
                 const el = document.getElementById('tab-' + t);
                 if(el) el.classList.add('hidden');
             });
@@ -822,9 +839,10 @@
             if (tabName === 'saved') loadSavedPosts();
             if (tabName === 'events') loadMissions();
             if (tabName === 'friends') loadFriends();
+            if (tabName === 'notifications') loadNotifications(true);
             if (tabName === 'profile') { loadMyProfile(); loadProfileSummary(); loadProfileActivity(true); }
             if (tabName === 'shop') loadStore();
-            ['feed', 'live', 'chat', 'lobbies', 'shop', 'events', 'friends', 'profile'].forEach(t => {
+            ['feed', 'live', 'chat', 'lobbies', 'shop', 'events', 'friends', 'profile', 'notifications'].forEach(t => {
                 const btn = document.getElementById('nav-btn-' + t);
                 if(btn) {
                     btn.classList.remove('text-orange-400');
@@ -837,6 +855,114 @@
                 activeNav.classList.remove('text-slate-400');
                 activeNav.classList.add('text-orange-400');
                 activeNav.setAttribute('aria-current', 'page');
+            }
+        }
+
+        let notificationsCursor = null;
+        let notificationsLoading = false;
+
+        function updateNotificationBadge(count) {
+            const badge = document.getElementById('notifications-badge');
+            const drawerCount = document.getElementById('drawer-notifications-count');
+            const unread = Math.max(0, Number(count) || 0);
+            if (badge) {
+                badge.textContent = unread > 99 ? '99+' : String(unread);
+                badge.classList.toggle('hidden', unread === 0);
+                badge.classList.toggle('flex', unread > 0);
+            }
+            if (drawerCount) drawerCount.textContent = unread > 0 ? String(unread) : '';
+        }
+
+        async function loadNotifications(reset = false) {
+            if (notificationsLoading) return;
+            const list = document.getElementById('notifications-list');
+            const status = document.getElementById('notifications-status');
+            const more = document.getElementById('notifications-more');
+            if (!list || !status || !more) return;
+            notificationsLoading = true;
+            if (reset) {
+                notificationsCursor = null;
+                list.replaceChildren();
+                status.textContent = 'Cargando notificaciones…';
+            }
+            more.disabled = true;
+            try {
+                const query = new URLSearchParams({ limit: '20' });
+                if (notificationsCursor) query.set('before', notificationsCursor);
+                const data = await apiRequest('/api/me/notifications?' + query.toString());
+                if (reset) list.replaceChildren();
+                (data.notifications || []).forEach((notification) => {
+                    const card = document.createElement('article');
+                    card.className = 'rounded-xl border p-3 ' + (notification.readAt ? 'border-slate-800 bg-slate-900/60' : 'border-orange-500/40 bg-orange-950/20');
+                    const row = document.createElement('div');
+                    row.className = 'flex items-start gap-3';
+                    const icon = document.createElement('span');
+                    icon.className = 'w-9 h-9 shrink-0 rounded-xl bg-slate-800 flex items-center justify-center text-orange-300';
+                    icon.textContent = notification.type === 'friend_request' ? '👥' : notification.type === 'friend_accepted' ? '🤝' : '💬';
+                    const content = document.createElement('div');
+                    content.className = 'min-w-0 flex-1';
+                    const title = document.createElement('p');
+                    title.className = 'text-sm font-bold text-white';
+                    title.textContent = notification.title || 'Notificación PLAYVERSE';
+                    const body = document.createElement('p');
+                    body.className = 'text-xs text-slate-300 mt-1 break-words';
+                    body.textContent = notification.body || '';
+                    const date = document.createElement('p');
+                    date.className = 'text-[10px] text-slate-500 mt-2';
+                    date.textContent = notification.createdAt ? new Date(notification.createdAt).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+                    content.append(title, body, date);
+                    row.append(icon, content);
+                    if (!notification.readAt) {
+                        const read = document.createElement('button');
+                        read.type = 'button';
+                        read.className = 'shrink-0 text-[10px] font-bold text-orange-300';
+                        read.textContent = 'Leída';
+                        read.setAttribute('aria-label', 'Marcar notificación como leída');
+                        read.addEventListener('click', () => markNotificationRead(notification.id));
+                        row.append(read);
+                    }
+                    card.append(row);
+                    list.append(card);
+                });
+                notificationsCursor = data.page && data.page.nextCursor || null;
+                more.classList.toggle('hidden', !(data.page && data.page.hasMore));
+                status.textContent = (data.unreadCount || 0) + ' sin leer · Notificaciones guardadas en tu cuenta.';
+                updateNotificationBadge(data.unreadCount);
+                if (!(data.notifications || []).length && reset) {
+                    const empty = document.createElement('p');
+                    empty.className = 'text-sm text-slate-400 text-center py-8';
+                    empty.textContent = 'Todavía no tenés notificaciones.';
+                    list.append(empty);
+                }
+            } catch (error) {
+                status.textContent = error.message || 'No se pudieron cargar las notificaciones.';
+            } finally {
+                notificationsLoading = false;
+                more.disabled = false;
+            }
+        }
+
+        async function markNotificationRead(notificationId) {
+            try {
+                await apiRequest('/api/me/notifications/' + encodeURIComponent(notificationId) + '/read', { method: 'PUT' });
+                await loadNotifications(true);
+            } catch (error) {
+                const status = document.getElementById('notifications-status');
+                if (status) status.textContent = error.message || 'No se pudo actualizar la notificación.';
+            }
+        }
+
+        async function markAllNotificationsRead() {
+            const button = document.getElementById('notifications-read-all');
+            if (button) button.disabled = true;
+            try {
+                await apiRequest('/api/me/notifications/read-all', { method: 'PUT' });
+                await loadNotifications(true);
+            } catch (error) {
+                const status = document.getElementById('notifications-status');
+                if (status) status.textContent = error.message || 'No se pudieron marcar como leídas.';
+            } finally {
+                if (button) button.disabled = false;
             }
         }
 
@@ -1013,6 +1139,7 @@
                 loadDirectConversations();
             });
             directSocket.on('direct_message_notification', (notification) => {
+                loadNotifications(true);
                 loadDirectConversations();
                 const status = document.getElementById('dm-inbox-status');
                 if (status && String(notification.conversationId) !== String(activeDirectConversationId)) {
