@@ -95,7 +95,7 @@
             <div class="flex items-center space-x-3">
                 <button onclick="switchTab('events')" class="flex items-center space-x-1.5 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-full hover:border-amber-500/50">
                     <i class="fa-solid fa-coins text-amber-400 animate-pulse"></i>
-                    <span id="header-créditos" class="text-xs font-bold text-amber-300">2500</span>
+                    <span id="header-créditos" class="text-xs font-bold text-amber-300">0</span>
                 </button>
                 <button onclick="openPostModal()" class="bg-orange-500/20 text-orange-400 border border-orange-500/40 p-2 rounded-xl hover:bg-orange-500 hover:text-white"><i class="fa-solid fa-plus text-sm"></i></button>
                 <button onclick="switchTab('profile')" class="w-8 h-8 rounded-full PLAYVERSE-gradient p-0.5 shadow-md flex items-center justify-center text-xs">🎮</button>
@@ -284,33 +284,55 @@
                 </section>
             </div>
 
-            <!-- TAB SHOP -->
-            <div id="tab-shop" class="space-y-6 hidden">
-                <h3 class="font-black text-lg">Tienda Arcade & Personalización</h3>
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div class="PLAYVERSE-card p-4 rounded-2xl text-center space-y-3">
-                        <div class="text-4xl my-2 bg-slate-950 w-16 h-16 rounded-2xl mx-auto flex items-center justify-center border border-slate-800">💫</div>
-                        <h4 class="font-bold text-sm text-white">Marco Neón Cyber</h4>
-                        <button onclick="buyShopItem('Marco Neón Cyber', 1500)" class="w-full bg-slate-800 border border-slate-700 text-amber-300 text-xs font-bold py-2 rounded-xl"><i class="fa-solid fa-coins text-amber-400"></i> 1500</button>
+            <!-- TAB SHOP: CATALOGO E INVENTARIO REALES -->
+            <div id="tab-shop" class="space-y-5 hidden">
+                <section class="PLAYVERSE-card rounded-2xl p-4 space-y-2">
+                    <div class="flex items-center justify-between gap-3">
+                        <div><p class="text-[10px] font-bold uppercase tracking-widest text-orange-300">PLAYVERSE STORE</p><h3 class="font-black text-xl">Tienda y personalización</h3></div>
+                        <div class="rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-right"><span class="block text-[10px] text-slate-400">Tu saldo</span><strong id="store-wallet-balance" class="text-amber-300">0 Tokens</strong></div>
                     </div>
-                    <div class="PLAYVERSE-card p-4 rounded-2xl text-center space-y-3">
-                        <div class="text-4xl my-2 bg-slate-950 w-16 h-16 rounded-2xl mx-auto flex items-center justify-center border border-slate-800">🔥</div>
-                        <h4 class="font-bold text-sm text-white">HUD Stream Fuego</h4>
-                        <button onclick="buyShopItem('HUD Stream Fuego', 3000)" class="w-full bg-slate-800 border border-slate-700 text-amber-300 text-xs font-bold py-2 rounded-xl"><i class="fa-solid fa-coins text-amber-400"></i> 3000</button>
+                    <p class="text-xs text-slate-400">Los artículos y las compras se validan en el servidor. Tu saldo inicial es cero; no hay recargas habilitadas todavía.</p>
+                </section>
+                <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
+                    <h4 class="font-bold text-sm">Vista previa</h4>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="rounded-xl bg-slate-950 border border-slate-800 p-3 text-center">
+                            <div id="store-avatar-preview-frame" class="w-20 h-20 mx-auto rounded-full border-4 border-slate-700 flex items-center justify-center overflow-hidden bg-slate-900">
+                                <img id="store-avatar-preview" class="w-full h-full object-cover" alt="Vista previa de tu avatar" src="">
+                                <span id="store-avatar-preview-placeholder" class="text-3xl">🎮</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-2">Marco de avatar</p>
+                        </div>
+                        <div class="rounded-xl bg-slate-950 border border-slate-800 p-3 text-center">
+                            <div id="store-overlay-preview" class="h-20 rounded-lg border border-slate-700 flex items-center justify-center text-xs text-slate-400 px-2">Vista previa del HUD</div>
+                            <p class="text-[10px] text-slate-400 mt-2">Overlay de stream</p>
+                        </div>
                     </div>
+                    <p id="store-selection-name" class="text-xs text-orange-200 text-center">Elegí un artículo para previsualizarlo.</p>
+                </section>
+                <div class="flex gap-2 overflow-x-auto pb-1" aria-label="Categorías de la tienda">
+                    <button type="button" data-store-category="avatar-frame" class="store-category-btn shrink-0 rounded-full bg-orange-500 text-white px-4 py-2 text-xs font-bold">Marcos</button>
+                    <button type="button" data-store-category="stream-overlay" class="store-category-btn shrink-0 rounded-full bg-slate-800 text-slate-300 px-4 py-2 text-xs font-bold">Overlays</button>
+                    <button type="button" data-store-category="chat-effect" class="store-category-btn shrink-0 rounded-full bg-slate-800 text-slate-300 px-4 py-2 text-xs font-bold">Chat y entrada</button>
+                    <button type="button" data-store-category="entrance-effect" class="store-category-btn shrink-0 rounded-full bg-slate-800 text-slate-300 px-4 py-2 text-xs font-bold">VIP Arrival</button>
+                    <button type="button" data-store-category="stream-gift" class="store-category-btn shrink-0 rounded-full bg-slate-800 text-slate-300 px-4 py-2 text-xs font-bold">Regalos</button>
                 </div>
+                <p id="store-status" class="text-xs text-slate-400" role="status">Cargando catálogo…</p>
+                <div id="store-items-grid" class="grid grid-cols-2 md:grid-cols-3 gap-3"></div>
+                <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center justify-between"><h4 class="font-bold text-sm">Mi inventario</h4><span id="inventory-count" class="text-[10px] text-slate-400">0 artículos</span></div>
+                    <div id="store-inventory-list" class="space-y-2"><p class="text-xs text-slate-400">Todavía no tenés artículos.</p></div>
+                    <p class="text-[10px] text-amber-300/90">Los overlays se guardan como preferencia equipada; su renderizado automático durante un directo requiere integrar el motor de emisión.</p>
+                </section>
             </div>
 
             <!-- TAB EVENTS -->
-            <div id="tab-events" class="space-y-6 hidden text-center max-w-lg mx-auto">
-                <h3 class="font-black text-xl">Ruleta Diaria PLAYVERSE</h3>
-                <div class="relative w-64 h-64 mx-auto my-6">
-                    <div id="roulette-wheel" class="w-full h-full rounded-full border-4 border-amber-400 PLAYVERSE-gradient shadow-2xl flex items-center justify-center transition-all duration-[3000ms] ease-out">
-                        <div class="text-xs font-black text-white grid grid-cols-2 gap-8 p-4 text-center"><span>500 Créditos</span><span>Marco VIP</span><span>Bonus sorpresa</span><span>100 Créditos</span></div>
-                    </div>
-                </div>
-                <button onclick="spinRoulette()" class="PLAYVERSE-gradient text-white font-black px-8 py-3.5 rounded-2xl shadow-xl uppercase">Girar Ruleta (100 Créditos)</button>
-                <p id="roulette-result" class="text-sm font-bold text-emerald-400 h-6"></p>
+            <div id="tab-events" class="space-y-4 hidden max-w-lg mx-auto">
+                <section class="PLAYVERSE-card rounded-2xl p-5 space-y-2">
+                    <h3 class="font-black text-xl">Eventos y recompensas</h3>
+                    <p class="text-sm text-slate-300">Las misiones, sorteos y recompensas todavía no están habilitados. No se descontarán Tokens ni se mostrarán premios ficticios.</p>
+                    <p class="text-xs text-slate-500">Esta sección se conectará al sistema de eventos cuando exista una lógica de premios verificable en el servidor.</p>
+                </section>
             </div>
 
             <!-- TAB PROFILE -->
@@ -445,7 +467,7 @@
         const API_URL = window.PLAYVERSE_API_URL || 'https://playverse-api-bgyg.onrender.com';
         const SESSION_KEY = 'playverse_session_token';
         let authToken = sessionStorage.getItem(SESSION_KEY);
-        let appState = { username: '', créditos: 0 };
+        let appState = { username: '', walletTokens: 0, profile: null };
         let activeRoomId = null;
         let activeRoomName = '';
         let roomSocket = null;
@@ -615,6 +637,7 @@
             if (tabName === 'lobbies') loadRooms();
             if (tabName === 'feed') loadCommunityPosts();
             if (tabName === 'friends') loadFriends();
+            if (tabName === 'shop') loadStore();
             ['feed', 'live', 'chat', 'lobbies', 'shop', 'events', 'friends', 'profile'].forEach(t => {
                 const btn = document.getElementById('nav-btn-' + t);
                 if(btn) {
@@ -886,32 +909,190 @@
             else { drawer.classList.add('-translate-x-full'); backdrop.classList.add('hidden'); }
         }
 
-        function updateCréditosUI() {
-            const headerCredits = document.getElementById('header-créditos');
-            const profileCredits = document.getElementById('profile-créditos');
-            if (headerCredits) headerCredits.textContent = appState.créditos;
-            if (profileCredits) profileCredits.textContent = appState.créditos;
+
+        let storeItems = [];
+        let inventoryItems = [];
+        let selectedStoreCategory = 'avatar-frame';
+        let selectedStoreItemId = null;
+        const STORE_CATEGORY_LABELS = {
+            'avatar-frame': 'Marcos de avatar',
+            'stream-overlay': 'Overlays para stream',
+            'chat-effect': 'Efectos de chat',
+            'entrance-effect': 'Efectos de entrada',
+            'stream-gift': 'Regalos virtuales'
+        };
+
+        async function loadStore() {
+            const status = document.getElementById('store-status');
+            if (!authToken) { status.textContent = 'Iniciá sesión para acceder a la tienda.'; return; }
+            status.textContent = 'Cargando catálogo e inventario…';
+            try {
+                const [catalog, inventory] = await Promise.all([
+                    apiRequest('/api/store/catalog'),
+                    apiRequest('/api/me/inventory')
+                ]);
+                storeItems = catalog.items || [];
+                inventoryItems = inventory.items || [];
+                appState.walletTokens = Number(inventory.wallet?.tokens || 0);
+                const balance = appState.walletTokens.toLocaleString('es-AR') + ' Tokens';
+                document.getElementById('store-wallet-balance').textContent = balance;
+                document.getElementById('header-créditos').textContent = appState.walletTokens.toLocaleString('es-AR');
+                renderStoreItems();
+                renderStoreInventory(inventory);
+                status.textContent = storeItems.length + ' artículos disponibles · ' + (inventoryItems.length) + ' en tu inventario.';
+                const avatar = document.getElementById('profile-avatar');
+                const preview = document.getElementById('store-avatar-preview');
+                const placeholder = document.getElementById('store-avatar-preview-placeholder');
+                if (avatar && avatar.src && !avatar.classList.contains('hidden')) {
+                    preview.src = avatar.src;
+                    preview.classList.remove('hidden');
+                    placeholder.classList.add('hidden');
+                } else {
+                    preview.removeAttribute('src');
+                    preview.classList.add('hidden');
+                    placeholder.classList.remove('hidden');
+                }
+                applyEquippedCosmetics(inventory.equipped || {});
+            } catch (error) {
+                status.textContent = 'No se pudo cargar la tienda: ' + error.message;
+            }
         }
 
-        function buyShopItem(itemName, cost) {
-            if(appState.créditos >= cost) { appState.créditos -= cost; updateCréditosUI(); alert(`¡Compra exitosa! "${itemName}" equipado.`); }
-            else { alert('Créditos insuficientes.'); }
+        function renderStoreItems() {
+            const grid = document.getElementById('store-items-grid');
+            const filtered = storeItems.filter(item => item.category === selectedStoreCategory);
+            grid.replaceChildren();
+            document.querySelectorAll('[data-store-category]').forEach(button => {
+                const active = button.dataset.storeCategory === selectedStoreCategory;
+                button.className = 'store-category-btn shrink-0 rounded-full px-4 py-2 text-xs font-bold ' + (active ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-300');
+            });
+            filtered.forEach(item => {
+                const owned = inventoryItems.some(entry => entry.id === item.id);
+                const card = document.createElement('article');
+                card.className = 'PLAYVERSE-card rounded-2xl p-3 space-y-2';
+                const icon = item.category === 'avatar-frame' ? '🖼️' : item.category === 'stream-overlay' ? '🎥' : item.category === 'stream-gift' ? '🎁' : '✨';
+                card.innerHTML = '<div class="h-20 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-3xl">' + icon + '</div>' +
+                    '<div><h4 class="text-xs font-bold text-white">' + escapeHtml(item.name) + '</h4><p class="text-[10px] text-slate-400 mt-1">' + escapeHtml(item.description) + '</p></div>' +
+                    '<p class="text-[10px] text-amber-300 font-bold">' + Number(item.priceTokens).toLocaleString('es-AR') + ' Tokens</p>' +
+                    '<button type="button" data-preview-id="' + escapeHtml(item.id) + '" class="w-full rounded-lg border border-slate-700 px-2 py-2 text-[10px] font-bold text-slate-200">Previsualizar</button>' +
+                    '<button type="button" data-buy-id="' + escapeHtml(item.id) + '" class="w-full rounded-lg px-2 py-2 text-[10px] font-bold ' + (owned && item.category !== 'stream-gift' ? 'bg-emerald-900/50 text-emerald-300' : 'bg-orange-500 text-white') + '" ' + (owned && item.category !== 'stream-gift' ? 'disabled' : '') + '>' +
+                    (owned && item.category !== 'stream-gift' ? 'En inventario' : (appState.walletTokens >= item.priceTokens ? 'Comprar' : 'Sin Tokens')) + '</button>';
+                grid.appendChild(card);
+            });
+            grid.querySelectorAll('[data-preview-id]').forEach(button => button.addEventListener('click', () => selectStoreItem(button.dataset.previewId)));
+            grid.querySelectorAll('[data-buy-id]').forEach(button => button.addEventListener('click', () => purchaseStoreItem(button.dataset.buyId)));
         }
 
-        let isSpinning = false;
-        function spinRoulette() {
-            if(isSpinning || appState.créditos < 100) return;
-            appState.créditos -= 100; updateCréditosUI(); isSpinning = true;
-            const wheel = document.getElementById('roulette-wheel');
-            const resultText = document.getElementById('roulette-result');
-            resultText.innerText = 'Girando...';
-            wheel.style.transform = `rotate(1800deg)`;
-            setTimeout(() => {
-                isSpinning = false; appState.créditos += 500; updateCréditosUI();
-                resultText.innerText = '¡Ganaste 500 Créditos!';
-                wheel.style.transform = `rotate(0deg)`;
-            }, 3000);
+        function selectStoreItem(itemId) {
+            const item = storeItems.find(entry => entry.id === itemId);
+            if (!item) return;
+            selectedStoreItemId = itemId;
+            document.getElementById('store-selection-name').textContent = item.name + ' · ' + STORE_CATEGORY_LABELS[item.category];
+            const frame = document.getElementById('store-avatar-preview-frame');
+            const overlay = document.getElementById('store-overlay-preview');
+            frame.style.borderColor = item.category === 'avatar-frame' ? '#ff7a18' : '#475569';
+            frame.style.boxShadow = item.category === 'avatar-frame' ? '0 0 18px rgba(255,122,24,.75)' : 'none';
+            if (item.category === 'avatar-frame') {
+                frame.style.borderStyle = 'solid';
+                frame.style.borderWidth = '4px';
+            }
+            if (item.category === 'stream-overlay') {
+                overlay.style.borderColor = '#ff7a18';
+                overlay.style.background = 'linear-gradient(135deg, rgba(255,82,50,.25), rgba(15,23,42,.95))';
+                overlay.textContent = item.name;
+            } else if (item.category !== 'avatar-frame') {
+                overlay.style.borderColor = '#475569';
+                overlay.style.background = '#020617';
+                overlay.textContent = 'Vista previa del HUD';
+            }
         }
+
+        async function purchaseStoreItem(itemId) {
+            const item = storeItems.find(entry => entry.id === itemId);
+            if (!item) return;
+            if (appState.walletTokens < item.priceTokens) {
+                document.getElementById('store-status').textContent = 'Saldo insuficiente. Las recargas de Tokens todavía no están habilitadas.';
+                return;
+            }
+            try {
+                const result = await apiRequest('/api/store/purchase', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ itemId })
+                });
+                document.getElementById('store-status').textContent = result.message;
+                await loadStore();
+            } catch (error) {
+                document.getElementById('store-status').textContent = error.message;
+            }
+        }
+
+        function renderStoreInventory(inventory) {
+            const container = document.getElementById('store-inventory-list');
+            document.getElementById('inventory-count').textContent = inventoryItems.length + ' artículos';
+            container.replaceChildren();
+            if (!inventoryItems.length) {
+                const empty = document.createElement('p');
+                empty.className = 'text-xs text-slate-400';
+                empty.textContent = 'Todavía no tenés artículos. Tus compras aparecerán acá.';
+                container.appendChild(empty);
+                return;
+            }
+            inventoryItems.forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between gap-2 rounded-xl bg-slate-950 border border-slate-800 p-3';
+                const info = document.createElement('div');
+                info.className = 'min-w-0';
+                const name = document.createElement('p');
+                name.className = 'text-xs font-bold text-white';
+                name.textContent = item.name;
+                const detail = document.createElement('p');
+                detail.className = 'text-[10px] text-slate-400';
+                detail.textContent = (item.quantity > 1 ? 'Cantidad: ' + item.quantity + ' · ' : '') + STORE_CATEGORY_LABELS[item.category];
+                info.append(name, detail);
+                row.appendChild(info);
+                if (['avatar-frame', 'stream-overlay'].includes(item.category)) {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'shrink-0 rounded-lg bg-orange-500/15 border border-orange-500/40 px-3 py-2 text-[10px] font-bold text-orange-200';
+                    button.textContent = item.equipped ? 'Equipado' : 'Equipar';
+                    button.disabled = item.equipped;
+                    button.addEventListener('click', () => equipStoreItem(item.id));
+                    row.appendChild(button);
+                }
+                container.appendChild(row);
+            });
+        }
+
+        async function equipStoreItem(itemId) {
+            try {
+                await apiRequest('/api/me/inventory/' + encodeURIComponent(itemId) + '/equip', { method: 'PUT' });
+                document.getElementById('store-status').textContent = 'Artículo equipado.';
+                await loadStore();
+            } catch (error) {
+                document.getElementById('store-status').textContent = error.message;
+            }
+        }
+
+        function applyEquippedCosmetics(equipped) {
+            const frame = document.getElementById('profile-avatar')?.parentElement;
+            if (frame) {
+                frame.style.boxShadow = equipped.avatarFrame ? '0 0 18px rgba(255,122,24,.65)' : '';
+                frame.style.borderColor = equipped.avatarFrame ? '#ff7a18' : '';
+            }
+            const overlay = document.getElementById('store-overlay-preview');
+            if (overlay && equipped.streamOverlay) {
+                const product = storeItems.find(item => item.id === equipped.streamOverlay);
+                if (product) overlay.textContent = 'Equipado: ' + product.name;
+            }
+        }
+
+        document.querySelectorAll('[data-store-category]').forEach(button => {
+            button.addEventListener('click', () => {
+                selectedStoreCategory = button.dataset.storeCategory;
+                renderStoreItems();
+            });
+        });
 
         function openPostModal() {
             document.getElementById('post-form-status').textContent = 'Máximo 2000 caracteres.';
