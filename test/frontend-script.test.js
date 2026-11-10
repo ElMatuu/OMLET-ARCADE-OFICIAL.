@@ -9,6 +9,8 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   const inlineScripts = scriptTags.filter((match) => !/\bsrc\s*=/i.test(match[1]));
 
   assert.ok(inlineScripts.length > 0, 'Expected at least one inline application script');
+  assert.match(html, /href="\/styles\.css"/, 'Production UI must load compiled local Tailwind styles');
+  assert.doesNotMatch(html, /cdn\.tailwindcss\.com/, 'Production UI must not depend on Tailwind Play CDN');
   assert.match(html, /id="community-load-more"/, 'Community feed must expose its pagination control');
   assert.match(html, /\/api\/posts\?before=/, 'Community feed must request subsequent pages with a cursor');
   assert.match(html, /id="tab-friends"/, 'The friends screen must be present');
