@@ -977,8 +977,12 @@ app.get('/api/friends', requireAuth, async (req, res, next) => {
 
     const acceptedFriendIds = records
       .filter((record) => record.status === 'accepted')
-      .map((record) => String(String(record.requester && record.requester._id) === userId
-        ? record.recipient && record.recipient._id : record.requester && record.requester._id))
+      .map((record) => {
+        const requesterId = record.requester && record.requester._id ? String(record.requester._id) : null;
+        const recipientId = record.recipient && record.recipient._id ? String(record.recipient._id) : null;
+        if (!requesterId || !recipientId) return null;
+        return requesterId === userId ? recipientId : requesterId;
+      })
       .filter(Boolean);
     const onlineUserIds = await UserPresence.distinct('user', {
       user: { $in: acceptedFriendIds },
