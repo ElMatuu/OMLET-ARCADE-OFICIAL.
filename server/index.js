@@ -1417,6 +1417,12 @@ app.get('/api/me/missions', requireAuth, async (req, res, next) => {
 app.post('/api/me/missions/:missionId/claim', requireAuth, storeLimiter, async (req, res, next) => {
   const definition = MISSION_CATALOG.find((mission) => mission.id === req.params.missionId);
   if (!definition) return res.status(404).json({ success: false, message: 'Misión no encontrada.' });
+  try {
+    // Ensure the collection and unique user/mission index exist before opening a transaction.
+    await MissionClaim.init();
+  } catch (error) {
+    return next(error);
+  }
   const session = await mongoose.startSession();
   let result;
   try {
