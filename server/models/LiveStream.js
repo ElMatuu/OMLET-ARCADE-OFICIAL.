@@ -13,5 +13,6 @@ const liveStreamSchema = new mongoose.Schema({
 
 liveStreamSchema.index({ status: 1, startedAt: -1 });
 liveStreamSchema.index({ owner: 1, status: 1, startedAt: -1 });
+liveStreamSchema.index({ owner: 1 }, { unique: true, partialFilterExpression: { status: 'live' } });
 
 module.exports = mongoose.model('LiveStream', liveStreamSchema);
