@@ -1,8 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
+  createLiveKitApi,
   createParticipantToken,
   createRoomName,
+  createWebhookReceiver,
   getLiveKitConfig,
   isLiveKitConfigured
 } = require('../server/services/livekit');
@@ -32,6 +34,15 @@ test('LiveKit room names are unique, opaque and URL-safe', () => {
   const second = createRoomName();
   assert.match(first, /^pv_[a-f0-9]{32}$/);
   assert.notEqual(first, second);
+});
+
+test('LiveKit server API and signed webhook verifier initialize from server-only credentials', () => {
+  const config = getLiveKitConfig(validEnv);
+  const api = createLiveKitApi(config);
+  const receiver = createWebhookReceiver(config);
+  assert.equal(typeof api.room.createRoom, 'function');
+  assert.equal(typeof api.room.deleteRoom, 'function');
+  assert.equal(typeof receiver.receive, 'function');
 });
 
 test('LiveKit participant tokens are short-lived and role-scoped', async () => {
