@@ -1,10 +1,14 @@
 {
-  "name": "omlet-arcade-oficial",
-  "version": "1.0.0",
-  "description": "Omlet Arcade Official & Global Web Client",
+  "name": "playverse-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PLAYVERSE — original gaming community and live platform for Android and Windows",
   "main": "index.html",
   "scripts": {
-    "start": "npx serve"
+    "start": "npx serve ."
+  },
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {}
 }
