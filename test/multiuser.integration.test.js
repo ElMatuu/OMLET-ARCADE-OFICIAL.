@@ -163,6 +163,20 @@ integrationTest('multiple independent accounts can interact concurrently with ow
       method: 'POST'
     }, alice.body.token);
     assert.equal(sentRequest.status, 201);
+    const bobNotifications = await request(baseUrl, '/api/me/notifications', {}, bob.body.token);
+    assert.equal(bobNotifications.status, 200);
+    assert.equal(bobNotifications.body.notifications.length, 1);
+    assert.equal(bobNotifications.body.notifications[0].type, 'friend_request');
+    assert.equal(bobNotifications.body.unreadCount, 1);
+    assert.equal(bobNotifications.body.notifications[0].actor.username, 'alice_test');
+    const bobNotificationRead = await request(baseUrl,
+      '/api/me/notifications/' + bobNotifications.body.notifications[0].id + '/read',
+      { method: 'PUT' }, bob.body.token);
+    assert.equal(bobNotificationRead.status, 200);
+    const bobNotificationsAfterRead = await request(baseUrl, '/api/me/notifications', {}, bob.body.token);
+    assert.equal(bobNotificationsAfterRead.body.unreadCount, 0);
+    const unauthenticatedNotifications = await request(baseUrl, '/api/me/notifications');
+    assert.equal(unauthenticatedNotifications.status, 401);
     const bobFriendsBefore = await request(baseUrl, '/api/friends', {}, bob.body.token);
     assert.equal(bobFriendsBefore.status, 200);
     assert.equal(bobFriendsBefore.body.incomingRequests.length, 1);
@@ -173,6 +187,9 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     }, bob.body.token);
     assert.equal(accepted.status, 200);
     assert.equal(accepted.body.status, 'accepted');
+    const aliceFriendAccepted = await request(baseUrl, '/api/me/notifications', {}, alice.body.token);
+    assert.equal(aliceFriendAccepted.body.notifications[0].type, 'friend_accepted');
+    assert.equal(aliceFriendAccepted.body.unreadCount, 1);
 
     const aliceConversation = await request(baseUrl, '/api/conversations/bob_test', {
       method: 'POST'
@@ -321,6 +338,17 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     const privateNotification = await privateNotificationDelivery;
     assert.equal(privateNotification.senderUsername, 'alice_test');
     assert.equal(privateNotification.body, 'Privado por Socket.IO');
+    const bobMessageNotifications = await request(baseUrl, '/api/me/notifications', {}, bob.body.token);
+    assert.ok(bobMessageNotifications.body.notifications.some((item) => item.type === 'direct_message'));
+    assert.ok(bobMessageNotifications.body.unreadCount >= 1);
+    const invalidNotificationCursor = await request(baseUrl, '/api/me/notifications?before=not-a-cursor', {}, bob.body.token);
+    assert.equal(invalidNotificationCursor.status, 400);
+    const bobReadAllNotifications = await request(baseUrl, '/api/me/notifications/read-all', {
+      method: 'PUT'
+    }, bob.body.token);
+    assert.equal(bobReadAllNotifications.status, 200);
+    const bobNotificationsReadAll = await request(baseUrl, '/api/me/notifications', {}, bob.body.token);
+    assert.equal(bobNotificationsReadAll.body.unreadCount, 0);
 
     const privateRestRealtimeDelivery = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('REST private message was not delivered to connected recipient')), 5000);
