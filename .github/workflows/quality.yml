@@ -47,13 +47,13 @@ jobs:
           exit 1
       - name: Check JavaScript syntax
         run: npm run check:syntax
-      - name: Run unit and multi-user integration tests
-        run: npm test
-        env:
-          PLAYVERSE_TEST_MONGODB_URI: mongodb://127.0.0.1:27017/playverse_ci?replicaSet=rs0
       - name: Check JSON configuration
         run: npm run check:config
       - name: Prepare web assets
         run: npm run build:web
+      - name: Run unit and multi-user integration tests
+        run: npm test
+        env:
+          PLAYVERSE_TEST_MONGODB_URI: mongodb://127.0.0.1:27017/playverse_ci?replicaSet=rs0
       - name: Verify web update assets are packaged
         run: test -s www/service-worker.js && test -s www/app-update.js && test -s www/manifest.webmanifest
