@@ -262,7 +262,7 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
       return res.status(201).json({
         success: true,
         stream: { id: String(session._id), title: session.title, description: session.description, status: session.status, startedAt: session.startedAt },
-        liveKit: { url: config.clientUrl, token, role: 'publisher', expiresInSeconds: 600 }
+        liveKit: { url: config.clientUrl, token, role: 'publisher', expiresInSeconds: 21600 }
       });
     } catch (error) {
       await LiveStream.deleteOne({ _id: session._id });
@@ -299,7 +299,7 @@ app.post('/api/streams/:streamId/token', requireAuth, streamLimiter, async (req,
     return res.json({
       success: true,
       stream: { id: String(session._id), title: session.title, creator: session.ownerUsername, status: session.status },
-      liveKit: { url: config.clientUrl, token, role, expiresInSeconds: 600 }
+      liveKit: { url: config.clientUrl, token, role, expiresInSeconds: 21600 }
     });
   } catch (error) { return next(error); }
 });
