@@ -9,6 +9,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { rateLimit } = require('express-rate-limit');
 const User = require('./models/User');
+const Room = require('./models/Room');
 const { requireAuth } = require('./middleware/auth');
 const { attachSocketServer } = require('./socket');
 
@@ -127,6 +128,93 @@ app.get('/api/me', requireAuth, async (req, res, next) => {
     return next(error);
   }
 });
+
+app.get('/api/rooms', requireAuth, async (req, res, next) => {
+  try {
+    const rooms = await Room.find({ visibility: 'public', status: 'open' })
+      .select('name game ownerUsername memberCount capacity createdAt')
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+    return res.json({ success: true, rooms });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/rooms', requireAuth, async (req, res, next) => {
+  try {
+    const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+    const game = typeof req.body.game === 'string' ? req.body.game.trim() : '';
+    if (name.length < 3 || name.length > 60 || game.length < 2 || game.length > 40) {
+      return res.status(400).json({ success: false, message: 'El nombre de sala (3-60) y el juego (2-40) son obligatorios.' });
+    }
+    const room = await Room.create({
+      name,
+      game,
+      owner: req.auth.sub,
+      ownerUsername: req.auth.username,
+      members: [req.auth.sub],
+      memberCount: 1
+    });
+    return res.status(201).json({
+      success: true,
+      room: {
+        id: String(room._id),
+        name: room.name,
+        game: room.game,
+        ownerUsername: room.ownerUsername,
+        memberCount: room.memberCount,
+        capacity: room.capacity
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/rooms/:roomId/join', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.roomId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
+    }
+    const room = await Room.findOneAndUpdate(
+      {
+        _id: req.params.roomId,
+        visibility: 'public',
+        status: 'open',
+        $or: [
+          { members: req.auth.sub },
+          { $expr: { $lt: ['$memberCount', '$capacity'] } }
+        ]
+      },
+      { $addToSet: { members: req.auth.sub }, $inc: { memberCount: 1 } },
+      { new: true, runValidators: true }
+    ).select('name game ownerUsername members memberCount capacity').lean();
+
+    if (!room) {
+      return res.status(404).json({ success: false, message: 'Sala no disponible o completa.' });
+    }
+    const alreadyMember = room.members.some((id) => String(id) === String(req.auth.sub));
+    if (!alreadyMember) {
+      return res.status(409).json({ success: false, message: 'No se pudo confirmar tu membresía.' });
+    }
+    return res.json({
+      success: true,
+      room: {
+        id: String(room._id),
+        name: room.name,
+        game: room.game,
+        ownerUsername: room.ownerUsername,
+        memberCount: room.memberCount,
+        capacity: room.capacity
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 
 app.use((error, req, res, next) => {
   if (res.headersSent) return next(error);
