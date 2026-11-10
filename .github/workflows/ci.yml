@@ -17,13 +17,14 @@ jobs:
         image: mongo:7
         ports:
           - 27017:27017
+        command: mongod --replSet rs0 --bind_ip_all
         options: >-
           --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 })'"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
     env:
-      PLAYVERSE_TEST_MONGODB_URI: mongodb://127.0.0.1:27017/playverse_ci
+      PLAYVERSE_TEST_MONGODB_URI: mongodb://127.0.0.1:27017/playverse_ci?replicaSet=rs0
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,6 +34,19 @@ jobs:
           node-version: 20
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Initialize isolated MongoDB replica set
+        run: |
+          MONGO_CONTAINER="$(docker ps -q --filter 'ancestor=mongo:7' | head -n 1)"
+          test -n "$MONGO_CONTAINER"
+          docker exec "$MONGO_CONTAINER" mongosh --quiet --eval "rs.initiate({_id:'rs0',members:[{_id:0,host:'127.0.0.1:27017'}]})"
+          for attempt in $(seq 1 30); do
+            if docker exec "$MONGO_CONTAINER" mongosh --quiet --eval "db.hello().isWritablePrimary" | grep -q true; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "MongoDB replica set did not become primary"
+          exit 1
       - name: Check JavaScript syntax
         run: npm run check:syntax
       - name: Validate configuration
