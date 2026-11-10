@@ -28,7 +28,7 @@ const TokenTransaction = require('./models/TokenTransaction');
 const { STORE_CATALOG } = require('./data/storeCatalog');
 const { requireAuth } = require('./middleware/auth');
 const { attachSocketServer } = require('./socket');
-const { createLiveKitApi, createParticipantToken, createRoomName, getLiveKitConfig } = require('./services/livekit');
+const { createLiveKitApi, createParticipantToken, createRoomName, createWebhookReceiver, getLiveKitConfig } = require('./services/livekit');
 
 const app = express();
 // Render terminates the public connection in one trusted proxy hop.
@@ -71,6 +71,26 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// LiveKit signs webhook requests; preserve the raw body for signature verification.
+app.post('/api/webhooks/livekit', express.raw({ type: 'application/webhook+json', limit: '1mb' }), async (req, res) => {
+  const config = getLiveKitConfig();
+  if (!config) return res.status(503).json({ success: false, message: 'LiveKit no está configurado.' });
+  try {
+    const receiver = createWebhookReceiver(config);
+    const event = await receiver.receive(req.body, req.get('Authorization'));
+    if (event.event === 'room_finished' && event.room && event.room.name) {
+      await LiveStream.updateOne(
+        { roomName: event.room.name, status: 'live' },
+        { $set: { status: 'ended', endedAt: new Date() } }
+      );
+    }
+    return res.status(200).json({ success: true });
+  } catch {
+    return res.status(401).json({ success: false, message: 'Firma de webhook inválida.' });
+  }
+});
+
 app.use(express.json({ limit: '20kb' }));
 
 const webRoot = path.join(__dirname, '..', 'www');
