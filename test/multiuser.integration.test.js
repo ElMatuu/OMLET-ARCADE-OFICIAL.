@@ -1,0 +1,135 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const http = require('node:http');
+const mongoose = require('mongoose');
+
+const mongoUri = process.env.PLAYVERSE_TEST_MONGODB_URI;
+const integrationTest = mongoUri ? test : test.skip;
+
+process.env.MONGODB_URI = mongoUri || 'mongodb://127.0.0.1:27017/playverse_test_only';
+process.env.JWT_SECRET = 'playverse-integration-test-secret-at-least-32-characters';
+process.env.CORS_ORIGIN = 'http://127.0.0.1';
+
+const { app } = require('../server/index');
+
+async function request(baseUrl, path, options = {}, token) {
+  const headers = { ...(options.headers || {}) };
+  if (token) headers.Authorization = 'Bearer ' + token;
+  if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+  const response = await fetch(baseUrl + path, {
+    ...options,
+    headers,
+    body: options.body === undefined ? undefined : JSON.stringify(options.body)
+  });
+  const body = await response.json();
+  return { status: response.status, body };
+}
+
+integrationTest('two independent accounts can interact while ownership and persistence are enforced', async () => {
+  await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 10000 });
+  const server = http.createServer(app);
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+
+  try {
+    await mongoose.connection.dropDatabase();
+    const address = server.address();
+    const baseUrl = 'http://127.0.0.1:' + address.port;
+    const password = 'Integration-Test-Password-2026!';
+
+    const alice = await request(baseUrl, '/api/register', {
+      method: 'POST', body: { username: 'alice_test', password }
+    });
+    const bob = await request(baseUrl, '/api/register', {
+      method: 'POST', body: { username: 'bob_test', password }
+    });
+    assert.equal(alice.status, 201);
+    assert.equal(bob.status, 201);
+    assert.ok(alice.body.token);
+    assert.ok(bob.body.token);
+    assert.notEqual(alice.body.user.id, bob.body.user.id);
+
+    const duplicate = await request(baseUrl, '/api/register', {
+      method: 'POST', body: { username: 'alice_test', password }
+    });
+    assert.equal(duplicate.status, 409);
+
+    const aliceProfile = await request(baseUrl, '/api/me/profile', {
+      method: 'PUT', body: { displayName: 'Alice Gamer', bio: 'Cuenta de prueba' }
+    }, alice.body.token);
+    assert.equal(aliceProfile.status, 200);
+    const bobCannotUseAliceToken = await request(baseUrl, '/api/me', {}, null);
+    assert.equal(bobCannotUseAliceToken.status, 401);
+
+    const sentRequest = await request(baseUrl, '/api/friends/requests/bob_test', {
+      method: 'POST'
+    }, alice.body.token);
+    assert.equal(sentRequest.status, 201);
+    const bobFriendsBefore = await request(baseUrl, '/api/friends', {}, bob.body.token);
+    assert.equal(bobFriendsBefore.status, 200);
+    assert.equal(bobFriendsBefore.body.incomingRequests.length, 1);
+
+    const friendshipId = bobFriendsBefore.body.incomingRequests[0].friendshipId;
+    const accepted = await request(baseUrl, '/api/friends/requests/' + friendshipId + '/accept', {
+      method: 'PUT'
+    }, bob.body.token);
+    assert.equal(accepted.status, 200);
+    assert.equal(accepted.body.status, 'accepted');
+
+    const post = await request(baseUrl, '/api/posts', {
+      method: 'POST', body: { content: 'Publicación de Alice en una prueba multiusuario.' }
+    }, alice.body.token);
+    assert.equal(post.status, 201);
+    const postId = post.body.post.id;
+
+    const bobLike = await request(baseUrl, '/api/posts/' + postId + '/like', {
+      method: 'PUT'
+    }, bob.body.token);
+    assert.equal(bobLike.status, 200);
+    assert.equal(bobLike.body.likeCount, 1);
+
+    const bobComment = await request(baseUrl, '/api/posts/' + postId + '/comments', {
+      method: 'POST', body: { content: 'Comentario enviado desde la segunda cuenta.' }
+    }, bob.body.token);
+    assert.equal(bobComment.status, 201);
+    const commentId = bobComment.body.comment.id;
+
+    const bobCannotEditAlicePost = await request(baseUrl, '/api/posts/' + postId, {
+      method: 'PUT', body: { content: 'Intento no autorizado' }
+    }, bob.body.token);
+    assert.equal(bobCannotEditAlicePost.status, 403);
+
+    const aliceCannotEditBobsComment = await request(baseUrl, '/api/posts/' + postId + '/comments/' + commentId, {
+      method: 'PUT', body: { content: 'Intento no autorizado' }
+    }, alice.body.token);
+    assert.equal(aliceCannotEditBobsComment.status, 403);
+
+    const room = await request(baseUrl, '/api/rooms', {
+      method: 'POST', body: { name: 'Sala de integración', game: 'PLAYVERSE Test' }
+    }, alice.body.token);
+    assert.equal(room.status, 201);
+    const joined = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/join', {
+      method: 'POST'
+    }, bob.body.token);
+    assert.equal(joined.status, 200);
+    assert.equal(joined.body.room.memberCount, 2);
+
+    const reloadedPost = await request(baseUrl, '/api/posts', {}, bob.body.token);
+    assert.equal(reloadedPost.status, 200);
+    assert.ok(reloadedPost.body.posts.some((item) => item.id === postId && item.likeCount === 1 && item.commentCount === 1));
+
+    const login = await request(baseUrl, '/api/login', {
+      method: 'POST', body: { username: 'alice_test', password }
+    });
+    assert.equal(login.status, 200);
+    const persistedProfile = await request(baseUrl, '/api/me', {}, login.body.token);
+    assert.equal(persistedProfile.status, 200);
+    assert.equal(persistedProfile.body.user.displayName, 'Alice Gamer');
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    await mongoose.connection.dropDatabase();
+    await mongoose.disconnect();
+  }
+});
