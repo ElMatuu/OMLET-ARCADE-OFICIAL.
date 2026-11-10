@@ -27,7 +27,12 @@ async function connectSocket(baseUrl, token) {
 }
 
 function emitSocketAck(socket, event, payload) {
-  return new Promise((resolve) => socket.emit(event, payload, resolve));
+  return new Promise((resolve, reject) => {
+    socket.timeout(5000).emit(event, payload, (error, result) => {
+      if (error) return reject(error);
+      return resolve(result);
+    });
+  });
 }
 
 async function request(baseUrl, path, options = {}, token) {
@@ -238,6 +243,11 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     }, alice.body.token);
     assert.equal(aliceClosesRoom.status, 200);
     assert.equal(aliceClosesRoom.body.room.status, 'closed');
+    const closedRoomSocketSend = await emitSocketAck(aliceSocket, 'send_message', {
+      roomId: room.body.room.id,
+      message: 'No debería enviarse en una sala cerrada'
+    });
+    assert.equal(closedRoomSocketSend.success, false);
     const roomsAfterClose = await request(baseUrl, '/api/rooms', {}, bob.body.token);
     assert.equal(roomsAfterClose.body.rooms.some((item) => item.id === room.body.room.id), false);
 
