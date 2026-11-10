@@ -53,6 +53,7 @@ integrationTest('multiple independent accounts can interact concurrently with ow
   const server = httpServer;
   const ioServer = attachSocketServer(server, ['http://127.0.0.1']);
   server.io = ioServer;
+  app.set('io', ioServer);
   const liveSockets = [];
   await new Promise((resolve, reject) => {
     server.once('error', reject);
@@ -96,6 +97,16 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.equal(bobIdentity.body.user.username, 'bob_test');
     assert.notEqual(aliceIdentity.body.user.id, bobIdentity.body.user.id);
 
+    const liveCatalog = await request(baseUrl, '/api/streams');
+    assert.equal(liveCatalog.status, 200);
+    assert.ok(Array.isArray(liveCatalog.body.streams));
+    assert.equal(liveCatalog.body.streamingEnabled, false);
+    const liveStreamWithoutProvider = await request(baseUrl, '/api/me/streams', {
+      method: 'POST', body: { title: 'No debe iniciar sin LiveKit' }
+    }, alice.body.token);
+    assert.equal(liveStreamWithoutProvider.status, 503);
+    assert.equal(liveStreamWithoutProvider.body.code, 'LIVE_STREAMING_NOT_CONFIGURED');
+
     const aliceStreamingPreferences = await request(baseUrl, '/api/me/streaming-preferences', {
       method: 'PUT',
       body: {
@@ -133,10 +144,49 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     const unauthenticatedProfileRequest = await request(baseUrl, '/api/me');
     assert.equal(unauthenticatedProfileRequest.status, 401);
 
+    const aliceAppPreferences = await request(baseUrl, '/api/me/app-preferences', {
+      method: 'PUT',
+      body: { reduceMotion: true, highContrast: true }
+    }, alice.body.token);
+    assert.equal(aliceAppPreferences.status, 200);
+    assert.deepEqual(aliceAppPreferences.body.preferences, { reduceMotion: true, highContrast: true });
+    const aliceAppPreferencesReloaded = await request(baseUrl, '/api/me/app-preferences', {}, alice.body.token);
+    assert.equal(aliceAppPreferencesReloaded.status, 200);
+    assert.deepEqual(aliceAppPreferencesReloaded.body.preferences, { reduceMotion: true, highContrast: true });
+    const bobAppPreferences = await request(baseUrl, '/api/me/app-preferences', {}, bob.body.token);
+    assert.equal(bobAppPreferences.status, 200);
+    assert.deepEqual(bobAppPreferences.body.preferences, { reduceMotion: false, highContrast: false });
+    const invalidAppPreferences = await request(baseUrl, '/api/me/app-preferences', {
+      method: 'PUT',
+      body: { reduceMotion: 'yes' }
+    }, alice.body.token);
+    assert.equal(invalidAppPreferences.status, 400);
+    const unknownAppPreference = await request(baseUrl, '/api/me/app-preferences', {
+      method: 'PUT',
+      body: { adminMode: true }
+    }, alice.body.token);
+    assert.equal(unknownAppPreference.status, 400);
+    const unauthenticatedAppPreferences = await request(baseUrl, '/api/me/app-preferences');
+    assert.equal(unauthenticatedAppPreferences.status, 401);
+
     const sentRequest = await request(baseUrl, '/api/friends/requests/bob_test', {
       method: 'POST'
     }, alice.body.token);
     assert.equal(sentRequest.status, 201);
+    const bobNotifications = await request(baseUrl, '/api/me/notifications', {}, bob.body.token);
+    assert.equal(bobNotifications.status, 200);
+    assert.equal(bobNotifications.body.notifications.length, 1);
+    assert.equal(bobNotifications.body.notifications[0].type, 'friend_request');
+    assert.equal(bobNotifications.body.unreadCount, 1);
+    assert.equal(bobNotifications.body.notifications[0].actor.username, 'alice_test');
+    const bobNotificationRead = await request(baseUrl,
+      '/api/me/notifications/' + bobNotifications.body.notifications[0].id + '/read',
+      { method: 'PUT' }, bob.body.token);
+    assert.equal(bobNotificationRead.status, 200);
+    const bobNotificationsAfterRead = await request(baseUrl, '/api/me/notifications', {}, bob.body.token);
+    assert.equal(bobNotificationsAfterRead.body.unreadCount, 0);
+    const unauthenticatedNotifications = await request(baseUrl, '/api/me/notifications');
+    assert.equal(unauthenticatedNotifications.status, 401);
     const bobFriendsBefore = await request(baseUrl, '/api/friends', {}, bob.body.token);
     assert.equal(bobFriendsBefore.status, 200);
     assert.equal(bobFriendsBefore.body.incomingRequests.length, 1);
@@ -147,6 +197,36 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     }, bob.body.token);
     assert.equal(accepted.status, 200);
     assert.equal(accepted.body.status, 'accepted');
+    const aliceFriendAccepted = await request(baseUrl, '/api/me/notifications', {}, alice.body.token);
+    assert.equal(aliceFriendAccepted.body.notifications[0].type, 'friend_accepted');
+    assert.equal(aliceFriendAccepted.body.unreadCount, 1);
+
+    const aliceConversation = await request(baseUrl, '/api/conversations/bob_test', {
+      method: 'POST'
+    }, alice.body.token);
+    assert.equal(aliceConversation.status, 200);
+    const conversationId = aliceConversation.body.conversation.id;
+    const bobInbox = await request(baseUrl, '/api/me/conversations', {}, bob.body.token);
+    assert.equal(bobInbox.status, 200);
+    assert.equal(bobInbox.body.conversations.length, 1);
+    const charlieCannotStartPrivateChat = await request(baseUrl, '/api/conversations/alice_test', {
+      method: 'POST'
+    }, charlie.body.token);
+    assert.equal(charlieCannotStartPrivateChat.status, 403);
+    const privateMessage = await request(baseUrl, '/api/conversations/' + conversationId + '/messages', {
+      method: 'POST', body: { body: 'Mensaje privado persistente' }
+    }, alice.body.token);
+    assert.equal(privateMessage.status, 201);
+    assert.equal(privateMessage.body.message.body, 'Mensaje privado persistente');
+    const bobUnreadInbox = await request(baseUrl, '/api/me/conversations', {}, bob.body.token);
+    assert.equal(bobUnreadInbox.body.conversations[0].unreadCount, 1);
+    const bobPrivateHistory = await request(baseUrl, '/api/conversations/' + conversationId + '/messages', {}, bob.body.token);
+    assert.equal(bobPrivateHistory.status, 200);
+    assert.equal(bobPrivateHistory.body.messages.length, 1);
+    assert.equal(bobPrivateHistory.body.messages[0].senderUsername, 'alice_test');
+    assert.ok(bobPrivateHistory.body.messages[0].readAt);
+    const bobReadInbox = await request(baseUrl, '/api/me/conversations', {}, bob.body.token);
+    assert.equal(bobReadInbox.body.conversations[0].unreadCount, 0);
 
     const post = await request(baseUrl, '/api/posts', {
       method: 'POST', body: { content: 'Publicación de Alice en una prueba multiusuario.' }
@@ -180,6 +260,58 @@ integrationTest('multiple independent accounts can interact concurrently with ow
       method: 'POST', body: { name: 'Sala de integración', game: 'PLAYVERSE Test', capacity: 2 }
     }, alice.body.token);
     assert.equal(room.status, 201);
+
+    const unauthenticatedActivity = await request(baseUrl, '/api/me/activity');
+    assert.equal(unauthenticatedActivity.status, 401);
+    const invalidActivityLimit = await request(baseUrl, '/api/me/activity?limit=51', {}, alice.body.token);
+    assert.equal(invalidActivityLimit.status, 400);
+    const firstActivityPage = await request(baseUrl, '/api/me/activity?limit=1', {}, alice.body.token);
+    assert.equal(firstActivityPage.status, 200);
+    assert.equal(firstActivityPage.body.success, true);
+    assert.equal(firstActivityPage.body.activities.length, 1);
+    assert.equal(firstActivityPage.body.page.hasMore, true);
+    assert.ok(firstActivityPage.body.page.nextCursor);
+    const secondActivityPage = await request(
+      baseUrl,
+      '/api/me/activity?limit=1&cursor=' + encodeURIComponent(firstActivityPage.body.page.nextCursor),
+      {},
+      alice.body.token
+    );
+    assert.equal(secondActivityPage.status, 200);
+    assert.equal(secondActivityPage.body.activities.length, 1);
+    assert.notEqual(firstActivityPage.body.activities[0].id, secondActivityPage.body.activities[0].id);
+    const aliceActivityTypes = [firstActivityPage.body.activities[0].type, secondActivityPage.body.activities[0].type].sort();
+    assert.deepEqual(aliceActivityTypes, ['post', 'room']);
+    const bobActivity = await request(baseUrl, '/api/me/activity?limit=50', {}, bob.body.token);
+    assert.equal(bobActivity.status, 200);
+    assert.ok(bobActivity.body.activities.every((item) => item.type !== 'post' && item.type !== 'room'));
+    const aliceMissions = await request(baseUrl, '/api/me/missions', {}, alice.body.token);
+    assert.equal(aliceMissions.status, 200);
+    assert.equal(aliceMissions.body.missions.length, 22);
+    assert.equal(aliceMissions.body.summary.total, 22);
+    assert.equal(new Set(aliceMissions.body.missions.map((mission) => mission.chapter)).size, 5);
+    assert.equal(aliceMissions.body.rewardsEnabled, true);
+    assert.equal(aliceMissions.body.missions.find((mission) => mission.id === 'welcome-post-1').completed, true);
+    assert.equal(aliceMissions.body.missions.find((mission) => mission.id === 'party-room-1').completed, true);
+    assert.equal(aliceMissions.body.missions.find((mission) => mission.id === 'social-save-1').completed, false);
+    assert.equal(aliceMissions.body.missions.find((mission) => mission.id === 'welcome-post-1').claimable, true);
+    const missionReward = await request(baseUrl, '/api/me/missions/welcome-post-1/claim', { method: 'POST' }, alice.body.token);
+    assert.equal(missionReward.status, 201);
+    assert.equal(missionReward.body.rewardTokens, 10);
+    assert.equal(missionReward.body.wallet.tokens, 10);
+    const duplicateMissionReward = await request(baseUrl, '/api/me/missions/welcome-post-1/claim', { method: 'POST' }, alice.body.token);
+    assert.equal(duplicateMissionReward.status, 409);
+    const incompleteMissionReward = await request(baseUrl, '/api/me/missions/social-save-1/claim', { method: 'POST' }, alice.body.token);
+    assert.equal(incompleteMissionReward.status, 409);
+    const aliceWallet = await request(baseUrl, '/api/me/inventory', {}, alice.body.token);
+    assert.equal(aliceWallet.body.wallet.tokens, 10);
+    const aliceWalletHistory = await request(baseUrl, '/api/me/wallet/transactions', {}, alice.body.token);
+    assert.ok(aliceWalletHistory.body.transactions.some((item) => item.itemName === 'Misión: Tu voz en PLAYVERSE' && item.amount === 10));
+    const missionsAfterClaim = await request(baseUrl, '/api/me/missions', {}, alice.body.token);
+    assert.equal(missionsAfterClaim.body.missions.find((mission) => mission.id === 'welcome-post-1').claimed, true);
+    const unauthenticatedMissions = await request(baseUrl, '/api/me/missions');
+    assert.equal(unauthenticatedMissions.status, 401);
+
     const aliceRooms = await request(baseUrl, '/api/rooms', {}, alice.body.token);
     assert.equal(aliceRooms.status, 200);
     assert.equal(aliceRooms.body.rooms[0].isOwner, true);
@@ -209,7 +341,133 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     const aliceSocket = await connectSocket(baseUrl, alice.body.token);
     const memberSocket = await connectSocket(baseUrl, winningToken);
     const outsiderSocket = await connectSocket(baseUrl, waitingToken);
-    liveSockets.push(aliceSocket, memberSocket, outsiderSocket);
+    const bobDirectSocket = await connectSocket(baseUrl, bob.body.token);
+    const charlieDirectSocket = await connectSocket(baseUrl, charlie.body.token);
+    liveSockets.push(aliceSocket, memberSocket, outsiderSocket, bobDirectSocket, charlieDirectSocket);
+
+    const bobPresenceHeartbeat = await emitSocketAck(bobDirectSocket, 'presence_heartbeat', {});
+    assert.equal(bobPresenceHeartbeat.success, true);
+    const aliceFriendsPresence = await request(baseUrl, '/api/friends', {}, alice.body.token);
+    const bobPresenceForAlice = aliceFriendsPresence.body.friends.find((friend) => friend.id === bob.body.user.id);
+    assert.equal(bobPresenceForAlice.online, true);
+    const bobFriendsPresence = await request(baseUrl, '/api/friends', {}, bob.body.token);
+    const alicePresenceForBob = bobFriendsPresence.body.friends.find((friend) => friend.id === alice.body.user.id);
+    assert.equal(alicePresenceForBob.online, true);
+    const unauthenticatedFriendsPresence = await request(baseUrl, '/api/friends');
+    assert.equal(unauthenticatedFriendsPresence.status, 401);
+
+    const aliceDirectJoin = await emitSocketAck(aliceSocket, 'join_direct_conversation', { conversationId });
+    const bobDirectJoin = await emitSocketAck(bobDirectSocket, 'join_direct_conversation', { conversationId });
+    const charlieDirectJoin = await emitSocketAck(charlieDirectSocket, 'join_direct_conversation', { conversationId });
+    assert.equal(aliceDirectJoin.success, true);
+    assert.equal(bobDirectJoin.success, true);
+    assert.equal(charlieDirectJoin.success, false);
+    const unauthorizedTyping = await emitSocketAck(charlieDirectSocket, 'direct_typing_start', { conversationId });
+    assert.equal(unauthorizedTyping.success, false);
+    const unauthorizedRead = await emitSocketAck(charlieDirectSocket, 'mark_direct_messages_read', { conversationId });
+    assert.equal(unauthorizedRead.success, false);
+
+    const typingStartDelivery = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Typing indicator was not delivered')), 5000);
+      bobDirectSocket.once('direct_typing', (event) => {
+        clearTimeout(timer);
+        resolve(event);
+      });
+    });
+    const typingStartAck = await emitSocketAck(aliceSocket, 'direct_typing_start', { conversationId });
+    assert.equal(typingStartAck.success, true);
+    const typingStartEvent = await typingStartDelivery;
+    assert.equal(typingStartEvent.userId, alice.body.user.id);
+    const typingStopDelivery = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Typing stop was not delivered')), 5000);
+      bobDirectSocket.once('direct_typing_stopped', (event) => {
+        clearTimeout(timer);
+        resolve(event);
+      });
+    });
+    const typingStopAck = await emitSocketAck(aliceSocket, 'direct_typing_stop', { conversationId });
+    assert.equal(typingStopAck.success, true);
+    assert.equal((await typingStopDelivery).conversationId, conversationId);
+
+    const privateRealtimeDelivery = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Private message was not delivered in real time')), 5000);
+      bobDirectSocket.once('receive_direct_message', (message) => {
+        clearTimeout(timer);
+        resolve(message);
+      });
+    });
+    const privateNotificationDelivery = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Private message notification was not delivered')), 5000);
+      bobDirectSocket.once('direct_message_notification', (notification) => {
+        clearTimeout(timer);
+        resolve(notification);
+      });
+    });
+    const privateSocketAck = await emitSocketAck(aliceSocket, 'send_direct_message', {
+      conversationId, body: 'Privado por Socket.IO'
+    });
+    assert.equal(privateSocketAck.success, true);
+    const privateRealtimeMessage = await privateRealtimeDelivery;
+    assert.equal(privateRealtimeMessage.body, 'Privado por Socket.IO');
+    assert.equal(privateRealtimeMessage.senderUsername, 'alice_test');
+
+    const readReceiptDelivery = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Private message read receipt was not delivered')), 5000);
+      aliceSocket.once('direct_messages_read', (event) => {
+        clearTimeout(timer);
+        resolve(event);
+      });
+    });
+    const markReadAck = await emitSocketAck(bobDirectSocket, 'mark_direct_messages_read', { conversationId });
+    assert.equal(markReadAck.success, true);
+    assert.equal(markReadAck.readCount, 1);
+    const readReceipt = await readReceiptDelivery;
+    assert.equal(readReceipt.readerId, bob.body.user.id);
+    assert.equal(readReceipt.throughMessageId, privateRealtimeMessage.id);
+
+    const privateNotification = await privateNotificationDelivery;
+    assert.equal(privateNotification.senderUsername, 'alice_test');
+    assert.equal(privateNotification.body, 'Privado por Socket.IO');
+    const bobMessageNotifications = await request(baseUrl, '/api/me/notifications', {}, bob.body.token);
+    assert.ok(bobMessageNotifications.body.notifications.some((item) => item.type === 'direct_message'));
+    assert.ok(bobMessageNotifications.body.unreadCount >= 1);
+    const invalidNotificationCursor = await request(baseUrl, '/api/me/notifications?before=not-a-cursor', {}, bob.body.token);
+    assert.equal(invalidNotificationCursor.status, 400);
+    const bobReadAllNotifications = await request(baseUrl, '/api/me/notifications/read-all', {
+      method: 'PUT'
+    }, bob.body.token);
+    assert.equal(bobReadAllNotifications.status, 200);
+    const bobNotificationsReadAll = await request(baseUrl, '/api/me/notifications', {}, bob.body.token);
+    assert.equal(bobNotificationsReadAll.body.unreadCount, 0);
+
+    const privateRestRealtimeDelivery = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('REST private message was not delivered to connected recipient')), 5000);
+      aliceSocket.once('receive_direct_message', (message) => {
+        clearTimeout(timer);
+        resolve(message);
+      });
+    });
+    const privateRestSend = await request(baseUrl, '/api/conversations/' + conversationId + '/messages', {
+      method: 'POST', body: { body: 'Privado por API' }
+    }, bob.body.token);
+    assert.equal(privateRestSend.status, 201);
+    const privateRestRealtimeMessage = await privateRestRealtimeDelivery;
+    assert.equal(privateRestRealtimeMessage.body, 'Privado por API');
+
+    const restReadReceiptDelivery = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('REST history read receipt was not delivered')), 5000);
+      bobDirectSocket.once('direct_messages_read', (event) => {
+        clearTimeout(timer);
+        resolve(event);
+      });
+    });
+    const aliceReadHistory = await request(baseUrl, '/api/conversations/' + conversationId + '/messages', {}, alice.body.token);
+    assert.equal(aliceReadHistory.status, 200);
+    const restReadReceipt = await restReadReceiptDelivery;
+    assert.equal(restReadReceipt.readerId, alice.body.user.id);
+    assert.equal(restReadReceipt.throughMessageId, privateRestRealtimeMessage.id);
+    assert.ok(aliceReadHistory.body.messages.find((message) => message.id === privateRestRealtimeMessage.id).readAt);
+
     const aliceRoomJoin = await emitSocketAck(aliceSocket, 'join_room', { roomId: room.body.room.id });
     const memberRoomJoin = await emitSocketAck(memberSocket, 'join_room', { roomId: room.body.room.id });
     assert.equal(aliceRoomJoin.success, true);
@@ -305,6 +563,36 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     const reloadedPost = await request(baseUrl, '/api/posts', {}, bob.body.token);
     assert.equal(reloadedPost.status, 200);
     assert.ok(reloadedPost.body.posts.some((item) => item.id === postId && item.likeCount === 1 && item.commentCount === 1));
+
+    const blockedBob = await request(baseUrl, '/api/users/bob_test/block', {
+      method: 'POST'
+    }, alice.body.token);
+    assert.equal(blockedBob.status, 201);
+    const aliceBlockedList = await request(baseUrl, '/api/me/blocked-users', {}, alice.body.token);
+    assert.equal(aliceBlockedList.body.users.some((user) => user.username === 'bob_test'), true);
+    const bobCannotSendFriendRequest = await request(baseUrl, '/api/friends/requests/alice_test', {
+      method: 'POST'
+    }, bob.body.token);
+    assert.equal(bobCannotSendFriendRequest.status, 403);
+    const bobCannotFollowAlice = await request(baseUrl, '/api/users/alice_test/follow', {
+      method: 'POST'
+    }, bob.body.token);
+    assert.equal(bobCannotFollowAlice.status, 403);
+    const formerFriendInbox = await request(baseUrl, '/api/me/conversations', {}, bob.body.token);
+    assert.equal(formerFriendInbox.status, 200);
+    assert.equal(formerFriendInbox.body.conversations.length, 0);
+    const formerFriendCannotReadPrivateHistory = await request(baseUrl,
+      '/api/conversations/' + conversationId + '/messages', {}, bob.body.token);
+    assert.equal(formerFriendCannotReadPrivateHistory.status, 403);
+    const formerFriendCannotSendPrivateMessage = await emitSocketAck(bobDirectSocket,
+      'send_direct_message', { conversationId, body: 'Ya no somos amigos.' });
+    assert.equal(formerFriendCannotSendPrivateMessage.success, false);
+    const unblockedBob = await request(baseUrl, '/api/users/bob_test/block', {
+      method: 'DELETE'
+    }, alice.body.token);
+    assert.equal(unblockedBob.status, 200);
+    const aliceBlockedListAfterUnblock = await request(baseUrl, '/api/me/blocked-users', {}, alice.body.token);
+    assert.equal(aliceBlockedListAfterUnblock.body.users.length, 0);
 
     const login = await request(baseUrl, '/api/login', {
       method: 'POST', body: { username: 'alice_test', password }

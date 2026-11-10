@@ -13,13 +13,27 @@ const User = require('./models/User');
 const Room = require('./models/Room');
 const RoomMessage = require('./models/RoomMessage');
 const Post = require('./models/Post');
+const SavedPost = require('./models/SavedPost');
 const Comment = require('./models/Comment');
 const Friendship = require('./models/Friendship');
+const Follow = require('./models/Follow');
+const Block = require('./models/Block');
+const Notification = require('./models/Notification');
+const UserPresence = require('./models/UserPresence');
+const LiveStream = require('./models/LiveStream');
+const Conversation = require('./models/Conversation');
+const DirectMessage = require('./models/DirectMessage');
+const Inventory = require('./models/Inventory');
+const TokenTransaction = require('./models/TokenTransaction');
+const MissionClaim = require('./models/MissionClaim');
+const { STORE_CATALOG } = require('./data/storeCatalog');
 const { requireAuth } = require('./middleware/auth');
 const { attachSocketServer } = require('./socket');
+const { createLiveKitApi, createParticipantToken, createRoomName, createWebhookReceiver, getLiveKitConfig } = require('./services/livekit');
 
 const app = express();
-// Render forwards the original client address through one trusted proxy hop.
+// Render terminates the public connection in one trusted proxy hop.
+// Keep the hop count explicit so express-rate-limit can safely read client IPs.
 app.set('trust proxy', 1);
 const httpServer = http.createServer(app);
 const PORT = Number(process.env.PORT) || 3000;
@@ -27,6 +41,7 @@ const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
+const liveKitConfigForCsp = getLiveKitConfig();
 
 if (!process.env.MONGODB_URI) {
   throw new Error('MONGODB_URI is required. Copy .env.example to .env and configure it.');
@@ -45,7 +60,7 @@ app.use(helmet({
       styleSrcAttr: ["'unsafe-inline'"],
       fontSrc: ["'self'", 'https://cdnjs.cloudflare.com', 'https://fonts.gstatic.com', 'data:'],
       imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'", 'https://playverse-api-bgyg.onrender.com', 'wss://playverse-api-bgyg.onrender.com']
+      connectSrc: ["'self'", 'https://playverse-api-bgyg.onrender.com', 'wss://playverse-api-bgyg.onrender.com', ...(liveKitConfigForCsp ? [liveKitConfigForCsp.clientUrl] : [])]
     }
   }
 }));
@@ -57,6 +72,32 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// LiveKit signs webhook requests; preserve the raw body for signature verification.
+app.post('/api/webhooks/livekit', express.raw({ type: 'application/webhook+json', limit: '1mb' }), async (req, res) => {
+  const config = getLiveKitConfig();
+  if (!config) return res.status(503).json({ success: false, message: 'LiveKit no está configurado.' });
+  let event;
+  try {
+    const receiver = createWebhookReceiver(config);
+    event = await receiver.receive(req.body, req.get('Authorization'));
+  } catch {
+    return res.status(401).json({ success: false, message: 'Firma de webhook inválida.' });
+  }
+  try {
+    if (event.event === 'room_finished' && event.room && event.room.name) {
+      await LiveStream.updateOne(
+        { roomName: event.room.name, status: 'live' },
+        { $set: { status: 'ended', endedAt: new Date() } }
+      );
+    }
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Unable to process LiveKit webhook:', error.message);
+    return res.status(500).json({ success: false, message: 'No se pudo procesar el evento de LiveKit.' });
+  }
+});
+
 app.use(express.json({ limit: '20kb' }));
 
 const webRoot = path.join(__dirname, '..', 'www');
@@ -87,6 +128,14 @@ const profileLimiter = rateLimit({
   message: { success: false, message: 'Actualizaste tu perfil demasiadas veces. Probá más tarde.' }
 });
 
+const storeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 12,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, message: 'Demasiadas operaciones de tienda. Probá en un minuto.' }
+});
+
 const friendshipLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
@@ -95,9 +144,36 @@ const friendshipLimiter = rateLimit({
   message: { success: false, message: 'Hiciste demasiadas acciones de amistad. Probá más tarde.' }
 });
 
+const streamLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, message: 'Demasiadas operaciones de streaming. Probá en un minuto.' }
+});
+
+const directMessageLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, message: 'Enviaste demasiados mensajes. Probá en un minuto.' }
+});
+
 function makeFriendshipPairKey(firstId, secondId) {
   return [String(firstId), String(secondId)].sort().join(':');
 }
+
+async function createNotification({ recipient, actor = null, type, title, body = '', entityId = null }) {
+  if (!recipient || (actor && String(recipient) === String(actor))) return null;
+  try {
+    return await Notification.create({ recipient, actor, type, title, body, entityId });
+  } catch (notificationError) {
+    console.error('Unable to persist account notification:', notificationError.message);
+    return null;
+  }
+}
+
 
 function issueToken(user) {
   return jwt.sign(
@@ -126,6 +202,150 @@ app.get('/api/health/ready', (req, res) => {
     service: 'PLAYVERSE API',
     status: ready ? 'ready' : 'database-disconnected'
   });
+});
+
+app.get('/api/streams', async (req, res, next) => {
+  try {
+    const streams = await LiveStream.find({ status: 'live' })
+      .sort({ startedAt: -1 }).limit(50)
+      .select('ownerUsername title description startedAt').lean();
+    return res.json({
+      success: true,
+      streamingEnabled: Boolean(getLiveKitConfig()),
+      streams: streams.map((stream) => ({
+        id: String(stream._id),
+        creator: stream.ownerUsername,
+        title: stream.title,
+        description: stream.description,
+        startedAt: stream.startedAt
+      }))
+    });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) => {
+  const config = getLiveKitConfig();
+  if (!config) return res.status(503).json({
+    success: false,
+    code: 'LIVE_STREAMING_NOT_CONFIGURED',
+    message: 'La transmisión en vivo todavía no está configurada en el servidor.'
+  });
+  try {
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const title = typeof body.title === 'string' ? body.title.trim() : '';
+    const description = typeof body.description === 'string' ? body.description.trim() : '';
+    if (!title || title.length > 100 || description.length > 500) {
+      return res.status(400).json({ success: false, message: 'El título es obligatorio (máximo 100 caracteres) y la descripción admite hasta 500.' });
+    }
+    const existingStream = await LiveStream.findOne({ owner: req.auth.sub, status: 'live' }).select('_id title').lean();
+    if (existingStream) return res.status(409).json({
+      success: false,
+      code: 'ACTIVE_STREAM_EXISTS',
+      message: 'Ya tenés una transmisión activa. Finalizala antes de iniciar otra.',
+      streamId: String(existingStream._id)
+    });
+    const user = await User.findById(req.auth.sub).select('username').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    const roomName = createRoomName();
+    const liveKit = createLiveKitApi(config);
+    const session = await LiveStream.create({
+      owner: req.auth.sub,
+      ownerUsername: user.username,
+      title,
+      description,
+      roomName,
+      status: 'live'
+    });
+    try {
+      await liveKit.room.createRoom({ name: roomName, emptyTimeout: 60, maxParticipants: 100 });
+      const identity = String(req.auth.sub) + ':' + require('node:crypto').randomUUID();
+      const token = await createParticipantToken({
+        config,
+        identity,
+        name: user.username,
+        metadata: { userId: String(req.auth.sub), username: user.username, role: 'publisher', streamId: String(session._id) },
+        roomName,
+        canPublish: true
+      });
+      return res.status(201).json({
+        success: true,
+        stream: { id: String(session._id), title: session.title, description: session.description, status: session.status, startedAt: session.startedAt },
+        liveKit: { url: config.clientUrl, token, role: 'publisher', expiresInSeconds: 600 }
+      });
+    } catch (error) {
+      await LiveStream.deleteOne({ _id: session._id });
+      try { await liveKit.room.deleteRoom(roomName); } catch {}
+      throw error;
+    }
+  } catch (error) {
+    if (error && error.code === 11000) return res.status(409).json({
+      success: false,
+      code: 'ACTIVE_STREAM_EXISTS',
+      message: 'Ya tenés una transmisión activa. Finalizala antes de iniciar otra.'
+    });
+    return next(error);
+  }
+});
+
+app.post('/api/streams/:streamId/token', requireAuth, streamLimiter, async (req, res, next) => {
+  const config = getLiveKitConfig();
+  if (!config) return res.status(503).json({
+    success: false,
+    code: 'LIVE_STREAMING_NOT_CONFIGURED',
+    message: 'La transmisión en vivo todavía no está configurada en el servidor.'
+  });
+  try {
+    if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
+    const session = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).lean();
+    if (!session) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
+    const isOwner = String(session.owner) === String(req.auth.sub);
+    if (!isOwner) {
+      const blocked = await Block.exists({
+        $or: [
+          { blocker: req.auth.sub, blocked: session.owner },
+          { blocker: session.owner, blocked: req.auth.sub }
+        ]
+      });
+      if (blocked) return res.status(403).json({ success: false, code: 'STREAM_ACCESS_BLOCKED', message: 'No podés acceder a esta transmisión.' });
+    }
+    const user = await User.findById(req.auth.sub).select('username').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    const identity = String(req.auth.sub) + ':' + require('node:crypto').randomUUID();
+    const role = isOwner ? 'publisher' : 'viewer';
+    const token = await createParticipantToken({
+      config,
+      identity,
+      name: user.username,
+      metadata: { userId: String(req.auth.sub), username: user.username, role, streamId: String(session._id) },
+      roomName: session.roomName,
+      canPublish: isOwner
+    });
+    return res.json({
+      success: true,
+      stream: { id: String(session._id), title: session.title, creator: session.ownerUsername, status: session.status },
+      liveKit: { url: config.clientUrl, token, role, expiresInSeconds: 600 }
+    });
+  } catch (error) { return next(error); }
+});
+
+app.delete('/api/me/streams/:streamId', requireAuth, streamLimiter, async (req, res, next) => {
+  const config = getLiveKitConfig();
+  if (!config) return res.status(503).json({
+    success: false,
+    code: 'LIVE_STREAMING_NOT_CONFIGURED',
+    message: 'La transmisión en vivo todavía no está configurada en el servidor.'
+  });
+  try {
+    if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
+    const session = await LiveStream.findOne({ _id: req.params.streamId, owner: req.auth.sub, status: 'live' });
+    if (!session) return res.status(404).json({ success: false, message: 'No se encontró una transmisión activa propia.' });
+    const liveKit = createLiveKitApi(config);
+    await liveKit.room.deleteRoom(session.roomName);
+    session.status = 'ended';
+    session.endedAt = new Date();
+    await session.save();
+    return res.json({ success: true, stream: { id: String(session._id), status: session.status, endedAt: session.endedAt } });
+  } catch (error) { return next(error); }
 });
 
 app.post('/api/register', authLimiter, async (req, res, next) => {
@@ -198,6 +418,233 @@ app.get('/api/me', requireAuth, async (req, res, next) => {
       avatarUrl: user.avatarUrl || '',
       createdAt: user.createdAt
     } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/api/me/notifications', requireAuth, async (req, res, next) => {
+  try {
+    const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
+      return res.status(400).json({ success: false, message: 'El límite debe ser un número entero entre 1 y 50.' });
+    }
+    const filter = { recipient: req.auth.sub };
+    if (typeof req.query.before === 'string' && req.query.before) {
+      if (req.query.before.length > 256) {
+        return res.status(400).json({ success: false, message: 'Cursor de notificaciones inválido.' });
+      }
+      let cursor;
+      try {
+        cursor = JSON.parse(Buffer.from(req.query.before, 'base64url').toString('utf8'));
+      } catch {
+        return res.status(400).json({ success: false, message: 'Cursor de notificaciones inválido.' });
+      }
+      const cursorDate = cursor && typeof cursor.createdAt === 'string' ? new Date(cursor.createdAt) : null;
+      if (!cursor || !mongoose.isValidObjectId(cursor.id) || !cursorDate ||
+          !Number.isFinite(cursorDate.getTime()) || cursorDate.toISOString() !== cursor.createdAt) {
+        return res.status(400).json({ success: false, message: 'Cursor de notificaciones inválido.' });
+      }
+      filter.$or = [
+        { createdAt: { $lt: cursorDate } },
+        { createdAt: cursorDate, _id: { $lt: new mongoose.Types.ObjectId(cursor.id) } }
+      ];
+    }
+    const [records, unreadCount] = await Promise.all([
+      Notification.find(filter)
+        .populate('actor', 'username displayName avatarUrl')
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(limit + 1)
+        .lean(),
+      Notification.countDocuments({ recipient: req.auth.sub, readAt: null })
+    ]);
+    const hasMore = records.length > limit;
+    const notifications = records.slice(0, limit);
+    const last = notifications[notifications.length - 1];
+    return res.json({
+      success: true,
+      notifications: notifications.map((record) => ({
+        id: String(record._id),
+        type: record.type,
+        title: record.title,
+        body: record.body,
+        actor: record.actor ? {
+          id: String(record.actor._id),
+          username: record.actor.username,
+          displayName: record.actor.displayName || '',
+          avatarUrl: record.actor.avatarUrl || ''
+        } : null,
+        entityId: record.entityId ? String(record.entityId) : null,
+        readAt: record.readAt,
+        createdAt: record.createdAt
+      })),
+      unreadCount,
+      page: {
+        limit,
+        hasMore,
+        nextCursor: hasMore && last ? Buffer.from(JSON.stringify({
+          createdAt: last.createdAt.toISOString(),
+          id: String(last._id)
+        })).toString('base64url') : null
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.put('/api/me/notifications/read-all', requireAuth, async (req, res, next) => {
+  try {
+    const result = await Notification.updateMany(
+      { recipient: req.auth.sub, readAt: null },
+      { $set: { readAt: new Date() } }
+    );
+    return res.json({ success: true, modifiedCount: result.modifiedCount });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.put('/api/me/notifications/:notificationId/read', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.notificationId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de notificación inválido.' });
+    }
+    const notification = await Notification.findOneAndUpdate(
+      { _id: req.params.notificationId, recipient: req.auth.sub, readAt: null },
+      { $set: { readAt: new Date() } },
+      { new: true }
+    ).select('_id readAt').lean();
+    if (!notification) {
+      const exists = await Notification.exists({ _id: req.params.notificationId, recipient: req.auth.sub });
+      return res.status(exists ? 200 : 404).json({
+        success: Boolean(exists),
+        alreadyRead: Boolean(exists),
+        message: exists ? 'La notificación ya estaba leída.' : 'Notificación no encontrada.'
+      });
+    }
+    return res.json({ success: true, notification: { id: String(notification._id), readAt: notification.readAt } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/api/me/profile-summary', requireAuth, async (req, res, next) => {
+  try {
+    const userId = req.auth.sub;
+    const [postCount, roomCount, messageCount, savedPostCount, friendCount, followersCount, followingCount] = await Promise.all([
+      Post.countDocuments({ author: userId }),
+      Room.countDocuments({ owner: userId }),
+      RoomMessage.countDocuments({ author: userId }),
+      SavedPost.countDocuments({ user: userId }),
+      Friendship.countDocuments({
+        status: 'accepted',
+        $or: [{ requester: userId }, { recipient: userId }]
+      }),
+      Follow.countDocuments({ following: userId }),
+      Follow.countDocuments({ follower: userId })
+    ]);
+
+    return res.json({
+      success: true,
+      stats: {
+        posts: postCount,
+        roomsCreated: roomCount,
+        roomMessages: messageCount,
+        savedPosts: savedPostCount,
+        friends: friendCount,
+        followers: followersCount,
+        following: followingCount,
+        views: null,
+        experience: null
+      },
+      availability: {
+        views: 'El seguimiento de visualizaciones todavía no está implementado.',
+        experience: 'El sistema de niveles y experiencia todavía no está implementado.'
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+
+const ACTIVITY_SOURCES = [
+  { model: Post, type: 'post', dateField: 'createdAt', filter: (userId) => ({ author: userId }), title: 'Publicaste en la comunidad', description: 'Nueva publicación' },
+  { model: Room, type: 'room', dateField: 'createdAt', filter: (userId) => ({ owner: userId }), title: 'Creaste una sala', description: 'Nueva sala de juego' },
+  { model: RoomMessage, type: 'room_message', dateField: 'sentAt', filter: (userId) => ({ author: userId }), title: 'Participaste en el chat de una sala', description: 'Mensaje en sala' },
+  { model: Comment, type: 'comment', dateField: 'createdAt', filter: (userId) => ({ author: userId }), title: 'Comentaste una publicación', description: 'Nuevo comentario' },
+  { model: SavedPost, type: 'saved_post', dateField: 'createdAt', filter: (userId) => ({ user: userId }), title: 'Guardaste una publicación', description: 'Publicación guardada' }
+];
+
+function encodeActivityCursor(createdAt, id) {
+  return Buffer.from(JSON.stringify({ at: createdAt.toISOString(), id: String(id) })).toString('base64url');
+}
+
+function decodeActivityCursor(cursor) {
+  if (!cursor) return null;
+  try {
+    const decoded = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+    const at = new Date(decoded.at);
+    if (!decoded || typeof decoded.id !== 'string' || !mongoose.isValidObjectId(decoded.id)
+      || !Number.isFinite(at.getTime()) || at.toISOString() !== decoded.at) return false;
+    return { at, id: new mongoose.Types.ObjectId(decoded.id) };
+  } catch {
+    return false;
+  }
+}
+
+app.get('/api/me/activity', requireAuth, async (req, res, next) => {
+  try {
+    const parsedLimit = req.query.limit === undefined ? 20 : Number(req.query.limit);
+    if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 50) {
+      return res.status(400).json({ success: false, message: 'El límite debe ser un número entero entre 1 y 50.' });
+    }
+    const cursor = decodeActivityCursor(req.query.cursor);
+    if (cursor === false) {
+      return res.status(400).json({ success: false, message: 'El cursor de actividad no es válido.' });
+    }
+
+    const batches = await Promise.all(ACTIVITY_SOURCES.map(async (source) => {
+      const query = source.filter(req.auth.sub);
+      if (cursor) {
+        query.$or = [
+          { [source.dateField]: { $lt: cursor.at } },
+          { [source.dateField]: cursor.at, _id: { $lt: cursor.id } }
+        ];
+      }
+      return source.model.find(query)
+        .select('_id ' + source.dateField)
+        .sort({ [source.dateField]: -1, _id: -1 })
+        .limit(parsedLimit + 1)
+        .lean()
+        .then((records) => records.map((record) => ({
+          id: String(record._id),
+          type: source.type,
+          title: source.title,
+          description: source.description,
+          entityId: String(record._id),
+          createdAt: record[source.dateField]
+        })));
+    }));
+
+    const activities = batches.flat()
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id.localeCompare(a.id))
+      .slice(0, parsedLimit);
+    const hasMore = batches.some((batch) => batch.length > parsedLimit)
+      || batches.flat().length > parsedLimit;
+    const last = activities[activities.length - 1];
+    return res.json({
+      success: true,
+      activities,
+      page: {
+        limit: parsedLimit,
+        hasMore,
+        nextCursor: hasMore && last ? encodeActivityCursor(last.createdAt, last.id) : null
+      },
+      source: 'persisted-user-records',
+      note: 'El historial refleja registros reales existentes; no genera actividad retrospectiva.'
+    });
   } catch (error) {
     return next(error);
   }
@@ -333,6 +780,327 @@ app.put('/api/me/streaming-preferences', requireAuth, profileLimiter, async (req
 });
 
 
+
+const DEFAULT_APP_PREFERENCES = {
+  reduceMotion: false,
+  highContrast: false
+};
+
+const APP_PREFERENCE_RULES = {
+  reduceMotion: (value) => typeof value === 'boolean',
+  highContrast: (value) => typeof value === 'boolean'
+};
+
+app.get('/api/me/app-preferences', requireAuth, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.auth.sub).select('appPreferences').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    return res.json({
+      success: true,
+      preferences: { ...DEFAULT_APP_PREFERENCES, ...(user.appPreferences || {}) }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.put('/api/me/app-preferences', requireAuth, profileLimiter, async (req, res, next) => {
+  try {
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ success: false, message: 'Preferencias de aplicación inválidas.' });
+    }
+    const keys = Object.keys(req.body);
+    if (!keys.length || keys.some((key) => !Object.prototype.hasOwnProperty.call(APP_PREFERENCE_RULES, key))) {
+      return res.status(400).json({ success: false, message: 'Hay preferencias desconocidas o no válidas.' });
+    }
+    for (const key of keys) {
+      if (!APP_PREFERENCE_RULES[key](req.body[key])) {
+        return res.status(400).json({ success: false, message: 'Valor no válido para la opción: ' + key + '.' });
+      }
+    }
+    const updates = {};
+    keys.forEach((key) => { updates['appPreferences.' + key] = req.body[key]; });
+    const user = await User.findByIdAndUpdate(
+      req.auth.sub,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).select('appPreferences').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    return res.json({
+      success: true,
+      preferences: { ...DEFAULT_APP_PREFERENCES, ...(user.appPreferences || {}) }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+
+app.get('/api/store/catalog', requireAuth, (req, res) => {
+  return res.json({
+    success: true,
+    items: STORE_CATALOG.map(({ id, name, category, description, priceTokens, rarity, animation, assetKey }) => ({
+      id, name, category, description, priceTokens, rarity, animation, assetKey
+    }))
+  });
+});
+
+app.get('/api/me/inventory', requireAuth, async (req, res, next) => {
+  try {
+    const [user, records] = await Promise.all([
+      User.findById(req.auth.sub).select('walletTokens activeAvatarFrame activeStreamOverlay').lean(),
+      Inventory.find({ user: req.auth.sub }).sort({ acquiredAt: -1 }).lean()
+    ]);
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    const items = records.map((record) => {
+      const product = STORE_CATALOG.find((entry) => entry.id === record.itemId);
+      return product ? { ...product, quantity: record.quantity || 1, acquiredAt: record.acquiredAt, equipped: record.equipped === true } : null;
+    }).filter(Boolean);
+    return res.json({
+      success: true,
+      wallet: { tokens: user.walletTokens || 0 },
+      equipped: { avatarFrame: user.activeAvatarFrame || null, streamOverlay: user.activeStreamOverlay || null },
+      items
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+
+app.get('/api/me/wallet/transactions', requireAuth, async (req, res, next) => {
+  try {
+    const records = await TokenTransaction.find({ user: req.auth.sub })
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(50)
+      .lean();
+    const transactions = records.map((record) => {
+      const item = STORE_CATALOG.find((entry) => entry.id === record.itemId);
+      const missionId = typeof record.itemId === 'string' && record.itemId.startsWith('mission:') ? record.itemId.slice(8) : null;
+      const mission = missionId ? MISSION_CATALOG.find((entry) => entry.id === missionId) : null;
+      return {
+        id: String(record._id),
+        type: record.type,
+        amount: record.amount,
+        itemName: mission ? 'Misión: ' + mission.title : (item ? item.name : null),
+        balanceAfter: record.balanceAfter,
+        createdAt: record.createdAt
+      };
+    });
+    return res.json({ success: true, transactions });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next) => {
+  const itemId = typeof req.body.itemId === 'string' ? req.body.itemId : '';
+  const product = STORE_CATALOG.find((entry) => entry.id === itemId);
+  if (!product) return res.status(404).json({ success: false, message: 'Artículo no encontrado.' });
+
+  const session = await mongoose.startSession();
+  let result;
+  try {
+    await session.withTransaction(async () => {
+      const existing = await Inventory.findOne({ user: req.auth.sub, itemId }).session(session);
+      if (existing && product.category !== 'stream-gift') {
+        result = { error: 'ALREADY_OWNED' };
+        return;
+      }
+
+      const user = await User.findOneAndUpdate(
+        { _id: req.auth.sub, walletTokens: { $gte: product.priceTokens } },
+        { $inc: { walletTokens: -product.priceTokens } },
+        { new: true, session }
+      ).select('walletTokens');
+      if (!user) {
+        result = { error: 'INSUFFICIENT_TOKENS' };
+        return;
+      }
+
+      if (product.category === 'stream-gift') {
+        await Inventory.findOneAndUpdate(
+          { user: req.auth.sub, itemId },
+          { $inc: { quantity: 1 }, $setOnInsert: { user: req.auth.sub, itemId, acquiredAt: new Date(), equipped: false } },
+          { upsert: true, new: true, session, setDefaultsOnInsert: true }
+        );
+      } else {
+        await Inventory.create([{ user: req.auth.sub, itemId, quantity: 1 }], { session });
+      }
+      await TokenTransaction.create([{
+        user: req.auth.sub,
+        type: 'purchase',
+        amount: -product.priceTokens,
+        itemId,
+        balanceAfter: user.walletTokens
+      }], { session });
+      result = { walletTokens: user.walletTokens };
+    });
+    if (result && result.error === 'ALREADY_OWNED') {
+      return res.status(409).json({ success: false, message: 'Ya tenés este artículo en tu inventario.' });
+    }
+    if (result && result.error === 'INSUFFICIENT_TOKENS') {
+      return res.status(409).json({ success: false, message: 'No tenés Tokens suficientes. Tu saldo no fue modificado.' });
+    }
+    return res.status(201).json({ success: true, message: 'Compra registrada.', wallet: { tokens: result.walletTokens } });
+  } catch (error) {
+    return next(error);
+  } finally {
+    await session.endSession();
+  }
+});
+
+app.put('/api/me/inventory/:itemId/equip', requireAuth, storeLimiter, async (req, res, next) => {
+  try {
+    const product = STORE_CATALOG.find((entry) => entry.id === req.params.itemId);
+    if (!product || !['avatar-frame', 'stream-overlay'].includes(product.category)) {
+      return res.status(400).json({ success: false, message: 'Este artículo no se puede equipar.' });
+    }
+    const owned = await Inventory.exists({ user: req.auth.sub, itemId: product.id });
+    if (!owned) return res.status(404).json({ success: false, message: 'Primero tenés que adquirir este artículo.' });
+
+    const field = product.category === 'avatar-frame' ? 'activeAvatarFrame' : 'activeStreamOverlay';
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await Inventory.updateMany(
+          { user: req.auth.sub, itemId: { $in: STORE_CATALOG.filter((item) => item.category === product.category).map((item) => item.id) } },
+          { $set: { equipped: false } },
+          { session }
+        );
+        await Inventory.updateOne({ user: req.auth.sub, itemId: product.id }, { $set: { equipped: true } }, { session });
+        await User.updateOne({ _id: req.auth.sub }, { $set: { [field]: product.id } }, { session });
+      });
+    } finally {
+      await session.endSession();
+    }
+    return res.json({ success: true, equipped: product.id, category: product.category });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/api/me/followers', requireAuth, async (req, res, next) => {
+  try {
+    const records = await Follow.find({ following: req.auth.sub })
+      .populate('follower', 'username displayName avatarUrl')
+      .sort({ createdAt: -1, _id: -1 }).limit(100).lean();
+    return res.json({ success: true, users: records.filter((item) => item.follower).map((item) => ({
+      id: String(item.follower._id), username: item.follower.username,
+      displayName: item.follower.displayName || '', avatarUrl: item.follower.avatarUrl || '',
+      followedAt: item.createdAt
+    })) });
+  } catch (error) { return next(error); }
+});
+
+app.get('/api/me/following', requireAuth, async (req, res, next) => {
+  try {
+    const records = await Follow.find({ follower: req.auth.sub })
+      .populate('following', 'username displayName avatarUrl')
+      .sort({ createdAt: -1, _id: -1 }).limit(100).lean();
+    return res.json({ success: true, users: records.filter((item) => item.following).map((item) => ({
+      id: String(item.following._id), username: item.following.username,
+      displayName: item.following.displayName || '', avatarUrl: item.following.avatarUrl || '',
+      followedAt: item.createdAt
+    })) });
+  } catch (error) { return next(error); }
+});
+
+
+app.get('/api/me/blocked-users', requireAuth, async (req, res, next) => {
+  try {
+    const records = await Block.find({ blocker: req.auth.sub })
+      .populate('blocked', 'username displayName avatarUrl')
+      .sort({ createdAt: -1, _id: -1 }).limit(200).lean();
+    return res.json({ success: true, users: records.filter((record) => record.blocked).map((record) => ({
+      id: String(record.blocked._id),
+      username: record.blocked.username,
+      displayName: record.blocked.displayName || '',
+      avatarUrl: record.blocked.avatarUrl || '',
+      blockedAt: record.createdAt
+    })) });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/users/:username/block', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
+    const target = await User.findOne({ username }).select('_id').lean();
+    if (!target) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    if (String(target._id) === req.auth.sub) return res.status(400).json({ success: false, message: 'No podés bloquear tu propia cuenta.' });
+    try {
+      await Block.create({ blocker: req.auth.sub, blocked: target._id });
+    } catch (error) {
+      if (error && error.code === 11000) return res.status(409).json({ success: false, message: 'Ya bloqueaste a este jugador.' });
+      throw error;
+    }
+    const pairKey = makeFriendshipPairKey(req.auth.sub, target._id);
+    await Promise.all([
+      Friendship.deleteOne({ pairKey }),
+      Follow.deleteMany({
+        $or: [
+          { follower: req.auth.sub, following: target._id },
+          { follower: target._id, following: req.auth.sub }
+        ]
+      })
+    ]);
+    return res.status(201).json({ success: true, blocked: true, username });
+  } catch (error) { return next(error); }
+});
+
+app.delete('/api/users/:username/block', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
+    const target = await User.findOne({ username }).select('_id username').lean();
+    if (!target) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    const result = await Block.deleteOne({ blocker: req.auth.sub, blocked: target._id });
+    if (!result.deletedCount) return res.status(404).json({ success: false, message: 'Ese jugador no está en tu lista de bloqueados.' });
+    return res.json({ success: true, blocked: false, username: target.username });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/users/:username/follow', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
+    const target = await User.findOne({ username }).select('_id username').lean();
+    if (!target) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    if (String(target._id) === req.auth.sub) {
+      return res.status(400).json({ success: false, message: 'No podés seguirte a vos mismo.' });
+    }
+    if (await hasBlockBetween(req.auth.sub, target._id)) {
+      return res.status(403).json({ success: false, message: 'No podés seguir a un jugador bloqueado.' });
+    }
+    try {
+      await Follow.create({ follower: req.auth.sub, following: target._id });
+    } catch (error) {
+      if (error && error.code === 11000) {
+        return res.status(409).json({ success: false, message: 'Ya seguís a este jugador.' });
+      }
+      throw error;
+    }
+    const [followersCount, followingCount] = await Promise.all([
+      Follow.countDocuments({ following: target._id }),
+      Follow.countDocuments({ follower: target._id })
+    ]);
+    return res.status(201).json({ success: true, following: true, followersCount, followingCount });
+  } catch (error) { return next(error); }
+});
+
+app.delete('/api/users/:username/follow', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
+    const target = await User.findOne({ username }).select('_id').lean();
+    if (!target) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    const result = await Follow.deleteOne({ follower: req.auth.sub, following: target._id });
+    if (!result.deletedCount) return res.status(404).json({ success: false, message: 'No seguís a este jugador.' });
+    const [followersCount, followingCount] = await Promise.all([
+      Follow.countDocuments({ following: target._id }),
+      Follow.countDocuments({ follower: target._id })
+    ]);
+    return res.json({ success: true, following: false, followersCount, followingCount });
+  } catch (error) { return next(error); }
+});
+
 app.get('/api/users/:username', requireAuth, async (req, res, next) => {
   try {
     const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
@@ -340,13 +1108,22 @@ app.get('/api/users/:username', requireAuth, async (req, res, next) => {
       .select('username displayName bio avatarUrl createdAt')
       .lean();
     if (!user) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
-    const [postCount, friendship] = await Promise.all([
+    const [postCount, friendship, followersCount, followingCount, followRecord, blockedRecord] = await Promise.all([
       Post.countDocuments({ author: user._id }),
       Friendship.findOne({
         pairKey: makeFriendshipPairKey(req.auth.sub, user._id)
-      }).select('status requester recipient').lean()
+      }).select('status requester recipient').lean(),
+      Follow.countDocuments({ following: user._id }),
+      Follow.countDocuments({ follower: user._id }),
+      Follow.exists({ follower: req.auth.sub, following: user._id }),
+      Block.exists({ $or: [
+        { blocker: req.auth.sub, blocked: user._id },
+        { blocker: user._id, blocked: req.auth.sub }
+      ] })
     ]);
+    const isBlocked = String(user._id) !== req.auth.sub && Boolean(blockedRecord);
     const relation = String(user._id) === req.auth.sub ? 'self'
+      : isBlocked ? 'blocked'
       : !friendship ? 'none'
       : friendship.status === 'accepted' ? 'friends'
       : String(friendship.requester) === req.auth.sub ? 'outgoing_pending'
@@ -359,7 +1136,11 @@ app.get('/api/users/:username', requireAuth, async (req, res, next) => {
       avatarUrl: user.avatarUrl || '',
       createdAt: user.createdAt,
       postCount,
-      friendship: relation
+      followersCount,
+      followingCount,
+      isFollowing: Boolean(followRecord) && !isBlocked,
+      friendship: relation,
+      isBlocked
     } });
   } catch (error) {
     return next(error);
@@ -378,6 +1159,20 @@ app.get('/api/friends', requireAuth, async (req, res, next) => {
       .limit(100)
       .lean();
 
+    const acceptedFriendIds = records
+      .filter((record) => record.status === 'accepted')
+      .map((record) => {
+        const requesterId = record.requester && record.requester._id ? String(record.requester._id) : null;
+        const recipientId = record.recipient && record.recipient._id ? String(record.recipient._id) : null;
+        if (!requesterId || !recipientId) return null;
+        return requesterId === userId ? recipientId : requesterId;
+      })
+      .filter(Boolean);
+    const onlineUserIds = await UserPresence.distinct('user', {
+      user: { $in: acceptedFriendIds },
+      expiresAt: { $gt: new Date() }
+    });
+    const onlineUsers = new Set(onlineUserIds.map(String));
     const friends = [];
     const incomingRequests = [];
     const outgoingRequests = [];
@@ -390,7 +1185,8 @@ app.get('/api/friends', requireAuth, async (req, res, next) => {
         id: String(other._id),
         username: other.username,
         displayName: other.displayName || '',
-        avatarUrl: other.avatarUrl || ''
+        avatarUrl: other.avatarUrl || '',
+        ...(record.status === 'accepted' ? { online: onlineUsers.has(String(other._id)) } : {})
       };
       if (record.status === 'accepted') {
         friends.push({ ...person, friendshipId: String(record._id) });
@@ -414,6 +1210,9 @@ app.post('/api/friends/requests/:username', requireAuth, friendshipLimiter, asyn
     if (String(target._id) === req.auth.sub) {
       return res.status(400).json({ success: false, message: 'No podés enviarte una solicitud a vos mismo.' });
     }
+    if (await hasBlockBetween(req.auth.sub, target._id)) {
+      return res.status(403).json({ success: false, message: 'No podés enviar solicitudes a un jugador bloqueado.' });
+    }
 
     const pairKey = makeFriendshipPairKey(req.auth.sub, target._id);
     const existing = await Friendship.findOne({ pairKey });
@@ -427,6 +1226,14 @@ app.post('/api/friends/requests/:username', requireAuth, friendshipLimiter, asyn
       existing.status = 'accepted';
       existing.updatedAt = new Date();
       await existing.save();
+      await createNotification({
+        recipient: existing.requester,
+        actor: req.auth.sub,
+        type: 'friend_accepted',
+        title: 'Solicitud de amistad aceptada',
+        body: '@' + req.auth.username + ' aceptó tu solicitud.',
+        entityId: existing._id
+      });
       return res.json({ success: true, status: 'accepted', message: 'La solicitud pendiente quedó aceptada.' });
     }
 
@@ -434,6 +1241,14 @@ app.post('/api/friends/requests/:username', requireAuth, friendshipLimiter, asyn
       pairKey,
       requester: req.auth.sub,
       recipient: target._id
+    });
+    await createNotification({
+      recipient: target._id,
+      actor: req.auth.sub,
+      type: 'friend_request',
+      title: 'Nueva solicitud de amistad',
+      body: '@' + req.auth.username + ' quiere agregarte como amigo.',
+      entityId: friendship._id
     });
     return res.status(201).json({
       success: true,
@@ -466,6 +1281,14 @@ app.put('/api/friends/requests/:friendshipId/accept', requireAuth, friendshipLim
         message: exists ? 'No podés aceptar esta solicitud o ya fue procesada.' : 'Solicitud no encontrada.'
       });
     }
+    await createNotification({
+      recipient: friendship.requester,
+      actor: req.auth.sub,
+      type: 'friend_accepted',
+      title: 'Solicitud de amistad aceptada',
+      body: '@' + req.auth.username + ' aceptó tu solicitud.',
+      entityId: friendship._id
+    });
     return res.json({ success: true, status: 'accepted', friendshipId: String(friendship._id) });
   } catch (error) {
     return next(error);
@@ -494,6 +1317,238 @@ const postLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { success: false, message: 'Publicaste demasiado rápido. Probá más tarde.' }
+});
+
+const MISSION_CATALOG = [
+  { id: 'welcome-post-1', chapter: 'Primeros pasos', title: 'Tu voz en PLAYVERSE', description: 'Publicá tu primera idea, captura o presentación para que la comunidad te conozca.', metric: 'posts', target: 1, rewardTokens: 10 },
+  { id: 'welcome-post-3', chapter: 'Primeros pasos', title: 'Creador en movimiento', description: 'Compartí tres publicaciones diferentes y empezá a construir tu perfil.', metric: 'posts', target: 3, rewardTokens: 15 },
+  { id: 'welcome-friend-1', chapter: 'Primeros pasos', title: 'Tu primera conexión', description: 'Aceptá o conseguí tu primera amistad dentro de PLAYVERSE.', metric: 'friends', target: 1, rewardTokens: 10 },
+  { id: 'welcome-message-1', chapter: 'Primeros pasos', title: 'Romper el hielo', description: 'Mandá tu primer mensaje privado a una amistad.', metric: 'directMessages', target: 1, rewardTokens: 10 },
+
+  { id: 'creator-post-10', chapter: 'Camino del creador', title: 'Voz reconocible', description: 'Llegá a diez publicaciones y mantené activa tu presencia en la comunidad.', metric: 'posts', target: 10, rewardTokens: 20 },
+  { id: 'creator-comment-1', chapter: 'Camino del creador', title: 'Conversación iniciada', description: 'Comentá una publicación de la comunidad y sumate al intercambio.', metric: 'comments', target: 1, rewardTokens: 10 },
+  { id: 'creator-comment-5', chapter: 'Camino del creador', title: 'Siempre hay algo para aportar', description: 'Escribí cinco comentarios útiles en publicaciones de la comunidad.', metric: 'comments', target: 5, rewardTokens: 20 },
+  { id: 'creator-like-1', chapter: 'Camino del creador', title: 'Buena onda', description: 'Dale tu primer me gusta a una publicación que te interese.', metric: 'likes', target: 1, rewardTokens: 10 },
+
+  { id: 'party-room-1', chapter: 'Líder de escuadra', title: 'Armá la escuadra', description: 'Creá tu primera sala pública para reunir jugadores.', metric: 'rooms', target: 1, rewardTokens: 15 },
+  { id: 'party-room-3', chapter: 'Líder de escuadra', title: 'Organizador habitual', description: 'Creá tres salas para organizar distintas sesiones de juego.', metric: 'rooms', target: 3, rewardTokens: 30 },
+  { id: 'party-chat-1', chapter: 'Líder de escuadra', title: 'Primera llamada al equipo', description: 'Mandá un mensaje en el chat de una sala.', metric: 'roomMessages', target: 1, rewardTokens: 10 },
+  { id: 'party-chat-10', chapter: 'Líder de escuadra', title: 'Capitán comunicador', description: 'Participá con diez mensajes en chats de salas.', metric: 'roomMessages', target: 10, rewardTokens: 20 },
+  { id: 'party-chat-30', chapter: 'Líder de escuadra', title: 'La voz de la sala', description: 'Alcanzá treinta mensajes en chats de salas y mantené viva la coordinación.', metric: 'roomMessages', target: 30, rewardTokens: 30 },
+
+  { id: 'social-friends-3', chapter: 'Leyenda de comunidad', title: 'Círculo cercano', description: 'Formá un grupo de tres amistades aceptadas.', metric: 'friends', target: 3, rewardTokens: 20 },
+  { id: 'social-friends-5', chapter: 'Leyenda de comunidad', title: 'Punto de encuentro', description: 'Llegá a cinco amistades aceptadas en PLAYVERSE.', metric: 'friends', target: 5, rewardTokens: 35 },
+  { id: 'social-follow-1', chapter: 'Leyenda de comunidad', title: 'Seguí a un creador', description: 'Empezá a seguir a otro jugador para no perderte sus novedades.', metric: 'follows', target: 1, rewardTokens: 10 },
+  { id: 'social-follow-5', chapter: 'Leyenda de comunidad', title: 'Radar de comunidad', description: 'Seguí a cinco jugadores cuyos contenidos te interesen.', metric: 'follows', target: 5, rewardTokens: 20 },
+
+  { id: 'social-like-10', chapter: 'Coleccionista y comunicador', title: 'Apoyo constante', description: 'Reaccioná a diez publicaciones de otros jugadores.', metric: 'likes', target: 10, rewardTokens: 15 },
+  { id: 'social-save-1', chapter: 'Coleccionista y comunicador', title: 'Para después', description: 'Guardá tu primera publicación para volver a encontrarla.', metric: 'saved', target: 1, rewardTokens: 10 },
+  { id: 'social-save-5', chapter: 'Coleccionista y comunicador', title: 'Coleccionista de ideas', description: 'Guardá cinco publicaciones que quieras consultar más tarde.', metric: 'saved', target: 5, rewardTokens: 20 },
+  { id: 'social-dm-10', chapter: 'Coleccionista y comunicador', title: 'Compañero de equipo', description: 'Enviá diez mensajes privados a tus amistades.', metric: 'directMessages', target: 10, rewardTokens: 15 },
+  { id: 'social-dm-30', chapter: 'Coleccionista y comunicador', title: 'Conexiones duraderas', description: 'Alcanzá treinta mensajes privados enviados.', metric: 'directMessages', target: 30, rewardTokens: 25 }
+];
+
+async function buildMissionProgress(userId, session = null) {
+  const count = (Model, filter) => {
+    const query = Model.countDocuments(filter);
+    return session ? query.session(session) : query;
+  };
+  const countQueries = [
+    count(Post, { author: userId }),
+    count(Room, { owner: userId }),
+    count(RoomMessage, { author: userId }),
+    count(SavedPost, { user: userId }),
+    count(Comment, { author: userId }),
+    count(Friendship, { status: 'accepted', $or: [{ requester: userId }, { recipient: userId }] }),
+    count(Follow, { follower: userId }),
+    count(Post, { likes: userId, author: { $ne: userId } }),
+    count(DirectMessage, { sender: userId })
+  ];
+  const claimsQuery = MissionClaim.find({ user: userId }).select('missionId rewardTokens claimedAt').lean();
+  if (session) claimsQuery.session(session);
+  const [values, claims] = await Promise.all([Promise.all(countQueries), claimsQuery]);
+  const metricCounts = {
+    posts: values[0], rooms: values[1], roomMessages: values[2], saved: values[3],
+    comments: values[4], friends: values[5], follows: values[6], likes: values[7], directMessages: values[8]
+  };
+  const claimedById = new Map(claims.map((claim) => [claim.missionId, claim]));
+  return MISSION_CATALOG.map((definition) => {
+    const current = Math.min(metricCounts[definition.metric] || 0, definition.target);
+    const claim = claimedById.get(definition.id);
+    return {
+      id: definition.id,
+      chapter: definition.chapter,
+      title: definition.title,
+      description: definition.description,
+      current,
+      target: definition.target,
+      completed: current >= definition.target,
+      rewardTokens: definition.rewardTokens,
+      claimed: Boolean(claim),
+      claimable: current >= definition.target && !claim,
+      claimedAt: claim ? claim.claimedAt : null
+    };
+  });
+}
+
+app.get('/api/me/missions', requireAuth, async (req, res, next) => {
+  try {
+    const missions = await buildMissionProgress(req.auth.sub);
+    const completed = missions.filter((mission) => mission.completed).length;
+    const claimed = missions.filter((mission) => mission.claimed).length;
+    return res.json({
+      success: true,
+      missions,
+      summary: {
+        completed,
+        claimed,
+        claimable: missions.filter((mission) => mission.claimable).length,
+        total: missions.length,
+        percentage: Math.round((completed / missions.length) * 100)
+      },
+      rewardsEnabled: true,
+      note: 'El progreso se calcula en el servidor con actividad real. Cada misión completada puede reclamarse una sola vez; los Tokens se acreditan en una transacción protegida.'
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/me/missions/:missionId/claim', requireAuth, storeLimiter, async (req, res, next) => {
+  const definition = MISSION_CATALOG.find((mission) => mission.id === req.params.missionId);
+  if (!definition) return res.status(404).json({ success: false, message: 'Misión no encontrada.' });
+  try {
+    // Ensure the collection and unique user/mission index exist before opening a transaction.
+    await MissionClaim.init();
+  } catch (error) {
+    return next(error);
+  }
+  const session = await mongoose.startSession();
+  let result;
+  try {
+    await session.withTransaction(async () => {
+      const missions = await buildMissionProgress(req.auth.sub, session);
+      const mission = missions.find((item) => item.id === definition.id);
+      if (!mission || !mission.completed) {
+        result = { error: 'NOT_COMPLETED' };
+        return;
+      }
+      if (mission.claimed) {
+        result = { error: 'ALREADY_CLAIMED' };
+        return;
+      }
+      const user = await User.findByIdAndUpdate(
+        req.auth.sub,
+        { $inc: { walletTokens: definition.rewardTokens } },
+        { new: true, session }
+      ).select('walletTokens');
+      if (!user) {
+        result = { error: 'USER_NOT_FOUND' };
+        return;
+      }
+      await MissionClaim.create([{
+        user: req.auth.sub,
+        missionId: definition.id,
+        rewardTokens: definition.rewardTokens
+      }], { session });
+      await TokenTransaction.create([{
+        user: req.auth.sub,
+        type: 'credit',
+        amount: definition.rewardTokens,
+        itemId: 'mission:' + definition.id,
+        balanceAfter: user.walletTokens
+      }], { session });
+      result = { walletTokens: user.walletTokens, rewardTokens: definition.rewardTokens };
+    });
+    if (result && result.error === 'NOT_COMPLETED') {
+      return res.status(409).json({ success: false, code: result.error, message: 'Completá los objetivos de la misión antes de reclamar la recompensa.' });
+    }
+    if (result && result.error === 'ALREADY_CLAIMED') {
+      return res.status(409).json({ success: false, code: result.error, message: 'Esta recompensa ya fue reclamada.' });
+    }
+    if (result && result.error === 'USER_NOT_FOUND') {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    }
+    return res.status(201).json({
+      success: true,
+      message: 'Recompensa acreditada.',
+      missionId: definition.id,
+      rewardTokens: result.rewardTokens,
+      wallet: { tokens: result.walletTokens }
+    });
+  } catch (error) {
+    if (error && error.code === 11000) {
+      return res.status(409).json({ success: false, code: 'ALREADY_CLAIMED', message: 'Esta recompensa ya fue reclamada.' });
+    }
+    return next(error);
+  } finally {
+    await session.endSession();
+  }
+});
+
+app.get('/api/me/saved-posts', requireAuth, async (req, res, next) => {
+  try {
+    const savedRecords = await SavedPost.find({ user: req.auth.sub })
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(100)
+      .lean();
+    if (!savedRecords.length) return res.json({ success: true, posts: [] });
+    const posts = await Post.find({ _id: { $in: savedRecords.map((item) => item.post) } })
+      .select('authorUsername content likes commentCount createdAt')
+      .lean();
+    const postById = new Map(posts.map((post) => [String(post._id), post]));
+    return res.json({
+      success: true,
+      posts: savedRecords.map((record) => {
+        const post = postById.get(String(record.post));
+        if (!post) return null;
+        return {
+          id: String(post._id),
+          authorUsername: post.authorUsername,
+          content: post.content,
+          likeCount: Array.isArray(post.likes) ? post.likes.length : 0,
+          likedByMe: Array.isArray(post.likes) && post.likes.some((id) => String(id) === req.auth.sub),
+          commentCount: Number(post.commentCount) || 0,
+          createdAt: post.createdAt,
+          savedByMe: true,
+          savedAt: record.createdAt
+        };
+      }).filter(Boolean)
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.put('/api/posts/:postId/save', requireAuth, postLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.postId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de publicación inválido.' });
+    }
+    const exists = await Post.exists({ _id: req.params.postId });
+    if (!exists) return res.status(404).json({ success: false, message: 'Publicación no encontrada.' });
+    await SavedPost.updateOne(
+      { user: req.auth.sub, post: req.params.postId },
+      { $setOnInsert: { user: req.auth.sub, post: req.params.postId } },
+      { upsert: true }
+    );
+    return res.json({ success: true, saved: true });
+  } catch (error) {
+    if (error && error.code === 11000) return res.json({ success: true, saved: true });
+    return next(error);
+  }
+});
+
+app.delete('/api/posts/:postId/save', requireAuth, postLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.postId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de publicación inválido.' });
+    }
+    await SavedPost.deleteOne({ user: req.auth.sub, post: req.params.postId });
+    return res.json({ success: true, saved: false });
+  } catch (error) {
+    return next(error);
+  }
 });
 
 app.get('/api/posts', requireAuth, async (req, res, next) => {
@@ -528,6 +1583,11 @@ app.get('/api/posts', requireAuth, async (req, res, next) => {
       .lean();
     const hasMore = fetchedPosts.length > 30;
     const posts = fetchedPosts.slice(0, 30);
+    const savedRecords = await SavedPost.find({
+      user: req.auth.sub,
+      post: { $in: posts.map((post) => post._id) }
+    }).select('post').lean();
+    const savedPostIds = new Set(savedRecords.map((record) => String(record.post)));
     return res.json({
       success: true,
       hasMore,
@@ -542,7 +1602,8 @@ app.get('/api/posts', requireAuth, async (req, res, next) => {
         likeCount: Array.isArray(post.likes) ? post.likes.length : 0,
         likedByMe: Array.isArray(post.likes) && post.likes.some((id) => String(id) === req.auth.sub),
         commentCount: Number(post.commentCount) || 0,
-        createdAt: post.createdAt
+        createdAt: post.createdAt,
+        savedByMe: savedPostIds.has(String(post._id))
       }))
     });
   } catch (error) {
@@ -1076,6 +2137,247 @@ app.post('/api/rooms/:roomId/join', requireAuth, async (req, res, next) => {
 });
 
 
+
+function isValidObjectId(value) {
+  return typeof value === 'string' && /^[a-fA-F0-9]{24}$/.test(value);
+}
+
+function getUnreadCountField(conversation, userId) {
+  return String(conversation.participantA) === String(userId) ? 'unreadCountA' : 'unreadCountB';
+}
+
+function getDirectPairKey(firstId, secondId) {
+  return [String(firstId), String(secondId)].sort().join(':');
+}
+
+async function hasBlockBetween(firstId, secondId) {
+  return Boolean(await Block.exists({
+    $or: [
+      { blocker: firstId, blocked: secondId },
+      { blocker: secondId, blocked: firstId }
+    ]
+  }));
+}
+
+async function areAcceptedFriends(firstId, secondId) {
+  const pairKey = makeFriendshipPairKey(firstId, secondId);
+  const [friendship, blocked] = await Promise.all([
+    Friendship.exists({ pairKey, status: 'accepted' }),
+    hasBlockBetween(firstId, secondId)
+  ]);
+  return Boolean(friendship && !blocked);
+}
+
+function serializeDirectMessage(message) {
+  return {
+    id: String(message._id),
+    conversationId: String(message.conversation),
+    senderId: String(message.sender),
+    senderUsername: message.senderUsername,
+    recipientId: String(message.recipient),
+    body: message.body,
+    createdAt: message.createdAt,
+    readAt: message.readAt || null
+  };
+}
+
+app.get('/api/me/conversations', requireAuth, async (req, res, next) => {
+  try {
+    const userId = req.auth.sub;
+    const [records, friendshipRecords, blockRecords] = await Promise.all([
+      Conversation.find({
+        $or: [{ participantA: userId }, { participantB: userId }]
+      }).sort({ lastMessageAt: -1, updatedAt: -1 }).limit(100).lean(),
+      Friendship.find({
+        status: 'accepted',
+        $or: [{ requester: userId }, { recipient: userId }]
+      }).select('requester recipient').lean(),
+      Block.find({ $or: [{ blocker: userId }, { blocked: userId }] }).select('blocker blocked').lean()
+    ]);
+    const friendIds = new Set(friendshipRecords.map((record) =>
+      String(record.requester) === userId ? String(record.recipient) : String(record.requester)
+    ));
+    const blockedIds = new Set(blockRecords.map((record) =>
+      String(record.blocker) === userId ? String(record.blocked) : String(record.blocker)
+    ));
+    const activeRecords = records.filter((item) => {
+      const otherId = String(item.participantA) === userId ? String(item.participantB) : String(item.participantA);
+      return friendIds.has(otherId) && !blockedIds.has(otherId);
+    });
+    const otherIds = activeRecords.map((item) =>
+      String(item.participantA) === userId ? item.participantB : item.participantA
+    );
+    const users = await User.find({ _id: { $in: otherIds } })
+      .select('username displayName avatarUrl').lean();
+    const userMap = new Map(users.map((user) => [String(user._id), user]));
+    return res.json({
+      success: true,
+      conversations: activeRecords.map((item) => {
+        const otherId = String(item.participantA) === userId ? item.participantB : item.participantA;
+        const other = userMap.get(String(otherId));
+        if (!other) return null;
+        return {
+          id: String(item._id),
+          participant: {
+            id: String(other._id),
+            username: other.username,
+            displayName: other.displayName || '',
+            avatarUrl: other.avatarUrl || ''
+          },
+          lastMessage: item.lastMessage || '',
+          lastMessageAt: item.lastMessageAt || item.updatedAt,
+          lastMessageSender: item.lastMessageSender ? String(item.lastMessageSender) : null,
+          unreadCount: String(item.participantA) === userId ? (item.unreadCountA || 0) : (item.unreadCountB || 0)
+        };
+      }).filter(Boolean)
+    });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/conversations/:username', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
+    const target = await User.findOne({ username }).select('_id username displayName avatarUrl').lean();
+    if (!target) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    if (String(target._id) === req.auth.sub) {
+      return res.status(400).json({ success: false, message: 'No podés abrir un chat con vos mismo.' });
+    }
+    if (!(await areAcceptedFriends(req.auth.sub, target._id))) {
+      return res.status(403).json({ success: false, message: 'Para enviar mensajes privados primero tienen que ser amigos.' });
+    }
+    const pairKey = getDirectPairKey(req.auth.sub, target._id);
+    const conversation = await Conversation.findOneAndUpdate(
+      { pairKey },
+      {
+        $setOnInsert: {
+          pairKey,
+          participantA: [req.auth.sub, String(target._id)].sort()[0],
+          participantB: [req.auth.sub, String(target._id)].sort()[1]
+        }
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+    return res.status(200).json({
+      success: true,
+      conversation: {
+        id: String(conversation._id),
+        participant: {
+          id: String(target._id), username: target.username,
+          displayName: target.displayName || '', avatarUrl: target.avatarUrl || ''
+        }
+      }
+    });
+  } catch (error) {
+    if (error && error.code === 11000) {
+      try {
+        const target = await User.findOne({ username: req.params.username }).select('_id username displayName avatarUrl').lean();
+        const conversation = target && await Conversation.findOne({ pairKey: getDirectPairKey(req.auth.sub, target._id) });
+        if (conversation && target) return res.json({ success: true, conversation: {
+          id: String(conversation._id),
+          participant: { id: String(target._id), username: target.username, displayName: target.displayName || '', avatarUrl: target.avatarUrl || '' }
+        } });
+      } catch {}
+    }
+    return next(error);
+  }
+});
+
+app.get('/api/conversations/:conversationId/messages', requireAuth, async (req, res, next) => {
+  try {
+    const { conversationId } = req.params;
+    if (!isValidObjectId(conversationId)) return res.status(400).json({ success: false, message: 'Conversación inválida.' });
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      $or: [{ participantA: req.auth.sub }, { participantB: req.auth.sub }]
+    }).lean();
+    if (!conversation) return res.status(404).json({ success: false, message: 'Conversación no encontrada.' });
+    const otherId = String(conversation.participantA) === req.auth.sub
+      ? conversation.participantB : conversation.participantA;
+    if (!(await areAcceptedFriends(req.auth.sub, otherId))) {
+      return res.status(403).json({ success: false, message: 'Ya no tienen una amistad activa para acceder a este chat.' });
+    }
+    const unreadMessages = await DirectMessage.find({
+      conversation: conversationId,
+      recipient: req.auth.sub,
+      readAt: null
+    }).sort({ createdAt: 1, _id: 1 }).select('_id').lean();
+    const readAt = new Date();
+    if (unreadMessages.length) {
+      await DirectMessage.updateMany(
+        { conversation: conversationId, recipient: req.auth.sub, readAt: null },
+        { $set: { readAt } }
+      );
+      await Conversation.updateOne(
+        { _id: conversationId },
+        { $set: { [getUnreadCountField(conversation, req.auth.sub)]: 0 } }
+      );
+      const io = req.app.get('io');
+      if (io) io.to('dm:' + String(conversationId)).emit('direct_messages_read', {
+        conversationId: String(conversationId),
+        readerId: String(req.auth.sub),
+        throughMessageId: String(unreadMessages[unreadMessages.length - 1]._id),
+        readAt
+      });
+    }
+    const messages = await DirectMessage.find({ conversation: conversationId })
+      .sort({ createdAt: -1, _id: -1 }).limit(100).lean();
+    return res.json({ success: true, messages: messages.reverse().map(serializeDirectMessage) });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/conversations/:conversationId/messages', requireAuth, directMessageLimiter, async (req, res, next) => {
+  try {
+    const { conversationId } = req.params;
+    const body = typeof req.body.body === 'string' ? req.body.body.trim() : '';
+    if (!isValidObjectId(conversationId)) return res.status(400).json({ success: false, message: 'Conversación inválida.' });
+    if (!body || body.length > 2000) return res.status(400).json({ success: false, message: 'El mensaje debe tener entre 1 y 2000 caracteres.' });
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      $or: [{ participantA: req.auth.sub }, { participantB: req.auth.sub }]
+    });
+    if (!conversation) return res.status(404).json({ success: false, message: 'Conversación no encontrada.' });
+    const recipientId = String(conversation.participantA) === req.auth.sub
+      ? conversation.participantB : conversation.participantA;
+    if (!(await areAcceptedFriends(req.auth.sub, recipientId))) {
+      return res.status(403).json({ success: false, message: 'Ya no tienen una amistad activa para usar este chat.' });
+    }
+    const saved = await DirectMessage.create({
+      conversation: conversation._id,
+      sender: req.auth.sub,
+      senderUsername: req.auth.username,
+      recipient: recipientId,
+      body
+    });
+    await createNotification({
+      recipient: recipientId,
+      actor: req.auth.sub,
+      type: 'direct_message',
+      title: 'Nuevo mensaje privado',
+      body: '@' + req.auth.username + ': ' + body.slice(0, 180),
+      entityId: conversation._id
+    });
+    await Conversation.updateOne(
+      { _id: conversation._id },
+      {
+        $set: { lastMessage: body, lastMessageAt: saved.createdAt, lastMessageSender: req.auth.sub },
+        $inc: { [getUnreadCountField(conversation, recipientId)]: 1 }
+      }
+    );
+    const message = serializeDirectMessage(saved);
+    const io = req.app.get('io');
+    if (io) {
+      io.to('dm:' + String(conversation._id)).emit('receive_direct_message', message);
+      io.to('user:' + String(recipientId)).emit('direct_message_notification', {
+        conversationId: String(conversation._id),
+        senderUsername: req.auth.username,
+        body,
+        createdAt: saved.createdAt
+      });
+    }
+    return res.status(201).json({ success: true, message });
+  } catch (error) { return next(error); }
+});
+
 app.use((error, req, res, next) => {
   if (res.headersSent) return next(error);
   console.error('API error:', error.message);
@@ -1085,6 +2387,7 @@ app.use((error, req, res, next) => {
 async function start() {
   await mongoose.connect(process.env.MONGODB_URI);
   httpServer.io = attachSocketServer(httpServer, allowedOrigins);
+  app.set('io', httpServer.io);
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`PLAYVERSE API listening on port ${PORT}`);
   });

@@ -17,14 +17,25 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        body { background-color: #050509; color: #f3f4f6; overflow: hidden; user-select: none; }
+        body { background-color: #08090d; color: #f3f4f6; overflow: hidden; user-select: none; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #0b0f19; }
         ::-webkit-scrollbar-thumb { background: #1f293d; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #22d3ee; }
-        .PLAYVERSE-gradient { background: linear-gradient(135deg, #22d3ee 0%, #2563eb 50%, #7c3aed 100%); }
+        ::-webkit-scrollbar-thumb:hover { background: #FF5232; }
+        .PLAYVERSE-gradient { background: linear-gradient(135deg, #FF5232 0%, #ff7a18 52%, #FFC107 100%); }
         .PLAYVERSE-card { background: #0f172a; border: 1px solid #1e293b; }
         .neon-border { box-shadow: 0 0 15px rgba(249, 115, 22, 0.3); }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+        .gpu-layer { transform: translate3d(0,0,0); backface-visibility: hidden; }
+        body.pv-reduce-motion *, body.pv-reduce-motion *::before, body.pv-reduce-motion *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            scroll-behavior: auto !important;
+            transition-duration: 0.01ms !important;
+        }
+        body.pv-high-contrast .PLAYVERSE-card { border-color: #94a3b8 !important; }
+        body.pv-high-contrast .text-slate-400 { color: #e2e8f0 !important; }
+        body.pv-high-contrast .text-slate-500 { color: #cbd5e1 !important; }
     </style>
 </head>
 <body class="h-screen w-screen flex flex-col justify-between relative">
@@ -33,14 +44,14 @@
     <div id="splash-screen" class="fixed inset-0 z-50 PLAYVERSE-gradient flex flex-col items-center justify-center text-white transition-all duration-700">
         <div class="relative mb-6">
             <div class="absolute inset-0 bg-white/20 rounded-3xl blur-xl animate-pulse"></div>
-            <div class="relative w-28 h-28 bg-slate-950 rounded-3xl flex items-center justify-center shadow-2xl border-2 border-cyan-400/50">
-                <i class="fa-solid fa-gamepad text-5xl text-cyan-500 animate-bounce"></i>
+            <div class="relative w-28 h-28 bg-slate-950 rounded-3xl flex items-center justify-center shadow-2xl border-2 border-orange-400/50">
+                <i class="fa-solid fa-gamepad text-5xl text-orange-500 animate-bounce"></i>
             </div>
         </div>
-        <h1 class="text-4xl font-black tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white via-cyan-200 to-blue-300">PLAYVERSE</h1>
-        <p class="text-xs text-cyan-200/80 mt-2 font-mono tracking-widest uppercase">GAMING • COMMUNITY • LIVE</p>
+        <h1 class="text-4xl font-black tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white via-orange-200 to-amber-300">PLAYVERSE</h1>
+        <p class="text-xs text-orange-200/80 mt-2 font-mono tracking-widest uppercase">GAMING • COMMUNITY • LIVE</p>
         <div class="mt-10 w-48 h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/10">
-            <div id="splash-progress" class="h-full bg-gradient-to-r from-cyan-400 to-blue-300 w-0 transition-all duration-1000"></div>
+            <div id="splash-progress" class="h-full bg-gradient-to-r from-orange-400 to-amber-300 w-0 transition-all duration-1000"></div>
         </div>
     </div>
 
@@ -58,21 +69,21 @@
             <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-4">
                 <div>
                     <label class="text-xs font-semibold text-slate-400 block mb-1">Nombre de usuario</label>
-                    <input type="text" id="input-username" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500" placeholder="Ej. WachinGamer">
+                    <input type="text" id="input-username" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-orange-500" placeholder="Ej. WachinGamer">
                 </div>
                 <div id="email-field-container" class="hidden">
                     <label class="text-xs font-semibold text-slate-400 block mb-1">Correo Electrónico</label>
-                    <input type="email" id="input-email" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500" placeholder="tu@email.com">
+                    <input type="email" id="input-email" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-orange-500" placeholder="tu@email.com">
                 </div>
                 <div>
                     <label class="text-xs font-semibold text-slate-400 block mb-1">Contraseña</label>
-                    <input type="password" id="input-password" required minlength="1" maxlength="128" autocomplete="current-password" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500" placeholder="••••••••">
+                    <input type="password" id="input-password" required minlength="1" maxlength="128" autocomplete="current-password" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-orange-500" placeholder="••••••••">
                 </div>
                 <button type="submit" id="auth-submit-btn" class="w-full PLAYVERSE-gradient text-white font-bold py-3.5 rounded-xl shadow-lg neon-border hover:brightness-110">Iniciar Sesión</button>
             </form>
 
             <div class="mt-6 text-center text-xs text-slate-400">
-                <p id="auth-switch-text">¿No tienes cuenta? <button type="button" onclick="toggleAuthMode()" class="text-cyan-400 font-bold hover:underline">Regístrate gratis</button></p>
+                <p id="auth-switch-text">¿No tienes cuenta? <button type="button" onclick="toggleAuthMode()" class="text-orange-400 font-bold hover:underline">Regístrate gratis</button></p>
             </div>
         </div>
     </div>
@@ -81,49 +92,59 @@
     <div id="main-app" class="h-full w-full flex flex-col justify-between hidden">
         <header class="h-14 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 flex items-center justify-between shrink-0 z-30">
             <div class="flex items-center space-x-3">
-                <button onclick="toggleDrawer(true)" class="p-2 hover:bg-slate-800 rounded-xl text-cyan-400"><i class="fa-solid fa-bars text-xl"></i></button>
+                <button onclick="toggleDrawer(true)" class="p-2 hover:bg-slate-800 rounded-xl text-orange-400"><i class="fa-solid fa-bars text-xl"></i></button>
                 <div class="flex items-center space-x-2.5">
                     <div class="w-9 h-9 PLAYVERSE-gradient rounded-xl flex items-center justify-center font-bold text-white shadow-md"><i class="fa-solid fa-gamepad text-lg"></i></div>
                     <div>
-                        <span class="font-black text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-300">PLAYVERSE</span>
-                        <span class="text-[10px] block font-mono text-cyan-500/80 -mt-1 font-bold">GAMING · COMMUNITY · LIVE</span>
+                        <span class="font-black text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-amber-300">PLAYVERSE</span>
+                        <span class="text-[10px] block font-mono text-orange-500/80 -mt-1 font-bold">GAMING · COMMUNITY · LIVE</span>
                     </div>
                 </div>
             </div>
             <div class="flex items-center space-x-3">
-                <button onclick="switchTab('events')" class="flex items-center space-x-1.5 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-full hover:border-blue-500/50">
-                    <i class="fa-solid fa-coins text-blue-400 animate-pulse"></i>
-                    <span id="header-créditos" class="text-xs font-bold text-blue-300">2500</span>
+                <button type="button" onclick="switchTab('notifications')" aria-label="Abrir notificaciones" class="relative p-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 hover:border-orange-500/50">
+                    <i class="fa-solid fa-bell"></i>
+                    <span id="notifications-badge" class="hidden absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-[9px] font-black text-white items-center justify-center">0</span>
                 </button>
-                <button onclick="openPostModal()" class="bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 p-2 rounded-xl hover:bg-cyan-500 hover:text-white"><i class="fa-solid fa-plus text-sm"></i></button>
+                <button type="button" onclick="switchTab('shop')" aria-label="Abrir tienda y monedero PLAYVERSE" class="flex items-center space-x-1.5 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-full hover:border-amber-500/50">
+                    <i class="fa-solid fa-coins text-amber-400 animate-pulse"></i>
+                    <span id="header-créditos" class="text-xs font-bold text-amber-300">0</span>
+                </button>
+                <button onclick="openPostModal()" class="bg-orange-500/20 text-orange-400 border border-orange-500/40 p-2 rounded-xl hover:bg-orange-500 hover:text-white"><i class="fa-solid fa-plus text-sm"></i></button>
                 <button onclick="switchTab('profile')" class="w-8 h-8 rounded-full PLAYVERSE-gradient p-0.5 shadow-md flex items-center justify-center text-xs">🎮</button>
             </div>
         </header>
 
         <!-- DRAWER LATERAL -->
         <div id="drawer-backdrop" onclick="toggleDrawer(false)" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden"></div>
-        <div id="drawer-panel" class="fixed inset-y-0 left-0 w-80 bg-slate-900 border-r border-slate-800 z-50 flex flex-col transform -translate-x-full transition-transform duration-300 shadow-2xl">
+        <div id="drawer-panel" class="fixed inset-y-0 left-0 w-80 bg-slate-900 border-r border-slate-800 z-50 flex flex-col transform -translate-x-full transition-transform duration-300 will-change-transform shadow-2xl">
             <div class="p-5 border-b border-slate-800 flex items-center justify-between PLAYVERSE-gradient">
                 <div class="flex items-center space-x-3">
                     <div class="w-12 h-12 rounded-full bg-slate-950 border-2 border-white/40 flex items-center justify-center text-2xl shadow-lg">🎮</div>
                     <div>
                         <h4 id="drawer-username" class="font-bold text-sm text-white">Wachin Gamer</h4>
-                        <span id="drawer-profile-subtitle" class="text-[10px] text-cyan-200 font-mono font-bold">Comunidad gamer</span>
+                        <span id="drawer-profile-subtitle" class="text-[10px] text-orange-200 font-mono font-bold">Comunidad gamer</span>
                     </div>
                 </div>
                 <button onclick="toggleDrawer(false)" class="text-white hover:bg-black/20 p-2 rounded-xl"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <nav class="p-3 space-y-1.5 flex-1 overflow-y-auto">
-                <button onclick="switchTab('feed'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-tv text-cyan-400 w-5"></i><span>Feed y Transmisiones</span></button>
-                <button onclick="switchTab('lobbies'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-gamepad text-emerald-400 w-5"></i><span>Salas Multijugador</span></button>
+                <button onclick="switchTab('feed'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-tv text-orange-400 w-5"></i><span>Feed y Transmisiones</span></button>
+                <button onclick="switchTab('live'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-tower-broadcast text-rose-400 w-5"></i><span>En Vivo</span></button>
+                <button onclick="switchTab('lobbies'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-gamepad text-emerald-400 w-5"></i><span>Juegos y Salas</span></button>
+                <button onclick="switchTab('chat'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-comments text-sky-400 w-5"></i><span>Chat y Grupos</span></button>
                 <button onclick="switchTab('shop'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-store text-purple-400 w-5"></i><span>Tienda Arcade & Marcos</span></button>
-                <button onclick="switchTab('events'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-sparkles text-blue-400 w-5"></i><span>Ruleta y Sorteos</span></button>
-                <button onclick="switchTab('profile'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-user-gear text-cyan-400 w-5"></i><span>Mi Perfil</span></button>
+                <button onclick="switchTab('events'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-sparkles text-amber-400 w-5"></i><span>Eventos</span></button>
+                <button onclick="switchTab('profile'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-user-gear text-orange-400 w-5"></i><span>Mi Perfil</span></button>
                 <button onclick="switchTab('friends'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-user-group text-pink-400 w-5"></i><span>Amigos y solicitudes</span></button>
+                <button onclick="switchTab('notifications'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-bell text-amber-300 w-5"></i><span>Notificaciones</span><span id="drawer-notifications-count" class="ml-auto text-[10px] text-rose-300"></span></button>
+                <button onclick="switchTab('saved'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-bookmark text-cyan-300 w-5"></i><span>Guardados y VODs</span></button>
+                <button onclick="switchTab('events'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-list-check text-amber-300 w-5"></i><span>Misiones</span></button>
+                <button onclick="switchTab('help'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-circle-question text-sky-300 w-5"></i><span>Ayuda y soporte</span></button>
             </nav>
             <div class="p-4 border-t border-slate-800 space-y-2">
                 <button onclick="openSettingsModal(); toggleDrawer(false);" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold text-slate-300">
-                    <i class="fa-solid fa-gear text-slate-400 w-5"></i><span>Ajustes de Stream y App</span>
+                    <i class="fa-solid fa-gear text-slate-400 w-5"></i><span>Ajustes de PLAYVERSE</span>
                 </button>
                 <button onclick="logout()" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-red-950/40 text-sm font-semibold text-red-300">
                     <i class="fa-solid fa-right-from-bracket w-5"></i><span>Cerrar sesión</span>
@@ -132,10 +153,37 @@
         </div>
 
         <!-- CONTENIDO TABS -->
-        <main class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-4xl mx-auto w-full"><div class="rounded-xl border border-cyan-500/30 bg-cyan-950/40 px-4 py-3 text-xs text-cyan-100"><strong>PLAYVERSE · CONSTRUCCIÓN EN CURSO</strong><br>Registro, inicio de sesión y perfil básico conectados a la API. Feed, transmisiones, tienda, créditos y herramientas sociales siguen en desarrollo.</div>
+        <main class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-4xl mx-auto w-full"><div class="rounded-xl border border-orange-500/30 bg-orange-950/40 px-4 py-3 text-xs text-orange-100"><strong>PLAYVERSE · CONSTRUCCIÓN EN CURSO</strong><br>Registro, inicio de sesión y perfil básico conectados a la API. Feed, transmisiones, tienda, créditos y herramientas sociales siguen en desarrollo.</div>
             <!-- TAB FEED -->
             <div id="tab-feed" class="space-y-6">
-                <div class="PLAYVERSE-card rounded-2xl p-4 flex items-center justify-between border-cyan-500/30 neon-border">
+                <section aria-labelledby="highlights-title" class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 id="highlights-title" class="font-black text-base text-white">Highlights de PLAYVERSE</h3>
+                            <p class="text-[11px] text-slate-400">Accesos rápidos para entrar en acción</p>
+                        </div>
+                        <span class="text-[10px] font-bold tracking-wide text-orange-300">EXPLORAR</span>
+                    </div>
+                    <div class="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x" aria-label="Accesos destacados">
+                        <button type="button" onclick="switchTab('profile')" class="snap-start shrink-0 w-28 h-32 rounded-2xl border border-orange-400/40 bg-gradient-to-br from-orange-500/25 to-slate-900 p-3 flex flex-col justify-between text-left">
+                            <span class="w-10 h-10 rounded-full PLAYVERSE-gradient flex items-center justify-center text-white text-lg"><i class="fa-solid fa-user"></i></span>
+                            <span><strong class="block text-xs text-white">Tu perfil</strong><span class="text-[10px] text-slate-300">Personalizalo</span></span>
+                        </button>
+                        <button type="button" onclick="switchTab('lobbies')" class="snap-start shrink-0 w-28 h-32 rounded-2xl border border-slate-700 bg-gradient-to-br from-emerald-500/20 to-slate-900 p-3 flex flex-col justify-between text-left">
+                            <span class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-lg"><i class="fa-solid fa-gamepad"></i></span>
+                            <span><strong class="block text-xs text-white">Salas</strong><span class="text-[10px] text-slate-300">Jugá en grupo</span></span>
+                        </button>
+                        <button type="button" onclick="switchTab('friends')" class="snap-start shrink-0 w-28 h-32 rounded-2xl border border-slate-700 bg-gradient-to-br from-fuchsia-500/20 to-slate-900 p-3 flex flex-col justify-between text-left">
+                            <span class="w-10 h-10 rounded-full bg-fuchsia-500/20 text-fuchsia-300 flex items-center justify-center text-lg"><i class="fa-solid fa-user-group"></i></span>
+                            <span><strong class="block text-xs text-white">Comunidad</strong><span class="text-[10px] text-slate-300">Conectá amigos</span></span>
+                        </button>
+                        <button type="button" onclick="openPostModal()" class="snap-start shrink-0 w-28 h-32 rounded-2xl border border-slate-700 bg-gradient-to-br from-amber-500/20 to-slate-900 p-3 flex flex-col justify-between text-left">
+                            <span class="w-10 h-10 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center text-lg"><i class="fa-solid fa-pen"></i></span>
+                            <span><strong class="block text-xs text-white">Publicar</strong><span class="text-[10px] text-slate-300">Compartí algo</span></span>
+                        </button>
+                    </div>
+                </section>
+                <div class="PLAYVERSE-card rounded-2xl p-4 flex items-center justify-between border-orange-500/30 neon-border">
                     <div class="flex items-center space-x-3">
                         <div class="w-12 h-12 rounded-xl PLAYVERSE-gradient flex items-center justify-center text-white text-xl shadow-md"><i class="fa-solid fa-video"></i></div>
                         <div>
@@ -147,7 +195,7 @@
                 </div>
 
                 <div class="space-y-4">
-                    <h3 class="font-black text-base flex items-center gap-2"><i class="fa-solid fa-fire text-cyan-500"></i> Streams en Vivo Populares</h3>
+                    <h3 class="font-black text-base flex items-center gap-2"><i class="fa-solid fa-fire text-orange-500"></i> Streams en Vivo Populares</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="PLAYVERSE-card rounded-2xl overflow-hidden shadow-lg">
                             <div class="relative aspect-video bg-slate-950 flex items-center justify-center">
@@ -160,7 +208,7 @@
                                     <div class="w-9 h-9 rounded-full bg-purple-500/20 border border-purple-400 flex items-center justify-center text-lg">🧙‍♂️</div>
                                     <div><h5 class="font-bold text-sm">GamerPro_MC</h5><p class="text-[10px] text-slate-400">1,420 espectadores</p></div>
                                 </div>
-                                <button onclick="alert('Conectando...')" class="bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 text-xs px-3.5 py-1.5 rounded-xl font-bold">Ver Stream</button>
+                                <button onclick="alert('Conectando...')" class="bg-orange-500/20 text-orange-400 border border-orange-500/40 text-xs px-3.5 py-1.5 rounded-xl font-bold">Ver Stream</button>
                             </div>
                         </div>
                     </div>
@@ -170,9 +218,80 @@
                     <h3 class="font-black text-base flex items-center gap-2"><i class="fa-solid fa-earth-americas text-purple-400"></i> Publicaciones de la Comunidad</h3>
                     <p id="community-posts-status" class="text-xs text-slate-400" role="status">Cargando publicaciones…</p>
                     <div id="community-posts-container" class="space-y-4" aria-live="polite"></div>
-                    <button id="community-load-more" type="button" class="hidden w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-xs font-bold text-cyan-300 hover:border-cyan-500 disabled:opacity-50">Cargar más publicaciones</button>
+                    <button id="community-load-more" type="button" class="hidden w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-xs font-bold text-orange-300 hover:border-orange-500 disabled:opacity-50">Cargar más publicaciones</button>
                     </div>
                 </div>
+            </div>
+
+            <!-- TAB LIVE -->
+            <div id="tab-live" class="space-y-6 hidden">
+                <section class="space-y-2">
+                    <div class="flex items-center justify-between"><div><h3 class="font-black text-lg">En Vivo</h3><p class="text-xs text-slate-400">Descubrí transmisiones de la comunidad</p></div><span class="text-[10px] font-bold text-rose-300 bg-rose-500/10 border border-rose-500/20 px-2 py-1 rounded-full">LIVE</span></div>
+                    <div class="flex gap-2 overflow-x-auto pb-2" aria-label="Filtrar transmisiones por juego">
+                        <button type="button" class="rounded-full border border-orange-500/40 bg-orange-500/10 text-orange-300 px-3 py-2 text-xs font-bold">Todos</button>
+                        <button type="button" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">Minecraft</button>
+                        <button type="button" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">Roblox</button>
+                        <button type="button" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">Free Fire</button>
+                        <button type="button" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">PUBG Mobile</button>
+                        <button type="button" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">Otros</button>
+                    </div>
+                </section>
+                <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
+                    <div><h4 class="font-bold text-base">Crear una transmisión</h4><p class="text-xs text-slate-400 mt-1">Emisión en tiempo real mediante LiveKit. Se necesita iniciar sesión y autorizar cámara o micrófono en el dispositivo.</p></div>
+                    <form id="live-stream-create-form" onsubmit="startLiveStream(event)" class="space-y-2">
+                        <input id="live-stream-title" maxlength="100" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white" placeholder="Título de tu transmisión">
+                        <textarea id="live-stream-description" maxlength="500" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white" placeholder="Descripción (opcional)"></textarea>
+                        <button id="live-stream-start" type="submit" class="PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white w-full">Iniciar transmisión</button>
+                    </form>
+                    <p id="live-stream-status" class="text-xs text-slate-400" role="status" aria-live="polite">Comprobando disponibilidad del servicio de video…</p>
+                </section>
+                <section class="space-y-3">
+                    <div class="flex items-center justify-between"><h4 class="font-bold text-sm">Transmisiones activas</h4><button type="button" onclick="loadLiveStreams()" class="text-xs text-orange-300">Actualizar</button></div>
+                    <div id="live-streams-container" class="grid gap-3" aria-live="polite"><p class="text-xs text-slate-500">Cargando transmisiones…</p></div>
+                </section>
+                <section id="live-player-panel" class="hidden PLAYVERSE-card rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center justify-between gap-2"><div class="min-w-0"><h4 id="live-player-title" class="font-bold text-sm truncate">Transmisión</h4><p id="live-player-role" class="text-[11px] text-slate-400"></p><p id="live-player-participant-count" class="text-[11px] text-emerald-300">Conectando participantes…</p></div><button type="button" onclick="leaveLiveStream()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs">Salir</button></div>
+                    <video id="live-local-preview" class="hidden w-full max-h-56 rounded-xl bg-black" autoplay muted playsinline></video>
+                    <div id="live-player-tracks" class="grid gap-2"></div>
+                    <button id="live-audio-enable" type="button" onclick="enableLiveAudio()" class="hidden rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-200 px-3 py-2 text-xs">Activar audio de la transmisión</button>
+                    <div id="live-host-controls" class="hidden flex flex-wrap gap-2">
+                        <button type="button" onclick="toggleLiveCamera()" class="rounded-xl border border-slate-700 px-3 py-2 text-xs">Cámara</button>
+                        <button type="button" onclick="toggleLiveMicrophone()" class="rounded-xl border border-slate-700 px-3 py-2 text-xs">Micrófono</button>
+                        <button type="button" onclick="toggleLiveScreenShare()" class="rounded-xl border border-slate-700 px-3 py-2 text-xs">Compartir pantalla</button>
+                        <button type="button" onclick="endLiveStream()" class="rounded-xl bg-red-600/20 border border-red-500/40 text-red-200 px-3 py-2 text-xs font-bold">Finalizar transmisión</button>
+                    </div>
+                    <p id="live-player-status" class="text-xs text-slate-400" role="status"></p>
+                </section>
+                <section class="PLAYVERSE-card rounded-2xl p-4 space-y-2">
+                    <h4 class="font-bold text-sm">Multi-Stream Squads</h4>
+                    <p class="text-xs text-slate-400">Las transmisiones compartidas de varios jugadores estarán disponibles cuando se integre el servicio de video en tiempo real.</p>
+                    <span class="inline-flex text-[10px] text-amber-300 border border-amber-500/20 bg-amber-500/10 px-2 py-1 rounded-full">En desarrollo</span>
+                </section>
+            </div>
+
+            <!-- TAB CHAT / GRUPOS -->
+            <div id="tab-chat" class="space-y-5 hidden">
+                <section class="space-y-1"><h3 class="font-black text-lg">Mensajes privados</h3><p class="text-xs text-slate-400">Conversaciones guardadas entre jugadores que ya son amigos.</p></section>
+                <form id="dm-start-form" class="flex gap-2">
+                    <input id="dm-username-input" maxlength="24" required pattern="[A-Za-z0-9_]{3,24}" class="min-w-0 flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white" placeholder="Usuario de tu amigo">
+                    <button id="dm-start-button" type="submit" class="PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white">Nuevo chat</button>
+                </form>
+                <p id="dm-inbox-status" class="text-xs text-slate-400" role="status"></p>
+                <div id="dm-inbox-list" class="space-y-2" aria-live="polite"></div>
+                <section id="dm-thread" class="hidden PLAYVERSE-card rounded-2xl p-3 space-y-3">
+                    <div class="flex items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                        <div class="min-w-0"><h4 id="dm-thread-title" class="font-bold text-sm truncate">Conversación</h4><p id="dm-thread-status" class="text-[11px] text-slate-400" role="status">Conectando…</p></div>
+                        <button type="button" onclick="closeDirectConversation()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs">Cerrar</button>
+                    </div>
+                    <div id="dm-messages" class="h-72 overflow-y-auto space-y-2 py-2" aria-live="polite"></div>
+                    <p id="dm-typing-status" class="min-h-4 text-[11px] text-slate-400" aria-live="polite"></p>
+                    <form id="dm-send-form" class="flex gap-2 border-t border-slate-800 pt-3">
+                        <input id="dm-message-input" maxlength="2000" required autocomplete="off" class="min-w-0 flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-sm text-white" placeholder="Escribí un mensaje…">
+                        <button id="dm-send-button" type="submit" class="PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white">Enviar</button>
+                    </form>
+                </section>
+                <button type="button" onclick="switchTab('friends')" class="w-full PLAYVERSE-card rounded-xl p-3 text-left text-xs text-fuchsia-200">Ver amigos y comunidad →</button>
+                <button type="button" onclick="switchTab('lobbies')" class="w-full PLAYVERSE-card rounded-xl p-3 text-left text-xs text-orange-200">Abrir chats de salas y grupos →</button>
             </div>
 
             <!-- TAB LOBBIES -->
@@ -209,35 +328,109 @@
                     <h4 class="font-bold text-sm text-white">Mis amigos</h4>
                     <div id="friends-list" class="space-y-2"></div>
                 </section>
+                <section class="space-y-3">
+                    <h4 class="font-bold text-sm text-white">Seguidores</h4>
+                    <div id="followers-list" class="space-y-2"><p class="text-xs text-slate-500">Cargando…</p></div>
+                </section>
+                <section class="space-y-3">
+                    <h4 class="font-bold text-sm text-white">Siguiendo</h4>
+                    <div id="following-list" class="space-y-2"><p class="text-xs text-slate-500">Cargando…</p></div>
+                </section>
+                <section class="space-y-3">
+                    <h4 class="font-bold text-sm text-white">Jugadores bloqueados</h4>
+                    <p class="text-xs text-slate-500">Los jugadores bloqueados no pueden enviarte solicitudes ni mensajes privados.</p>
+                    <div id="blocked-users-list" class="space-y-2"><p class="text-xs text-slate-500">Cargando…</p></div>
+                </section>
+
             </div>
 
-            <!-- TAB SHOP -->
-            <div id="tab-shop" class="space-y-6 hidden">
-                <h3 class="font-black text-lg">Tienda Arcade & Personalización</h3>
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div class="PLAYVERSE-card p-4 rounded-2xl text-center space-y-3">
-                        <div class="text-4xl my-2 bg-slate-950 w-16 h-16 rounded-2xl mx-auto flex items-center justify-center border border-slate-800">💫</div>
-                        <h4 class="font-bold text-sm text-white">Marco Neón Cyber</h4>
-                        <button onclick="buyShopItem('Marco Neón Cyber', 1500)" class="w-full bg-slate-800 border border-slate-700 text-blue-300 text-xs font-bold py-2 rounded-xl"><i class="fa-solid fa-coins text-blue-400"></i> 1500</button>
+            <!-- TAB SHOP: CATALOGO E INVENTARIO REALES -->
+            <div id="tab-shop" class="space-y-5 hidden">
+                <section class="PLAYVERSE-card rounded-2xl p-4 space-y-2">
+                    <div class="flex items-center justify-between gap-3">
+                        <div><p class="text-[10px] font-bold uppercase tracking-widest text-orange-300">PLAYVERSE STORE</p><h3 class="font-black text-xl">Tienda y personalización</h3></div>
+                        <div class="rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-right"><span class="block text-[10px] text-slate-400">Tu saldo</span><strong id="store-wallet-balance" class="text-amber-300">0 Tokens</strong></div>
                     </div>
-                    <div class="PLAYVERSE-card p-4 rounded-2xl text-center space-y-3">
-                        <div class="text-4xl my-2 bg-slate-950 w-16 h-16 rounded-2xl mx-auto flex items-center justify-center border border-slate-800">🔥</div>
-                        <h4 class="font-bold text-sm text-white">HUD Stream Fuego</h4>
-                        <button onclick="buyShopItem('HUD Stream Fuego', 3000)" class="w-full bg-slate-800 border border-slate-700 text-blue-300 text-xs font-bold py-2 rounded-xl"><i class="fa-solid fa-coins text-blue-400"></i> 3000</button>
+                    <p class="text-xs text-slate-400">Los artículos y las compras se validan en el servidor. Tu saldo inicial es cero; no hay recargas habilitadas todavía.</p>
+                </section>
+                <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
+                    <h4 class="font-bold text-sm">Vista previa</h4>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="rounded-xl bg-slate-950 border border-slate-800 p-3 text-center">
+                            <div id="store-avatar-preview-frame" class="w-20 h-20 mx-auto rounded-full border-4 border-slate-700 flex items-center justify-center overflow-hidden bg-slate-900">
+                                <img id="store-avatar-preview" class="w-full h-full object-cover" alt="Vista previa de tu avatar" src="">
+                                <span id="store-avatar-preview-placeholder" class="text-3xl">🎮</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-2">Marco de avatar</p>
+                        </div>
+                        <div class="rounded-xl bg-slate-950 border border-slate-800 p-3 text-center">
+                            <div id="store-overlay-preview" class="h-20 rounded-lg border border-slate-700 flex items-center justify-center text-xs text-slate-400 px-2">Vista previa del HUD</div>
+                            <p class="text-[10px] text-slate-400 mt-2">Overlay de stream</p>
+                        </div>
                     </div>
+                    <p id="store-selection-name" class="text-xs text-orange-200 text-center">Elegí un artículo para previsualizarlo.</p>
+                </section>
+                <div class="flex gap-2 overflow-x-auto pb-1" aria-label="Categorías de la tienda">
+                    <button type="button" data-store-category="avatar-frame" class="store-category-btn shrink-0 rounded-full bg-orange-500 text-white px-4 py-2 text-xs font-bold">Marcos</button>
+                    <button type="button" data-store-category="stream-overlay" class="store-category-btn shrink-0 rounded-full bg-slate-800 text-slate-300 px-4 py-2 text-xs font-bold">Overlays</button>
+                    <button type="button" data-store-category="chat-effect" class="store-category-btn shrink-0 rounded-full bg-slate-800 text-slate-300 px-4 py-2 text-xs font-bold">Chat y entrada</button>
+                    <button type="button" data-store-category="entrance-effect" class="store-category-btn shrink-0 rounded-full bg-slate-800 text-slate-300 px-4 py-2 text-xs font-bold">VIP Arrival</button>
+                    <button type="button" data-store-category="stream-gift" class="store-category-btn shrink-0 rounded-full bg-slate-800 text-slate-300 px-4 py-2 text-xs font-bold">Regalos</button>
                 </div>
+                <p id="store-status" class="text-xs text-slate-400" role="status">Cargando catálogo…</p>
+                <div id="store-items-grid" class="grid grid-cols-2 md:grid-cols-3 gap-3"></div>
+                <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center justify-between"><h4 class="font-bold text-sm">Mi inventario</h4><span id="inventory-count" class="text-[10px] text-slate-400">0 artículos</span></div>
+                    <div id="store-inventory-list" class="space-y-2"><p class="text-xs text-slate-400">Todavía no tenés artículos.</p></div>
+                    <p class="text-[10px] text-amber-300/90">Los overlays se guardan como preferencia equipada; su renderizado automático durante un directo requiere integrar el motor de emisión.</p>
+                </section>
+                <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
+                    <h4 class="font-bold text-sm">Movimientos de Tokens</h4>
+                    <div id="wallet-transactions-list" class="space-y-2"><p class="text-xs text-slate-400">Todavía no hay movimientos.</p></div>
+                </section>
             </div>
 
-            <!-- TAB EVENTS -->
-            <div id="tab-events" class="space-y-6 hidden text-center max-w-lg mx-auto">
-                <h3 class="font-black text-xl">Ruleta Diaria PLAYVERSE</h3>
-                <div class="relative w-64 h-64 mx-auto my-6">
-                    <div id="roulette-wheel" class="w-full h-full rounded-full border-4 border-blue-400 PLAYVERSE-gradient shadow-2xl flex items-center justify-center transition-all duration-[3000ms] ease-out">
-                        <div class="text-xs font-black text-white grid grid-cols-2 gap-8 p-4 text-center"><span>500 Créditos</span><span>Marco VIP</span><span>Bonus sorpresa</span><span>100 Créditos</span></div>
+            <!-- TAB EVENTS / MISSIONS -->
+            <div id="tab-events" class="space-y-4 hidden max-w-lg mx-auto">
+                <section class="PLAYVERSE-card rounded-2xl p-5 space-y-2">
+                    <div class="flex items-center justify-between gap-3">
+                        <h3 class="font-black text-xl">Misiones de PLAYVERSE</h3>
+                        <span id="missions-summary" class="text-xs text-orange-300 font-bold">0/22 completadas</span>
                     </div>
-                </div>
-                <button onclick="spinRoulette()" class="PLAYVERSE-gradient text-white font-black px-8 py-3.5 rounded-2xl shadow-xl uppercase">Girar Ruleta (100 Créditos)</button>
-                <p id="roulette-result" class="text-sm font-bold text-emerald-400 h-6"></p>
+                    <p id="missions-status" class="text-xs text-slate-400" role="status">El progreso se calcula con la actividad real de tu cuenta.</p>
+                    <div id="missions-list" class="space-y-3"></div>
+                    <p class="text-xs text-slate-500 border-t border-slate-800 pt-3">Campaña de 22 misiones en cinco capítulos. Completá objetivos reales y reclamá cada recompensa de Tokens una sola vez.</p>
+                </section>
+            </div>
+
+            <!-- TAB SAVED -->
+            <div id="tab-saved" class="space-y-4 hidden max-w-lg mx-auto">
+                <section class="PLAYVERSE-card rounded-2xl p-5 space-y-2">
+                    <div class="flex items-center gap-3"><i class="fa-solid fa-bookmark text-2xl text-cyan-300"></i><h3 class="font-black text-xl">Publicaciones guardadas</h3></div>
+                    <p id="saved-posts-status" class="text-xs text-slate-400" role="status">Tus publicaciones guardadas aparecerán acá.</p>
+                </section>
+                <div id="saved-posts-container" class="space-y-4"></div>
+            </div>
+
+            <!-- TAB NOTIFICATIONS -->
+            <div id="tab-notifications" class="space-y-4 hidden max-w-2xl mx-auto">
+                <section class="PLAYVERSE-card rounded-2xl p-5 space-y-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <div><h3 class="font-black text-xl">Notificaciones</h3><p id="notifications-status" class="text-xs text-slate-400">Avisos reales de tu cuenta y actividad social.</p></div>
+                        <button type="button" id="notifications-read-all" onclick="markAllNotificationsRead()" class="text-xs font-bold text-orange-300 hover:text-orange-200">Marcar todo leído</button>
+                    </div>
+                </section>
+                <div id="notifications-list" class="space-y-2" aria-live="polite"></div>
+                <button type="button" id="notifications-more" onclick="loadNotifications(false)" class="hidden w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-xs font-bold text-slate-200">Cargar más</button>
+            </div>
+
+            <!-- TAB HELP -->
+            <div id="tab-help" class="space-y-4 hidden max-w-lg mx-auto">
+                <section class="PLAYVERSE-card rounded-2xl p-5 space-y-3">
+                    <div class="flex items-center gap-3"><i class="fa-solid fa-life-ring text-2xl text-sky-300"></i><h3 class="font-black text-xl">Ayuda y soporte</h3></div>
+                    <p class="text-sm text-slate-300">PLAYVERSE está en construcción. Desde acá vamos a reunir ayuda de cuenta, seguridad, reportes y preguntas frecuentes.</p>
+                    <p class="text-xs text-slate-500">El canal de soporte todavía no está conectado. No se publica una dirección de contacto hasta que exista una oficial.</p>
+                </section>
             </div>
 
             <!-- TAB PROFILE -->
@@ -249,7 +442,7 @@
                     </div>
                     <div>
                         <h3 id="profile-display-name" class="font-black text-xl text-white">Jugador PLAYVERSE</h3>
-                        <p id="profile-username" class="text-xs text-cyan-400 font-mono mt-0.5">@usuario</p>
+                        <p id="profile-username" class="text-xs text-orange-400 font-mono mt-0.5">@usuario</p>
                         <p id="profile-bio" class="text-sm text-slate-300 mt-3 whitespace-pre-wrap break-words">Todavía no agregaste una biografía.</p>
                     </div>
                     <div class="grid grid-cols-3 gap-3">
@@ -257,7 +450,31 @@
                         <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800"><span class="block text-[10px] text-slate-400 font-bold">CUENTA</span><span class="font-black text-sm text-emerald-400">Activa</span></div>
                         <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800"><span class="block text-[10px] text-slate-400 font-bold">MIEMBRO DESDE</span><span id="profile-member-since" class="font-black text-sm text-white">—</span></div>
                     </div>
-                    <button type="button" onclick="openProfileEditor()" class="w-full rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-4 py-3 text-xs font-bold text-cyan-300">Editar perfil</button>
+                    <section class="text-left space-y-3">
+                        <div class="flex items-center justify-between"><h4 class="text-xs font-black uppercase tracking-wider text-slate-300">Actividad de mi cuenta</h4><span id="profile-stats-status" class="text-[10px] text-slate-500" role="status">Cargando…</span></div>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="block text-[10px] text-slate-500 font-bold">PUBLICACIONES</span><span id="profile-stat-posts" class="text-xl font-black text-white">—</span></div>
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="block text-[10px] text-slate-500 font-bold">AMIGOS</span><span id="profile-stat-friends" class="text-xl font-black text-white">—</span></div>
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="block text-[10px] text-slate-500 font-bold">SEGUIDORES</span><span id="profile-stat-followers" class="text-xl font-black text-white">—</span></div>
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="block text-[10px] text-slate-500 font-bold">SIGUIENDO</span><span id="profile-stat-following" class="text-xl font-black text-white">—</span></div>
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="block text-[10px] text-slate-500 font-bold">SALAS CREADAS</span><span id="profile-stat-rooms" class="text-xl font-black text-white">—</span></div>
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="block text-[10px] text-slate-500 font-bold">MENSAJES EN SALAS</span><span id="profile-stat-messages" class="text-xl font-black text-white">—</span></div>
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="block text-[10px] text-slate-500 font-bold">PUBLICACIONES GUARDADAS</span><span id="profile-stat-saved" class="text-xl font-black text-white">—</span></div>
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="block text-[10px] text-slate-500 font-bold">VISUALIZACIONES</span><span id="profile-stat-views" class="text-sm font-bold text-amber-300">No disponible</span></div>
+                        </div>
+                        <p class="text-[10px] text-slate-500">Las estadísticas se calculan con la actividad guardada en PLAYVERSE. Visualizaciones y experiencia estarán disponibles cuando se implemente su seguimiento.</p>
+                    </section>
+                    <section class="text-left space-y-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                        <div class="flex items-center justify-between gap-3">
+                            <h4 class="text-xs font-black uppercase tracking-wider text-slate-300">Historial real de actividad</h4>
+                            <span id="profile-activity-status" class="text-[10px] text-slate-500" role="status">Cargando…</span>
+                        </div>
+                        <div id="profile-activity-list" class="space-y-2" aria-live="polite">
+                            <p class="text-xs text-slate-500">Cargando actividad de tu cuenta…</p>
+                        </div>
+                        <button id="profile-activity-more" type="button" onclick="loadProfileActivity(false)" class="hidden w-full rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800">Cargar más actividad</button>
+                    </section>
+                    <button type="button" onclick="openProfileEditor()" class="w-full rounded-xl border border-orange-500/40 bg-orange-500/10 px-4 py-3 text-xs font-bold text-orange-300">Editar perfil</button>
                     <p id="profile-status" class="text-xs text-slate-400" role="status"></p>
                 </div>
             </div>
@@ -272,21 +489,33 @@
             </div>
         </div>
 
-        <!-- BOTTOM NAV -->
-        <nav class="h-16 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 grid grid-cols-5 items-center shrink-0 z-30">
-            <button onclick="switchTab('feed')" id="nav-btn-feed" class="flex flex-col items-center justify-center text-cyan-400"><i class="fa-solid fa-tv text-lg"></i><span class="text-[10px] mt-1 font-semibold">Transmitir</span></button>
-            <button onclick="switchTab('lobbies')" id="nav-btn-lobbies" class="flex flex-col items-center justify-center text-slate-400"><i class="fa-solid fa-gamepad text-lg"></i><span class="text-[10px] mt-1 font-semibold">Salas</span></button>
-            <div class="flex justify-center -mt-5"><button onclick="openPostModal()" class="w-14 h-14 PLAYVERSE-gradient rounded-full flex items-center justify-center text-white shadow-xl border-4 border-slate-950 text-xl"><i class="fa-solid fa-plus"></i></button></div>
-            <button onclick="switchTab('shop')" id="nav-btn-shop" class="flex flex-col items-center justify-center text-slate-400"><i class="fa-solid fa-store text-lg"></i><span class="text-[10px] mt-1 font-semibold">Tienda</span></button>
-            <button onclick="switchTab('events')" id="nav-btn-events" class="flex flex-col items-center justify-center text-slate-400"><i class="fa-solid fa-sparkles text-lg"></i><span class="text-[10px] mt-1 font-semibold">Ruleta</span></button>
+        <!-- NAVEGACIÓN PRINCIPAL PLAYVERSE -->
+        <nav aria-label="Navegación principal" class="h-[4.5rem] bg-slate-900/95 backdrop-blur-md border-t border-slate-800 grid grid-cols-5 items-center shrink-0 z-30 pb-[env(safe-area-inset-bottom)]">
+            <button type="button" onclick="switchTab('feed')" id="nav-btn-feed" aria-current="page" class="flex flex-col items-center justify-center gap-1 text-orange-400"><i class="fa-solid fa-house text-lg"></i><span class="text-[10px] font-semibold">Inicio</span></button>
+            <button type="button" onclick="switchTab('live')" id="nav-btn-live" class="flex flex-col items-center justify-center gap-1 text-slate-400"><i class="fa-solid fa-tower-broadcast text-lg"></i><span class="text-[10px] font-semibold">En Vivo</span></button>
+            <div class="flex justify-center -mt-5"><button type="button" onclick="openActionSelector()" aria-label="Crear y transmitir" class="w-14 h-14 PLAYVERSE-gradient rounded-full flex items-center justify-center text-white shadow-xl border-4 border-slate-950 text-xl"><i class="fa-solid fa-plus"></i></button></div>
+            <button type="button" onclick="switchTab('lobbies')" id="nav-btn-lobbies" class="flex flex-col items-center justify-center gap-1 text-slate-400"><i class="fa-solid fa-gamepad text-lg"></i><span class="text-[10px] font-semibold">Juegos</span></button>
+            <button type="button" onclick="switchTab('chat')" id="nav-btn-chat" class="flex flex-col items-center justify-center gap-1 text-slate-400"><i class="fa-solid fa-comments text-lg"></i><span class="text-[10px] font-semibold">Chat</span></button>
         </nav>
     </div>
 
     <!-- MODAL POST -->
+    <div id="action-selector-modal" class="fixed inset-0 z-[60] bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 hidden" role="dialog" aria-modal="true" aria-labelledby="action-selector-title">
+        <section class="PLAYVERSE-card rounded-3xl w-full max-w-md p-5 space-y-4 border border-orange-500/30">
+            <div class="flex items-center justify-between"><div><h3 id="action-selector-title" class="font-black text-lg">Crear en PLAYVERSE</h3><p class="text-xs text-slate-400">Elegí qué querés hacer</p></div><button type="button" onclick="closeActionSelector()" class="p-2 text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button></div>
+            <div class="grid grid-cols-2 gap-3">
+                <button type="button" onclick="closeActionSelector(); openStreamStudio();" class="PLAYVERSE-card rounded-2xl p-4 text-left space-y-2"><i class="fa-solid fa-tower-broadcast text-xl text-rose-400"></i><strong class="block text-sm">Transmitir</strong><span class="block text-[10px] text-slate-400">Configurar emisión</span></button>
+                <button type="button" disabled class="PLAYVERSE-card rounded-2xl p-4 text-left space-y-2 opacity-60 cursor-not-allowed"><i class="fa-solid fa-record-vinyl text-xl text-slate-300"></i><strong class="block text-sm">Grabar</strong><span class="block text-[10px] text-amber-300">En desarrollo</span></button>
+                <button type="button" onclick="closeActionSelector(); openPostModal();" class="PLAYVERSE-card rounded-2xl p-4 text-left space-y-2"><i class="fa-solid fa-pen-to-square text-xl text-orange-300"></i><strong class="block text-sm">Publicar</strong><span class="block text-[10px] text-slate-400">Compartir con la comunidad</span></button>
+                <button type="button" onclick="closeActionSelector(); openCreateRoomModal();" class="PLAYVERSE-card rounded-2xl p-4 text-left space-y-2"><i class="fa-solid fa-gamepad text-xl text-emerald-300"></i><strong class="block text-sm">Host multijugador</strong><span class="block text-[10px] text-slate-400">Crear una sala</span></button>
+            </div>
+        </section>
+    </div>
+
     <div id="post-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
         <div class="PLAYVERSE-card rounded-3xl w-full max-w-md p-6 space-y-4 border border-slate-800">
             <div class="flex items-center justify-between pb-3 border-b border-slate-800"><h3 class="font-black text-base text-white">Crear Publicación</h3><button onclick="closePostModal()" class="text-slate-400"><i class="fa-solid fa-xmark text-lg"></i></button></div>
-            <textarea id="post-text-input" rows="4" maxlength="2000" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-sm text-white focus:outline-none focus:border-cyan-500 resize-none" placeholder="¿Qué quieres compartir con la comunidad de PLAYVERSE?..."></textarea>
+            <textarea id="post-text-input" rows="4" maxlength="2000" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-sm text-white focus:outline-none focus:border-orange-500 resize-none" placeholder="¿Qué quieres compartir con la comunidad de PLAYVERSE?..."></textarea>
             <p id="post-form-status" class="text-xs text-slate-400" role="status">Máximo 2000 caracteres.</p>
             <div class="flex justify-end pt-2"><button id="post-submit-btn" onclick="submitPost()" class="PLAYVERSE-gradient text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md">Publicar</button></div>
         </div>
@@ -295,17 +524,24 @@
     <!-- MODAL SETTINGS: PREFERENCIAS DE CREADOR PERSISTIDAS EN LA API -->
     <div id="settings-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
         <form id="streaming-settings-form" onsubmit="saveStreamingPreferences(event)" class="PLAYVERSE-card rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-5 border border-slate-800">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-800"><div><h3 class="font-black text-lg text-white">Preferencias de creador</h3><p class="text-xs text-slate-400">Se guardan en tu cuenta PLAYVERSE</p></div><button type="button" onclick="closeSettingsModal()" class="text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark text-lg"></i></button></div>
-            <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-cyan-300">Calidad de salida</h4>
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800"><div><h3 class="font-black text-lg text-white">Ajustes de PLAYVERSE</h3><p class="text-xs text-slate-400">Accesibilidad y preferencias de creador</p></div><button type="button" onclick="closeSettingsModal()" class="text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+            <section class="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <div><h4 class="text-xs font-black uppercase tracking-wider text-orange-300">Accesibilidad de la aplicación</h4><p class="text-[11px] text-slate-400 mt-1">Se guardan en tu cuenta y se aplican a esta interfaz.</p></div>
+                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Reducir animaciones<input id="app-reduce-motion" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
+                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Mayor contraste<input id="app-high-contrast" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
+                <p id="app-preferences-status" class="text-[11px] text-slate-400" role="status">Cargando ajustes de la aplicación…</p>
+                <button id="app-preferences-save" type="button" onclick="saveApplicationPreferences()" class="w-full rounded-xl border border-orange-500/40 bg-orange-500/10 px-4 py-2.5 text-xs font-bold text-orange-200">Guardar ajustes de aplicación</button>
+            </section>
+            <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-orange-300">Calidad de salida</h4>
                 <label class="block text-xs text-slate-400">Resolución preferida<select id="stream-resolution" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="auto">Automática</option><option value="720p">720p</option><option value="1080p">1080p</option><option value="1440p">1440p</option><option value="2160p">2160p (4K)</option></select></label>
                 <div class="grid grid-cols-2 gap-3"><label class="text-xs text-slate-400">Fotogramas por segundo<select id="stream-fps" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="24">24 FPS</option><option value="30">30 FPS</option><option value="60">60 FPS</option><option value="120">120 FPS</option></select></label><label class="text-xs text-slate-400">Bitrate objetivo<select id="stream-bitrate" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="3">3 Mbps</option><option value="6">6 Mbps</option><option value="8">8 Mbps</option><option value="12">12 Mbps</option><option value="20">20 Mbps</option><option value="30">30 Mbps</option><option value="50">50 Mbps</option></select></label></div>
             </section>
-            <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-cyan-300">Captura y audio</h4>
-                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Cámara habilitada<input id="stream-camera" type="checkbox" class="accent-cyan-400 w-5 h-5"></label>
-                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Micrófono habilitado<input id="stream-microphone" type="checkbox" class="accent-cyan-400 w-5 h-5"></label>
-                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Audio del sistema habilitado<input id="stream-system-audio" type="checkbox" class="accent-cyan-400 w-5 h-5"></label>
+            <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-orange-300">Captura y audio</h4>
+                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Cámara habilitada<input id="stream-camera" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
+                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Micrófono habilitado<input id="stream-microphone" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
+                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Audio del sistema habilitado<input id="stream-system-audio" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
             </section>
-            <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-cyan-300">Presentación</h4>
+            <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-orange-300">Presentación</h4>
                 <div class="grid grid-cols-2 gap-3"><label class="text-xs text-slate-400">Orientación<select id="stream-orientation" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="auto">Automática</option><option value="portrait">Vertical</option><option value="landscape">Horizontal</option></select></label><label class="text-xs text-slate-400">Posición de cámara<select id="stream-camera-position" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="top-left">Arriba izquierda</option><option value="top-right">Arriba derecha</option><option value="bottom-left">Abajo izquierda</option><option value="bottom-right">Abajo derecha</option></select></label></div>
                 <label class="block text-xs text-slate-400">Marco de cámara<select id="stream-camera-frame" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="none">Sin marco</option><option value="cyan">Cian</option><option value="violet">Violeta</option></select></label>
             </section>
@@ -356,16 +592,22 @@
         </section>
     </div>
 
+    <script src="/livekit-client.umd.js"></script>
     <script>
         const API_URL = window.PLAYVERSE_API_URL || 'https://playverse-api-bgyg.onrender.com';
         const SESSION_KEY = 'playverse_session_token';
         let authToken = sessionStorage.getItem(SESSION_KEY);
-        let appState = { username: '', créditos: 0 };
+        let appState = { username: '', walletTokens: 0, profile: null };
         let activeRoomId = null;
         let activeRoomName = '';
         let roomSocket = null;
         let roomSocketJoined = false;
         let socketScriptLoading = false;
+        let presenceSocket = null;
+        let presenceScriptLoading = false;
+        let presenceHeartbeatTimer = null;
+        let friendsPresenceTimer = null;
+
 
         function setAuthMessage(message, isError = true) {
             let status = document.getElementById('auth-status');
@@ -421,6 +663,149 @@
             }
         }
 
+        async function loadProfileSummary() {
+            const status = document.getElementById('profile-stats-status');
+            if (status) status.textContent = 'Actualizando…';
+            try {
+                const data = await apiRequest('/api/me/profile-summary');
+                const stats = data.stats || {};
+                const values = {
+                    'profile-stat-posts': stats.posts,
+                    'profile-stat-friends': stats.friends,
+                    'profile-stat-followers': stats.followers,
+                    'profile-stat-following': stats.following,
+                    'profile-stat-rooms': stats.roomsCreated,
+                    'profile-stat-messages': stats.roomMessages,
+                    'profile-stat-saved': stats.savedPosts
+                };
+                Object.entries(values).forEach(([id, value]) => {
+                    const element = document.getElementById(id);
+                    if (element) element.textContent = Number.isFinite(value) ? value.toLocaleString('es-AR') : '—';
+                });
+                const views = document.getElementById('profile-stat-views');
+                if (views) views.textContent = stats.views === null || stats.views === undefined
+                    ? 'No disponible todavía'
+                    : Number(stats.views).toLocaleString('es-AR');
+                if (status) status.textContent = 'Datos actualizados';
+            } catch (error) {
+                if (status) status.textContent = 'No se pudieron cargar las estadísticas';
+            }
+        }
+
+
+        let profileActivityCursor = null;
+        let profileActivityLoading = false;
+
+        async function loadProfileActivity(reset = false) {
+            if (profileActivityLoading) return;
+            const list = document.getElementById('profile-activity-list');
+            const status = document.getElementById('profile-activity-status');
+            const more = document.getElementById('profile-activity-more');
+            if (!list || !status || !more) return;
+            profileActivityLoading = true;
+            if (reset) {
+                profileActivityCursor = null;
+                list.replaceChildren();
+                list.textContent = 'Cargando actividad de tu cuenta…';
+            }
+            status.textContent = 'Actualizando…';
+            more.disabled = true;
+            try {
+                const query = new URLSearchParams({ limit: '10' });
+                if (profileActivityCursor) query.set('cursor', profileActivityCursor);
+                const data = await apiRequest('/api/me/activity?' + query.toString());
+                if (reset) list.replaceChildren();
+                (data.activities || []).forEach((activity) => {
+                    const item = document.createElement('article');
+                    item.className = 'rounded-xl border border-slate-800 bg-slate-900/70 p-3';
+                    const title = document.createElement('p');
+                    title.className = 'text-xs font-bold text-white';
+                    title.textContent = activity.title || 'Actividad de PLAYVERSE';
+                    const description = document.createElement('p');
+                    description.className = 'mt-1 text-[11px] text-slate-400';
+                    description.textContent = activity.description || '';
+                    const date = document.createElement('time');
+                    date.className = 'mt-2 block text-[10px] text-slate-500';
+                    const timestamp = new Date(activity.createdAt);
+                    date.textContent = Number.isNaN(timestamp.getTime())
+                        ? 'Fecha no disponible'
+                        : timestamp.toLocaleString('es-AR');
+                    if (!Number.isNaN(timestamp.getTime())) date.dateTime = timestamp.toISOString();
+                    item.append(title, description, date);
+                    list.append(item);
+                });
+                profileActivityCursor = data.page?.nextCursor || null;
+                more.classList.toggle('hidden', !data.page?.hasMore);
+                if (!(data.activities || []).length && reset) {
+                    const empty = document.createElement('p');
+                    empty.className = 'text-xs text-slate-500';
+                    empty.textContent = 'Todavía no hay actividad registrada en tu cuenta.';
+                    list.append(empty);
+                }
+                status.textContent = (data.activities || []).length
+                    ? 'Actividad real sincronizada'
+                    : 'Sin actividad nueva';
+            } catch (error) {
+                status.textContent = 'No se pudo cargar el historial';
+                if (reset) list.textContent = 'No pudimos obtener tu actividad. Volvé a intentarlo.';
+            } finally {
+                profileActivityLoading = false;
+                more.disabled = false;
+            }
+        }
+
+        function connectPresenceSocket() {
+            if (!authToken) return;
+            if (!window.io) {
+                if (presenceScriptLoading) return;
+                presenceScriptLoading = true;
+                const script = document.createElement('script');
+                script.src = API_URL + '/socket.io/socket.io.js';
+                script.onload = () => {
+                    presenceScriptLoading = false;
+                    connectPresenceSocket();
+                };
+                script.onerror = () => {
+                    presenceScriptLoading = false;
+                };
+                document.head.appendChild(script);
+                return;
+            }
+            if (presenceSocket && (presenceSocket.connected || presenceSocket.active)) return;
+            presenceSocket = window.io(API_URL, { auth: { token: authToken } });
+            presenceSocket.on('connect', () => {
+                presenceSocket.emit('presence_heartbeat', {}, (result) => {
+                    if (!result || !result.success) console.warn('PLAYVERSE presence heartbeat was not accepted.');
+                });
+                if (!presenceHeartbeatTimer) {
+                    presenceHeartbeatTimer = setInterval(() => {
+                        if (presenceSocket && presenceSocket.connected) {
+                            presenceSocket.emit('presence_heartbeat', {});
+                        }
+                    }, 25000);
+                }
+            });
+            presenceSocket.on('disconnect', () => {
+                if (presenceHeartbeatTimer) {
+                    clearInterval(presenceHeartbeatTimer);
+                    presenceHeartbeatTimer = null;
+                }
+            });
+            presenceSocket.on('connect_error', () => {
+                // Presence is best-effort; the rest of the app remains usable.
+            });
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && authToken) {
+                if (presenceSocket && presenceSocket.connected) {
+                    presenceSocket.emit('presence_heartbeat');
+                } else {
+                    connectPresenceSocket();
+                }
+            }
+        });
+
         function showAuthenticatedApp(user) {
             applyProfileData(user);
             document.getElementById('auth-screen').classList.add('hidden');
@@ -428,6 +813,16 @@
             loadMyProfile();
             loadRooms();
             loadCommunityPosts();
+            refreshNotificationBadge();
+            connectPresenceSocket();
+            if (!friendsPresenceTimer) {
+                friendsPresenceTimer = setInterval(() => {
+                    const friendsTab = document.getElementById('tab-friends');
+                    if (authToken && !document.hidden && friendsTab && !friendsTab.classList.contains('hidden')) {
+                        loadFriends();
+                    }
+                }, 30000);
+            }
         }
 
         async function restoreSession() {
@@ -506,6 +901,12 @@
         }
 
         function logout() {
+            closeDirectConversation();
+            closeRoomChat();
+            if (presenceSocket) presenceSocket.disconnect();
+            presenceSocket = null;
+            if (presenceHeartbeatTimer) clearInterval(presenceHeartbeatTimer);
+            presenceHeartbeatTimer = null;
             authToken = null;
             sessionStorage.removeItem(SESSION_KEY);
             document.getElementById('main-app').classList.add('hidden');
@@ -514,21 +915,164 @@
             setAuthMessage('Cerraste tu sesión.', false);
         }
 
+        function openActionSelector() {
+            document.getElementById('action-selector-modal').classList.remove('hidden');
+        }
+        function closeActionSelector() {
+            document.getElementById('action-selector-modal').classList.add('hidden');
+        }
+
         function switchTab(tabName) {
-            ['feed', 'lobbies', 'shop', 'events', 'profile', 'friends'].forEach(t => {
+            ['feed', 'live', 'chat', 'lobbies', 'shop', 'events', 'profile', 'friends', 'saved', 'notifications', 'help'].forEach(t => {
                 const el = document.getElementById('tab-' + t);
                 if(el) el.classList.add('hidden');
             });
             document.getElementById('tab-' + tabName).classList.remove('hidden');
+            if (tabName === 'live') loadLiveStreams();
             if (tabName === 'lobbies') loadRooms();
+            if (tabName === 'chat') loadDirectConversations();
             if (tabName === 'feed') loadCommunityPosts();
+            if (tabName === 'saved') loadSavedPosts();
+            if (tabName === 'events') loadMissions();
             if (tabName === 'friends') loadFriends();
-            ['feed', 'lobbies', 'shop', 'events'].forEach(t => {
+            if (tabName === 'notifications') loadNotifications(true);
+            if (tabName === 'profile') { loadMyProfile(); loadProfileSummary(); loadProfileActivity(true); }
+            if (tabName === 'shop') loadStore();
+            ['feed', 'live', 'chat', 'lobbies', 'shop', 'events', 'friends', 'profile', 'notifications'].forEach(t => {
                 const btn = document.getElementById('nav-btn-' + t);
-                if(btn) { btn.classList.remove('text-cyan-400'); btn.classList.add('text-slate-400'); }
+                if(btn) {
+                    btn.classList.remove('text-orange-400');
+                    btn.classList.add('text-slate-400');
+                    btn.removeAttribute('aria-current');
+                }
             });
             const activeNav = document.getElementById('nav-btn-' + tabName);
-            if(activeNav) { activeNav.classList.remove('text-slate-400'); activeNav.classList.add('text-cyan-400'); }
+            if(activeNav) {
+                activeNav.classList.remove('text-slate-400');
+                activeNav.classList.add('text-orange-400');
+                activeNav.setAttribute('aria-current', 'page');
+            }
+        }
+
+        let notificationsCursor = null;
+        let notificationsLoading = false;
+
+        function updateNotificationBadge(count) {
+            const badge = document.getElementById('notifications-badge');
+            const drawerCount = document.getElementById('drawer-notifications-count');
+            const unread = Math.max(0, Number(count) || 0);
+            if (badge) {
+                badge.textContent = unread > 99 ? '99+' : String(unread);
+                badge.classList.toggle('hidden', unread === 0);
+                badge.classList.toggle('flex', unread > 0);
+            }
+            if (drawerCount) drawerCount.textContent = unread > 0 ? String(unread) : '';
+        }
+
+        async function loadNotifications(reset = false) {
+            if (notificationsLoading) return;
+            const list = document.getElementById('notifications-list');
+            const status = document.getElementById('notifications-status');
+            const more = document.getElementById('notifications-more');
+            if (!list || !status || !more) return;
+            notificationsLoading = true;
+            if (reset) {
+                notificationsCursor = null;
+                list.replaceChildren();
+                status.textContent = 'Cargando notificaciones…';
+            }
+            more.disabled = true;
+            try {
+                const query = new URLSearchParams({ limit: '20' });
+                if (notificationsCursor) query.set('before', notificationsCursor);
+                const data = await apiRequest('/api/me/notifications?' + query.toString());
+                if (reset) list.replaceChildren();
+                (data.notifications || []).forEach((notification) => {
+                    const card = document.createElement('article');
+                    card.className = 'rounded-xl border p-3 ' + (notification.readAt ? 'border-slate-800 bg-slate-900/60' : 'border-orange-500/40 bg-orange-950/20');
+                    const row = document.createElement('div');
+                    row.className = 'flex items-start gap-3';
+                    const icon = document.createElement('span');
+                    icon.className = 'w-9 h-9 shrink-0 rounded-xl bg-slate-800 flex items-center justify-center text-orange-300';
+                    icon.textContent = notification.type === 'friend_request' ? '👥' : notification.type === 'friend_accepted' ? '🤝' : '💬';
+                    const content = document.createElement('div');
+                    content.className = 'min-w-0 flex-1';
+                    const title = document.createElement('p');
+                    title.className = 'text-sm font-bold text-white';
+                    title.textContent = notification.title || 'Notificación PLAYVERSE';
+                    const body = document.createElement('p');
+                    body.className = 'text-xs text-slate-300 mt-1 break-words';
+                    body.textContent = notification.body || '';
+                    const date = document.createElement('p');
+                    date.className = 'text-[10px] text-slate-500 mt-2';
+                    date.textContent = notification.createdAt ? new Date(notification.createdAt).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+                    content.append(title, body, date);
+                    row.append(icon, content);
+                    if (!notification.readAt) {
+                        const read = document.createElement('button');
+                        read.type = 'button';
+                        read.className = 'shrink-0 text-[10px] font-bold text-orange-300';
+                        read.textContent = 'Leída';
+                        read.setAttribute('aria-label', 'Marcar notificación como leída');
+                        read.addEventListener('click', () => markNotificationRead(notification.id));
+                        row.append(read);
+                    }
+                    card.append(row);
+                    list.append(card);
+                });
+                notificationsCursor = data.page && data.page.nextCursor || null;
+                more.classList.toggle('hidden', !(data.page && data.page.hasMore));
+                status.textContent = (data.unreadCount || 0) + ' sin leer · Notificaciones guardadas en tu cuenta.';
+                updateNotificationBadge(data.unreadCount);
+                if (!(data.notifications || []).length && reset) {
+                    const empty = document.createElement('p');
+                    empty.className = 'text-sm text-slate-400 text-center py-8';
+                    empty.textContent = 'Todavía no tenés notificaciones.';
+                    list.append(empty);
+                }
+            } catch (error) {
+                status.textContent = error.message || 'No se pudieron cargar las notificaciones.';
+            } finally {
+                notificationsLoading = false;
+                more.disabled = false;
+            }
+        }
+
+        async function markNotificationRead(notificationId) {
+            try {
+                await apiRequest('/api/me/notifications/' + encodeURIComponent(notificationId) + '/read', { method: 'PUT' });
+                await loadNotifications(true);
+            } catch (error) {
+                const status = document.getElementById('notifications-status');
+                if (status) status.textContent = error.message || 'No se pudo actualizar la notificación.';
+            }
+        }
+
+        async function markAllNotificationsRead() {
+            const button = document.getElementById('notifications-read-all');
+            if (button) button.disabled = true;
+            try {
+                await apiRequest('/api/me/notifications/read-all', { method: 'PUT' });
+                await loadNotifications(true);
+            } catch (error) {
+                const status = document.getElementById('notifications-status');
+                if (status) status.textContent = error.message || 'No se pudieron marcar como leídas.';
+            } finally {
+                if (button) button.disabled = false;
+            }
+        }
+
+        async function refreshNotificationBadge() {
+            if (!authToken) {
+                updateNotificationBadge(0);
+                return;
+            }
+            try {
+                const data = await apiRequest('/api/me/notifications?limit=1');
+                updateNotificationBadge(data.unreadCount);
+            } catch (error) {
+                // Badge refresh is non-critical; the inbox shows actionable errors when opened.
+            }
         }
 
         async function apiRequest(path, options = {}) {
@@ -549,6 +1093,303 @@
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
             })[char]);
         }
+
+
+        let activeDirectConversationId = null;
+        let activeDirectParticipant = null;
+        let directSocket = null;
+        let directSocketJoined = false;
+        let directSocketScriptLoading = false;
+        let directTypingActive = false;
+        let directTypingStopTimer = null;
+        let directTypingIndicatorTimer = null;
+        const renderedDirectMessageIds = new Set();
+
+        function appendDirectMessage(message) {
+            if (!message || !message.id || renderedDirectMessageIds.has(message.id)) return;
+            renderedDirectMessageIds.add(message.id);
+            const container = document.getElementById('dm-messages');
+            if (!container) return;
+            const own = String(message.senderId) === String(appState.profile && appState.profile.id);
+            const item = document.createElement('article');
+            item.className = 'max-w-[88%] rounded-2xl px-3 py-2 ' + (own ? 'ml-auto bg-orange-500/15 border border-orange-500/20' : 'mr-auto bg-slate-800/80');
+            item.dataset.messageId = String(message.id);
+            item.dataset.senderId = String(message.senderId || '');
+            const heading = document.createElement('p');
+            heading.className = 'text-[10px] text-slate-400 mb-1';
+            heading.textContent = (own ? 'Vos' : '@' + (message.senderUsername || activeDirectParticipant?.username || 'jugador')) + ' · ' +
+                (message.createdAt ? new Date(message.createdAt).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : 'ahora');
+            const body = document.createElement('p');
+            body.className = 'text-sm text-slate-100 whitespace-pre-wrap break-words';
+            body.textContent = String(message.body || '');
+            item.append(heading, body);
+            if (own) {
+                const delivery = document.createElement('p');
+                delivery.className = 'text-[10px] text-right text-slate-400 mt-1';
+                delivery.dataset.messageStatus = 'true';
+                delivery.textContent = message.readAt ? '✓✓ Leído' : '✓ Enviado';
+                item.appendChild(delivery);
+            }
+            container.appendChild(item);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function loadDirectConversations() {
+            const status = document.getElementById('dm-inbox-status');
+            const list = document.getElementById('dm-inbox-list');
+            if (!status || !list || !authToken) return;
+            status.textContent = 'Cargando conversaciones guardadas…';
+            try {
+                const data = await apiRequest('/api/me/conversations');
+                list.replaceChildren();
+                const conversations = data.conversations || [];
+                if (!conversations.length) {
+                    status.textContent = 'Todavía no tenés mensajes privados. Iniciá uno con un amigo.';
+                    return;
+                }
+                status.textContent = conversations.length + ' conversación(es)';
+                conversations.forEach((conversation) => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'w-full PLAYVERSE-card rounded-xl p-3 flex items-center gap-3 text-left hover:border-orange-500/40';
+                    const avatar = document.createElement('div');
+                    avatar.className = 'w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center overflow-hidden';
+                    if (conversation.participant.avatarUrl) {
+                        const image = document.createElement('img');
+                        image.src = conversation.participant.avatarUrl;
+                        image.alt = '';
+                        image.className = 'w-full h-full object-cover';
+                        avatar.appendChild(image);
+                    } else avatar.textContent = '🎮';
+                    const details = document.createElement('div');
+                    details.className = 'min-w-0 flex-1';
+                    const name = document.createElement('p');
+                    name.className = 'text-sm font-bold truncate';
+                    name.textContent = conversation.participant.displayName || '@' + conversation.participant.username;
+                    const preview = document.createElement('p');
+                    preview.className = 'text-xs text-slate-400 truncate';
+                    preview.textContent = conversation.lastMessage || 'Todavía no hay mensajes.';
+                    details.append(name, preview);
+                    const date = document.createElement('span');
+                    date.className = 'text-[10px] text-slate-500';
+                    date.textContent = conversation.lastMessageAt ? new Date(conversation.lastMessageAt).toLocaleDateString('es-AR') : '';
+                    button.append(avatar, details, date);
+                    if (conversation.unreadCount > 0) {
+                        const unread = document.createElement('span');
+                        unread.className = 'min-w-5 h-5 rounded-full bg-orange-500 text-slate-950 text-[10px] font-black flex items-center justify-center px-1';
+                        unread.textContent = String(conversation.unreadCount);
+                        button.appendChild(unread);
+                    }
+                    button.addEventListener('click', () => openDirectConversation(conversation.id, conversation.participant));
+                    list.appendChild(button);
+                });
+            } catch (error) {
+                status.textContent = 'No se pudieron cargar tus conversaciones: ' + error.message;
+            }
+        }
+
+        async function startDirectConversation(event) {
+            event.preventDefault();
+            const input = document.getElementById('dm-username-input');
+            const button = document.getElementById('dm-start-button');
+            const status = document.getElementById('dm-inbox-status');
+            const username = input.value.trim();
+            if (!username) return;
+            button.disabled = true;
+            try {
+                const data = await apiRequest('/api/conversations/' + encodeURIComponent(username), { method: 'POST' });
+                input.value = '';
+                await loadDirectConversations();
+                await openDirectConversation(data.conversation.id, data.conversation.participant);
+                status.textContent = 'Conversación lista.';
+            } catch (error) {
+                status.textContent = error.message;
+            } finally { button.disabled = false; }
+        }
+
+        async function openDirectConversation(conversationId, participant) {
+            stopDirectTyping();
+            if (directTypingIndicatorTimer) clearTimeout(directTypingIndicatorTimer);
+            directTypingIndicatorTimer = null;
+            if (directSocket) directSocket.disconnect();
+            directSocket = null;
+            directSocketJoined = false;
+            activeDirectConversationId = conversationId;
+            activeDirectParticipant = participant;
+            renderedDirectMessageIds.clear();
+            const panel = document.getElementById('dm-thread');
+            const title = document.getElementById('dm-thread-title');
+            const status = document.getElementById('dm-thread-status');
+            const messages = document.getElementById('dm-messages');
+            panel.classList.remove('hidden');
+            title.textContent = participant.displayName || '@' + participant.username;
+            status.textContent = 'Cargando historial…';
+            messages.replaceChildren();
+            try {
+                const data = await apiRequest('/api/conversations/' + encodeURIComponent(conversationId) + '/messages');
+                data.messages.forEach(appendDirectMessage);
+                status.textContent = 'Historial sincronizado. Conectando tiempo real…';
+                await loadDirectConversations();
+                connectDirectSocket(conversationId);
+            } catch (error) { status.textContent = error.message; }
+        }
+
+        function applyDirectReadReceipt(receipt) {
+            if (!receipt || String(receipt.conversationId) !== String(activeDirectConversationId)) return;
+            if (String(receipt.readerId) === String(appState.profile && appState.profile.id)) return;
+            const container = document.getElementById('dm-messages');
+            if (!container) return;
+            const items = Array.from(container.querySelectorAll('[data-message-id]'));
+            const throughIndex = items.findIndex((item) => item.dataset.messageId === String(receipt.throughMessageId));
+            if (throughIndex < 0) return;
+            for (let index = 0; index <= throughIndex; index += 1) {
+                const item = items[index];
+                if (item.dataset.senderId !== String(appState.profile && appState.profile.id)) continue;
+                const status = item.querySelector('[data-message-status]');
+                if (status) status.textContent = '✓✓ Leído';
+            }
+        }
+
+        function stopDirectTyping() {
+            if (directTypingStopTimer) clearTimeout(directTypingStopTimer);
+            directTypingStopTimer = null;
+            if (directTypingActive && directSocket && directSocket.connected && directSocketJoined && activeDirectConversationId) {
+                directSocket.emit('direct_typing_stop', { conversationId: activeDirectConversationId });
+            }
+            directTypingActive = false;
+        }
+
+        function connectDirectSocket(conversationId) {
+            if (!window.io) {
+                if (directSocketScriptLoading) return;
+                directSocketScriptLoading = true;
+                const script = document.createElement('script');
+                script.src = API_URL + '/socket.io/socket.io.js';
+                script.onload = () => { directSocketScriptLoading = false; connectDirectSocket(conversationId); };
+                script.onerror = () => {
+                    directSocketScriptLoading = false;
+                    const status = document.getElementById('dm-thread-status');
+                    if (status) status.textContent = 'Tiempo real no disponible. Podés enviar por conexión segura.';
+                };
+                document.head.appendChild(script);
+                return;
+            }
+            directSocket = window.io(API_URL, { auth: { token: authToken } });
+            directSocket.on('connect', () => {
+                directTypingActive = false;
+                if (directTypingStopTimer) clearTimeout(directTypingStopTimer);
+                directTypingStopTimer = null;
+                directSocket.emit('join_direct_conversation', { conversationId }, (result) => {
+                    directSocketJoined = Boolean(result && result.success);
+                    if (directSocketJoined) directSocket.emit('mark_direct_messages_read', { conversationId });
+                    const status = document.getElementById('dm-thread-status');
+                    if (status) status.textContent = directSocketJoined ? 'Chat en tiempo real conectado' :
+                        ((result && result.message) || 'No se pudo conectar al chat en tiempo real.');
+                });
+            });
+            directSocket.on('receive_direct_message', (message) => {
+                if (String(message.conversationId) === String(activeDirectConversationId)) {
+                    appendDirectMessage(message);
+                    if (String(message.senderId) !== String(appState.profile && appState.profile.id)) {
+                        directSocket.emit('mark_direct_messages_read', { conversationId: activeDirectConversationId });
+                    }
+                }
+                loadDirectConversations();
+            });
+            directSocket.on('direct_messages_read', applyDirectReadReceipt);
+            directSocket.on('direct_typing', (event) => {
+                if (!event || String(event.conversationId) !== String(activeDirectConversationId)) return;
+                const indicator = document.getElementById('dm-typing-status');
+                if (indicator) indicator.textContent = '@' + String(event.username || 'Tu amigo') + ' está escribiendo…';
+                if (directTypingIndicatorTimer) clearTimeout(directTypingIndicatorTimer);
+                directTypingIndicatorTimer = setTimeout(() => {
+                    const current = document.getElementById('dm-typing-status');
+                    if (current) current.textContent = '';
+                }, 4000);
+            });
+            directSocket.on('direct_typing_stopped', (event) => {
+                if (!event || String(event.conversationId) !== String(activeDirectConversationId)) return;
+                if (directTypingIndicatorTimer) clearTimeout(directTypingIndicatorTimer);
+                directTypingIndicatorTimer = null;
+                const indicator = document.getElementById('dm-typing-status');
+                if (indicator) indicator.textContent = '';
+            });
+            directSocket.on('direct_message_notification', (notification) => {
+                loadNotifications(true);
+                loadDirectConversations();
+                const status = document.getElementById('dm-inbox-status');
+                if (status && String(notification.conversationId) !== String(activeDirectConversationId)) {
+                    status.textContent = 'Nuevo mensaje de @' + String(notification.senderUsername || 'jugador') + '.';
+                }
+            });
+            directSocket.on('connect_error', () => {
+                directSocketJoined = false;
+                directTypingActive = false;
+                if (directTypingStopTimer) clearTimeout(directTypingStopTimer);
+                directTypingStopTimer = null;
+                const status = document.getElementById('dm-thread-status');
+                if (status) status.textContent = 'Tiempo real no disponible. Podés seguir enviando mensajes.';
+            });
+        }
+
+        function closeDirectConversation() {
+            stopDirectTyping();
+            if (directTypingIndicatorTimer) clearTimeout(directTypingIndicatorTimer);
+            directTypingIndicatorTimer = null;
+            const typingIndicator = document.getElementById('dm-typing-status');
+            if (typingIndicator) typingIndicator.textContent = '';
+            if (directSocket) directSocket.disconnect();
+            directSocket = null;
+            directSocketJoined = false;
+            activeDirectConversationId = null;
+            activeDirectParticipant = null;
+            document.getElementById('dm-thread').classList.add('hidden');
+        }
+
+        async function sendDirectMessage(event) {
+            event.preventDefault();
+            if (!activeDirectConversationId) return;
+            const input = document.getElementById('dm-message-input');
+            const button = document.getElementById('dm-send-button');
+            const body = input.value.trim();
+            if (!body) return;
+            button.disabled = true;
+            try {
+                if (directSocket && directSocket.connected && directSocketJoined) {
+                    await new Promise((resolve, reject) => {
+                        directSocket.emit('send_direct_message', {
+                            conversationId: activeDirectConversationId, body
+                        }, (result) => result && result.success ? resolve(result) :
+                            reject(new Error((result && result.message) || 'No se pudo enviar el mensaje.')));
+                    });
+                } else {
+                    const data = await apiRequest('/api/conversations/' + encodeURIComponent(activeDirectConversationId) + '/messages', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ body })
+                    });
+                    appendDirectMessage(data.message);
+                }
+                input.value = '';
+                await loadDirectConversations();
+            } catch (error) {
+                document.getElementById('dm-thread-status').textContent = error.message;
+            } finally { button.disabled = false; input.focus(); }
+        }
+
+        document.getElementById('dm-start-form').addEventListener('submit', startDirectConversation);
+        document.getElementById('dm-send-form').addEventListener('submit', sendDirectMessage);
+        const directMessageInput = document.getElementById('dm-message-input');
+        directMessageInput.addEventListener('input', () => {
+            if (!directSocket || !directSocket.connected || !directSocketJoined || !activeDirectConversationId) return;
+            if (!directTypingActive) {
+                directTypingActive = true;
+                directSocket.emit('direct_typing_start', { conversationId: activeDirectConversationId });
+            }
+            if (directTypingStopTimer) clearTimeout(directTypingStopTimer);
+            directTypingStopTimer = setTimeout(stopDirectTyping, 1400);
+        });
+        directMessageInput.addEventListener('blur', stopDirectTyping);
 
         async function loadRooms() {
             const container = document.getElementById('rooms-container');
@@ -573,7 +1414,7 @@
                     if (isMember) {
                         const chatButton = document.createElement('button');
                         chatButton.type = 'button';
-                        chatButton.className = 'bg-cyan-500 text-slate-950 text-xs font-black px-3 py-2 rounded-xl';
+                        chatButton.className = 'bg-orange-500 text-slate-950 text-xs font-black px-3 py-2 rounded-xl';
                         chatButton.textContent = 'Abrir chat';
                         chatButton.addEventListener('click', () => openRoomChat(room.id, room.name));
                         actions.appendChild(chatButton);
@@ -656,7 +1497,7 @@
             const item = document.createElement('article');
             item.className = 'rounded-xl bg-slate-900 px-3 py-2';
             const heading = document.createElement('p');
-            heading.className = 'text-[11px] font-bold text-cyan-400';
+            heading.className = 'text-[11px] font-bold text-orange-400';
             heading.textContent = String(message.username || 'Jugador') + ' · ' + new Date(message.sentAt || Date.now()).toLocaleTimeString();
             const body = document.createElement('p');
             body.className = 'text-sm text-slate-100 whitespace-pre-wrap break-words';
@@ -786,32 +1627,236 @@
             else { drawer.classList.add('-translate-x-full'); backdrop.classList.add('hidden'); }
         }
 
-        function updateCréditosUI() {
-            const headerCredits = document.getElementById('header-créditos');
-            const profileCredits = document.getElementById('profile-créditos');
-            if (headerCredits) headerCredits.textContent = appState.créditos;
-            if (profileCredits) profileCredits.textContent = appState.créditos;
+
+        let storeItems = [];
+        let inventoryItems = [];
+        let selectedStoreCategory = 'avatar-frame';
+        let selectedStoreItemId = null;
+        const STORE_CATEGORY_LABELS = {
+            'avatar-frame': 'Marcos de avatar',
+            'stream-overlay': 'Overlays para stream',
+            'chat-effect': 'Efectos de chat',
+            'entrance-effect': 'Efectos de entrada',
+            'stream-gift': 'Regalos virtuales'
+        };
+
+        async function loadStore() {
+            const status = document.getElementById('store-status');
+            if (!authToken) { status.textContent = 'Iniciá sesión para acceder a la tienda.'; return; }
+            status.textContent = 'Cargando catálogo e inventario…';
+            try {
+                const [catalog, inventory, walletHistory] = await Promise.all([
+                    apiRequest('/api/store/catalog'),
+                    apiRequest('/api/me/inventory'),
+                    apiRequest('/api/me/wallet/transactions')
+                ]);
+                storeItems = catalog.items || [];
+                inventoryItems = inventory.items || [];
+                appState.walletTokens = Number(inventory.wallet?.tokens || 0);
+                const balance = appState.walletTokens.toLocaleString('es-AR') + ' Tokens';
+                document.getElementById('store-wallet-balance').textContent = balance;
+                document.getElementById('header-créditos').textContent = appState.walletTokens.toLocaleString('es-AR');
+                renderStoreItems();
+                renderStoreInventory(inventory);
+                renderWalletTransactions(walletHistory.transactions || []);
+                status.textContent = storeItems.length + ' artículos disponibles · ' + (inventoryItems.length) + ' en tu inventario.';
+                const avatar = document.getElementById('profile-avatar');
+                const preview = document.getElementById('store-avatar-preview');
+                const placeholder = document.getElementById('store-avatar-preview-placeholder');
+                if (avatar && avatar.src && !avatar.classList.contains('hidden')) {
+                    preview.src = avatar.src;
+                    preview.classList.remove('hidden');
+                    placeholder.classList.add('hidden');
+                } else {
+                    preview.removeAttribute('src');
+                    preview.classList.add('hidden');
+                    placeholder.classList.remove('hidden');
+                }
+                applyEquippedCosmetics(inventory.equipped || {});
+            } catch (error) {
+                status.textContent = 'No se pudo cargar la tienda: ' + error.message;
+            }
         }
 
-        function buyShopItem(itemName, cost) {
-            if(appState.créditos >= cost) { appState.créditos -= cost; updateCréditosUI(); alert(`¡Compra exitosa! "${itemName}" equipado.`); }
-            else { alert('Créditos insuficientes.'); }
+        function renderStoreItems() {
+            const grid = document.getElementById('store-items-grid');
+            const filtered = storeItems.filter(item => item.category === selectedStoreCategory);
+            grid.replaceChildren();
+            document.querySelectorAll('[data-store-category]').forEach(button => {
+                const active = button.dataset.storeCategory === selectedStoreCategory;
+                button.className = 'store-category-btn shrink-0 rounded-full px-4 py-2 text-xs font-bold ' + (active ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-300');
+            });
+            filtered.forEach(item => {
+                const owned = inventoryItems.some(entry => entry.id === item.id);
+                const card = document.createElement('article');
+                card.className = 'PLAYVERSE-card rounded-2xl p-3 space-y-2';
+                const icon = item.category === 'avatar-frame' ? '🖼️' : item.category === 'stream-overlay' ? '🎥' : item.category === 'stream-gift' ? '🎁' : '✨';
+                card.innerHTML = '<div class="h-20 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-3xl">' + icon + '</div>' +
+                    '<div><h4 class="text-xs font-bold text-white">' + escapeHtml(item.name) + '</h4><p class="text-[10px] text-slate-400 mt-1">' + escapeHtml(item.description) + '</p></div>' +
+                    '<p class="text-[10px] text-amber-300 font-bold">' + Number(item.priceTokens).toLocaleString('es-AR') + ' Tokens</p>' +
+                    '<button type="button" data-preview-id="' + escapeHtml(item.id) + '" class="w-full rounded-lg border border-slate-700 px-2 py-2 text-[10px] font-bold text-slate-200">Previsualizar</button>' +
+                    '<button type="button" data-buy-id="' + escapeHtml(item.id) + '" class="w-full rounded-lg px-2 py-2 text-[10px] font-bold ' + (owned && item.category !== 'stream-gift' ? 'bg-emerald-900/50 text-emerald-300' : 'bg-orange-500 text-white') + '" ' + (owned && item.category !== 'stream-gift' ? 'disabled' : '') + '>' +
+                    (owned && item.category !== 'stream-gift' ? 'En inventario' : (appState.walletTokens >= item.priceTokens ? 'Comprar' : 'Sin Tokens')) + '</button>';
+                grid.appendChild(card);
+            });
+            grid.querySelectorAll('[data-preview-id]').forEach(button => button.addEventListener('click', () => selectStoreItem(button.dataset.previewId)));
+            grid.querySelectorAll('[data-buy-id]').forEach(button => button.addEventListener('click', () => purchaseStoreItem(button.dataset.buyId)));
         }
 
-        let isSpinning = false;
-        function spinRoulette() {
-            if(isSpinning || appState.créditos < 100) return;
-            appState.créditos -= 100; updateCréditosUI(); isSpinning = true;
-            const wheel = document.getElementById('roulette-wheel');
-            const resultText = document.getElementById('roulette-result');
-            resultText.innerText = 'Girando...';
-            wheel.style.transform = `rotate(1800deg)`;
-            setTimeout(() => {
-                isSpinning = false; appState.créditos += 500; updateCréditosUI();
-                resultText.innerText = '¡Ganaste 500 Créditos!';
-                wheel.style.transform = `rotate(0deg)`;
-            }, 3000);
+        function selectStoreItem(itemId) {
+            const item = storeItems.find(entry => entry.id === itemId);
+            if (!item) return;
+            selectedStoreItemId = itemId;
+            document.getElementById('store-selection-name').textContent = item.name + ' · ' + STORE_CATEGORY_LABELS[item.category];
+            const frame = document.getElementById('store-avatar-preview-frame');
+            const overlay = document.getElementById('store-overlay-preview');
+            const frameLooks = {
+                'frame-neon-pulse': ['#22d3ee', '0 0 18px rgba(34,211,238,.8)', 'solid'],
+                'frame-gamer-rgb': ['#22c55e', '0 0 18px rgba(236,72,153,.8)', 'double'],
+                'frame-cyberpunk': ['#a855f7', '0 0 18px rgba(168,85,247,.8)', 'dashed'],
+                'frame-golden-dragon': ['#fbbf24', '0 0 18px rgba(251,191,36,.8)', 'double'],
+                'frame-seasonal': ['#34d399', '0 0 18px rgba(52,211,153,.7)', 'solid']
+            };
+            const look = frameLooks[item.id];
+            frame.style.borderColor = item.category === 'avatar-frame' && look ? look[0] : '#475569';
+            frame.style.boxShadow = item.category === 'avatar-frame' && look ? look[1] : 'none';
+            frame.style.borderStyle = item.category === 'avatar-frame' && look ? look[2] : 'solid';
+            frame.style.borderWidth = '4px';
+            if (item.category === 'stream-overlay') {
+                const overlayLooks = {
+                    'overlay-retro-arcade': 'linear-gradient(135deg, #14532d, #020617)',
+                    'overlay-minimal-black': 'linear-gradient(135deg, #111827, #020617)',
+                    'overlay-flame-rgb': 'linear-gradient(135deg, #7c2d12, #9f1239, #020617)',
+                    'overlay-pro-esports': 'linear-gradient(135deg, #1e3a8a, #111827)'
+                };
+                overlay.style.borderColor = '#ff7a18';
+                overlay.style.background = overlayLooks[item.id] || 'linear-gradient(135deg, rgba(255,82,50,.25), rgba(15,23,42,.95))';
+                overlay.textContent = item.name;
+            } else if (item.category !== 'avatar-frame') {
+                overlay.style.borderColor = '#475569';
+                overlay.style.background = '#020617';
+                overlay.textContent = 'Vista previa del HUD';
+            }
         }
+
+        async function purchaseStoreItem(itemId) {
+            const item = storeItems.find(entry => entry.id === itemId);
+            if (!item) return;
+            if (appState.walletTokens < item.priceTokens) {
+                document.getElementById('store-status').textContent = 'Saldo insuficiente. Las recargas de Tokens todavía no están habilitadas.';
+                return;
+            }
+            try {
+                const result = await apiRequest('/api/store/purchase', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ itemId })
+                });
+                document.getElementById('store-status').textContent = result.message;
+                await loadStore();
+            } catch (error) {
+                document.getElementById('store-status').textContent = error.message;
+            }
+        }
+
+
+        function renderWalletTransactions(transactions) {
+            const container = document.getElementById('wallet-transactions-list');
+            container.replaceChildren();
+            if (!transactions.length) {
+                const empty = document.createElement('p');
+                empty.className = 'text-xs text-slate-400';
+                empty.textContent = 'Todavía no hay movimientos registrados.';
+                container.appendChild(empty);
+                return;
+            }
+            transactions.forEach(transaction => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between gap-3 border-b border-slate-800 pb-2';
+                const detail = document.createElement('div');
+                detail.className = 'min-w-0';
+                const title = document.createElement('p');
+                title.className = 'text-xs font-semibold text-white';
+                title.textContent = transaction.itemName || (transaction.type === 'credit' ? 'Acreditación de Tokens' : 'Movimiento de Tokens');
+                const date = document.createElement('p');
+                date.className = 'text-[10px] text-slate-500';
+                const parsed = new Date(transaction.createdAt);
+                date.textContent = Number.isNaN(parsed.getTime()) ? 'Fecha no disponible' : parsed.toLocaleString('es-AR');
+                detail.append(title, date);
+                const amount = document.createElement('strong');
+                amount.className = 'text-xs shrink-0 ' + (transaction.amount < 0 ? 'text-rose-300' : 'text-emerald-300');
+                amount.textContent = (transaction.amount > 0 ? '+' : '') + transaction.amount + ' Tokens';
+                row.append(detail, amount);
+                container.appendChild(row);
+            });
+        }
+
+        function renderStoreInventory(inventory) {
+            const container = document.getElementById('store-inventory-list');
+            document.getElementById('inventory-count').textContent = inventoryItems.length + ' artículos';
+            container.replaceChildren();
+            if (!inventoryItems.length) {
+                const empty = document.createElement('p');
+                empty.className = 'text-xs text-slate-400';
+                empty.textContent = 'Todavía no tenés artículos. Tus compras aparecerán acá.';
+                container.appendChild(empty);
+                return;
+            }
+            inventoryItems.forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between gap-2 rounded-xl bg-slate-950 border border-slate-800 p-3';
+                const info = document.createElement('div');
+                info.className = 'min-w-0';
+                const name = document.createElement('p');
+                name.className = 'text-xs font-bold text-white';
+                name.textContent = item.name;
+                const detail = document.createElement('p');
+                detail.className = 'text-[10px] text-slate-400';
+                detail.textContent = (item.quantity > 1 ? 'Cantidad: ' + item.quantity + ' · ' : '') + STORE_CATEGORY_LABELS[item.category];
+                info.append(name, detail);
+                row.appendChild(info);
+                if (['avatar-frame', 'stream-overlay'].includes(item.category)) {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'shrink-0 rounded-lg bg-orange-500/15 border border-orange-500/40 px-3 py-2 text-[10px] font-bold text-orange-200';
+                    button.textContent = item.equipped ? 'Equipado' : 'Equipar';
+                    button.disabled = item.equipped;
+                    button.addEventListener('click', () => equipStoreItem(item.id));
+                    row.appendChild(button);
+                }
+                container.appendChild(row);
+            });
+        }
+
+        async function equipStoreItem(itemId) {
+            try {
+                await apiRequest('/api/me/inventory/' + encodeURIComponent(itemId) + '/equip', { method: 'PUT' });
+                document.getElementById('store-status').textContent = 'Artículo equipado.';
+                await loadStore();
+            } catch (error) {
+                document.getElementById('store-status').textContent = error.message;
+            }
+        }
+
+        function applyEquippedCosmetics(equipped) {
+            const frame = document.getElementById('profile-avatar')?.parentElement;
+            if (frame) {
+                frame.style.boxShadow = equipped.avatarFrame ? '0 0 18px rgba(255,122,24,.65)' : '';
+                frame.style.borderColor = equipped.avatarFrame ? '#ff7a18' : '';
+            }
+            const overlay = document.getElementById('store-overlay-preview');
+            if (overlay && equipped.streamOverlay) {
+                const product = storeItems.find(item => item.id === equipped.streamOverlay);
+                if (product) overlay.textContent = 'Equipado: ' + product.name;
+            }
+        }
+
+        document.querySelectorAll('[data-store-category]').forEach(button => {
+            button.addEventListener('click', () => {
+                selectedStoreCategory = button.dataset.storeCategory;
+                renderStoreItems();
+            });
+        });
 
         function openPostModal() {
             document.getElementById('post-form-status').textContent = 'Máximo 2000 caracteres.';
@@ -842,7 +1887,7 @@
                 ownerActions.className = 'ml-auto flex items-center gap-2';
                 const editPostButton = document.createElement('button');
                 editPostButton.type = 'button';
-                editPostButton.className = 'text-[11px] text-cyan-300 px-2 py-1 rounded-lg border border-slate-700';
+                editPostButton.className = 'text-[11px] text-orange-300 px-2 py-1 rounded-lg border border-slate-700';
                 editPostButton.textContent = 'Editar';
                 editPostButton.addEventListener('click', async () => {
                     const updatedContent = window.prompt('Editar publicación:', post.content);
@@ -895,9 +1940,37 @@
             likeButton.setAttribute('aria-pressed', String(Boolean(post.likedByMe)));
             const commentToggle = document.createElement('button');
             commentToggle.type = 'button';
-            commentToggle.className = 'text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 hover:border-cyan-400 text-cyan-300';
+            commentToggle.className = 'text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 hover:border-orange-400 text-orange-300';
             commentToggle.textContent = '💬 Comentarios · ' + (Number(post.commentCount) || 0);
-            actions.append(likeButton, commentToggle);
+            const saveButton = document.createElement('button');
+            saveButton.type = 'button';
+            saveButton.className = 'text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 hover:border-cyan-400 text-cyan-300';
+            saveButton.textContent = post.savedByMe ? '🔖 Guardado' : '🔖 Guardar';
+            saveButton.setAttribute('aria-pressed', String(Boolean(post.savedByMe)));
+            saveButton.addEventListener('click', async () => {
+                saveButton.disabled = true;
+                try {
+                    const saved = !post.savedByMe;
+                    await apiRequest('/api/posts/' + encodeURIComponent(post.id) + '/save', {
+                        method: saved ? 'PUT' : 'DELETE'
+                    });
+                    post.savedByMe = saved;
+                    saveButton.textContent = saved ? '🔖 Guardado' : '🔖 Guardar';
+                    saveButton.setAttribute('aria-pressed', String(saved));
+                    if (!saved && card.closest('#saved-posts-container')) {
+                        card.remove();
+                        const remaining = document.querySelectorAll('#saved-posts-container article').length;
+                        document.getElementById('saved-posts-status').textContent = remaining
+                            ? remaining + ' publicación(es) guardada(s).'
+                            : 'No tenés publicaciones guardadas.';
+                    }
+                } catch (error) {
+                    window.alert(error.message);
+                } finally {
+                    saveButton.disabled = false;
+                }
+            });
+            actions.append(likeButton, commentToggle, saveButton);
 
             const commentsPanel = document.createElement('section');
             commentsPanel.className = 'hidden space-y-3 border-t border-slate-800 pt-3';
@@ -913,10 +1986,10 @@
             commentInput.maxLength = 1000;
             commentInput.required = true;
             commentInput.placeholder = 'Escribí un comentario…';
-            commentInput.className = 'w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-cyan-500 resize-y';
+            commentInput.className = 'w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-orange-500 resize-y';
             const commentSubmit = document.createElement('button');
             commentSubmit.type = 'submit';
-            commentSubmit.className = 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs font-bold px-3 py-2 rounded-xl';
+            commentSubmit.className = 'bg-orange-500/20 text-orange-300 border border-orange-500/40 text-xs font-bold px-3 py-2 rounded-xl';
             commentSubmit.textContent = 'Comentar';
             commentForm.append(commentInput, commentSubmit);
             commentsPanel.append(commentsStatus, commentsList, commentForm);
@@ -946,7 +2019,7 @@
                 const header = document.createElement('div');
                 header.className = 'flex items-center gap-2';
                 const name = document.createElement('p');
-                name.className = 'text-xs font-bold text-cyan-300';
+                name.className = 'text-xs font-bold text-orange-300';
                 name.textContent = comment.authorUsername;
                 header.appendChild(name);
 
@@ -960,7 +2033,7 @@
                     controls.className = 'flex items-center gap-2 mt-2';
                     const editButton = document.createElement('button');
                     editButton.type = 'button';
-                    editButton.className = 'text-[11px] text-cyan-300 px-2 py-1 rounded-lg border border-slate-700';
+                    editButton.className = 'text-[11px] text-orange-300 px-2 py-1 rounded-lg border border-slate-700';
                     editButton.textContent = 'Editar';
                     editButton.addEventListener('click', async () => {
                         const updatedContent = window.prompt('Editar comentario:', comment.content);
@@ -1056,6 +2129,104 @@
             return card;
         }
 
+        async function loadMissions() {
+            const status = document.getElementById('missions-status');
+            const list = document.getElementById('missions-list');
+            const summary = document.getElementById('missions-summary');
+            if (!status || !list || !authToken) return;
+            status.textContent = 'Consultando tu actividad…';
+            try {
+                const data = await apiRequest('/api/me/missions');
+                list.replaceChildren();
+                let currentChapter = '';
+                (data.missions || []).forEach((mission) => {
+                    if (mission.chapter && mission.chapter !== currentChapter) {
+                        currentChapter = mission.chapter;
+                        const chapter = document.createElement('h4');
+                        chapter.className = 'pt-3 text-xs font-black uppercase tracking-wider text-orange-300';
+                        chapter.textContent = currentChapter;
+                        list.appendChild(chapter);
+                    }
+                    const card = document.createElement('div');
+                    card.className = 'rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-2';
+                    const top = document.createElement('div');
+                    top.className = 'flex items-center justify-between gap-3';
+                    const title = document.createElement('p');
+                    title.className = 'text-sm font-bold text-white';
+                    title.textContent = mission.title;
+                    const state = document.createElement('span');
+                    state.className = mission.completed ? 'text-xs text-emerald-300 font-bold' : 'text-xs text-slate-400';
+                    state.textContent = mission.completed ? 'Completada' : 'En progreso';
+                    top.append(title, state);
+                    const description = document.createElement('p');
+                    description.className = 'text-xs text-slate-400';
+                    description.textContent = mission.description;
+                    const progress = document.createElement('div');
+                    progress.className = 'h-2 rounded-full bg-slate-800 overflow-hidden';
+                    const fill = document.createElement('div');
+                    fill.className = 'h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-300';
+                    fill.style.width = Math.max(0, Math.min(100, (Number(mission.current) / Math.max(1, Number(mission.target))) * 100)) + '%';
+                    progress.appendChild(fill);
+                    const count = document.createElement('p');
+                    count.className = 'text-[11px] text-slate-500 text-right';
+                    count.textContent = mission.current + ' / ' + mission.target;
+                    const reward = document.createElement('p');
+                    reward.className = 'text-xs font-semibold text-amber-300';
+                    reward.textContent = 'Recompensa: ' + Number(mission.rewardTokens || 0).toLocaleString('es-AR') + ' Tokens';
+                    card.append(top, description, progress, count, reward);
+                    if (mission.claimed) {
+                        const claimed = document.createElement('p');
+                        claimed.className = 'text-xs font-bold text-emerald-300';
+                        claimed.textContent = '✓ Recompensa reclamada';
+                        card.appendChild(claimed);
+                    } else if (mission.claimable) {
+                        const claim = document.createElement('button');
+                        claim.type = 'button';
+                        claim.className = 'w-full rounded-lg px-3 py-2 text-xs font-black bg-amber-400 text-slate-950 hover:bg-amber-300 disabled:opacity-50';
+                        claim.textContent = 'Reclamar ' + Number(mission.rewardTokens || 0).toLocaleString('es-AR') + ' Tokens';
+                        claim.addEventListener('click', async () => {
+                            claim.disabled = true;
+                            claim.textContent = 'Acreditando recompensa…';
+                            try {
+                                const result = await apiRequest('/api/me/missions/' + encodeURIComponent(mission.id) + '/claim', { method: 'POST' });
+                                status.textContent = '¡Recompensa acreditada! Nuevo saldo: ' + result.wallet.tokens + ' Tokens.';
+                                await Promise.all([loadMissions(), loadStore()]);
+                            } catch (error) {
+                                status.textContent = 'No se pudo reclamar la recompensa: ' + error.message;
+                                claim.disabled = false;
+                                claim.textContent = 'Reintentar reclamación';
+                            }
+                        });
+                        card.appendChild(claim);
+                    }
+                    list.appendChild(card);
+                });
+                summary.textContent = (data.summary?.completed || 0) + '/' + (data.summary?.total || 0) + ' completadas · ' + (data.summary?.claimed || 0) + ' recompensas';
+                status.textContent = data.note || 'Progreso actualizado.';
+            } catch (error) {
+                status.textContent = 'No se pudieron cargar las misiones: ' + error.message;
+            }
+        }
+
+        async function loadSavedPosts() {
+            const container = document.getElementById('saved-posts-container');
+            const status = document.getElementById('saved-posts-status');
+            if (!container || !status || !authToken) return;
+            status.textContent = 'Cargando publicaciones guardadas…';
+            try {
+                const data = await apiRequest('/api/me/saved-posts');
+                container.replaceChildren();
+                if (!Array.isArray(data.posts) || data.posts.length === 0) {
+                    status.textContent = 'No tenés publicaciones guardadas todavía. Podés guardar una desde Comunidad.';
+                    return;
+                }
+                data.posts.forEach((post) => container.appendChild(renderCommunityPost(post)));
+                status.textContent = data.posts.length + ' publicación(es) guardada(s).';
+            } catch (error) {
+                status.textContent = 'No se pudieron cargar tus guardados: ' + error.message;
+            }
+        }
+
         let communityNextCursor = null;
         let communityLoading = false;
 
@@ -1121,6 +2292,12 @@
             handle.className = 'text-xs text-slate-400';
             handle.textContent = '@' + person.username;
             details.append(display, handle);
+            if (type === 'friend') {
+                const presence = document.createElement('p');
+                presence.className = 'text-[10px] mt-1 ' + (person.online ? 'text-emerald-300' : 'text-slate-500');
+                presence.textContent = person.online ? '● En línea' : '○ Desconectado';
+                details.append(presence);
+            }
             card.append(avatar, details);
 
             const action = (label, style, callback) => {
@@ -1166,9 +2343,119 @@
                     }
                 });
                 status.textContent = 'Conexiones actualizadas.';
+                await loadFollowLists();
+                await loadBlockedUsers();
             } catch (error) {
                 status.textContent = error.message;
             }
+        }
+
+        async function loadBlockedUsers() {
+            const container = document.getElementById('blocked-users-list');
+            if (!container || !authToken) return;
+            container.replaceChildren();
+            try {
+                const data = await apiRequest('/api/me/blocked-users');
+                const users = data.users || [];
+                if (!users.length) {
+                    const empty = document.createElement('p');
+                    empty.className = 'text-xs text-slate-500';
+                    empty.textContent = 'No bloqueaste a ningún jugador.';
+                    container.appendChild(empty);
+                    return;
+                }
+                users.forEach((user) => {
+                    const row = document.createElement('div');
+                    row.className = 'PLAYVERSE-card rounded-xl border border-slate-800 p-3 flex items-center gap-3';
+                    const name = document.createElement('span');
+                    name.className = 'min-w-0 flex-1 text-sm font-semibold truncate';
+                    name.textContent = user.displayName || '@' + user.username;
+                    const unblock = document.createElement('button');
+                    unblock.type = 'button';
+                    unblock.className = 'rounded-lg border border-slate-700 px-3 py-2 text-xs text-orange-200';
+                    unblock.textContent = 'Desbloquear';
+                    unblock.addEventListener('click', async () => {
+                        unblock.disabled = true;
+                        try {
+                            await apiRequest('/api/users/' + encodeURIComponent(user.username) + '/block', { method: 'DELETE' });
+                            await loadBlockedUsers();
+                            document.getElementById('friends-status').textContent = 'Jugador desbloqueado. La amistad no se restaura automáticamente.';
+                        } catch (error) {
+                            document.getElementById('friends-status').textContent = error.message;
+                            unblock.disabled = false;
+                        }
+                    });
+                    row.append(name, unblock);
+                    container.appendChild(row);
+                });
+            } catch (error) {
+                const message = document.createElement('p');
+                message.className = 'text-xs text-red-300';
+                message.textContent = error.message;
+                container.appendChild(message);
+            }
+        }
+
+        async function loadFollowLists() {
+            const targets = [
+                ['followers-list', '/api/me/followers', 'Todavía no tenés seguidores.'],
+                ['following-list', '/api/me/following', 'Todavía no seguís a ningún jugador.']
+            ];
+            await Promise.all(targets.map(async ([id, path, emptyMessage]) => {
+                const container = document.getElementById(id);
+                if (!container) return;
+                container.replaceChildren();
+                try {
+                    const data = await apiRequest(path);
+                    const users = data.users || [];
+                    if (!users.length) {
+                        const empty = document.createElement('p');
+                        empty.className = 'text-xs text-slate-500';
+                        empty.textContent = emptyMessage;
+                        container.appendChild(empty);
+                        return;
+                    }
+                    users.forEach((person) => {
+                        const row = document.createElement('div');
+                        row.className = 'PLAYVERSE-card rounded-xl border border-slate-800 p-3 flex items-center gap-3';
+                        const avatar = document.createElement('div');
+                        avatar.className = 'w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-lg overflow-hidden';
+                        if (person.avatarUrl) {
+                            const img = document.createElement('img');
+                            img.src = person.avatarUrl;
+                            img.alt = '';
+                            img.className = 'w-full h-full object-cover';
+                            avatar.appendChild(img);
+                        } else avatar.textContent = '🎮';
+                        const details = document.createElement('div');
+                        details.className = 'min-w-0 flex-1';
+                        const title = document.createElement('p');
+                        title.className = 'text-sm font-bold text-white truncate';
+                        title.textContent = person.displayName || person.username;
+                        const handle = document.createElement('p');
+                        handle.className = 'text-xs text-slate-400';
+                        handle.textContent = '@' + person.username;
+                        details.append(title, handle);
+                        row.append(avatar, details);
+                        const view = document.createElement('button');
+                        view.type = 'button';
+                        view.className = 'text-xs font-bold text-orange-300 border border-orange-500/30 rounded-lg px-3 py-2';
+                        view.textContent = 'Ver';
+                        view.addEventListener('click', () => {
+                            document.getElementById('friends-search-input').value = person.username;
+                            searchFriendPlayer(person.username);
+                            switchTab('friends');
+                        });
+                        row.appendChild(view);
+                        container.appendChild(row);
+                    });
+                } catch (error) {
+                    const message = document.createElement('p');
+                    message.className = 'text-xs text-red-300';
+                    message.textContent = error.message;
+                    container.appendChild(message);
+                }
+            }));
         }
 
         async function searchFriendPlayer(username) {
@@ -1180,12 +2467,12 @@
                 const data = await apiRequest('/api/users/' + encodeURIComponent(username));
                 const player = data.profile;
                 const card = document.createElement('div');
-                card.className = 'PLAYVERSE-card rounded-2xl border border-cyan-500/30 p-4 space-y-3';
+                card.className = 'PLAYVERSE-card rounded-2xl border border-orange-500/30 p-4 space-y-3';
                 const name = document.createElement('p');
                 name.className = 'font-bold text-white';
                 name.textContent = player.displayName || player.username;
                 const handle = document.createElement('p');
-                handle.className = 'text-xs text-cyan-300';
+                handle.className = 'text-xs text-orange-300';
                 handle.textContent = '@' + player.username;
                 const bio = document.createElement('p');
                 bio.className = 'text-xs text-slate-300 whitespace-pre-wrap';
@@ -1193,8 +2480,37 @@
                 const posts = document.createElement('p');
                 posts.className = 'text-xs text-slate-500';
                 posts.textContent = String(player.postCount) + ' publicaciones';
-                card.append(name, handle, bio, posts);
-                if (player.friendship === 'self') {
+                const audience = document.createElement('p');
+                audience.className = 'text-xs text-slate-400';
+                audience.textContent = String(player.followersCount || 0) + ' seguidores · ' + String(player.followingCount || 0) + ' siguiendo';
+                card.append(name, handle, bio, posts, audience);
+                if (player.friendship !== 'self' && player.friendship !== 'blocked') {
+                    const follow = document.createElement('button');
+                    follow.type = 'button';
+                    follow.className = 'rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/10 px-4 py-2 text-xs font-bold text-fuchsia-200';
+                    follow.textContent = player.isFollowing ? 'Dejar de seguir' : 'Seguir jugador';
+                    follow.addEventListener('click', async () => {
+                        follow.disabled = true;
+                        try {
+                            const response = await apiRequest('/api/users/' + encodeURIComponent(player.username) + '/follow', {
+                                method: player.isFollowing ? 'DELETE' : 'POST'
+                            });
+                            status.textContent = response.following ? 'Ahora seguís a @' + player.username : 'Dejaste de seguir a @' + player.username;
+                            await searchFriendPlayer(player.username);
+                            await loadFollowLists();
+                        } catch (error) {
+                            status.textContent = error.message;
+                            follow.disabled = false;
+                        }
+                    });
+                    card.appendChild(follow);
+                }
+                if (player.friendship === 'blocked') {
+                    const relation = document.createElement('p');
+                    relation.className = 'text-xs font-bold text-rose-300';
+                    relation.textContent = 'La interacción con este jugador está bloqueada.';
+                    card.appendChild(relation);
+                } else if (player.friendship === 'self') {
                     const relation = document.createElement('p');
                     relation.className = 'text-xs font-bold text-slate-400';
                     relation.textContent = 'Este es tu perfil';
@@ -1202,7 +2518,7 @@
                 } else if (player.friendship === 'none') {
                     const add = document.createElement('button');
                     add.type = 'button';
-                    add.className = 'rounded-xl bg-cyan-500/15 border border-cyan-500/30 px-4 py-2 text-xs font-bold text-cyan-300';
+                    add.className = 'rounded-xl bg-orange-500/15 border border-orange-500/30 px-4 py-2 text-xs font-bold text-orange-300';
                     add.textContent = 'Enviar solicitud';
                     add.addEventListener('click', async () => {
                         add.disabled = true;
@@ -1224,6 +2540,26 @@
                         : player.friendship === 'outgoing_pending' ? 'Solicitud enviada'
                         : 'Este jugador te envió una solicitud';
                     card.appendChild(relation);
+                }
+                if (player.friendship !== 'self' && player.friendship !== 'blocked') {
+                    const block = document.createElement('button');
+                    block.type = 'button';
+                    block.className = 'rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-xs font-bold text-rose-200';
+                    block.textContent = 'Bloquear jugador';
+                    block.addEventListener('click', async () => {
+                        if (!window.confirm('¿Querés bloquear a @' + player.username + '? Se eliminarán la amistad y los seguimientos entre ambas cuentas.')) return;
+                        block.disabled = true;
+                        try {
+                            await apiRequest('/api/users/' + encodeURIComponent(player.username) + '/block', { method: 'POST' });
+                            await loadFriends();
+                            await searchFriendPlayer(player.username);
+                            status.textContent = 'Jugador bloqueado. Podés desbloquearlo desde la lista de bloqueados.';
+                        } catch (error) {
+                            status.textContent = error.message;
+                            block.disabled = false;
+                        }
+                    });
+                    card.appendChild(block);
                 }
                 result.appendChild(card);
                 status.textContent = 'Jugador encontrado.';
@@ -1391,14 +2727,275 @@
             }
         }
 
+        function applyApplicationPreferences(preferences) {
+            document.body.classList.toggle('pv-reduce-motion', preferences.reduceMotion === true);
+            document.body.classList.toggle('pv-high-contrast', preferences.highContrast === true);
+            document.getElementById('app-reduce-motion').checked = preferences.reduceMotion === true;
+            document.getElementById('app-high-contrast').checked = preferences.highContrast === true;
+        }
+
+        async function loadApplicationPreferences() {
+            const status = document.getElementById('app-preferences-status');
+            status.textContent = 'Cargando ajustes de tu cuenta…';
+            try {
+                const data = await apiRequest('/api/me/app-preferences');
+                applyApplicationPreferences(data.preferences || {});
+                status.textContent = 'Ajustes cargados desde tu cuenta.';
+            } catch (error) {
+                status.textContent = 'No se pudieron cargar los ajustes: ' + error.message;
+            }
+        }
+
+        async function saveApplicationPreferences() {
+            const button = document.getElementById('app-preferences-save');
+            const status = document.getElementById('app-preferences-status');
+            button.disabled = true;
+            button.textContent = 'Guardando…';
+            const preferences = {
+                reduceMotion: document.getElementById('app-reduce-motion').checked,
+                highContrast: document.getElementById('app-high-contrast').checked
+            };
+            try {
+                const data = await apiRequest('/api/me/app-preferences', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(preferences)
+                });
+                applyApplicationPreferences(data.preferences || preferences);
+                status.textContent = 'Ajustes guardados en tu cuenta PLAYVERSE.';
+            } catch (error) {
+                status.textContent = 'No se pudieron guardar los ajustes: ' + error.message;
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Guardar ajustes de aplicación';
+            }
+        }
+
         function openSettingsModal() {
             document.getElementById('settings-modal').classList.remove('hidden');
-            if (authToken) loadStreamingPreferences();
+            if (authToken) {
+                loadStreamingPreferences();
+                loadApplicationPreferences();
+            }
         }
         function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
+        let liveKitRoom = null;
+        let activeLiveStream = null;
+        let activeLiveStreamRole = null;
+
+        function setLiveStatus(message) {
+            const status = document.getElementById('live-stream-status');
+            if (status) status.textContent = message;
+        }
+
+        function attachLiveTrack(track, participant) {
+            const container = document.getElementById('live-player-tracks');
+            if (!container || !track) return;
+            const element = track.attach();
+            element.autoplay = true;
+            element.playsInline = true;
+            element.className = track.kind === 'video' ? 'w-full max-h-[65vh] rounded-xl bg-black object-contain' : 'w-full';
+            element.dataset.liveParticipant = participant ? participant.identity : 'remote';
+            container.appendChild(element);
+        }
+
+        function detachLiveTrack(track) {
+            if (track) track.detach().forEach((element) => element.remove());
+        }
+
+        async function connectLiveKitSession(connection, stream, role) {
+            if (typeof LivekitClient === 'undefined') throw new Error('No se pudo cargar el SDK de video. Actualizá la aplicación.');
+            if (liveKitRoom) await liveKitRoom.disconnect();
+            const room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
+            liveKitRoom = room;
+            room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+                attachLiveTrack(track, participant);
+                const status = document.getElementById('live-player-status');
+                if (status) status.textContent = 'Conectado · recibiendo audio/video en tiempo real.';
+            });
+            const updateParticipantCount = () => {
+                const count = room.numParticipants;
+                const counter = document.getElementById('live-player-participant-count');
+                if (counter) counter.textContent = count + (count === 1 ? ' participante conectado' : ' participantes conectados');
+            };
+            room.on(LivekitClient.RoomEvent.ParticipantConnected, updateParticipantCount);
+            room.on(LivekitClient.RoomEvent.ParticipantDisconnected, updateParticipantCount);
+            room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => detachLiveTrack(track));
+            room.on(LivekitClient.RoomEvent.AudioPlaybackStatusChanged, () => {
+                const audioButton = document.getElementById('live-audio-enable');
+                if (audioButton) audioButton.classList.toggle('hidden', room.canPlaybackAudio);
+            });
+            room.on(LivekitClient.RoomEvent.Disconnected, () => {
+                const status = document.getElementById('live-player-status');
+                if (status) status.textContent = 'Conexión de video finalizada.';
+            });
+            await room.connect(connection.url, connection.token);
+            const initialParticipantCount = document.getElementById('live-player-participant-count');
+            if (initialParticipantCount) initialParticipantCount.textContent = room.numParticipants + (room.numParticipants === 1 ? ' participante conectado' : ' participantes conectados');
+            activeLiveStream = stream;
+            activeLiveStreamRole = role;
+            document.getElementById('live-player-panel').classList.remove('hidden');
+            document.getElementById('live-player-title').textContent = stream.title || 'Transmisión PLAYVERSE';
+            document.getElementById('live-player-role').textContent = role === 'publisher' ? 'Estás transmitiendo' : 'Estás viendo en vivo';
+            document.getElementById('live-host-controls').classList.toggle('hidden', role !== 'publisher');
+            document.getElementById('live-player-tracks').replaceChildren();
+            document.getElementById('live-player-status').textContent = 'Conectado a la sala. Esperando pistas multimedia…';
+            if (role === 'publisher') {
+                const preview = document.getElementById('live-local-preview');
+                try {
+                    await room.localParticipant.setCameraEnabled(true);
+                    const publication = room.localParticipant.getTrackPublication(LivekitClient.Track.Source.Camera);
+                    if (publication && publication.videoTrack) {
+                        preview.classList.remove('hidden');
+                        preview.srcObject = new MediaStream([publication.videoTrack.mediaStreamTrack]);
+                    }
+                } catch (error) {
+                    document.getElementById('live-player-status').textContent = 'La sala está activa, pero la cámara no está disponible: ' + error.message + '. Podés probar Compartir pantalla.';
+                }
+                try { await room.localParticipant.setMicrophoneEnabled(true); }
+                catch (error) { document.getElementById('live-player-status').textContent += ' Micrófono no disponible: ' + error.message; }
+            }
+        }
+
+        async function loadLiveStreams() {
+            const container = document.getElementById('live-streams-container');
+            if (!container) return;
+            container.replaceChildren();
+            try {
+                const data = await apiRequest('/api/streams');
+                setLiveStatus(data.streamingEnabled ? 'Servicio de video configurado. Podés iniciar o ver transmisiones.' : 'Catálogo conectado; faltan las credenciales LiveKit del servidor.');
+                if (!data.streams || !data.streams.length) {
+                    const empty = document.createElement('p');
+                    empty.className = 'text-xs text-slate-500';
+                    empty.textContent = 'Todavía no hay transmisiones activas.';
+                    container.appendChild(empty);
+                    return;
+                }
+                data.streams.forEach((stream) => {
+                    const card = document.createElement('article');
+                    card.className = 'PLAYVERSE-card rounded-xl p-3 flex items-center justify-between gap-3';
+                    const details = document.createElement('div');
+                    details.className = 'min-w-0';
+                    const title = document.createElement('p');
+                    title.className = 'font-bold text-sm text-white break-words';
+                    title.textContent = stream.title;
+                    const creator = document.createElement('p');
+                    creator.className = 'text-xs text-slate-400 mt-1';
+                    creator.textContent = '@' + stream.creator + ' · EN VIVO';
+                    details.append(title, creator);
+                    const join = document.createElement('button');
+                    join.type = 'button';
+                    join.className = 'shrink-0 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-200 px-3 py-2 text-xs font-bold';
+                    join.textContent = 'Ver en vivo';
+                    join.addEventListener('click', () => joinLiveStream(stream.id));
+                    card.append(details, join);
+                    container.appendChild(card);
+                });
+            } catch (error) {
+                setLiveStatus('No se pudo cargar el catálogo: ' + error.message);
+                const empty = document.createElement('p');
+                empty.className = 'text-xs text-red-300';
+                empty.textContent = error.message;
+                container.appendChild(empty);
+            }
+        }
+
+        async function startLiveStream(event) {
+            event.preventDefault();
+            const button = document.getElementById('live-stream-start');
+            const title = document.getElementById('live-stream-title').value.trim();
+            const description = document.getElementById('live-stream-description').value.trim();
+            let createdStreamId = null;
+            button.disabled = true;
+            setLiveStatus('Creando sala segura y solicitando acceso de emisión…');
+            try {
+                const data = await apiRequest('/api/me/streams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description }) });
+                createdStreamId = data.stream.id;
+                await connectLiveKitSession(data.liveKit, data.stream, 'publisher');
+                document.getElementById('live-stream-create-form').reset();
+                setLiveStatus('Transmisión iniciada. Compartí tu emisión desde esta sala.');
+                await loadLiveStreams();
+            } catch (error) {
+                setLiveStatus('No se pudo iniciar la transmisión: ' + error.message);
+                if (createdStreamId) {
+                    try { await apiRequest('/api/me/streams/' + encodeURIComponent(createdStreamId), { method: 'DELETE' }); } catch {}
+                    await closeLivePlayer();
+                }
+            } finally { button.disabled = false; }
+        }
+
+        async function joinLiveStream(streamId) {
+            setLiveStatus('Solicitando acceso de espectador…');
+            try {
+                const data = await apiRequest('/api/streams/' + encodeURIComponent(streamId) + '/token', { method: 'POST' });
+                await connectLiveKitSession(data.liveKit, data.stream, data.liveKit.role);
+            } catch (error) { setLiveStatus('No se pudo conectar a la transmisión: ' + error.message); }
+        }
+
+        async function enableLiveAudio() {
+            if (!liveKitRoom) return;
+            try {
+                await liveKitRoom.startAudio();
+                document.getElementById('live-audio-enable').classList.add('hidden');
+            } catch (error) {
+                document.getElementById('live-player-status').textContent = 'No se pudo activar el audio: ' + error.message;
+            }
+        }
+
+        async function toggleLiveCamera() {
+            if (!liveKitRoom || activeLiveStreamRole !== 'publisher') return;
+            try { await liveKitRoom.localParticipant.setCameraEnabled(!liveKitRoom.localParticipant.isCameraEnabled); }
+            catch (error) { document.getElementById('live-player-status').textContent = error.message; }
+        }
+
+        async function toggleLiveMicrophone() {
+            if (!liveKitRoom || activeLiveStreamRole !== 'publisher') return;
+            try { await liveKitRoom.localParticipant.setMicrophoneEnabled(!liveKitRoom.localParticipant.isMicrophoneEnabled); }
+            catch (error) { document.getElementById('live-player-status').textContent = error.message; }
+        }
+
+        async function toggleLiveScreenShare() {
+            if (!liveKitRoom || activeLiveStreamRole !== 'publisher') return;
+            try {
+                await liveKitRoom.localParticipant.setScreenShareEnabled(!liveKitRoom.localParticipant.isScreenShareEnabled);
+                document.getElementById('live-player-status').textContent = 'Estado de compartir pantalla actualizado.';
+            } catch (error) { document.getElementById('live-player-status').textContent = 'No se pudo compartir la pantalla: ' + error.message; }
+        }
+
+        async function closeLivePlayer() {
+            if (liveKitRoom) await liveKitRoom.disconnect();
+            liveKitRoom = null;
+            activeLiveStream = null;
+            activeLiveStreamRole = null;
+            const preview = document.getElementById('live-local-preview');
+            preview.pause();
+            preview.srcObject = null;
+            preview.classList.add('hidden');
+            document.getElementById('live-player-tracks').replaceChildren();
+            document.getElementById('live-audio-enable').classList.add('hidden');
+            document.getElementById('live-host-controls').classList.add('hidden');
+            document.getElementById('live-player-panel').classList.add('hidden');
+        }
+
+        async function leaveLiveStream() {
+            if (activeLiveStreamRole === 'publisher') return endLiveStream();
+            await closeLivePlayer();
+        }
+
+        async function endLiveStream() {
+            if (!activeLiveStream || activeLiveStreamRole !== 'publisher') return;
+            const streamId = activeLiveStream.id;
+            try {
+                await apiRequest('/api/me/streams/' + encodeURIComponent(streamId), { method: 'DELETE' });
+                await closeLivePlayer();
+                setLiveStatus('Transmisión finalizada y sala cerrada.');
+                await loadLiveStreams();
+            } catch (error) { document.getElementById('live-player-status').textContent = 'No se pudo cerrar la transmisión en el servidor: ' + error.message; }
+        }
         function openStreamStudio() {
-            document.getElementById('streaming-settings-status').textContent = 'Primero configurá tus preferencias. El motor de captura y emisión todavía está pendiente de integración.';
-            openSettingsModal();
+            switchTab('live');
+            document.getElementById('live-stream-title').focus();
+            loadLiveStreams();
         }
 
         const widget = document.getElementById('floating-widget');

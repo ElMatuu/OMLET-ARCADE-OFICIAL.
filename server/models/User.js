@@ -12,6 +12,11 @@ const streamingPreferencesSchema = new mongoose.Schema({
   cameraFrame: { type: String, enum: ['none', 'cyan', 'violet'], default: 'none' }
 }, { _id: false });
 
+const appPreferencesSchema = new mongoose.Schema({
+  reduceMotion: { type: Boolean, default: false },
+  highContrast: { type: Boolean, default: false }
+}, { _id: false });
+
 const userSchema = new mongoose.Schema({
   username: {
     type: String,
@@ -49,6 +54,13 @@ const userSchema = new mongoose.Schema({
     type: streamingPreferencesSchema,
     default: () => ({})
   },
+  appPreferences: {
+    type: appPreferencesSchema,
+    default: () => ({})
+  },
+  walletTokens: { type: Number, min: 0, default: 0 },
+  activeAvatarFrame: { type: String, default: null },
+  activeStreamOverlay: { type: String, default: null },
   role: {
     type: String,
     enum: ['user', 'moderator', 'admin'],
