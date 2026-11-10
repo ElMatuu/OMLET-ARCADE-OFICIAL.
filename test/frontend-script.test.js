@@ -11,6 +11,9 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.ok(inlineScripts.length > 0, 'Expected at least one inline application script');
   assert.match(html, /id="community-load-more"/, 'Community feed must expose its pagination control');
   assert.match(html, /\/api\/posts\?before=/, 'Community feed must request subsequent pages with a cursor');
+  assert.match(html, /id="tab-friends"/, 'The friends screen must be present');
+  assert.match(html, /\/api\/friends\/requests\//, 'The friends interface must call the friend request API');
+  assert.match(html, /id="profile-editor-form"/, 'The profile editor must be present');
 
   inlineScripts.forEach((match, index) => {
     assert.doesNotThrow(
