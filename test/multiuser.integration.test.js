@@ -381,10 +381,20 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.equal(reloadedPost.status, 200);
     assert.ok(reloadedPost.body.posts.some((item) => item.id === postId && item.likeCount === 1 && item.commentCount === 1));
 
-    const removedFriendship = await request(baseUrl, '/api/friends/' + friendshipId, {
-      method: 'DELETE'
+    const blockedBob = await request(baseUrl, '/api/users/bob_test/block', {
+      method: 'POST'
     }, alice.body.token);
-    assert.equal(removedFriendship.status, 200);
+    assert.equal(blockedBob.status, 201);
+    const aliceBlockedList = await request(baseUrl, '/api/me/blocked-users', {}, alice.body.token);
+    assert.equal(aliceBlockedList.body.users.some((user) => user.username === 'bob_test'), true);
+    const bobCannotSendFriendRequest = await request(baseUrl, '/api/friends/requests/alice_test', {
+      method: 'POST'
+    }, bob.body.token);
+    assert.equal(bobCannotSendFriendRequest.status, 403);
+    const bobCannotFollowAlice = await request(baseUrl, '/api/users/alice_test/follow', {
+      method: 'POST'
+    }, bob.body.token);
+    assert.equal(bobCannotFollowAlice.status, 403);
     const formerFriendInbox = await request(baseUrl, '/api/me/conversations', {}, bob.body.token);
     assert.equal(formerFriendInbox.status, 200);
     assert.equal(formerFriendInbox.body.conversations.length, 0);
@@ -394,6 +404,12 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     const formerFriendCannotSendPrivateMessage = await emitSocketAck(bobDirectSocket,
       'send_direct_message', { conversationId, body: 'Ya no somos amigos.' });
     assert.equal(formerFriendCannotSendPrivateMessage.success, false);
+    const unblockedBob = await request(baseUrl, '/api/users/bob_test/block', {
+      method: 'DELETE'
+    }, alice.body.token);
+    assert.equal(unblockedBob.status, 200);
+    const aliceBlockedListAfterUnblock = await request(baseUrl, '/api/me/blocked-users', {}, alice.body.token);
+    assert.equal(aliceBlockedListAfterUnblock.body.users.length, 0);
 
     const login = await request(baseUrl, '/api/login', {
       method: 'POST', body: { username: 'alice_test', password }
