@@ -412,6 +412,21 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.equal(privateRestSend.status, 201);
     const privateRestRealtimeMessage = await privateRestRealtimeDelivery;
     assert.equal(privateRestRealtimeMessage.body, 'Privado por API');
+
+    const restReadReceiptDelivery = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('REST history read receipt was not delivered')), 5000);
+      bobDirectSocket.once('direct_messages_read', (event) => {
+        clearTimeout(timer);
+        resolve(event);
+      });
+    });
+    const aliceReadHistory = await request(baseUrl, '/api/conversations/' + conversationId + '/messages', {}, alice.body.token);
+    assert.equal(aliceReadHistory.status, 200);
+    const restReadReceipt = await restReadReceiptDelivery;
+    assert.equal(restReadReceipt.readerId, alice.body.user.id);
+    assert.equal(restReadReceipt.throughMessageId, privateRestRealtimeMessage.id);
+    assert.ok(aliceReadHistory.body.messages.find((message) => message.id === privateRestRealtimeMessage.id).readAt);
+
     const aliceRoomJoin = await emitSocketAck(aliceSocket, 'join_room', { roomId: room.body.room.id });
     const memberRoomJoin = await emitSocketAck(memberSocket, 'join_room', { roomId: room.body.room.id });
     assert.equal(aliceRoomJoin.success, true);
