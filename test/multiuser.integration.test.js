@@ -45,8 +45,12 @@ integrationTest('two independent accounts can interact while ownership and persi
     const bob = await request(baseUrl, '/api/register', {
       method: 'POST', body: { username: 'bob_test', password }
     });
+    const charlie = await request(baseUrl, '/api/register', {
+      method: 'POST', body: { username: 'charlie_test', password }
+    });
     assert.equal(alice.status, 201);
     assert.equal(bob.status, 201);
+    assert.equal(charlie.status, 201);
     assert.ok(alice.body.token);
     assert.ok(bob.body.token);
     assert.notEqual(alice.body.user.id, bob.body.user.id);
@@ -107,7 +111,7 @@ integrationTest('two independent accounts can interact while ownership and persi
     assert.equal(aliceCannotEditBobsComment.status, 403);
 
     const room = await request(baseUrl, '/api/rooms', {
-      method: 'POST', body: { name: 'Sala de integración', game: 'PLAYVERSE Test' }
+      method: 'POST', body: { name: 'Sala de integración', game: 'PLAYVERSE Test', capacity: 2 }
     }, alice.body.token);
     assert.equal(room.status, 201);
     const joined = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/join', {
@@ -115,6 +119,46 @@ integrationTest('two independent accounts can interact while ownership and persi
     }, bob.body.token);
     assert.equal(joined.status, 200);
     assert.equal(joined.body.room.memberCount, 2);
+    assert.equal(joined.body.room.capacity, 2);
+
+    const duplicateJoin = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/join', {
+      method: 'POST'
+    }, bob.body.token);
+    assert.equal(duplicateJoin.status, 200);
+    assert.equal(duplicateJoin.body.room.memberCount, 2);
+
+    const overCapacity = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/join', {
+      method: 'POST'
+    }, charlie.body.token);
+    assert.equal(overCapacity.status, 404);
+
+    const bobLeaves = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/leave', {
+      method: 'POST'
+    }, bob.body.token);
+    assert.equal(bobLeaves.status, 200);
+    assert.equal(bobLeaves.body.room.memberCount, 1);
+
+    const charlieJoins = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/join', {
+      method: 'POST'
+    }, charlie.body.token);
+    assert.equal(charlieJoins.status, 200);
+    assert.equal(charlieJoins.body.room.memberCount, 2);
+
+    const bobCannotCloseRoom = await request(baseUrl, '/api/rooms/' + room.body.room.id, {
+      method: 'DELETE'
+    }, bob.body.token);
+    assert.equal(bobCannotCloseRoom.status, 403);
+
+    const aliceClosesRoom = await request(baseUrl, '/api/rooms/' + room.body.room.id, {
+      method: 'DELETE'
+    }, alice.body.token);
+    assert.equal(aliceClosesRoom.status, 200);
+    assert.equal(aliceClosesRoom.body.room.status, 'closed');
+
+    const bobCannotRejoinClosedRoom = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/join', {
+      method: 'POST'
+    }, bob.body.token);
+    assert.equal(bobCannotRejoinClosedRoom.status, 404);
 
     const reloadedPost = await request(baseUrl, '/api/posts', {}, bob.body.token);
     assert.equal(reloadedPost.status, 200);
