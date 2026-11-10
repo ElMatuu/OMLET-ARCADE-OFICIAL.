@@ -1,6 +1,7 @@
 const { Server } = require('socket.io');
 const { verifyToken } = require('./middleware/auth');
 const Room = require('./models/Room');
+const RoomMessage = require('./models/RoomMessage');
 
 const ROOM_ID_PATTERN = /^[a-zA-Z0-9_-]{3,64}$/;
 const MESSAGE_MAX_LENGTH = 1000;
@@ -47,7 +48,7 @@ function attachSocketServer(httpServer, allowedOrigins) {
       }
     });
 
-    socket.on('send_message', (payload, acknowledge = () => {}) => {
+    socket.on('send_message', async (payload, acknowledge = () => {}) => {
       const roomId = payload && payload.roomId;
       const rawMessage = payload && payload.message;
       if (typeof roomId !== 'string' || !ROOM_ID_PATTERN.test(roomId) ||
@@ -56,14 +57,33 @@ function attachSocketServer(httpServer, allowedOrigins) {
         return acknowledge({ success: false, message: 'Mensaje o sala inválidos' });
       }
 
-      const message = {
-        roomId,
-        username: socket.user.username,
-        message: rawMessage.trim(),
-        sentAt: new Date().toISOString()
-      };
-      socket.to(roomId).emit('receive_message', message);
-      return acknowledge({ success: true, message });
+      try {
+        const room = await Room.findOne({
+          _id: roomId,
+          members: socket.user.sub,
+          status: 'open'
+        }).select('_id').lean();
+        if (!room) {
+          await socket.leave(roomId);
+          return acknowledge({ success: false, message: 'La sala está cerrada o ya no tenés acceso.' });
+        }
+        const saved = await RoomMessage.create({
+          room: room._id,
+          author: socket.user.sub,
+          username: socket.user.username,
+          message: rawMessage.trim()
+        });
+        const message = {
+          id: String(saved._id),
+          username: saved.username,
+          message: saved.message,
+          sentAt: saved.sentAt
+        };
+        io.to(roomId).emit('receive_message', message);
+        return acknowledge({ success: true, message });
+      } catch {
+        return acknowledge({ success: false, message: 'No se pudo guardar el mensaje.' });
+      }
     });
   });
 
