@@ -1254,6 +1254,9 @@
             }
             directSocket = window.io(API_URL, { auth: { token: authToken } });
             directSocket.on('connect', () => {
+                directTypingActive = false;
+                if (directTypingStopTimer) clearTimeout(directTypingStopTimer);
+                directTypingStopTimer = null;
                 directSocket.emit('join_direct_conversation', { conversationId }, (result) => {
                     directSocketJoined = Boolean(result && result.success);
                     if (directSocketJoined) directSocket.emit('mark_direct_messages_read', { conversationId });
@@ -1299,6 +1302,9 @@
             });
             directSocket.on('connect_error', () => {
                 directSocketJoined = false;
+                directTypingActive = false;
+                if (directTypingStopTimer) clearTimeout(directTypingStopTimer);
+                directTypingStopTimer = null;
                 const status = document.getElementById('dm-thread-status');
                 if (status) status.textContent = 'Tiempo real no disponible. Podés seguir enviando mensajes.';
             });
