@@ -11,6 +11,7 @@ const jwt = require('jsonwebtoken');
 const { rateLimit } = require('express-rate-limit');
 const User = require('./models/User');
 const Room = require('./models/Room');
+const RoomMessage = require('./models/RoomMessage');
 const Post = require('./models/Post');
 const Comment = require('./models/Comment');
 const Friendship = require('./models/Friendship');
@@ -803,6 +804,63 @@ app.post('/api/rooms', requireAuth, async (req, res, next) => {
         capacity: room.capacity
       }
     });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/api/rooms/:roomId/messages', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.roomId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
+    }
+    const membership = await Room.exists({ _id: req.params.roomId, members: req.auth.sub });
+    if (!membership) return res.status(403).json({ success: false, message: 'No pertenecés a esta sala.' });
+    const messages = await RoomMessage.find({ room: req.params.roomId })
+      .sort({ sentAt: -1, _id: -1 })
+      .limit(50)
+      .lean();
+    return res.json({ success: true, messages: messages.reverse().map((item) => ({
+      id: String(item._id),
+      username: item.username,
+      message: item.message,
+      sentAt: item.sentAt
+    })) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/rooms/:roomId/messages', requireAuth, commentLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.roomId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
+    }
+    const message = typeof req.body.message === 'string' ? req.body.message.trim() : '';
+    if (!message || message.length > 1000) {
+      return res.status(400).json({ success: false, message: 'El mensaje debe tener entre 1 y 1000 caracteres.' });
+    }
+    const room = await Room.findOne({
+      _id: req.params.roomId,
+      members: req.auth.sub,
+      status: 'open'
+    }).select('_id').lean();
+    if (!room) return res.status(403).json({ success: false, message: 'La sala está cerrada o no pertenecés a ella.' });
+    const created = await RoomMessage.create({
+      room: room._id,
+      author: req.auth.sub,
+      username: req.auth.username,
+      message
+    });
+    const result = {
+      id: String(created._id),
+      username: created.username,
+      message: created.message,
+      sentAt: created.sentAt
+    };
+    const io = httpServer.io;
+    if (io) io.to(String(room._id)).emit('receive_message', result);
+    return res.status(201).json({ success: true, message: result });
   } catch (error) {
     return next(error);
   }
