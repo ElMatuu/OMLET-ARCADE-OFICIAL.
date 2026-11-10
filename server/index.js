@@ -50,6 +50,14 @@ const authLimiter = rateLimit({
   message: { success: false, message: 'Demasiados intentos. Probá más tarde.' }
 });
 
+const profileLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, message: 'Actualizaste tu perfil demasiadas veces. Probá más tarde.' }
+});
+
 function issueToken(user) {
   return jwt.sign(
     { sub: user.id, username: user.username, role: user.role },
@@ -141,7 +149,7 @@ app.get('/api/me', requireAuth, async (req, res, next) => {
   }
 });
 
-app.put('/api/me/profile', requireAuth, async (req, res, next) => {
+app.put('/api/me/profile', requireAuth, profileLimiter, async (req, res, next) => {
   try {
     const updates = {};
     if (Object.prototype.hasOwnProperty.call(req.body, 'displayName')) {
