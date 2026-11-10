@@ -14,6 +14,11 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /id="tab-friends"/, 'The friends screen must be present');
   assert.match(html, /\/api\/friends\/requests\//, 'The friends interface must call the friend request API');
   assert.match(html, /id="profile-editor-form"/, 'The profile editor must be present');
+  assert.match(html, /id="room-capacity"/, 'Room creation must let the host choose capacity');
+  assert.match(html, /function leaveRoom\(roomId\)/, 'Room members must have a leave action');
+  assert.match(html, /function closeRoom\(roomId\)/, 'Room hosts must have a close action');
+  assert.match(html, /room\.isOwner === true/, 'Room controls must be based on server-provided ownership');
+  assert.match(html, /room\.isMember === true/, 'Room controls must be based on server-provided membership');
   assert.match(html, /if \(profileCredits\) profileCredits\.textContent/, 'Legacy credit updates must tolerate the profile economy being disabled');
   assert.match(html, /comment\.authorUsername === appState\.username/, 'Comment edit and delete controls must be restricted to the comment owner in the interface');
   assert.match(html, /encodeURIComponent\(comment\.id\)[\s\S]{0,300}method: 'PUT'/, 'Comment editing must call the persistent API');
