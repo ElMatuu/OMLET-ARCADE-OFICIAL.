@@ -1,6 +1,5 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const http = require('node:http');
 const mongoose = require('mongoose');
 const { io: createSocketClient } = require('socket.io-client');
 const { attachSocketServer } = require('../server/socket');
@@ -12,7 +11,7 @@ process.env.MONGODB_URI = mongoUri || 'mongodb://127.0.0.1:27017/playverse_test_
 process.env.JWT_SECRET = 'playverse-integration-test-secret-at-least-32-characters';
 process.env.CORS_ORIGIN = 'http://127.0.0.1';
 
-const { app } = require('../server/index');
+const { app, httpServer } = require('../server/index');
 
 async function connectSocket(baseUrl, token) {
   return new Promise((resolve, reject) => {
@@ -46,7 +45,7 @@ async function request(baseUrl, path, options = {}, token) {
 
 integrationTest('multiple independent accounts can interact concurrently with ownership and persistence enforced', async () => {
   await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 10000 });
-  const server = http.createServer(app);
+  const server = httpServer;
   const ioServer = attachSocketServer(server, ['http://127.0.0.1']);
   server.io = ioServer;
   const liveSockets = [];
