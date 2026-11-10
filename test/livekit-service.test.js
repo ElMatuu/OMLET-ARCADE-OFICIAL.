@@ -55,4 +55,11 @@ test('LiveKit participant tokens are short-lived and role-scoped', async () => {
   assert.equal(typeof viewer, 'string');
   assert.ok(publisher.split('.').length === 3);
   assert.ok(viewer.split('.').length === 3);
+  const publisherClaims = JSON.parse(Buffer.from(publisher.split('.')[1], 'base64url').toString('utf8'));
+  const viewerClaims = JSON.parse(Buffer.from(viewer.split('.')[1], 'base64url').toString('utf8'));
+  assert.equal(publisherClaims.video.canPublish, true);
+  assert.equal(publisherClaims.video.canPublishData, true);
+  assert.equal(viewerClaims.video.canPublish, false);
+  assert.equal(viewerClaims.video.canPublishData, false);
+  assert.equal(viewerClaims.video.canSubscribe, true);
 });
