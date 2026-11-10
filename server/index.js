@@ -2003,14 +2003,29 @@ app.get('/api/conversations/:conversationId/messages', requireAuth, async (req, 
     if (!(await areAcceptedFriends(req.auth.sub, otherId))) {
       return res.status(403).json({ success: false, message: 'Ya no tienen una amistad activa para acceder a este chat.' });
     }
-    await DirectMessage.updateMany(
-      { conversation: conversationId, recipient: req.auth.sub, readAt: null },
-      { $set: { readAt: new Date() } }
-    );
-    await Conversation.updateOne(
-      { _id: conversationId },
-      { $set: { [getUnreadCountField(conversation, req.auth.sub)]: 0 } }
-    );
+    const unreadMessages = await DirectMessage.find({
+      conversation: conversationId,
+      recipient: req.auth.sub,
+      readAt: null
+    }).sort({ createdAt: 1, _id: 1 }).select('_id').lean();
+    const readAt = new Date();
+    if (unreadMessages.length) {
+      await DirectMessage.updateMany(
+        { conversation: conversationId, recipient: req.auth.sub, readAt: null },
+        { $set: { readAt } }
+      );
+      await Conversation.updateOne(
+        { _id: conversationId },
+        { $set: { [getUnreadCountField(conversation, req.auth.sub)]: 0 } }
+      );
+      const io = req.app.get('io');
+      if (io) io.to('dm:' + String(conversationId)).emit('direct_messages_read', {
+        conversationId: String(conversationId),
+        readerId: String(req.auth.sub),
+        throughMessageId: String(unreadMessages[unreadMessages.length - 1]._id),
+        readAt
+      });
+    }
     const messages = await DirectMessage.find({ conversation: conversationId })
       .sort({ createdAt: -1, _id: -1 }).limit(100).lean();
     return res.json({ success: true, messages: messages.reverse().map(serializeDirectMessage) });
