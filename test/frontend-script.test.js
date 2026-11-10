@@ -14,7 +14,7 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /id="community-load-more"/, 'Community feed must expose its pagination control');
   assert.match(html, /\/api\/posts\?before=/, 'Community feed must request subsequent pages with a cursor');
   assert.match(html, /id="tab-friends"/, 'The friends screen must be present');
-  assert.match(html, /livekit-client\.umd\.min\.js/, 'The bundled LiveKit browser SDK must be loaded locally');
+  assert.match(html, /livekit-client\.umd\.js/, 'The bundled LiveKit browser SDK must be loaded locally');
   assert.match(html, /function connectLiveKitSession\(/, 'The live UI must connect to authenticated LiveKit sessions');
   assert.match(html, /function startLiveStream\(/, 'Creators must be able to start a real stream from the UI');
   assert.match(html, /function joinLiveStream\(/, 'Viewers must be able to join live streams from the UI');
