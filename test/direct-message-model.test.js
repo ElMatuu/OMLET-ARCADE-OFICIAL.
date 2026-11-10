@@ -13,6 +13,7 @@ test('DirectMessage validates sender, recipient, conversation and bounded body',
   });
   await message.validate();
   assert.ok(message.createdAt instanceof Date);
+  assert.equal(message.readAt, null);
   assert.equal(DirectMessage.schema.indexes().some(([keys]) =>
     keys.conversation === 1 && keys.createdAt === -1
   ), true);
