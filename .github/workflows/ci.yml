@@ -36,5 +36,7 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Check JavaScript syntax
         run: npm run check:syntax
+      - name: Validate configuration
+        run: npm run check:config
       - name: Run unit and multi-user integration tests
         run: npm test
