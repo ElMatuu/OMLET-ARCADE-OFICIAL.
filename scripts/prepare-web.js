@@ -13,4 +13,12 @@ if (!fs.existsSync(source)) {
 
 fs.mkdirSync(outputDir, { recursive: true });
 fs.copyFileSync(source, output);
-console.log('Prepared PLAYVERSE web client in ./www');
+for (const asset of ['service-worker.js', 'app-update.js', 'manifest.webmanifest']) {
+  const assetSource = path.join(root, asset);
+  if (!fs.existsSync(assetSource)) {
+    console.error('Required web update asset was not found: ' + asset);
+    process.exit(1);
+  }
+  fs.copyFileSync(assetSource, path.join(outputDir, asset));
+}
+console.log('Prepared PLAYVERSE web client and update assets in ./www');
