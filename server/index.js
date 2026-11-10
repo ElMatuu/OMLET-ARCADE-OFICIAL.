@@ -985,7 +985,7 @@ app.use((error, req, res, next) => {
 
 async function start() {
   await mongoose.connect(process.env.MONGODB_URI);
-  attachSocketServer(httpServer, allowedOrigins);
+  httpServer.io = attachSocketServer(httpServer, allowedOrigins);
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`PLAYVERSE API listening on port ${PORT}`);
   });
