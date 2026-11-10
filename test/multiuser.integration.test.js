@@ -97,6 +97,16 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.equal(bobIdentity.body.user.username, 'bob_test');
     assert.notEqual(aliceIdentity.body.user.id, bobIdentity.body.user.id);
 
+    const liveCatalog = await request(baseUrl, '/api/streams');
+    assert.equal(liveCatalog.status, 200);
+    assert.ok(Array.isArray(liveCatalog.body.streams));
+    assert.equal(liveCatalog.body.streamingEnabled, false);
+    const liveStreamWithoutProvider = await request(baseUrl, '/api/me/streams', {
+      method: 'POST', body: { title: 'No debe iniciar sin LiveKit' }
+    }, alice.body.token);
+    assert.equal(liveStreamWithoutProvider.status, 503);
+    assert.equal(liveStreamWithoutProvider.body.code, 'LIVE_STREAMING_NOT_CONFIGURED');
+
     const aliceStreamingPreferences = await request(baseUrl, '/api/me/streaming-preferences', {
       method: 'PUT',
       body: {
