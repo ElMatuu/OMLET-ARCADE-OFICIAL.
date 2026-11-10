@@ -76,9 +76,14 @@ app.use(cors({
 app.post('/api/webhooks/livekit', express.raw({ type: 'application/webhook+json', limit: '1mb' }), async (req, res) => {
   const config = getLiveKitConfig();
   if (!config) return res.status(503).json({ success: false, message: 'LiveKit no está configurado.' });
+  let event;
   try {
     const receiver = createWebhookReceiver(config);
-    const event = await receiver.receive(req.body, req.get('Authorization'));
+    event = await receiver.receive(req.body, req.get('Authorization'));
+  } catch {
+    return res.status(401).json({ success: false, message: 'Firma de webhook inválida.' });
+  }
+  try {
     if (event.event === 'room_finished' && event.room && event.room.name) {
       await LiveStream.updateOne(
         { roomName: event.room.name, status: 'live' },
@@ -86,8 +91,9 @@ app.post('/api/webhooks/livekit', express.raw({ type: 'application/webhook+json'
       );
     }
     return res.status(200).json({ success: true });
-  } catch {
-    return res.status(401).json({ success: false, message: 'Firma de webhook inválida.' });
+  } catch (error) {
+    console.error('Unable to process LiveKit webhook:', error.message);
+    return res.status(500).json({ success: false, message: 'No se pudo procesar el evento de LiveKit.' });
   }
 });
 
