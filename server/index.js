@@ -87,6 +87,19 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.get('/api/health/live', (req, res) => {
+  return res.status(200).json({ success: true, service: 'PLAYVERSE API', status: 'alive' });
+});
+
+app.get('/api/health/ready', (req, res) => {
+  const ready = mongoose.connection.readyState === 1;
+  return res.status(ready ? 200 : 503).json({
+    success: ready,
+    service: 'PLAYVERSE API',
+    status: ready ? 'ready' : 'database-disconnected'
+  });
+});
+
 app.post('/api/register', authLimiter, async (req, res, next) => {
   try {
     const username = typeof req.body.username === 'string' ? req.body.username.trim() : '';
