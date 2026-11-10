@@ -8,7 +8,7 @@
     "start": "node server/index.js",
     "start:dev": "node --watch server/index.js",
     "preview": "npx serve www",
-    "check:syntax": "node --check server/index.js && node --check server/models/User.js && node --check server/middleware/auth.js && node --check server/socket.js && node --check desktop/main.js && node --check scripts/prepare-web.js",
+    "check:syntax": "node --check server/index.js && node --check server/models/User.js && node --check server/models/Room.js && node --check server/middleware/auth.js && node --check server/socket.js && node --check desktop/main.js && node --check scripts/prepare-web.js",
     "build:web": "node scripts/prepare-web.js",
     "desktop": "npm run build:web && electron .",
     "build:win": "npm run build:web && electron-builder --win nsis",
