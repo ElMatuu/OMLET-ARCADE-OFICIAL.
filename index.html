@@ -647,32 +647,91 @@
             });
 
             let commentsLoaded = false;
+            function appendCommentItem(comment) {
+                const item = document.createElement('div');
+                item.className = 'bg-slate-950/70 rounded-xl p-3';
+                item.dataset.commentId = comment.id;
+                const header = document.createElement('div');
+                header.className = 'flex items-center gap-2';
+                const name = document.createElement('p');
+                name.className = 'text-xs font-bold text-cyan-300';
+                name.textContent = comment.authorUsername;
+                header.appendChild(name);
+
+                const body = document.createElement('p');
+                body.className = 'text-xs text-slate-200 whitespace-pre-wrap break-words mt-1';
+                body.textContent = comment.content;
+                item.append(header, body);
+
+                if (comment.authorUsername === appState.username) {
+                    const controls = document.createElement('div');
+                    controls.className = 'flex items-center gap-2 mt-2';
+                    const editButton = document.createElement('button');
+                    editButton.type = 'button';
+                    editButton.className = 'text-[11px] text-cyan-300 px-2 py-1 rounded-lg border border-slate-700';
+                    editButton.textContent = 'Editar';
+                    editButton.addEventListener('click', async () => {
+                        const updatedContent = window.prompt('Editar comentario:', comment.content);
+                        if (updatedContent === null || !updatedContent.trim()) return;
+                        editButton.disabled = true;
+                        try {
+                            const result = await apiRequest('/api/posts/' + encodeURIComponent(post.id) + '/comments/' + encodeURIComponent(comment.id), {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ content: updatedContent.trim() })
+                            });
+                            comment.content = result.comment.content;
+                            body.textContent = comment.content;
+                            commentsStatus.textContent = 'Comentario actualizado.';
+                        } catch (error) {
+                            commentsStatus.textContent = error.message;
+                        } finally {
+                            editButton.disabled = false;
+                        }
+                    });
+                    const deleteButton = document.createElement('button');
+                    deleteButton.type = 'button';
+                    deleteButton.className = 'text-[11px] text-red-300 px-2 py-1 rounded-lg border border-slate-700';
+                    deleteButton.textContent = 'Eliminar';
+                    deleteButton.addEventListener('click', async () => {
+                        if (!window.confirm('¿Eliminar este comentario?')) return;
+                        deleteButton.disabled = true;
+                        try {
+                            await apiRequest('/api/posts/' + encodeURIComponent(post.id) + '/comments/' + encodeURIComponent(comment.id), { method: 'DELETE' });
+                            item.remove();
+                            post.commentCount = Math.max(0, (Number(post.commentCount) || 0) - 1);
+                            commentToggle.textContent = '💬 Comentarios · ' + post.commentCount;
+                            commentsStatus.textContent = 'Comentario eliminado.';
+                        } catch (error) {
+                            commentsStatus.textContent = error.message;
+                            deleteButton.disabled = false;
+                        }
+                    });
+                    controls.append(editButton, deleteButton);
+                    item.appendChild(controls);
+                }
+                commentsList.appendChild(item);
+            }
+
+            async function loadPostComments() {
+                commentsStatus.textContent = 'Cargando comentarios…';
+                try {
+                    const result = await apiRequest('/api/posts/' + encodeURIComponent(post.id) + '/comments');
+                    commentsList.replaceChildren();
+                    (result.comments || []).forEach(appendCommentItem);
+                    commentsStatus.textContent = result.comments.length
+                        ? result.comments.length + ' comentario(s)'
+                        : 'Todavía no hay comentarios. ¡Empezá la charla!';
+                    commentsLoaded = true;
+                } catch (error) {
+                    commentsStatus.textContent = error.message;
+                }
+            }
+
             commentToggle.addEventListener('click', async () => {
                 const opening = commentsPanel.classList.contains('hidden');
                 commentsPanel.classList.toggle('hidden');
-                if (opening && !commentsLoaded) {
-                    commentsStatus.textContent = 'Cargando comentarios…';
-                    try {
-                        const result = await apiRequest('/api/posts/' + encodeURIComponent(post.id) + '/comments');
-                        commentsList.replaceChildren();
-                        (result.comments || []).forEach((comment) => {
-                            const item = document.createElement('div');
-                            item.className = 'bg-slate-950/70 rounded-xl p-3';
-                            const name = document.createElement('p');
-                            name.className = 'text-xs font-bold text-cyan-300';
-                            name.textContent = comment.authorUsername;
-                            const body = document.createElement('p');
-                            body.className = 'text-xs text-slate-200 whitespace-pre-wrap break-words mt-1';
-                            body.textContent = comment.content;
-                            item.append(name, body);
-                            commentsList.appendChild(item);
-                        });
-                        commentsStatus.textContent = result.comments.length ? result.comments.length + ' comentario(s)' : 'Todavía no hay comentarios. ¡Empezá la charla!';
-                        commentsLoaded = true;
-                    } catch (error) {
-                        commentsStatus.textContent = error.message;
-                    }
-                }
+                if (opening && !commentsLoaded) await loadPostComments();
             });
 
             commentForm.addEventListener('submit', async (event) => {
@@ -687,16 +746,7 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ content: contentValue })
                     });
-                    const item = document.createElement('div');
-                    item.className = 'bg-slate-950/70 rounded-xl p-3';
-                    const name = document.createElement('p');
-                    name.className = 'text-xs font-bold text-cyan-300';
-                    name.textContent = result.comment.authorUsername;
-                    const body = document.createElement('p');
-                    body.className = 'text-xs text-slate-200 whitespace-pre-wrap break-words mt-1';
-                    body.textContent = result.comment.content;
-                    item.append(name, body);
-                    commentsList.appendChild(item);
+                    appendCommentItem(result.comment);
                     commentInput.value = '';
                     commentsLoaded = true;
                     commentsStatus.textContent = 'Comentario publicado.';
