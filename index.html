@@ -292,15 +292,27 @@
         </div>
     </div>
 
-    <!-- MODAL SETTINGS -->
+    <!-- MODAL SETTINGS: PREFERENCIAS DE CREADOR PERSISTIDAS EN LA API -->
     <div id="settings-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
-        <div class="PLAYVERSE-card rounded-3xl w-full max-w-lg p-6 space-y-5 border border-slate-800">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-800"><h3 class="font-black text-lg text-white">Ajustes de Stream y App</h3><button onclick="closeSettingsModal()" class="text-slate-400"><i class="fa-solid fa-xmark text-lg"></i></button></div>
-            <div class="space-y-4 text-sm">
-                <div><label class="text-xs font-bold text-slate-400 block mb-1">Calidad de Transmisión</label><select class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option>1080p HD</option><option selected>720p HD</option></select></div>
-            </div>
-            <button onclick="closeSettingsModal()" class="w-full PLAYVERSE-gradient text-white font-bold py-3 rounded-xl shadow-md">Guardar Ajustes</button>
-        </div>
+        <form id="streaming-settings-form" onsubmit="saveStreamingPreferences(event)" class="PLAYVERSE-card rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-5 border border-slate-800">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800"><div><h3 class="font-black text-lg text-white">Preferencias de creador</h3><p class="text-xs text-slate-400">Se guardan en tu cuenta PLAYVERSE</p></div><button type="button" onclick="closeSettingsModal()" class="text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+            <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-cyan-300">Calidad de salida</h4>
+                <label class="block text-xs text-slate-400">Resolución preferida<select id="stream-resolution" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="auto">Automática</option><option value="720p">720p</option><option value="1080p">1080p</option><option value="1440p">1440p</option><option value="2160p">2160p (4K)</option></select></label>
+                <div class="grid grid-cols-2 gap-3"><label class="text-xs text-slate-400">Fotogramas por segundo<select id="stream-fps" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="24">24 FPS</option><option value="30">30 FPS</option><option value="60">60 FPS</option><option value="120">120 FPS</option></select></label><label class="text-xs text-slate-400">Bitrate objetivo<select id="stream-bitrate" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="3">3 Mbps</option><option value="6">6 Mbps</option><option value="8">8 Mbps</option><option value="12">12 Mbps</option><option value="20">20 Mbps</option><option value="30">30 Mbps</option><option value="50">50 Mbps</option></select></label></div>
+            </section>
+            <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-cyan-300">Captura y audio</h4>
+                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Cámara habilitada<input id="stream-camera" type="checkbox" class="accent-cyan-400 w-5 h-5"></label>
+                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Micrófono habilitado<input id="stream-microphone" type="checkbox" class="accent-cyan-400 w-5 h-5"></label>
+                <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Audio del sistema habilitado<input id="stream-system-audio" type="checkbox" class="accent-cyan-400 w-5 h-5"></label>
+            </section>
+            <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-cyan-300">Presentación</h4>
+                <div class="grid grid-cols-2 gap-3"><label class="text-xs text-slate-400">Orientación<select id="stream-orientation" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="auto">Automática</option><option value="portrait">Vertical</option><option value="landscape">Horizontal</option></select></label><label class="text-xs text-slate-400">Posición de cámara<select id="stream-camera-position" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="top-left">Arriba izquierda</option><option value="top-right">Arriba derecha</option><option value="bottom-left">Abajo izquierda</option><option value="bottom-right">Abajo derecha</option></select></label></div>
+                <label class="block text-xs text-slate-400">Marco de cámara<select id="stream-camera-frame" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="none">Sin marco</option><option value="cyan">Cian</option><option value="violet">Violeta</option></select></label>
+            </section>
+            <p id="streaming-settings-status" class="text-xs text-slate-400" role="status">Cargando preferencias guardadas…</p>
+            <p class="text-[11px] text-amber-300/90">Estas opciones guardan tus preferencias. No activan todavía la captura de pantalla/cámara ni inician una transmisión real.</p>
+            <div class="flex gap-2"><button type="button" onclick="closeSettingsModal()" class="flex-1 rounded-xl border border-slate-700 px-4 py-3 text-xs font-bold text-slate-300">Cancelar</button><button id="streaming-settings-save" type="submit" class="flex-1 PLAYVERSE-gradient text-white font-bold py-3 rounded-xl shadow-md">Guardar preferencias</button></div>
+        </form>
     </div>
 
     <!-- MODAL EDITAR PERFIL -->
@@ -1325,9 +1337,69 @@
             }
         });
 
-        function openSettingsModal() { document.getElementById('settings-modal').classList.remove('hidden'); }
+        async function loadStreamingPreferences() {
+            const status = document.getElementById('streaming-settings-status');
+            status.textContent = 'Cargando preferencias de tu cuenta…';
+            try {
+                const data = await apiRequest('/api/me/streaming-preferences');
+                const preferences = data.preferences || {};
+                document.getElementById('stream-resolution').value = preferences.resolution || 'auto';
+                document.getElementById('stream-fps').value = String(preferences.fps || 30);
+                document.getElementById('stream-bitrate').value = String(preferences.bitrateMbps || 6);
+                document.getElementById('stream-camera').checked = preferences.cameraEnabled === true;
+                document.getElementById('stream-microphone').checked = preferences.microphoneEnabled !== false;
+                document.getElementById('stream-system-audio').checked = preferences.systemAudioEnabled !== false;
+                document.getElementById('stream-orientation').value = preferences.orientation || 'auto';
+                document.getElementById('stream-camera-position').value = preferences.cameraPosition || 'bottom-right';
+                document.getElementById('stream-camera-frame').value = preferences.cameraFrame || 'none';
+                status.textContent = data.capabilityNote || 'Preferencias cargadas desde tu cuenta.';
+            } catch (error) {
+                status.textContent = 'No se pudieron cargar las preferencias: ' + error.message;
+            }
+        }
+
+        async function saveStreamingPreferences(event) {
+            event.preventDefault();
+            const button = document.getElementById('streaming-settings-save');
+            const status = document.getElementById('streaming-settings-status');
+            button.disabled = true;
+            button.textContent = 'Guardando…';
+            status.textContent = 'Sincronizando preferencias con tu cuenta…';
+            const preferences = {
+                resolution: document.getElementById('stream-resolution').value,
+                fps: Number(document.getElementById('stream-fps').value),
+                bitrateMbps: Number(document.getElementById('stream-bitrate').value),
+                cameraEnabled: document.getElementById('stream-camera').checked,
+                microphoneEnabled: document.getElementById('stream-microphone').checked,
+                systemAudioEnabled: document.getElementById('stream-system-audio').checked,
+                orientation: document.getElementById('stream-orientation').value,
+                cameraPosition: document.getElementById('stream-camera-position').value,
+                cameraFrame: document.getElementById('stream-camera-frame').value
+            };
+            try {
+                const data = await apiRequest('/api/me/streaming-preferences', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(preferences)
+                });
+                status.textContent = data.capabilityNote || 'Preferencias guardadas en tu cuenta.';
+            } catch (error) {
+                status.textContent = 'No se pudieron guardar los cambios: ' + error.message;
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Guardar preferencias';
+            }
+        }
+
+        function openSettingsModal() {
+            document.getElementById('settings-modal').classList.remove('hidden');
+            if (authToken) loadStreamingPreferences();
+        }
         function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
-        function openStreamStudio() { alert('Iniciando Stream Studio PLAYVERSE...'); }
+        function openStreamStudio() {
+            document.getElementById('streaming-settings-status').textContent = 'Primero configurá tus preferencias. El motor de captura y emisión todavía está pendiente de integración.';
+            openSettingsModal();
+        }
 
         const widget = document.getElementById('floating-widget');
         let isDragging = false, startX, startY, initialX, initialY;
