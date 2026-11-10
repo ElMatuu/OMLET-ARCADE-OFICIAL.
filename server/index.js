@@ -197,6 +197,62 @@ app.post('/api/posts', requireAuth, postLimiter, async (req, res, next) => {
   }
 });
 
+
+app.put('/api/posts/:postId', requireAuth, postLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.postId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de publicación inválido.' });
+    }
+    const content = typeof req.body.content === 'string' ? req.body.content.trim() : '';
+    if (!content || content.length > 2000) {
+      return res.status(400).json({ success: false, message: 'La publicación debe tener entre 1 y 2000 caracteres.' });
+    }
+    const post = await Post.findOneAndUpdate(
+      { _id: req.params.postId, author: req.auth.sub },
+      { $set: { content } },
+      { new: true, runValidators: true }
+    ).select('authorUsername content likes commentCount createdAt').lean();
+    if (!post) {
+      const exists = await Post.exists({ _id: req.params.postId });
+      return res.status(exists ? 403 : 404).json({
+        success: false,
+        message: exists ? 'Solo quien publicó puede editar esta publicación.' : 'Publicación no encontrada.'
+      });
+    }
+    return res.json({ success: true, post: {
+      id: String(post._id),
+      authorUsername: post.authorUsername,
+      content: post.content,
+      likeCount: Array.isArray(post.likes) ? post.likes.length : 0,
+      likedByMe: Array.isArray(post.likes) && post.likes.some((id) => String(id) === req.auth.sub),
+      commentCount: Number(post.commentCount) || 0,
+      createdAt: post.createdAt
+    } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.delete('/api/posts/:postId', requireAuth, postLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.postId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de publicación inválido.' });
+    }
+    const post = await Post.findOneAndDelete({ _id: req.params.postId, author: req.auth.sub });
+    if (!post) {
+      const exists = await Post.exists({ _id: req.params.postId });
+      return res.status(exists ? 403 : 404).json({
+        success: false,
+        message: exists ? 'Solo quien publicó puede eliminar esta publicación.' : 'Publicación no encontrada.'
+      });
+    }
+    await Comment.deleteMany({ post: post._id });
+    return res.json({ success: true, deletedPostId: String(post._id) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 const commentLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 30,
@@ -297,6 +353,65 @@ app.post('/api/posts/:postId/comments', requireAuth, commentLimiter, async (req,
       content: comment.content,
       createdAt: comment.createdAt
     } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+
+app.put('/api/posts/:postId/comments/:commentId', requireAuth, commentLimiter, async (req, res, next) => {
+  try {
+    const { postId, commentId } = req.params;
+    if (!mongoose.isValidObjectId(postId) || !mongoose.isValidObjectId(commentId)) {
+      return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    }
+    const content = typeof req.body.content === 'string' ? req.body.content.trim() : '';
+    if (!content || content.length > 1000) {
+      return res.status(400).json({ success: false, message: 'El comentario debe tener entre 1 y 1000 caracteres.' });
+    }
+    const comment = await Comment.findOneAndUpdate(
+      { _id: commentId, post: postId, author: req.auth.sub },
+      { $set: { content } },
+      { new: true, runValidators: true }
+    ).select('authorUsername content createdAt').lean();
+    if (!comment) {
+      const exists = await Comment.exists({ _id: commentId, post: postId });
+      return res.status(exists ? 403 : 404).json({
+        success: false,
+        message: exists ? 'Solo quien comentó puede editar este comentario.' : 'Comentario no encontrado.'
+      });
+    }
+    return res.json({ success: true, comment: {
+      id: String(comment._id),
+      authorUsername: comment.authorUsername,
+      content: comment.content,
+      createdAt: comment.createdAt
+    } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.delete('/api/posts/:postId/comments/:commentId', requireAuth, commentLimiter, async (req, res, next) => {
+  try {
+    const { postId, commentId } = req.params;
+    if (!mongoose.isValidObjectId(postId) || !mongoose.isValidObjectId(commentId)) {
+      return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    }
+    const comment = await Comment.findOneAndDelete({
+      _id: commentId,
+      post: postId,
+      author: req.auth.sub
+    });
+    if (!comment) {
+      const exists = await Comment.exists({ _id: commentId, post: postId });
+      return res.status(exists ? 403 : 404).json({
+        success: false,
+        message: exists ? 'Solo quien comentó puede eliminar este comentario.' : 'Comentario no encontrado.'
+      });
+    }
+    await Post.updateOne({ _id: postId, commentCount: { $gt: 0 } }, { $inc: { commentCount: -1 } });
+    return res.json({ success: true, deletedCommentId: String(comment._id) });
   } catch (error) {
     return next(error);
   }
