@@ -927,6 +927,7 @@
                 if(el) el.classList.add('hidden');
             });
             document.getElementById('tab-' + tabName).classList.remove('hidden');
+            if (tabName === 'live') loadLiveStreams();
             if (tabName === 'lobbies') loadRooms();
             if (tabName === 'chat') loadDirectConversations();
             if (tabName === 'feed') loadCommunityPosts();
@@ -2741,9 +2742,199 @@
             }
         }
         function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
+        let liveKitRoom = null;
+        let activeLiveStream = null;
+        let activeLiveStreamRole = null;
+
+        function setLiveStatus(message) {
+            const status = document.getElementById('live-stream-status');
+            if (status) status.textContent = message;
+        }
+
+        function attachLiveTrack(track, participant) {
+            const container = document.getElementById('live-player-tracks');
+            if (!container || !track) return;
+            const element = track.attach();
+            element.autoplay = true;
+            element.playsInline = true;
+            element.className = track.kind === 'video' ? 'w-full max-h-[65vh] rounded-xl bg-black object-contain' : 'w-full';
+            element.dataset.liveParticipant = participant ? participant.identity : 'remote';
+            container.appendChild(element);
+        }
+
+        function detachLiveTrack(track) {
+            if (track) track.detach().forEach((element) => element.remove());
+        }
+
+        async function connectLiveKitSession(connection, stream, role) {
+            if (typeof LivekitClient === 'undefined') throw new Error('No se pudo cargar el SDK de video. Actualizá la aplicación.');
+            if (liveKitRoom) await liveKitRoom.disconnect();
+            const room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
+            liveKitRoom = room;
+            room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+                attachLiveTrack(track, participant);
+                const status = document.getElementById('live-player-status');
+                if (status) status.textContent = 'Conectado · recibiendo audio/video en tiempo real.';
+            });
+            room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => detachLiveTrack(track));
+            room.on(LivekitClient.RoomEvent.Disconnected, () => {
+                const status = document.getElementById('live-player-status');
+                if (status) status.textContent = 'Conexión de video finalizada.';
+            });
+            await room.connect(connection.url, connection.token);
+            activeLiveStream = stream;
+            activeLiveStreamRole = role;
+            document.getElementById('live-player-panel').classList.remove('hidden');
+            document.getElementById('live-player-title').textContent = stream.title || 'Transmisión PLAYVERSE';
+            document.getElementById('live-player-role').textContent = role === 'publisher' ? 'Estás transmitiendo' : 'Estás viendo en vivo';
+            document.getElementById('live-host-controls').classList.toggle('hidden', role !== 'publisher');
+            document.getElementById('live-player-tracks').replaceChildren();
+            document.getElementById('live-player-status').textContent = 'Conectado a la sala. Esperando pistas multimedia…';
+            if (role === 'publisher') {
+                const preview = document.getElementById('live-local-preview');
+                try {
+                    await room.localParticipant.setCameraEnabled(true);
+                    const publication = room.localParticipant.getTrackPublication(LivekitClient.Track.Source.Camera);
+                    if (publication && publication.videoTrack) {
+                        preview.classList.remove('hidden');
+                        preview.srcObject = new MediaStream([publication.videoTrack.mediaStreamTrack]);
+                    }
+                } catch (error) {
+                    document.getElementById('live-player-status').textContent = 'La sala está activa, pero la cámara no está disponible: ' + error.message + '. Podés probar Compartir pantalla.';
+                }
+                try { await room.localParticipant.setMicrophoneEnabled(true); }
+                catch (error) { document.getElementById('live-player-status').textContent += ' Micrófono no disponible: ' + error.message; }
+            }
+        }
+
+        async function loadLiveStreams() {
+            const container = document.getElementById('live-streams-container');
+            if (!container) return;
+            container.replaceChildren();
+            try {
+                const data = await apiRequest('/api/streams');
+                setLiveStatus(data.streamingEnabled ? 'Servicio de video configurado. Podés iniciar o ver transmisiones.' : 'Catálogo conectado; faltan las credenciales LiveKit del servidor.');
+                if (!data.streams || !data.streams.length) {
+                    const empty = document.createElement('p');
+                    empty.className = 'text-xs text-slate-500';
+                    empty.textContent = 'Todavía no hay transmisiones activas.';
+                    container.appendChild(empty);
+                    return;
+                }
+                data.streams.forEach((stream) => {
+                    const card = document.createElement('article');
+                    card.className = 'PLAYVERSE-card rounded-xl p-3 flex items-center justify-between gap-3';
+                    const details = document.createElement('div');
+                    details.className = 'min-w-0';
+                    const title = document.createElement('p');
+                    title.className = 'font-bold text-sm text-white break-words';
+                    title.textContent = stream.title;
+                    const creator = document.createElement('p');
+                    creator.className = 'text-xs text-slate-400 mt-1';
+                    creator.textContent = '@' + stream.creator + ' · EN VIVO';
+                    details.append(title, creator);
+                    const join = document.createElement('button');
+                    join.type = 'button';
+                    join.className = 'shrink-0 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-200 px-3 py-2 text-xs font-bold';
+                    join.textContent = 'Ver en vivo';
+                    join.addEventListener('click', () => joinLiveStream(stream.id));
+                    card.append(details, join);
+                    container.appendChild(card);
+                });
+            } catch (error) {
+                setLiveStatus('No se pudo cargar el catálogo: ' + error.message);
+                const empty = document.createElement('p');
+                empty.className = 'text-xs text-red-300';
+                empty.textContent = error.message;
+                container.appendChild(empty);
+            }
+        }
+
+        async function startLiveStream(event) {
+            event.preventDefault();
+            const button = document.getElementById('live-stream-start');
+            const title = document.getElementById('live-stream-title').value.trim();
+            const description = document.getElementById('live-stream-description').value.trim();
+            let createdStreamId = null;
+            button.disabled = true;
+            setLiveStatus('Creando sala segura y solicitando acceso de emisión…');
+            try {
+                const data = await apiRequest('/api/me/streams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description }) });
+                createdStreamId = data.stream.id;
+                await connectLiveKitSession(data.liveKit, data.stream, 'publisher');
+                document.getElementById('live-stream-create-form').reset();
+                setLiveStatus('Transmisión iniciada. Compartí tu emisión desde esta sala.');
+                await loadLiveStreams();
+            } catch (error) {
+                setLiveStatus('No se pudo iniciar la transmisión: ' + error.message);
+                if (createdStreamId) {
+                    try { await apiRequest('/api/me/streams/' + encodeURIComponent(createdStreamId), { method: 'DELETE' }); } catch {}
+                    await closeLivePlayer();
+                }
+            } finally { button.disabled = false; }
+        }
+
+        async function joinLiveStream(streamId) {
+            setLiveStatus('Solicitando acceso de espectador…');
+            try {
+                const data = await apiRequest('/api/streams/' + encodeURIComponent(streamId) + '/token', { method: 'POST' });
+                await connectLiveKitSession(data.liveKit, data.stream, data.liveKit.role);
+            } catch (error) { setLiveStatus('No se pudo conectar a la transmisión: ' + error.message); }
+        }
+
+        async function toggleLiveCamera() {
+            if (!liveKitRoom || activeLiveStreamRole !== 'publisher') return;
+            try { await liveKitRoom.localParticipant.setCameraEnabled(!liveKitRoom.localParticipant.isCameraEnabled); }
+            catch (error) { document.getElementById('live-player-status').textContent = error.message; }
+        }
+
+        async function toggleLiveMicrophone() {
+            if (!liveKitRoom || activeLiveStreamRole !== 'publisher') return;
+            try { await liveKitRoom.localParticipant.setMicrophoneEnabled(!liveKitRoom.localParticipant.isMicrophoneEnabled); }
+            catch (error) { document.getElementById('live-player-status').textContent = error.message; }
+        }
+
+        async function toggleLiveScreenShare() {
+            if (!liveKitRoom || activeLiveStreamRole !== 'publisher') return;
+            try {
+                await liveKitRoom.localParticipant.setScreenShareEnabled(!liveKitRoom.localParticipant.isScreenShareEnabled);
+                document.getElementById('live-player-status').textContent = 'Estado de compartir pantalla actualizado.';
+            } catch (error) { document.getElementById('live-player-status').textContent = 'No se pudo compartir la pantalla: ' + error.message; }
+        }
+
+        async function closeLivePlayer() {
+            if (liveKitRoom) await liveKitRoom.disconnect();
+            liveKitRoom = null;
+            activeLiveStream = null;
+            activeLiveStreamRole = null;
+            const preview = document.getElementById('live-local-preview');
+            preview.pause();
+            preview.srcObject = null;
+            preview.classList.add('hidden');
+            document.getElementById('live-player-tracks').replaceChildren();
+            document.getElementById('live-host-controls').classList.add('hidden');
+            document.getElementById('live-player-panel').classList.add('hidden');
+        }
+
+        async function leaveLiveStream() {
+            if (activeLiveStreamRole === 'publisher') return endLiveStream();
+            await closeLivePlayer();
+        }
+
+        async function endLiveStream() {
+            if (!activeLiveStream || activeLiveStreamRole !== 'publisher') return;
+            const streamId = activeLiveStream.id;
+            try {
+                await apiRequest('/api/me/streams/' + encodeURIComponent(streamId), { method: 'DELETE' });
+                await closeLivePlayer();
+                setLiveStatus('Transmisión finalizada y sala cerrada.');
+                await loadLiveStreams();
+            } catch (error) { document.getElementById('live-player-status').textContent = 'No se pudo cerrar la transmisión en el servidor: ' + error.message; }
+        }
         function openStreamStudio() {
-            document.getElementById('streaming-settings-status').textContent = 'Primero configurá tus preferencias. El motor de captura y emisión todavía está pendiente de integración.';
-            openSettingsModal();
+            switchTab('live');
+            document.getElementById('live-stream-title').focus();
+            loadLiveStreams();
         }
 
         const widget = document.getElementById('floating-widget');
