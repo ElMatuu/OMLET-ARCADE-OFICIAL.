@@ -33,4 +33,7 @@ test('LiveStream enforces at most one active session per creator at the database
   assert.ok(indexes.some(([keys, options]) =>
     keys.owner === 1 && options.unique === true && options.partialFilterExpression?.status === 'live'
   ));
+  assert.equal(indexes.some(([keys, options]) =>
+    Object.keys(keys).length === 1 && keys.owner === 1 && options.unique !== true
+  ), false, 'do not create a duplicate non-unique owner index');
 });
