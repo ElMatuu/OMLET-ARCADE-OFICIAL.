@@ -140,17 +140,38 @@ integrationTest('two independent accounts can interact while ownership and persi
     const overCapacity = await request(baseUrl, roomJoinPath, { method: 'POST' }, waitingToken);
     assert.equal(overCapacity.status, 404);
 
+    const firstRoomMessage = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/messages', {
+      method: 'POST', body: { message: '¡Hola desde PLAYVERSE!' }
+    }, alice.body.token);
+    assert.equal(firstRoomMessage.status, 201);
+    assert.equal(firstRoomMessage.body.message.username, 'alice_test');
+
+    const secondRoomMessage = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/messages', {
+      method: 'POST', body: { message: '¡Buenas, me sumo a la sala!' }
+    }, winningToken);
+    assert.equal(secondRoomMessage.status, 201);
+
+    const roomHistory = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/messages', {}, alice.body.token);
+    assert.equal(roomHistory.status, 200);
+    assert.equal(roomHistory.body.messages.length, 2);
+    assert.equal(roomHistory.body.messages[0].message, '¡Hola desde PLAYVERSE!');
+
     const memberLeaves = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/leave', {
       method: 'POST'
     }, winningToken);
     assert.equal(memberLeaves.status, 200);
     assert.equal(memberLeaves.body.room.memberCount, 1);
+    const formerMemberCannotReadChat = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/messages', {}, winningToken);
+    assert.equal(formerMemberCannotReadChat.status, 403);
 
     const waitingPlayerJoins = await request(baseUrl, roomJoinPath, {
       method: 'POST'
     }, waitingToken);
     assert.equal(waitingPlayerJoins.status, 200);
     assert.equal(waitingPlayerJoins.body.room.memberCount, 2);
+    const persistedChatHistory = await request(baseUrl, '/api/rooms/' + room.body.room.id + '/messages', {}, waitingToken);
+    assert.equal(persistedChatHistory.status, 200);
+    assert.equal(persistedChatHistory.body.messages.length, 2);
 
     const bobCannotCloseRoom = await request(baseUrl, '/api/rooms/' + room.body.room.id, {
       method: 'DELETE'
