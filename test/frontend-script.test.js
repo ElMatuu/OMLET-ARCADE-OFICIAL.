@@ -21,6 +21,8 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /function toggleLiveScreenShare\(/, 'Creators must have a screen-sharing control');
   assert.match(html, /RoomEvent\.ParticipantConnected/, 'Live viewers must update the connected participant count');
   assert.match(html, /live-player-participant-count/, 'The live player must expose participant synchronization status');
+  assert.match(html, /RoomEvent\.AudioPlaybackStatusChanged/, 'The player must handle browser audio autoplay restrictions');
+  assert.match(html, /function enableLiveAudio\(/, 'Viewers must be able to explicitly enable blocked audio playback');
   assert.match(html, /function connectPresenceSocket\(\)/, 'Authenticated users must connect the app-wide presence socket');
   assert.match(html, /presenceSocket\.emit\('presence_heartbeat', \{\}/, 'The client must send expiring presence heartbeats');
   assert.match(html, /● En línea/, 'Friend rows must show online status');
