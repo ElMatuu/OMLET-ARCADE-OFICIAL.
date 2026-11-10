@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const http = require('http');
+const path = require('node:path');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -42,6 +43,18 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json({ limit: '20kb' }));
+
+const webRoot = path.join(__dirname, '..', 'www');
+app.use(express.static(webRoot, {
+  etag: true,
+  maxAge: '1h',
+  setHeaders(response, filePath) {
+    if (['index.html', 'service-worker.js', 'app-update.js', 'manifest.webmanifest']
+      .some((name) => filePath.endsWith(path.sep + name))) {
+      response.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
