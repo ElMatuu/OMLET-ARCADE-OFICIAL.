@@ -182,20 +182,12 @@
 
             <!-- TAB LOBBIES -->
             <div id="tab-lobbies" class="space-y-6 hidden">
-                <div class="flex items-center justify-between">
-                    <div><h3 class="font-black text-lg">Salas Multijugador</h3><p class="text-xs text-slate-400">Mundos abiertos sin IPs</p></div>
-                    <button onclick="alert('Creando sala...')" class="bg-emerald-500 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-xl">+ Crear Sala</button>
+                <div class="flex items-center justify-between gap-3">
+                    <div><h3 class="font-black text-lg">Salas Multijugador</h3><p class="text-xs text-slate-400">Salas reales de la comunidad</p></div>
+                    <button onclick="openCreateRoomModal()" class="bg-emerald-500 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-xl">+ Crear Sala</button>
                 </div>
-                <div class="grid gap-3">
-                    <div class="PLAYVERSE-card p-4 rounded-2xl flex items-center justify-between">
-                        <div>
-                            <span class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">MINECRAFT</span>
-                            <h4 class="font-bold text-sm mt-1 text-white">Mundo Survival Técnico 1.20</h4>
-                            <p class="text-xs text-slate-400">Host: AlexCraft • Ping: 18ms</p>
-                        </div>
-                        <button onclick="alert('Entrando...')" class="bg-emerald-500 text-slate-950 text-xs font-black px-4 py-2.5 rounded-xl">Unirse</button>
-                    </div>
-                </div>
+                <p id="rooms-status" class="text-xs text-slate-400" role="status">Cargando salas…</p>
+                <div id="rooms-container" class="grid gap-3" aria-live="polite"></div>
             </div>
 
             <!-- TAB SHOP -->
@@ -280,6 +272,17 @@
         </div>
     </div>
 
+    <!-- MODAL CREAR SALA -->
+    <div id="room-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <form id="room-form" onsubmit="handleCreateRoom(event)" class="PLAYVERSE-card rounded-3xl w-full max-w-md p-6 space-y-4 border border-slate-800">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800"><h3 class="font-black text-base text-white">Crear sala multijugador</h3><button type="button" onclick="closeCreateRoomModal()" class="text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+            <label class="block text-xs font-semibold text-slate-400">Nombre de la sala<input id="room-name" required minlength="3" maxlength="60" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-sm text-white" placeholder="Ej. Supervivencia con amigos"></label>
+            <label class="block text-xs font-semibold text-slate-400">Juego<input id="room-game" required minlength="2" maxlength="40" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-sm text-white" placeholder="Ej. Minecraft"></label>
+            <p id="room-form-status" class="text-xs text-slate-400" role="status"></p>
+            <div class="flex gap-2"><button type="button" onclick="closeCreateRoomModal()" class="flex-1 bg-slate-800 text-white font-bold py-3 rounded-xl">Cancelar</button><button id="room-submit" type="submit" class="flex-1 PLAYVERSE-gradient text-white font-bold py-3 rounded-xl">Crear sala</button></div>
+        </form>
+    </div>
+
     <script>
         const API_URL = window.PLAYVERSE_API_URL || 'https://playverse-api-bgyg.onrender.com';
         const SESSION_KEY = 'playverse_session_token';
@@ -304,6 +307,7 @@
             document.getElementById('profile-username').textContent = user.username;
             document.getElementById('auth-screen').classList.add('hidden');
             document.getElementById('main-app').classList.remove('hidden');
+            loadRooms();
         }
 
         async function restoreSession() {
@@ -396,12 +400,103 @@
                 if(el) el.classList.add('hidden');
             });
             document.getElementById('tab-' + tabName).classList.remove('hidden');
+            if (tabName === 'lobbies') loadRooms();
             ['feed', 'lobbies', 'shop', 'events'].forEach(t => {
                 const btn = document.getElementById('nav-btn-' + t);
                 if(btn) { btn.classList.remove('text-cyan-400'); btn.classList.add('text-slate-400'); }
             });
             const activeNav = document.getElementById('nav-btn-' + tabName);
             if(activeNav) { activeNav.classList.remove('text-slate-400'); activeNav.classList.add('text-cyan-400'); }
+        }
+
+        async function apiRequest(path, options = {}) {
+            const response = await fetch(API_URL + path, {
+                ...options,
+                headers: {
+                    ...(options.headers || {}),
+                    ...(authToken ? { Authorization: 'Bearer ' + authToken } : {})
+                }
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.message || 'No se pudo completar la operación.');
+            return data;
+        }
+
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>"']/g, (char) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[char]);
+        }
+
+        async function loadRooms() {
+            const container = document.getElementById('rooms-container');
+            const status = document.getElementById('rooms-status');
+            if (!container || !status || !authToken) return;
+            status.textContent = 'Buscando salas públicas…';
+            try {
+                const data = await apiRequest('/api/rooms');
+                container.replaceChildren();
+                if (!data.rooms || data.rooms.length === 0) {
+                    status.textContent = 'Todavía no hay salas públicas. ¡Podés crear la primera!';
+                    return;
+                }
+                status.textContent = data.rooms.length + ' sala(s) pública(s)';
+                data.rooms.forEach((room) => {
+                    const card = document.createElement('article');
+                    card.className = 'PLAYVERSE-card p-4 rounded-2xl flex items-center justify-between gap-3';
+                    card.innerHTML = '<div class="min-w-0"><span class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">' + escapeHtml(room.game.toUpperCase()) + '</span><h4 class="font-bold text-sm mt-1 text-white break-words">' + escapeHtml(room.name) + '</h4><p class="text-xs text-slate-400">Host: ' + escapeHtml(room.ownerUsername) + ' · ' + Number(room.memberCount) + '/' + Number(room.capacity) + ' jugadores</p></div><button class="join-room-btn shrink-0 bg-emerald-500 text-slate-950 text-xs font-black px-4 py-2.5 rounded-xl">Unirse</button>';
+                    card.querySelector('button').addEventListener('click', () => joinRoom(room.id));
+                    container.appendChild(card);
+                });
+            } catch (error) {
+                status.textContent = error.message;
+            }
+        }
+
+        function openCreateRoomModal() {
+            document.getElementById('room-form-status').textContent = '';
+            document.getElementById('room-modal').classList.remove('hidden');
+        }
+
+        function closeCreateRoomModal() {
+            document.getElementById('room-modal').classList.add('hidden');
+        }
+
+        async function handleCreateRoom(event) {
+            event.preventDefault();
+            const button = document.getElementById('room-submit');
+            const status = document.getElementById('room-form-status');
+            button.disabled = true;
+            button.textContent = 'Creando…';
+            try {
+                await apiRequest('/api/rooms', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: document.getElementById('room-name').value.trim(),
+                        game: document.getElementById('room-game').value.trim()
+                    })
+                });
+                document.getElementById('room-form').reset();
+                closeCreateRoomModal();
+                await loadRooms();
+            } catch (error) {
+                status.textContent = error.message;
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Crear sala';
+            }
+        }
+
+        async function joinRoom(roomId) {
+            try {
+                await apiRequest('/api/rooms/' + encodeURIComponent(roomId) + '/join', { method: 'POST' });
+                const status = document.getElementById('rooms-status');
+                status.textContent = '¡Te uniste a la sala correctamente!';
+                await loadRooms();
+            } catch (error) {
+                document.getElementById('rooms-status').textContent = error.message;
+            }
         }
 
         function toggleDrawer(open) {
