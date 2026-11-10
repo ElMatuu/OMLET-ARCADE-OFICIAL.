@@ -294,6 +294,15 @@
                     <h4 class="font-bold text-sm text-white">Mis amigos</h4>
                     <div id="friends-list" class="space-y-2"></div>
                 </section>
+                <section class="space-y-3">
+                    <h4 class="font-bold text-sm text-white">Seguidores</h4>
+                    <div id="followers-list" class="space-y-2"><p class="text-xs text-slate-500">Cargando…</p></div>
+                </section>
+                <section class="space-y-3">
+                    <h4 class="font-bold text-sm text-white">Siguiendo</h4>
+                    <div id="following-list" class="space-y-2"><p class="text-xs text-slate-500">Cargando…</p></div>
+                </section>
+
             </div>
 
             <!-- TAB SHOP: CATALOGO E INVENTARIO REALES -->
@@ -395,6 +404,8 @@
                         <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
                             <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="block text-[10px] text-slate-500 font-bold">PUBLICACIONES</span><span id="profile-stat-posts" class="text-xl font-black text-white">—</span></div>
                             <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="block text-[10px] text-slate-500 font-bold">AMIGOS</span><span id="profile-stat-friends" class="text-xl font-black text-white">—</span></div>
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="block text-[10px] text-slate-500 font-bold">SEGUIDORES</span><span id="profile-stat-followers" class="text-xl font-black text-white">—</span></div>
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="block text-[10px] text-slate-500 font-bold">SIGUIENDO</span><span id="profile-stat-following" class="text-xl font-black text-white">—</span></div>
                             <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="block text-[10px] text-slate-500 font-bold">SALAS CREADAS</span><span id="profile-stat-rooms" class="text-xl font-black text-white">—</span></div>
                             <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="block text-[10px] text-slate-500 font-bold">MENSAJES EN SALAS</span><span id="profile-stat-messages" class="text-xl font-black text-white">—</span></div>
                             <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="block text-[10px] text-slate-500 font-bold">PUBLICACIONES GUARDADAS</span><span id="profile-stat-saved" class="text-xl font-black text-white">—</span></div>
@@ -594,6 +605,8 @@
                 const values = {
                     'profile-stat-posts': stats.posts,
                     'profile-stat-friends': stats.friends,
+                    'profile-stat-followers': stats.followers,
+                    'profile-stat-following': stats.following,
                     'profile-stat-rooms': stats.roomsCreated,
                     'profile-stat-messages': stats.roomMessages,
                     'profile-stat-saved': stats.savedPosts
@@ -722,7 +735,7 @@
             if (tabName === 'feed') loadCommunityPosts();
             if (tabName === 'saved') loadSavedPosts();
             if (tabName === 'events') loadMissions();
-            if (tabName === 'friends') loadFriends();
+            if (tabName === 'friends') { loadFriends(); loadFollowLists(); }
             if (tabName === 'profile') { loadMyProfile(); loadProfileSummary(); }
             if (tabName === 'shop') loadStore();
             ['feed', 'live', 'chat', 'lobbies', 'shop', 'events', 'friends', 'profile'].forEach(t => {
@@ -1670,9 +1683,72 @@
                     }
                 });
                 status.textContent = 'Conexiones actualizadas.';
+                await loadFollowLists();
             } catch (error) {
                 status.textContent = error.message;
             }
+        }
+
+        async function loadFollowLists() {
+            const targets = [
+                ['followers-list', '/api/me/followers', 'Todavía no tenés seguidores.'],
+                ['following-list', '/api/me/following', 'Todavía no seguís a ningún jugador.']
+            ];
+            await Promise.all(targets.map(async ([id, path, emptyMessage]) => {
+                const container = document.getElementById(id);
+                if (!container) return;
+                container.replaceChildren();
+                try {
+                    const data = await apiRequest(path);
+                    const users = data.users || [];
+                    if (!users.length) {
+                        const empty = document.createElement('p');
+                        empty.className = 'text-xs text-slate-500';
+                        empty.textContent = emptyMessage;
+                        container.appendChild(empty);
+                        return;
+                    }
+                    users.forEach((person) => {
+                        const row = document.createElement('div');
+                        row.className = 'PLAYVERSE-card rounded-xl border border-slate-800 p-3 flex items-center gap-3';
+                        const avatar = document.createElement('div');
+                        avatar.className = 'w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-lg overflow-hidden';
+                        if (person.avatarUrl) {
+                            const img = document.createElement('img');
+                            img.src = person.avatarUrl;
+                            img.alt = '';
+                            img.className = 'w-full h-full object-cover';
+                            avatar.appendChild(img);
+                        } else avatar.textContent = '🎮';
+                        const details = document.createElement('div');
+                        details.className = 'min-w-0 flex-1';
+                        const title = document.createElement('p');
+                        title.className = 'text-sm font-bold text-white truncate';
+                        title.textContent = person.displayName || person.username;
+                        const handle = document.createElement('p');
+                        handle.className = 'text-xs text-slate-400';
+                        handle.textContent = '@' + person.username;
+                        details.append(title, handle);
+                        row.append(avatar, details);
+                        const view = document.createElement('button');
+                        view.type = 'button';
+                        view.className = 'text-xs font-bold text-orange-300 border border-orange-500/30 rounded-lg px-3 py-2';
+                        view.textContent = 'Ver';
+                        view.addEventListener('click', () => {
+                            document.getElementById('friends-search-input').value = person.username;
+                            searchFriendPlayer(person.username);
+                            switchTab('friends');
+                        });
+                        row.appendChild(view);
+                        container.appendChild(row);
+                    });
+                } catch (error) {
+                    const message = document.createElement('p');
+                    message.className = 'text-xs text-red-300';
+                    message.textContent = error.message;
+                    container.appendChild(message);
+                }
+            }));
         }
 
         async function searchFriendPlayer(username) {
@@ -1697,7 +1773,31 @@
                 const posts = document.createElement('p');
                 posts.className = 'text-xs text-slate-500';
                 posts.textContent = String(player.postCount) + ' publicaciones';
-                card.append(name, handle, bio, posts);
+                const audience = document.createElement('p');
+                audience.className = 'text-xs text-slate-400';
+                audience.textContent = String(player.followersCount || 0) + ' seguidores · ' + String(player.followingCount || 0) + ' siguiendo';
+                card.append(name, handle, bio, posts, audience);
+                if (player.friendship !== 'self') {
+                    const follow = document.createElement('button');
+                    follow.type = 'button';
+                    follow.className = 'rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/10 px-4 py-2 text-xs font-bold text-fuchsia-200';
+                    follow.textContent = player.isFollowing ? 'Dejar de seguir' : 'Seguir jugador';
+                    follow.addEventListener('click', async () => {
+                        follow.disabled = true;
+                        try {
+                            const response = await apiRequest('/api/users/' + encodeURIComponent(player.username) + '/follow', {
+                                method: player.isFollowing ? 'DELETE' : 'POST'
+                            });
+                            status.textContent = response.following ? 'Ahora seguís a @' + player.username : 'Dejaste de seguir a @' + player.username;
+                            await searchFriendPlayer(player.username);
+                            await loadFollowLists();
+                        } catch (error) {
+                            status.textContent = error.message;
+                            follow.disabled = false;
+                        }
+                    });
+                    card.appendChild(follow);
+                }
                 if (player.friendship === 'self') {
                     const relation = document.createElement('p');
                     relation.className = 'text-xs font-bold text-slate-400';
