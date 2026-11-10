@@ -27,6 +27,9 @@ const { requireAuth } = require('./middleware/auth');
 const { attachSocketServer } = require('./socket');
 
 const app = express();
+// Render terminates the public connection in one trusted proxy hop.
+// Keep the hop count explicit so express-rate-limit can safely read client IPs.
+app.set('trust proxy', 1);
 const httpServer = http.createServer(app);
 const PORT = Number(process.env.PORT) || 3000;
 const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
