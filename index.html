@@ -161,21 +161,8 @@
 
                 <div class="space-y-4 pt-2">
                     <h3 class="font-black text-base flex items-center gap-2"><i class="fa-solid fa-earth-americas text-purple-400"></i> Publicaciones de la Comunidad</h3>
-                    <div id="community-posts-container" class="space-y-4">
-                        <div class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center space-x-3">
-                                    <div class="w-10 h-10 rounded-full PLAYVERSE-gradient flex items-center justify-center text-lg font-bold text-white">🔥</div>
-                                    <div><h5 class="font-bold text-sm">Alex_Craft_YT</h5><p class="text-[10px] text-slate-400">Hace 15 minutos</p></div>
-                                </div>
-                                <span class="text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">Mundo Abierto</span>
-                            </div>
-                            <p class="text-sm text-slate-200">¡Acabo de terminar mi granja automática en PLAYVERSE! ¿Quién se une? 🛡️✨</p>
-                            <div class="flex items-center space-x-4 pt-2 text-xs text-slate-400 border-t border-slate-800">
-                                <button class="hover:text-cyan-400"><i class="fa-solid fa-heart"></i> 342 Me gusta</button>
-                                <button class="hover:text-cyan-400"><i class="fa-solid fa-comment"></i> 48 Comentarios</button>
-                            </div>
-                        </div>
+                    <p id="community-posts-status" class="text-xs text-slate-400" role="status">Cargando publicaciones…</p>
+                    <div id="community-posts-container" class="space-y-4" aria-live="polite"></div>
                     </div>
                 </div>
             </div>
@@ -256,8 +243,9 @@
     <div id="post-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
         <div class="PLAYVERSE-card rounded-3xl w-full max-w-md p-6 space-y-4 border border-slate-800">
             <div class="flex items-center justify-between pb-3 border-b border-slate-800"><h3 class="font-black text-base text-white">Crear Publicación</h3><button onclick="closePostModal()" class="text-slate-400"><i class="fa-solid fa-xmark text-lg"></i></button></div>
-            <textarea id="post-text-input" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-sm text-white focus:outline-none focus:border-cyan-500 resize-none" placeholder="¿Qué quieres compartir con la comunidad de PLAYVERSE?..."></textarea>
-            <div class="flex justify-end pt-2"><button onclick="submitPost()" class="PLAYVERSE-gradient text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md">Publicar</button></div>
+            <textarea id="post-text-input" rows="4" maxlength="2000" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-sm text-white focus:outline-none focus:border-cyan-500 resize-none" placeholder="¿Qué quieres compartir con la comunidad de PLAYVERSE?..."></textarea>
+            <p id="post-form-status" class="text-xs text-slate-400" role="status">Máximo 2000 caracteres.</p>
+            <div class="flex justify-end pt-2"><button id="post-submit-btn" onclick="submitPost()" class="PLAYVERSE-gradient text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md">Publicar</button></div>
         </div>
     </div>
 
@@ -308,6 +296,7 @@
             document.getElementById('auth-screen').classList.add('hidden');
             document.getElementById('main-app').classList.remove('hidden');
             loadRooms();
+            loadCommunityPosts();
         }
 
         async function restoreSession() {
@@ -401,6 +390,7 @@
             });
             document.getElementById('tab-' + tabName).classList.remove('hidden');
             if (tabName === 'lobbies') loadRooms();
+            if (tabName === 'feed') loadCommunityPosts();
             ['feed', 'lobbies', 'shop', 'events'].forEach(t => {
                 const btn = document.getElementById('nav-btn-' + t);
                 if(btn) { btn.classList.remove('text-cyan-400'); btn.classList.add('text-slate-400'); }
@@ -531,18 +521,91 @@
             }, 3000);
         }
 
-        function openPostModal() { document.getElementById('post-modal').classList.remove('hidden'); }
+        function openPostModal() {
+            document.getElementById('post-form-status').textContent = 'Máximo 2000 caracteres.';
+            document.getElementById('post-modal').classList.remove('hidden');
+        }
         function closePostModal() { document.getElementById('post-modal').classList.add('hidden'); }
-        function submitPost() {
-            const text = document.getElementById('post-text-input').value;
-            if(!text) return;
+
+        function renderCommunityPost(post) {
+            const card = document.createElement('article');
+            card.className = 'PLAYVERSE-card rounded-2xl p-4 space-y-3';
+            const header = document.createElement('div');
+            header.className = 'flex items-center space-x-3';
+            const avatar = document.createElement('div');
+            avatar.className = 'w-10 h-10 rounded-full PLAYVERSE-gradient flex items-center justify-center text-lg font-bold text-white';
+            avatar.textContent = '🎮';
+            const identity = document.createElement('div');
+            const author = document.createElement('h5');
+            author.className = 'font-bold text-sm';
+            author.textContent = post.authorUsername;
+            const date = document.createElement('p');
+            date.className = 'text-[10px] text-slate-400';
+            const parsedDate = new Date(post.createdAt);
+            date.textContent = Number.isNaN(parsedDate.getTime()) ? 'Fecha no disponible' : parsedDate.toLocaleString('es-AR');
+            identity.append(author, date);
+            header.append(avatar, identity);
+            const content = document.createElement('p');
+            content.className = 'text-sm text-slate-200 whitespace-pre-wrap break-words';
+            content.textContent = post.content;
+            card.append(header, content);
+            return card;
+        }
+
+        async function loadCommunityPosts() {
             const container = document.getElementById('community-posts-container');
-            const newPost = document.createElement('div');
-            newPost.className = 'PLAYVERSE-card rounded-2xl p-4 space-y-3';
-            newPost.innerHTML = `<div class="flex items-center space-x-3"><div class="w-10 h-10 rounded-full PLAYVERSE-gradient flex items-center justify-center font-bold text-white">🎮</div><div><h5 class="font-bold text-sm">${appState.username}</h5><p class="text-[10px] text-slate-400">Hace un momento</p></div></div><p class="text-sm text-slate-200">${text}</p>`;
-            container.prepend(newPost);
-            document.getElementById('post-text-input').value = '';
-            closePostModal();
+            const status = document.getElementById('community-posts-status');
+            if (!container || !status || !authToken) return;
+            status.textContent = 'Cargando publicaciones…';
+            try {
+                const data = await apiRequest('/api/posts');
+                container.replaceChildren();
+                if (!Array.isArray(data.posts) || data.posts.length === 0) {
+                    status.textContent = 'Todavía no hay publicaciones. ¡Compartí la primera!';
+                    return;
+                }
+                data.posts.forEach((post) => container.appendChild(renderCommunityPost(post)));
+                status.textContent = data.posts.length + ' publicación(es) recientes';
+            } catch (error) {
+                status.textContent = error.message;
+            }
+        }
+
+        async function submitPost() {
+            const input = document.getElementById('post-text-input');
+            const status = document.getElementById('post-form-status');
+            const button = document.getElementById('post-submit-btn');
+            const content = input.value.trim();
+            if (!content) {
+                status.textContent = 'Escribí algo antes de publicar.';
+                return;
+            }
+            if (content.length > 2000) {
+                status.textContent = 'La publicación supera el máximo de 2000 caracteres.';
+                return;
+            }
+            button.disabled = true;
+            button.textContent = 'Publicando…';
+            status.textContent = 'Guardando tu publicación…';
+            try {
+                const data = await apiRequest('/api/posts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content })
+                });
+                if (!data.post) throw new Error('El servidor no devolvió la publicación guardada.');
+                const container = document.getElementById('community-posts-container');
+                container.prepend(renderCommunityPost(data.post));
+                const feedStatus = document.getElementById('community-posts-status');
+                if (feedStatus) feedStatus.textContent = 'Publicación compartida correctamente.';
+                input.value = '';
+                closePostModal();
+            } catch (error) {
+                status.textContent = error.message;
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Publicar';
+            }
         }
 
         function openSettingsModal() { document.getElementById('settings-modal').classList.remove('hidden'); }
