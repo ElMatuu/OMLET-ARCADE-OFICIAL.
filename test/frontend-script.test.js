@@ -5,8 +5,8 @@ const vm = require('node:vm');
 
 test('all inline JavaScript in the main interface parses successfully', () => {
   const html = fs.readFileSync('index.html', 'utf8');
-  const scriptTags = [...html.matchAll(/<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi)];
-  const inlineScripts = scriptTags.filter((match) => !/\\bsrc\\s*=/i.test(match[1]));
+  const scriptTags = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
+  const inlineScripts = scriptTags.filter((match) => !/\bsrc\s*=/i.test(match[1]));
 
   assert.ok(inlineScripts.length > 0, 'Expected at least one inline application script');
 
