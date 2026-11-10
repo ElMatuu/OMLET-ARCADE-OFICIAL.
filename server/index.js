@@ -10,6 +10,7 @@ const jwt = require('jsonwebtoken');
 const { rateLimit } = require('express-rate-limit');
 const User = require('./models/User');
 const Room = require('./models/Room');
+const Post = require('./models/Post');
 const { requireAuth } = require('./middleware/auth');
 const { attachSocketServer } = require('./socket');
 
@@ -124,6 +125,66 @@ app.get('/api/me', requireAuth, async (req, res, next) => {
     const user = await User.findById(req.auth.sub).select('username role createdAt').lean();
     if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
     return res.json({ success: true, user: { id: String(user._id), username: user.username, role: user.role, createdAt: user.createdAt } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+const postLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, message: 'Publicaste demasiado rápido. Probá más tarde.' }
+});
+
+app.get('/api/posts', requireAuth, async (req, res, next) => {
+  try {
+    const posts = await Post.find({})
+      .select('authorUsername content createdAt')
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(30)
+      .lean();
+    return res.json({
+      success: true,
+      posts: posts.map((post) => ({
+        id: String(post._id),
+        authorUsername: post.authorUsername,
+        content: post.content,
+        createdAt: post.createdAt
+      }))
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/posts', requireAuth, postLimiter, async (req, res, next) => {
+  try {
+    const content = typeof req.body.content === 'string' ? req.body.content.trim() : '';
+    if (!content || content.length > 2000) {
+      return res.status(400).json({
+        success: false,
+        message: 'La publicación debe tener entre 1 y 2000 caracteres.'
+      });
+    }
+    const user = await User.findById(req.auth.sub).select('username').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+
+    const post = await Post.create({
+      author: req.auth.sub,
+      authorUsername: user.username,
+      content
+    });
+    return res.status(201).json({
+      success: true,
+      post: {
+        id: String(post._id),
+        authorUsername: post.authorUsername,
+        content: post.content,
+        createdAt: post.createdAt
+      }
+    });
   } catch (error) {
     return next(error);
   }
