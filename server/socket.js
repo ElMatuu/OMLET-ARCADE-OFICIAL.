@@ -27,6 +27,9 @@ function attachSocketServer(httpServer, allowedOrigins) {
   });
 
   io.on('connection', (socket) => {
+    let messageWindowStart = Date.now();
+    let messageCount = 0;
+
     socket.on('join_room', async (payload, acknowledge = () => {}) => {
       const roomId = payload && payload.roomId;
       if (typeof roomId !== 'string' || !ROOM_ID_PATTERN.test(roomId)) {
@@ -56,6 +59,16 @@ function attachSocketServer(httpServer, allowedOrigins) {
           rawMessage.length > MESSAGE_MAX_LENGTH || !socket.rooms.has(roomId)) {
         return acknowledge({ success: false, message: 'Mensaje o sala inválidos' });
       }
+
+      const now = Date.now();
+      if (now - messageWindowStart >= 60 * 1000) {
+        messageWindowStart = now;
+        messageCount = 0;
+      }
+      if (messageCount >= 30) {
+        return acknowledge({ success: false, message: 'Límite de mensajes alcanzado. Probá en un minuto.' });
+      }
+      messageCount += 1;
 
       try {
         const room = await Room.findOne({
