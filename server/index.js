@@ -768,7 +768,7 @@ async function buildAchievementSnapshot(userId) {
   if (!user) return null;
   const metrics = {
     posts, comments, rooms, roomMessages, friends, followers, savedPosts, tournaments, tournamentWins, streams,
-    firstPurchaseBonusClaimed: user.firstStorePurchaseBonusClaimedAt ? 1 : 0
+    firstPurchaseBonusAvailable: user.firstStorePurchaseBonusAvailableAt ? 1 : 0
   };
   const unlocked = ACHIEVEMENTS.filter((item) => (metrics[item.metric] || 0) >= item.target);
   if (unlocked.length) {
@@ -776,7 +776,7 @@ async function buildAchievementSnapshot(userId) {
       try {
         await UserAchievement.updateOne(
           { user: userId, achievementId: item.id },
-          { $setOnInsert: { user: userId, achievementId: item.id, earnedXP: item.xp, unlockedAt: new Date() } },
+          { $setOnInsert: { user: userId, achievementId: item.id, earnedXP: 0, claimedAt: null, unlockedAt: new Date() } },
           { upsert: true }
         );
       } catch (error) {
@@ -793,7 +793,10 @@ async function buildAchievementSnapshot(userId) {
       id: item.id, title: item.title, description: item.description, category: item.category,
       tier: item.tier, icon: item.icon, target: item.target,
       progress: Math.min(metricValue, item.target), metricValue, xp: item.xp,
-      unlocked: Boolean(record), unlockedAt: record ? record.unlockedAt : null
+      unlocked: Boolean(record),
+      claimed: Boolean(record && Number(record.earnedXP) > 0),
+      claimable: Boolean(record && Number(record.earnedXP) === 0),
+      unlockedAt: record ? record.unlockedAt : null
     };
   });
   const totalXP = earned.reduce((sum, item) => sum + item.earnedXP, 0);
@@ -1274,6 +1277,45 @@ app.post('/api/wallet/transfers', requireAuth, storeLimiter, async (req, res, ne
   }
 });
 
+app.post('/api/me/achievements/:achievementId/claim', requireAuth, storeLimiter, async (req, res, next) => {
+  const definition = ACHIEVEMENTS.find((item) => item.id === req.params.achievementId);
+  if (!definition) return res.status(404).json({ success: false, message: 'Trofeo no encontrado.' });
+  const snapshot = await buildAchievementSnapshot(req.auth.sub);
+  const progress = snapshot && snapshot.achievements.find((item) => item.id === definition.id);
+  if (!progress || !progress.unlocked) return res.status(409).json({ success: false, message: 'Todavía no cumpliste los requisitos de este trofeo.' });
+  if (progress.claimed) return res.status(409).json({ success: false, message: 'Este trofeo ya fue reclamado.' });
+  const session = await mongoose.startSession();
+  let claimed = false;
+  try {
+    await session.withTransaction(async () => {
+      if (definition.id === 'first-purchase-bonus') {
+        const user = await User.findOneAndUpdate(
+          { _id: req.auth.sub, firstStorePurchaseBonusAvailableAt: { $ne: null }, firstStorePurchaseBonusClaimedAt: null },
+          { $set: { firstStorePurchaseBonusClaimedAt: new Date() } },
+          { new: true, session }
+        ).select('_id');
+        if (!user) return;
+      }
+      const record = await UserAchievement.findOneAndUpdate(
+        { user: req.auth.sub, achievementId: definition.id, earnedXP: 0 },
+        { $set: { earnedXP: definition.xp, claimedAt: new Date() } },
+        { new: true, session }
+      );
+      claimed = Boolean(record);
+    });
+    if (!claimed) return res.status(409).json({ success: false, message: 'Este trofeo ya fue reclamado o no está disponible.' });
+    const updated = await buildAchievementSnapshot(req.auth.sub);
+    return res.json({
+      success: true,
+      message: '¡Trofeo reclamado! Sumaste ' + definition.xp + ' XP.',
+      achievementId: definition.id,
+      xp: definition.xp,
+      summary: updated ? updated.summary : null
+    });
+  } catch (error) { return next(error); }
+  finally { await session.endSession(); }
+});
+
 app.get('/api/me/experience-rewards', requireAuth, async (req, res, next) => {
   try {
     const user = await User.findById(req.auth.sub)
@@ -1301,7 +1343,7 @@ app.post('/api/me/experience-rewards/first-purchase/claim', requireAuth, storeLi
       if (!user) return;
       await UserAchievement.updateOne(
         { user: req.auth.sub, achievementId: 'first-purchase-bonus' },
-        { $setOnInsert: { user: req.auth.sub, achievementId: 'first-purchase-bonus', earnedXP: 250, unlockedAt: new Date() } },
+        { $set: { earnedXP: 250, claimedAt: new Date() }, $setOnInsert: { user: req.auth.sub, achievementId: 'first-purchase-bonus', unlockedAt: new Date() } },
         { upsert: true, session }
       );
       claimed = true;
