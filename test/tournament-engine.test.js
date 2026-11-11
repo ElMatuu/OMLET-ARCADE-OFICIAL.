@@ -33,6 +33,20 @@ test('single elimination creates enough matches for a power-of-two bracket', () 
   assert.equal(matches[2].round, 2);
 });
 
+test('solo players without a full team remain registered for the next team formation', () => {
+  const grouped = groupSoloEntries([entry('a'), entry('b'), entry('c')], 2);
+  assert.equal(grouped.length, 2);
+  assert.equal(grouped[0].registrationType, 'team');
+  assert.equal(grouped[1].registrationType, 'solo');
+});
+
+test('bracket gives an automatic bye to an unopposed entrant', () => {
+  const matches = buildSingleEliminationBracket([entry('a'), entry('b'), entry('c')]);
+  assert.equal(matches[1].winner, 'c');
+  assert.equal(matches[1].status, 'completed');
+  assert.equal(matches[2].entryB, 'c');
+});
+
 test('single elimination requires at least two approved entrants', () => {
   assert.throws(() => buildSingleEliminationBracket([entry('a', 'solo', 'pending')]), /dos equipos aprobados/);
 });
