@@ -20,6 +20,10 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /function leaveClub\(/, 'Players must be able to leave clubs');
   assert.match(html, /function createClub\(/, 'Players must be able to create clubs');
   assert.match(html, /nav-btn-clubs/, 'The main navigation must expose Clubs');
+  assert.match(html, /id="arcade-home-title"/, 'The home screen must open on the PLAYVERSE Arcade hub');
+  assert.match(html, /new AbortController\(\)/, 'Startup session restoration must have an abortable network timeout');
+  assert.match(html, /response.status === 401 \|\| response.status === 403/, 'Only rejected credentials should invalidate a restored session');
+  assert.match(html, /conservamos tu sesión para reintentar/, 'A temporary connection failure must preserve the saved session');
 
   assert.match(html, /livekit-client\.umd\.js/, 'The bundled LiveKit browser SDK must be loaded locally');
   assert.match(html, /function connectLiveKitSession\(/, 'The live UI must connect to authenticated LiveKit sessions');
