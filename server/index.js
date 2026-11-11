@@ -975,6 +975,7 @@ app.put('/api/me/app-preferences', requireAuth, profileLimiter, async (req, res,
 app.get('/api/store/catalog', requireAuth, (req, res) => {
   return res.json({
     success: true,
+    currencies: Object.entries(CURRENCY_CONFIG).map(([id, currency]) => ({ id, label: currency.label, icon: currency.icon, symbol: currency.symbol })),
     items: STORE_CATALOG.map(({ id, name, category, description, priceTokens, priceCurrency, rarity, animation, assetKey }) => ({
       id, name, category, description, priceTokens, priceCurrency: priceCurrency || 'gold', currencyLabel: getCurrencyLabel(priceCurrency || 'gold'), rarity, animation, assetKey
     }))
@@ -1020,7 +1021,7 @@ app.get('/api/me/wallet/transactions', requireAuth, async (req, res, next) => {
         amount: record.amount,
         currency: record.currency || 'gold',
         counterpartyUsername: record.counterpartyUsername || null,
-        itemName: mission ? 'Misión: ' + mission.title : (item ? item.name : null),
+        itemName: mission ? 'Misión: ' + mission.title : (item ? item.name : (record.type === 'transfer_in' ? 'Regalo recibido de ' + (record.counterpartyUsername || 'un jugador') : record.type === 'transfer_out' ? 'Regalo enviado a ' + (record.counterpartyUsername || 'un jugador') : null)),
         balanceAfter: record.balanceAfter,
         createdAt: record.createdAt
       };
