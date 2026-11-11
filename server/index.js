@@ -12,6 +12,7 @@ const jwt = require('jsonwebtoken');
 const { rateLimit } = require('express-rate-limit');
 const User = require('./models/User');
 const Room = require('./models/Room');
+const GameServerListing = require('./models/GameServerListing');
 const Club = require('./models/Club');
 const RoomMessage = require('./models/RoomMessage');
 const Post = require('./models/Post');
@@ -2215,6 +2216,749 @@ app.post('/api/clubs/:clubId/leave', requireAuth, friendshipLimiter, async (req,
     ).select('memberCount').lean();
     if (!updated) return res.status(409).json({ success: false, message: 'No se pudo actualizar tu membresía. Actualizá la lista e intentá de nuevo.' });
     return res.json({ success: true, memberCount: updated.memberCount, message: 'Saliste del club.' });
+  } catch (error) { return next(error); }
+});
+
+
+const GAME_SERVER_HEARTBEAT_MAX_AGE_MS = 90 * 1000;
+const GAME_SERVER_TOKEN_PATTERN = /^[A-Za-z0-9_-]{40,60}$/;
+
+function normalizePublicServerAddress(value) {
+  const address = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (!address || address.length > 253 || /[\s/@?#]/.test(address)) return null;
+  if (address === 'localhost' || address.endsWith('.localhost') || address.endsWith('.local')) return null;
+  const labels = address.split('.');
+  if (labels.length < 2 || labels.some((label) =>
+    !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)
+  )) return null;
+  if (/^(10|127|0)\./.test(address) || /^192\.168\./.test(address) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(address)) return null;
+  return address;
+}
+
+function serializeGameServer(server, viewerId) {
+  const heartbeatFresh = server.lastHeartbeatAt &&
+    Date.now() - new Date(server.lastHeartbeatAt).getTime() <= GAME_SERVER_HEARTBEAT_MAX_AGE_MS;
+  const online = Boolean(server.isOnline && heartbeatFresh);
+  return {
+    id: String(server._id),
+    name: server.name,
+    game: server.game,
+    edition: server.edition,
+    address: server.address,
+    port: server.port,
+    description: server.description,
+    region: server.region,
+    version: server.version,
+    ownerUsername: server.ownerUsername,
+    playerCount: online ? server.playerCount : null,
+    maxPlayers: server.maxPlayers,
+    status: online ? 'online' : 'offline',
+    lastSeenAt: server.lastHeartbeatAt,
+    isOwner: String(server.owner) === String(viewerId)
+  };
+}
+
+// Community-hosted servers: PLAYVERSE lists and coordinates access; it does not
+// host third-party game worlds or claim that a listing's provider is affiliated.
+app.get('/api/game-servers', requireAuth, async (req, res, next) => {
+  try {
+    const filter = { visibility: { $ne: 'private' } };
+    if (typeof req.query.game === 'string' && req.query.game.trim()) {
+      filter.game = new RegExp('^' + req.query.game.trim().replace(/[.*+?^\u0024{}()|[\]\\]/g, '\\app.get('/api/rooms', requireAuth, async (req, res, next) => {') + '
+  try {
+    const rooms = await Room.find({ visibility: 'public', status: 'open' })
+      .select('name game ownerUsername owner members memberCount capacity createdAt')
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+    return res.json({ success: true, rooms: rooms.map((room) => ({
+      id: String(room._id),
+      name: room.name,
+      game: room.game,
+      ownerUsername: room.ownerUsername,
+      memberCount: room.memberCount,
+      capacity: room.capacity,
+      isOwner: String(room.owner) === req.auth.sub,
+      isMember: room.members.some((member) => String(member) === req.auth.sub)
+    })) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/rooms', requireAuth, async (req, res, next) => {
+  try {
+    const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+    const game = typeof req.body.game === 'string' ? req.body.game.trim() : '';
+    const capacity = req.body.capacity === undefined ? 12 : Number(req.body.capacity);
+    if (name.length < 3 || name.length > 60 || game.length < 2 || game.length > 40 ||
+        !Number.isInteger(capacity) || capacity < 2 || capacity > 100) {
+      return res.status(400).json({ success: false, message: 'Nombre (3-60), juego (2-40) y capacidad (2-100) inválidos.' });
+    }
+    const room = await Room.create({
+      name,
+      game,
+      capacity,
+      owner: req.auth.sub,
+      ownerUsername: req.auth.username,
+      members: [req.auth.sub],
+      memberCount: 1
+    });
+    return res.status(201).json({
+      success: true,
+      room: {
+        id: String(room._id),
+        name: room.name,
+        game: room.game,
+        ownerUsername: room.ownerUsername,
+        memberCount: room.memberCount,
+        capacity: room.capacity
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/api/rooms/:roomId/messages', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.roomId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
+    }
+    const membership = await Room.exists({ _id: req.params.roomId, members: req.auth.sub });
+    if (!membership) return res.status(403).json({ success: false, message: 'No pertenecés a esta sala.' });
+    const messages = await RoomMessage.find({ room: req.params.roomId })
+      .sort({ sentAt: -1, _id: -1 })
+      .limit(50)
+      .lean();
+    return res.json({ success: true, messages: messages.reverse().map((item) => ({
+      id: String(item._id),
+      username: item.username,
+      message: item.message,
+      sentAt: item.sentAt
+    })) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/rooms/:roomId/messages', requireAuth, commentLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.roomId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
+    }
+    const message = typeof req.body.message === 'string' ? req.body.message.trim() : '';
+    if (!message || message.length > 1000) {
+      return res.status(400).json({ success: false, message: 'El mensaje debe tener entre 1 y 1000 caracteres.' });
+    }
+    const room = await Room.findOne({
+      _id: req.params.roomId,
+      members: req.auth.sub,
+      status: 'open'
+    }).select('_id').lean();
+    if (!room) return res.status(403).json({ success: false, message: 'La sala está cerrada o no pertenecés a ella.' });
+    const created = await RoomMessage.create({
+      room: room._id,
+      author: req.auth.sub,
+      username: req.auth.username,
+      message
+    });
+    const result = {
+      id: String(created._id),
+      username: created.username,
+      message: created.message,
+      sentAt: created.sentAt
+    };
+    const io = httpServer.io;
+    if (io) io.to(String(room._id)).emit('receive_message', result);
+    return res.status(201).json({ success: true, message: result });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/api/rooms/:roomId/participation-requests', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.roomId)) return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
+    const room = await Room.findOne({ _id: req.params.roomId, owner: req.auth.sub, status: 'open' })
+      .select('joinRequests name').lean();
+    if (!room) return res.status(404).json({ success: false, message: 'Sala no encontrada o no sos su anfitrión.' });
+    return res.json({ success: true, requests: (room.joinRequests || [])
+      .filter((item) => item.status === 'pending')
+      .map((item) => ({ userId: String(item.user), username: item.username, requestedAt: item.requestedAt })) });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/rooms/:roomId/participation-requests', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.roomId)) return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
+    const room = await Room.findOneAndUpdate({
+      _id: req.params.roomId,
+      visibility: 'public',
+      status: 'open',
+      owner: { $ne: req.auth.sub },
+      members: { $ne: req.auth.sub },
+      'joinRequests.user': { $ne: req.auth.sub }
+    }, {
+      $push: { joinRequests: { user: req.auth.sub, username: req.auth.username, status: 'pending', requestedAt: new Date() } }
+    }, { new: true }).select('name owner ownerUsername').lean();
+    if (!room) {
+      const existing = await Room.findById(req.params.roomId).select('owner members joinRequests status').lean();
+      if (!existing) return res.status(404).json({ success: false, message: 'Sala no encontrada.' });
+      const request = (existing.joinRequests || []).find((item) => String(item.user) === req.auth.sub);
+      if (request && request.status === 'pending') return res.json({ success: true, alreadyRequested: true, status: 'pending' });
+      if (request && request.status === 'accepted') return res.json({ success: true, alreadyAccepted: true, status: 'accepted' });
+      return res.status(409).json({ success: false, message: 'No podés solicitar participar en esta sala.' });
+    }
+    try {
+      const notification = await Notification.create({
+        recipient: room.owner,
+        actor: req.auth.sub,
+        type: 'room_participation_request',
+        title: 'Nueva solicitud para tu sala',
+        body: '@' + req.auth.username + ' quiere participar en ' + room.name,
+        entityId: req.params.roomId
+      });
+      const io = httpServer.io;
+      if (io) io.to('user:' + String(room.owner)).emit('new_notification', {
+        id: String(notification._id), type: notification.type, title: notification.title,
+        body: notification.body, entityId: String(req.params.roomId), createdAt: notification.createdAt
+      });
+    } catch (notificationError) {
+      console.error('Unable to persist room participation request notification:', notificationError.message);
+    }
+    return res.status(201).json({ success: true, status: 'pending', room: { name: room.name, ownerUsername: room.ownerUsername } });
+  } catch (error) { return next(error); }
+});
+
+app.patch('/api/rooms/:roomId/participation-requests/:userId', requireAuth, async (req, res, next) => {
+  try {
+    const { roomId, userId } = req.params;
+    const decision = req.body && req.body.decision;
+    if (!mongoose.isValidObjectId(roomId) || !mongoose.isValidObjectId(userId)) {
+      return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    }
+    if (!['accept', 'decline'].includes(decision)) {
+      return res.status(400).json({ success: false, message: 'La decisión debe ser accept o decline.' });
+    }
+    const update = decision === 'accept'
+      ? { $set: { 'joinRequests.$.status': 'accepted', 'joinRequests.$.respondedAt': new Date() }, $addToSet: { members: userId }, $inc: { memberCount: 1 } }
+      : { $set: { 'joinRequests.$.status': 'declined', 'joinRequests.$.respondedAt': new Date() } };
+    const filter = {
+      _id: roomId,
+      owner: req.auth.sub,
+      status: 'open',
+      joinRequests: { $elemMatch: { user: userId, status: 'pending' } },
+      members: { $ne: userId }
+    };
+    if (decision === 'accept') filter.$expr = { $lt: ['$memberCount', '$capacity'] };
+    const room = await Room.findOneAndUpdate(filter, update, { new: true, runValidators: true })
+      .select('name memberCount capacity').lean();
+    if (!room) return res.status(409).json({ success: false, message: decision === 'accept'
+      ? 'La solicitud ya fue respondida, la sala se cerró o está completa.'
+      : 'La solicitud ya fue respondida o la sala se cerró.' });
+    try {
+      const notification = await Notification.create({
+        recipient: userId,
+        actor: req.auth.sub,
+        type: decision === 'accept' ? 'room_participation_accepted' : 'room_participation_declined',
+        title: decision === 'accept' ? 'Solicitud aceptada' : 'Solicitud rechazada',
+        body: decision === 'accept'
+          ? 'Tu solicitud para participar en ' + room.name + ' fue aceptada.'
+          : 'Tu solicitud para participar en ' + room.name + ' fue rechazada.',
+        entityId: roomId
+      });
+      const io = httpServer.io;
+      if (io) io.to('user:' + String(userId)).emit('new_notification', {
+        id: String(notification._id), type: notification.type, title: notification.title,
+        body: notification.body, entityId: String(roomId), createdAt: notification.createdAt
+      });
+    } catch (notificationError) {
+      console.error('Unable to persist room participation decision notification:', notificationError.message);
+    }
+    const io = httpServer.io;
+    if (io) io.to(String(roomId)).emit('room_participation_request_updated', {
+      roomId: String(roomId), userId: String(userId), status: decision === 'accept' ? 'accepted' : 'declined'
+    });
+    return res.json({ success: true, status: decision === 'accept' ? 'accepted' : 'declined',
+      room: { name: room.name, memberCount: room.memberCount, capacity: room.capacity } });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/rooms/:roomId/leave', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.roomId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
+    }
+    const room = await Room.findOneAndUpdate(
+      {
+        _id: req.params.roomId,
+        status: 'open',
+        members: req.auth.sub,
+        owner: { $ne: req.auth.sub },
+        memberCount: { $gt: 1 }
+      },
+      { $pull: { members: req.auth.sub }, $inc: { memberCount: -1 } },
+      { new: true, runValidators: true }
+    ).select('name memberCount capacity').lean();
+    if (!room) {
+      const existing = await Room.findById(req.params.roomId).select('owner status members').lean();
+      if (!existing) return res.status(404).json({ success: false, message: 'Sala no encontrada.' });
+      if (String(existing.owner) === req.auth.sub) {
+        return res.status(409).json({ success: false, message: 'El anfitrión debe cerrar la sala, no puede abandonarla.' });
+      }
+      return res.status(409).json({ success: false, message: 'No pertenecés a esta sala o ya está cerrada.' });
+    }
+    const io = httpServer.io;
+    if (io) {
+      try {
+        const sockets = await io.in(String(req.params.roomId)).fetchSockets();
+        await Promise.all(sockets
+          .filter((socket) => socket.data && socket.data.userId === req.auth.sub)
+          .map((socket) => socket.leave(String(req.params.roomId))));
+      } catch (socketError) {
+        console.warn('Unable to remove departed member from room sockets:', socketError.message);
+      }
+    }
+    return res.json({ success: true, room: { id: String(req.params.roomId), name: room.name, memberCount: room.memberCount, capacity: room.capacity } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.delete('/api/rooms/:roomId', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.roomId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
+    }
+    const room = await Room.findOneAndUpdate(
+      { _id: req.params.roomId, owner: req.auth.sub, status: 'open' },
+      { $set: { status: 'closed' } },
+      { new: true }
+    ).select('_id status').lean();
+    if (!room) {
+      const exists = await Room.exists({ _id: req.params.roomId });
+      return res.status(exists ? 403 : 404).json({
+        success: false,
+        message: exists ? 'Solo el anfitrión puede cerrar esta sala.' : 'Sala no encontrada.'
+      });
+    }
+    const io = httpServer.io;
+    if (io) io.in(String(room._id)).socketsLeave(String(room._id));
+    return res.json({ success: true, room: { id: String(room._id), status: room.status } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/rooms/:roomId/join', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.roomId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
+    }
+    const existingMembership = await Room.findOne({
+      _id: req.params.roomId,
+      members: req.auth.sub,
+      visibility: 'public',
+      status: 'open'
+    }).select('name game ownerUsername memberCount capacity').lean();
+
+    if (existingMembership) {
+      return res.json({
+        success: true,
+        room: {
+          id: String(existingMembership._id),
+          name: existingMembership.name,
+          game: existingMembership.game,
+          ownerUsername: existingMembership.ownerUsername,
+          memberCount: existingMembership.memberCount,
+          capacity: existingMembership.capacity
+        }
+      });
+    }
+
+    const room = await Room.findOneAndUpdate(
+      {
+        _id: req.params.roomId,
+        visibility: 'public',
+        status: 'open',
+        members: { $ne: req.auth.sub },
+        $expr: { $lt: ['$memberCount', '$capacity'] }
+      },
+      { $addToSet: { members: req.auth.sub }, $inc: { memberCount: 1 } },
+      { new: true, runValidators: true }
+    ).select('name game ownerUsername memberCount capacity').lean();
+
+    if (!room) {
+      return res.status(404).json({ success: false, message: 'Sala no disponible o completa.' });
+    }
+    return res.json({
+      success: true,
+      room: {
+        id: String(room._id),
+        name: room.name,
+        game: room.game,
+        ownerUsername: room.ownerUsername,
+        memberCount: room.memberCount,
+        capacity: room.capacity
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+
+
+function isValidObjectId(value) {
+  return typeof value === 'string' && /^[a-fA-F0-9]{24}$/.test(value);
+}
+
+function getUnreadCountField(conversation, userId) {
+  return String(conversation.participantA) === String(userId) ? 'unreadCountA' : 'unreadCountB';
+}
+
+function getDirectPairKey(firstId, secondId) {
+  return [String(firstId), String(secondId)].sort().join(':');
+}
+
+async function hasBlockBetween(firstId, secondId) {
+  return Boolean(await Block.exists({
+    $or: [
+      { blocker: firstId, blocked: secondId },
+      { blocker: secondId, blocked: firstId }
+    ]
+  }));
+}
+
+async function areAcceptedFriends(firstId, secondId) {
+  const pairKey = makeFriendshipPairKey(firstId, secondId);
+  const [friendship, blocked] = await Promise.all([
+    Friendship.exists({ pairKey, status: 'accepted' }),
+    hasBlockBetween(firstId, secondId)
+  ]);
+  return Boolean(friendship && !blocked);
+}
+
+function serializeDirectMessage(message) {
+  return {
+    id: String(message._id),
+    conversationId: String(message.conversation),
+    senderId: String(message.sender),
+    senderUsername: message.senderUsername,
+    recipientId: String(message.recipient),
+    body: message.body,
+    createdAt: message.createdAt,
+    readAt: message.readAt || null
+  };
+}
+
+app.get('/api/me/conversations', requireAuth, async (req, res, next) => {
+  try {
+    const userId = req.auth.sub;
+    const [records, friendshipRecords, blockRecords] = await Promise.all([
+      Conversation.find({
+        $or: [{ participantA: userId }, { participantB: userId }]
+      }).sort({ lastMessageAt: -1, updatedAt: -1 }).limit(100).lean(),
+      Friendship.find({
+        status: 'accepted',
+        $or: [{ requester: userId }, { recipient: userId }]
+      }).select('requester recipient').lean(),
+      Block.find({ $or: [{ blocker: userId }, { blocked: userId }] }).select('blocker blocked').lean()
+    ]);
+    const friendIds = new Set(friendshipRecords.map((record) =>
+      String(record.requester) === userId ? String(record.recipient) : String(record.requester)
+    ));
+    const blockedIds = new Set(blockRecords.map((record) =>
+      String(record.blocker) === userId ? String(record.blocked) : String(record.blocker)
+    ));
+    const activeRecords = records.filter((item) => {
+      const otherId = String(item.participantA) === userId ? String(item.participantB) : String(item.participantA);
+      return friendIds.has(otherId) && !blockedIds.has(otherId);
+    });
+    const otherIds = activeRecords.map((item) =>
+      String(item.participantA) === userId ? item.participantB : item.participantA
+    );
+    const users = await User.find({ _id: { $in: otherIds } })
+      .select('username displayName avatarUrl').lean();
+    const userMap = new Map(users.map((user) => [String(user._id), user]));
+    return res.json({
+      success: true,
+      conversations: activeRecords.map((item) => {
+        const otherId = String(item.participantA) === userId ? item.participantB : item.participantA;
+        const other = userMap.get(String(otherId));
+        if (!other) return null;
+        return {
+          id: String(item._id),
+          participant: {
+            id: String(other._id),
+            username: other.username,
+            displayName: other.displayName || '',
+            avatarUrl: other.avatarUrl || ''
+          },
+          lastMessage: item.lastMessage || '',
+          lastMessageAt: item.lastMessageAt || item.updatedAt,
+          lastMessageSender: item.lastMessageSender ? String(item.lastMessageSender) : null,
+          unreadCount: String(item.participantA) === userId ? (item.unreadCountA || 0) : (item.unreadCountB || 0)
+        };
+      }).filter(Boolean)
+    });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/conversations/:username', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
+    const target = await User.findOne({ username }).select('_id username displayName avatarUrl').lean();
+    if (!target) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    if (String(target._id) === req.auth.sub) {
+      return res.status(400).json({ success: false, message: 'No podés abrir un chat con vos mismo.' });
+    }
+    if (!(await areAcceptedFriends(req.auth.sub, target._id))) {
+      return res.status(403).json({ success: false, message: 'Para enviar mensajes privados primero tienen que ser amigos.' });
+    }
+    const pairKey = getDirectPairKey(req.auth.sub, target._id);
+    const conversation = await Conversation.findOneAndUpdate(
+      { pairKey },
+      {
+        $setOnInsert: {
+          pairKey,
+          participantA: [req.auth.sub, String(target._id)].sort()[0],
+          participantB: [req.auth.sub, String(target._id)].sort()[1]
+        }
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+    return res.status(200).json({
+      success: true,
+      conversation: {
+        id: String(conversation._id),
+        participant: {
+          id: String(target._id), username: target.username,
+          displayName: target.displayName || '', avatarUrl: target.avatarUrl || ''
+        }
+      }
+    });
+  } catch (error) {
+    if (error && error.code === 11000) {
+      try {
+        const target = await User.findOne({ username: req.params.username }).select('_id username displayName avatarUrl').lean();
+        const conversation = target && await Conversation.findOne({ pairKey: getDirectPairKey(req.auth.sub, target._id) });
+        if (conversation && target) return res.json({ success: true, conversation: {
+          id: String(conversation._id),
+          participant: { id: String(target._id), username: target.username, displayName: target.displayName || '', avatarUrl: target.avatarUrl || '' }
+        } });
+      } catch {}
+    }
+    return next(error);
+  }
+});
+
+app.get('/api/conversations/:conversationId/messages', requireAuth, async (req, res, next) => {
+  try {
+    const { conversationId } = req.params;
+    if (!isValidObjectId(conversationId)) return res.status(400).json({ success: false, message: 'Conversación inválida.' });
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      $or: [{ participantA: req.auth.sub }, { participantB: req.auth.sub }]
+    }).lean();
+    if (!conversation) return res.status(404).json({ success: false, message: 'Conversación no encontrada.' });
+    const otherId = String(conversation.participantA) === req.auth.sub
+      ? conversation.participantB : conversation.participantA;
+    if (!(await areAcceptedFriends(req.auth.sub, otherId))) {
+      return res.status(403).json({ success: false, message: 'Ya no tienen una amistad activa para acceder a este chat.' });
+    }
+    const unreadMessages = await DirectMessage.find({
+      conversation: conversationId,
+      recipient: req.auth.sub,
+      readAt: null
+    }).sort({ createdAt: 1, _id: 1 }).select('_id').lean();
+    const readAt = new Date();
+    if (unreadMessages.length) {
+      await DirectMessage.updateMany(
+        { conversation: conversationId, recipient: req.auth.sub, readAt: null },
+        { $set: { readAt } }
+      );
+      await Conversation.updateOne(
+        { _id: conversationId },
+        { $set: { [getUnreadCountField(conversation, req.auth.sub)]: 0 } }
+      );
+      const io = req.app.get('io');
+      if (io) io.to('dm:' + String(conversationId)).emit('direct_messages_read', {
+        conversationId: String(conversationId),
+        readerId: String(req.auth.sub),
+        throughMessageId: String(unreadMessages[unreadMessages.length - 1]._id),
+        readAt
+      });
+    }
+    const messages = await DirectMessage.find({ conversation: conversationId })
+      .sort({ createdAt: -1, _id: -1 }).limit(100).lean();
+    return res.json({ success: true, messages: messages.reverse().map(serializeDirectMessage) });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/conversations/:conversationId/messages', requireAuth, directMessageLimiter, async (req, res, next) => {
+  try {
+    const { conversationId } = req.params;
+    const body = typeof req.body.body === 'string' ? req.body.body.trim() : '';
+    if (!isValidObjectId(conversationId)) return res.status(400).json({ success: false, message: 'Conversación inválida.' });
+    if (!body || body.length > 2000) return res.status(400).json({ success: false, message: 'El mensaje debe tener entre 1 y 2000 caracteres.' });
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      $or: [{ participantA: req.auth.sub }, { participantB: req.auth.sub }]
+    });
+    if (!conversation) return res.status(404).json({ success: false, message: 'Conversación no encontrada.' });
+    const recipientId = String(conversation.participantA) === req.auth.sub
+      ? conversation.participantB : conversation.participantA;
+    if (!(await areAcceptedFriends(req.auth.sub, recipientId))) {
+      return res.status(403).json({ success: false, message: 'Ya no tienen una amistad activa para usar este chat.' });
+    }
+    const saved = await DirectMessage.create({
+      conversation: conversation._id,
+      sender: req.auth.sub,
+      senderUsername: req.auth.username,
+      recipient: recipientId,
+      body
+    });
+    await createNotification({
+      recipient: recipientId,
+      actor: req.auth.sub,
+      type: 'direct_message',
+      title: 'Nuevo mensaje privado',
+      body: '@' + req.auth.username + ': ' + body.slice(0, 180),
+      entityId: conversation._id
+    });
+    await Conversation.updateOne(
+      { _id: conversation._id },
+      {
+        $set: { lastMessage: body, lastMessageAt: saved.createdAt, lastMessageSender: req.auth.sub },
+        $inc: { [getUnreadCountField(conversation, recipientId)]: 1 }
+      }
+    );
+    const message = serializeDirectMessage(saved);
+    const io = req.app.get('io');
+    if (io) {
+      io.to('dm:' + String(conversation._id)).emit('receive_direct_message', message);
+      io.to('user:' + String(recipientId)).emit('direct_message_notification', {
+        conversationId: String(conversation._id),
+        senderUsername: req.auth.username,
+        body,
+        createdAt: saved.createdAt
+      });
+    }
+    return res.status(201).json({ success: true, message });
+  } catch (error) { return next(error); }
+});
+
+app.use((error, req, res, next) => {
+  if (res.headersSent) return next(error);
+  console.error('API error:', error.message);
+  return res.status(500).json({ success: false, message: 'Error interno del servidor.' });
+});
+
+async function start() {
+  await mongoose.connect(process.env.MONGODB_URI);
+  httpServer.io = attachSocketServer(httpServer, allowedOrigins);
+  app.set('io', httpServer.io);
+  httpServer.listen(PORT, '0.0.0.0', () => {
+    console.log(`PLAYVERSE API listening on port ${PORT}`);
+  });
+}
+
+if (require.main === module) {
+  start().catch((error) => {
+    console.error('Unable to start PLAYVERSE API:', error.message);
+    process.exit(1);
+  });
+
+  process.on('SIGTERM', async () => {
+    await mongoose.disconnect();
+    httpServer.close(() => process.exit(0));
+  });
+}
+
+module.exports = { app, httpServer, start };
+, 'i');
+    }
+    const servers = await GameServerListing.find(filter)
+      .select('-heartbeatTokenHash')
+      .sort({ isOnline: -1, updatedAt: -1 })
+      .limit(100)
+      .lean();
+    return res.json({ success: true, servers: servers.map((server) => serializeGameServer(server, req.auth.sub)) });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/game-servers', requireAuth, postLimiter, async (req, res, next) => {
+  try {
+    const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+    const game = typeof req.body.game === 'string' ? req.body.game.trim() : '';
+    const edition = ['java', 'bedrock', 'crossplay', 'other'].includes(req.body.edition) ? req.body.edition : 'other';
+    const address = normalizePublicServerAddress(req.body.address);
+    const port = Number(req.body.port);
+    const maxPlayers = req.body.maxPlayers === undefined ? 20 : Number(req.body.maxPlayers);
+    const description = typeof req.body.description === 'string' ? req.body.description.trim() : '';
+    const region = typeof req.body.region === 'string' ? req.body.region.trim() : '';
+    const version = typeof req.body.version === 'string' ? req.body.version.trim() : '';
+    if (name.length < 3 || name.length > 60 || game.length < 2 || game.length > 40 ||
+        !address || !Number.isInteger(port) || port < 1 || port > 65535 ||
+        !Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 1000000 ||
+        description.length > 500 || region.length > 40 || version.length > 40) {
+      return res.status(400).json({ success: false, message: 'Revisá nombre, juego, dirección pública, puerto y capacidad del servidor.' });
+    }
+    const ownedCount = await GameServerListing.countDocuments({ owner: req.auth.sub });
+    if (ownedCount >= 5) return res.status(429).json({ success: false, message: 'Cada cuenta puede publicar hasta 5 servidores. Podés cerrar uno para liberar un espacio.' });
+    const heartbeatToken = crypto.randomBytes(32).toString('base64url');
+    const server = await GameServerListing.create({
+      owner: req.auth.sub,
+      ownerUsername: req.auth.username,
+      name, game, edition, address, port, maxPlayers, description, region, version,
+      heartbeatTokenHash: crypto.createHash('sha256').update(heartbeatToken).digest('hex')
+    });
+    return res.status(201).json({
+      success: true,
+      server: serializeGameServer(server.toObject(), req.auth.sub),
+      heartbeatToken,
+      heartbeatEndpoint: '/api/game-servers/' + String(server._id) + '/heartbeat',
+      heartbeatIntervalSeconds: 30
+    });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/game-servers/:serverId/heartbeat', async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.serverId)) return res.status(400).json({ success: false, message: 'Identificador de servidor inválido.' });
+    const token = req.get('X-Server-Token') || '';
+    if (!GAME_SERVER_TOKEN_PATTERN.test(token)) return res.status(401).json({ success: false, message: 'Token de servidor inválido.' });
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const playerCount = Number(req.body.playerCount);
+    const maxPlayers = Number(req.body.maxPlayers);
+    const isOnline = req.body.isOnline !== false;
+    if (!Number.isInteger(playerCount) || playerCount < 0 || playerCount > 1000000 ||
+        !Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 1000000 ||
+        playerCount > maxPlayers) {
+      return res.status(400).json({ success: false, message: 'Cantidad de jugadores o capacidad inválida.' });
+    }
+    const server = await GameServerListing.findOneAndUpdate({
+      _id: req.params.serverId,
+      heartbeatTokenHash: tokenHash
+    }, {
+      $set: { playerCount, maxPlayers, isOnline, lastHeartbeatAt: new Date(), updatedAt: new Date() }
+    }, { new: true }).select('-heartbeatTokenHash').lean();
+    if (!server) return res.status(404).json({ success: false, message: 'Servidor no encontrado o token revocado.' });
+    const payload = serializeGameServer(server, server.owner);
+    if (httpServer.io) httpServer.io.emit('game_server_updated', payload);
+    return res.json({ success: true, server: payload });
+  } catch (error) { return next(error); }
+});
+
+app.delete('/api/game-servers/:serverId', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.serverId)) return res.status(400).json({ success: false, message: 'Identificador de servidor inválido.' });
+    const removed = await GameServerListing.findOneAndDelete({ _id: req.params.serverId, owner: req.auth.sub });
+    if (!removed) return res.status(404).json({ success: false, message: 'Servidor no encontrado o no sos su propietario.' });
+    return res.json({ success: true });
   } catch (error) { return next(error); }
 });
 
