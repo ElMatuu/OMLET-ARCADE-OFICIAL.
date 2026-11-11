@@ -88,6 +88,10 @@ function pingMinecraftJava(host, port, timeoutMs = 5000) {
       socket.write(Buffer.concat([packet(handshake), packet(encodeVarInt(0))]));
     });
     socket.on('data', (chunk) => {
+      const maxFrameBytes = 1048576;
+      if (buffer.length + chunk.length > maxFrameBytes + 5) {
+        return finish(new Error('Respuesta Minecraft Java excede el límite de tamaño.'));
+      }
       buffer = Buffer.concat([buffer, chunk]);
       const frame = readVarInt(buffer);
       if (!frame) return;
