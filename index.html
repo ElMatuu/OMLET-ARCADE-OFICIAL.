@@ -824,7 +824,34 @@
                 </div>
                 <label class="block text-xs text-slate-400">Mensaje de bienvenida<input id="stream-welcome-message" maxlength="200" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="¡Bienvenidos al directo!"></label>
                 <label class="block text-xs text-slate-400">Mensaje de despedida<input id="stream-farewell-message" maxlength="200" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="¡Gracias por acompañarme!"></label>
-                <p class="text-[11px] text-amber-300/80">La configuración queda guardada en tu cuenta. La composición visual en tiempo real y los paneles de donaciones conectados a pagos se habilitarán al completar el motor de overlays y sus integraciones.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label class="block text-xs text-slate-400">Demora de transmisión<select id="stream-delay" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="none">Sin demora</option><option value="5">5 segundos</option><option value="10">10 segundos</option><option value="15">15 segundos</option><option value="30">30 segundos</option><option value="60">60 segundos</option></select></label>
+                    <label class="flex items-center justify-between gap-3 text-xs text-slate-200 rounded-xl border border-slate-800 p-3">Notificaciones del directo<input id="stream-notifications-enabled" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
+                </div>
+                <div class="rounded-xl border border-slate-800 bg-slate-950/50 p-3 space-y-3">
+                    <h4 class="text-xs font-black uppercase tracking-wider text-orange-300">Chat y seguridad</h4>
+                    <label class="block text-xs text-slate-400">Quién puede chatear<select id="stream-who-can-chat" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="everyone">Todos</option><option value="followers">Seguidores</option><option value="friends">Amigos</option><option value="nobody">Nadie (chat cerrado)</option></select></label>
+                    <label class="block text-xs text-slate-400">Reglas del chat<textarea id="stream-chat-rules" maxlength="1000" rows="4" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="Respetá a los demás. No spam, insultos ni enlaces peligrosos."></textarea></label>
+                    <p id="stream-chat-rules-count" class="text-right text-[10px] text-slate-500">0/1000</p>
+                    <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Texto a voz <span class="text-[10px] text-amber-300">Función preparada · motor TTS pendiente</span><input id="stream-text-to-speech" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
+                </div>
+                <div class="rounded-xl border border-slate-800 bg-slate-950/50 p-3 space-y-3">
+                    <h4 class="text-xs font-black uppercase tracking-wider text-orange-300">Mensajes automáticos</h4>
+                    <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Activar bienvenida<input id="stream-welcome-enabled" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
+                    <label class="block text-xs text-slate-400">Mensaje de bienvenida<input id="stream-welcome-message" maxlength="200" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="¡Bienvenidos al directo!"></label>
+                    <p id="stream-welcome-count" class="text-right text-[10px] text-slate-500">0/200</p>
+                    <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Activar despedida<input id="stream-farewell-enabled" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
+                    <label class="block text-xs text-slate-400">Mensaje de despedida<input id="stream-farewell-message" maxlength="200" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="¡Gracias por acompañarme!"></label>
+                    <p id="stream-farewell-count" class="text-right text-[10px] text-slate-500">0/200</p>
+                </div>
+                <div class="rounded-xl border border-slate-800 bg-slate-950/50 p-3 space-y-3">
+                    <h4 class="text-xs font-black uppercase tracking-wider text-orange-300">Miniatura y modo escudo</h4>
+                    <label class="block text-xs text-slate-400">Miniatura personalizada (URL HTTPS)<input id="stream-thumbnail-url" type="url" maxlength="500" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="https://..."></label>
+                    <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Activar modo escudo<input id="stream-shield-enabled" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
+                    <label class="block text-xs text-slate-400">Imagen del modo escudo (URL HTTPS)<input id="stream-shield-image-url" type="url" maxlength="500" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="https://..."></label>
+                    <p class="text-[10px] text-slate-500">Las URL se validan y guardan; la miniatura y el modo escudo se aplicarán al integrar el compositor de emisión.</p>
+                </div>
+                <p class="text-[11px] text-amber-300/80">Las preferencias quedan asociadas a tu cuenta. Las funciones que necesitan motor de emisión (demora efectiva, TTS, miniatura y modo escudo) no se activan hasta conectar ese motor.</p>
             </section>
             <p id="streaming-settings-status" class="text-xs text-slate-400" role="status">Cargando preferencias guardadas…</p>
             <p class="text-[11px] text-amber-300/90">Estas opciones guardan tus preferencias. No activan todavía la captura de pantalla/cámara ni inician una transmisión real.</p>
@@ -4525,6 +4552,19 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 document.getElementById('stream-overlay-show-donations').checked = preferences.overlayShowDonations !== false;
                 document.getElementById('stream-welcome-message').value = preferences.welcomeMessage || '';
                 document.getElementById('stream-farewell-message').value = preferences.farewellMessage || '';
+                document.getElementById('stream-delay').value = preferences.streamDelay || 'none';
+                document.getElementById('stream-notifications-enabled').checked = preferences.streamNotificationsEnabled !== false;
+                document.getElementById('stream-chat-rules').value = preferences.chatRules || '';
+                document.getElementById('stream-who-can-chat').value = preferences.whoCanChat || 'everyone';
+                document.getElementById('stream-text-to-speech').checked = preferences.textToSpeechEnabled === true;
+                document.getElementById('stream-welcome-enabled').checked = preferences.welcomeMessageEnabled !== false;
+                document.getElementById('stream-farewell-enabled').checked = preferences.farewellMessageEnabled !== false;
+                document.getElementById('stream-thumbnail-url').value = preferences.customThumbnailUrl || '';
+                document.getElementById('stream-shield-enabled').checked = preferences.shieldModeEnabled === true;
+                document.getElementById('stream-shield-image-url').value = preferences.shieldModeImageUrl || '';
+                document.getElementById('stream-chat-rules-count').textContent = (preferences.chatRules || '').length + '/1000';
+                document.getElementById('stream-welcome-count').textContent = (preferences.welcomeMessage || '').length + '/200';
+                document.getElementById('stream-farewell-count').textContent = (preferences.farewellMessage || '').length + '/200';
                 status.textContent = data.capabilityNote || 'Preferencias cargadas desde tu cuenta.';
             } catch (error) {
                 status.textContent = 'No se pudieron cargar las preferencias: ' + error.message;
@@ -4558,7 +4598,17 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 overlayShowViewerCount: document.getElementById('stream-overlay-show-viewers').checked,
                 overlayShowDonations: document.getElementById('stream-overlay-show-donations').checked,
                 welcomeMessage: document.getElementById('stream-welcome-message').value.trim(),
-                farewellMessage: document.getElementById('stream-farewell-message').value.trim()
+                farewellMessage: document.getElementById('stream-farewell-message').value.trim(),
+                streamDelay: document.getElementById('stream-delay').value,
+                streamNotificationsEnabled: document.getElementById('stream-notifications-enabled').checked,
+                chatRules: document.getElementById('stream-chat-rules').value.trim(),
+                whoCanChat: document.getElementById('stream-who-can-chat').value,
+                textToSpeechEnabled: document.getElementById('stream-text-to-speech').checked,
+                welcomeMessageEnabled: document.getElementById('stream-welcome-enabled').checked,
+                farewellMessageEnabled: document.getElementById('stream-farewell-enabled').checked,
+                customThumbnailUrl: document.getElementById('stream-thumbnail-url').value.trim(),
+                shieldModeEnabled: document.getElementById('stream-shield-enabled').checked,
+                shieldModeImageUrl: document.getElementById('stream-shield-image-url').value.trim()
             };
             try {
                 const data = await apiRequest('/api/me/streaming-preferences', {
@@ -4618,6 +4668,12 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 button.textContent = 'Guardar ajustes de aplicación';
             }
         }
+
+        ['stream-chat-rules', 'stream-welcome-message', 'stream-farewell-message'].forEach((id) => {
+            const input = document.getElementById(id);
+            const counter = document.getElementById(id + '-count');
+            if (input && counter) input.addEventListener('input', () => { counter.textContent = input.value.length + '/' + input.maxLength; });
+        });
 
         function openSettingsModal() {
             document.getElementById('settings-modal').classList.remove('hidden');
