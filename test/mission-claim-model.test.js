@@ -11,6 +11,6 @@ test('mission claims are unique per account and mission', () => {
 
 test('mission reward claims validate positive bounded token rewards', () => {
   assert.equal(MissionClaim.schema.path('rewardTokens').options.min, 1);
-  assert.equal(MissionClaim.schema.path('rewardTokens').options.max, 1000);
+  assert.equal(MissionClaim.schema.path('rewardTokens').options.max, 100000);
   assert.equal(MissionClaim.schema.path('claimedAt').options.default instanceof Function, true);
 });
