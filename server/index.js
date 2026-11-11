@@ -158,6 +158,14 @@ const streamLimiter = rateLimit({
   message: { success: false, message: 'Demasiadas operaciones de streaming. Probá en un minuto.' }
 });
 
+const overlayReadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 60,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, message: 'El overlay recibió demasiadas solicitudes. Esperá un minuto.' }
+});
+
 const reportLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   limit: 5,
@@ -367,7 +375,7 @@ app.delete('/api/me/streams/:streamId', requireAuth, streamLimiter, async (req, 
 });
 
 
-app.get('/api/public/stream-overlay/:token', async (req, res, next) => {
+app.get('/api/public/stream-overlay/:token', overlayReadLimiter, async (req, res, next) => {
   try {
     const token = req.params.token;
     if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{40,64}$/.test(token)) {
@@ -405,7 +413,7 @@ app.get('/api/public/stream-overlay/:token', async (req, res, next) => {
         socialTikTok: preferences.socialTikTok || ''
       },
       viewerCount,
-      capabilities: { viewerCount: true, chat: false, donations: false }
+      capabilities: { viewerCount: viewerCount !== null, chat: false, donations: false }
     });
   } catch (error) { return next(error); }
 });
@@ -450,7 +458,7 @@ async function refresh(){
   set('branding',p.brandingText);
   const socials=[p.socialYouTube&&'YouTube '+p.socialYouTube,p.socialTwitch&&'Twitch '+p.socialTwitch,p.socialTikTok&&'TikTok '+p.socialTikTok].filter(Boolean).join('  •  ');
   set('social',socials);
-  set('viewers',p.showViewerCount?'● '+data.viewerCount+' espectadores':'');
+  set('viewers',p.showViewerCount?(Number.isInteger(data.viewerCount)?'● '+data.viewerCount+' espectadores':'● espectadores no disponibles'):'');
  }catch{set('title','Reconectando…')}
 }
 refresh();setInterval(refresh,5000);
