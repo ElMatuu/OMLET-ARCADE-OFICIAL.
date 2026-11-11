@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const http = require('http');
+const crypto = require('node:crypto');
 const path = require('node:path');
 const express = require('express');
 const mongoose = require('mongoose');
@@ -248,6 +249,8 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
     const user = await User.findById(req.auth.sub).select('username').lean();
     if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
     const roomName = createRoomName();
+    const overlayAccessToken = crypto.randomBytes(32).toString('base64url');
+    const overlayTokenHash = crypto.createHash('sha256').update(overlayAccessToken).digest('hex');
     const liveKit = createLiveKitApi(config);
     const session = await LiveStream.create({
       owner: req.auth.sub,
@@ -255,6 +258,7 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
       title,
       description,
       roomName,
+      overlayTokenHash,
       status: 'live'
     });
     try {
@@ -271,7 +275,8 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
       return res.status(201).json({
         success: true,
         stream: { id: String(session._id), title: session.title, description: session.description, status: session.status, startedAt: session.startedAt },
-        liveKit: { url: config.clientUrl, token, role: 'publisher', expiresInSeconds: 600 }
+        liveKit: { url: config.clientUrl, token, role: 'publisher', expiresInSeconds: 600 },
+        overlay: { url: req.protocol + '://' + req.get('host') + '/overlay/' + overlayAccessToken, refreshIntervalMs: 5000 }
       });
     } catch (error) {
       await LiveStream.deleteOne({ _id: session._id });
@@ -347,6 +352,97 @@ app.delete('/api/me/streams/:streamId', requireAuth, streamLimiter, async (req, 
     await session.save();
     return res.json({ success: true, stream: { id: String(session._id), status: session.status, endedAt: session.endedAt } });
   } catch (error) { return next(error); }
+});
+
+
+app.get('/api/public/stream-overlay/:token', async (req, res, next) => {
+  try {
+    const token = req.params.token;
+    if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{40,64}$/.test(token)) {
+      return res.status(404).json({ success: false, message: 'Overlay no disponible.' });
+    }
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const stream = await LiveStream.findOne({ overlayTokenHash: tokenHash, status: 'live' })
+      .select('owner ownerUsername title roomName').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'La transmisión finalizó o el overlay fue revocado.' });
+    const [owner, config] = await Promise.all([
+      User.findById(stream.owner).select('streamingPreferences').lean(),
+      Promise.resolve(getLiveKitConfig())
+    ]);
+    if (!owner || !config) return res.status(503).json({ success: false, message: 'El overlay no está disponible temporalmente.' });
+    let viewerCount = null;
+    try {
+      const participants = await createLiveKitApi(config).room.listParticipants(stream.roomName);
+      viewerCount = Math.max(0, (participants || []).filter((participant) =>
+        !(participant.identity || '').startsWith(String(stream.owner) + ':')
+      ).length);
+    } catch (error) {
+      console.error('Unable to read LiveKit overlay participant count:', error.message);
+    }
+    const preferences = owner.streamingPreferences || {};
+    return res.set('Cache-Control', 'no-store').json({
+      success: true,
+      stream: { title: stream.title, creator: stream.ownerUsername },
+      overlay: {
+        theme: preferences.overlayTheme || 'arcade',
+        layout: preferences.overlayLayout || 'wide',
+        showViewerCount: preferences.overlayShowViewerCount !== false,
+        brandingText: preferences.overlayBrandingText || '',
+        socialYouTube: preferences.socialYouTube || '',
+        socialTwitch: preferences.socialTwitch || '',
+        socialTikTok: preferences.socialTikTok || ''
+      },
+      viewerCount,
+      capabilities: { viewerCount: true, chat: false, donations: false }
+    });
+  } catch (error) { return next(error); }
+});
+
+app.get('/overlay/:token', (req, res) => {
+  const token = req.params.token;
+  if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{40,64}$/.test(token)) {
+    return res.status(404).type('text').send('Overlay no disponible.');
+  }
+  res.set({
+    'Cache-Control': 'no-store',
+    'Content-Security-Policy': "default-src 'none'; connect-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; frame-ancestors *"
+  }).type('html').send(`<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PLAYVERSE Stream Overlay</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:transparent;color:#fff;font-family:Inter,system-ui,Arial,sans-serif}
+#overlay{position:absolute;left:3%;right:3%;bottom:4%;display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+.panel{max-width:75%;padding:14px 18px;border:1px solid #ffffff35;border-radius:16px;background:linear-gradient(110deg,#10152be8,#1c2345d9);box-shadow:0 8px 30px #0006;backdrop-filter:blur(10px)}
+#creator{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#9da9ff}
+#title{font-size:clamp(16px,2.4vw,28px);font-weight:900;line-height:1.15;margin-top:4px}
+#branding{font-size:12px;color:#cbd5e1;margin-top:7px}
+#viewers{white-space:nowrap;padding:10px 14px;border-radius:999px;background:#10152be8;border:1px solid #ffffff35;font-weight:800}
+#social{font-size:11px;color:#dbeafe;margin-top:5px}
+.theme-neon .panel,.theme-neon #viewers{border-color:#22d3ee99;box-shadow:0 0 22px #22d3ee33}
+.theme-minimal .panel,.theme-minimal #viewers{background:#111c;color:#fff;border-color:#ffffff55;box-shadow:none}
+.theme-esports .panel,.theme-esports #viewers{border-radius:4px;border-left:4px solid #f97316;background:#111827ed}
+.layout-compact .panel{padding:9px 12px}.layout-vertical{flex-direction:column;align-items:flex-start}.layout-vertical .panel{max-width:100%}
+</style></head><body><main id="overlay"><section class="panel"><div id="creator"></div><div id="title">Conectando con la transmisión…</div><div id="branding"></div><div id="social"></div></section><div id="viewers"></div></main>
+<script>
+const token=${JSON.stringify(token)};
+const root=document.getElementById('overlay');
+const set=(id,value)=>{document.getElementById(id).textContent=value||''};
+async function refresh(){
+ try{
+  const response=await fetch('/api/public/stream-overlay/'+encodeURIComponent(token),{cache:'no-store'});
+  if(!response.ok){set('title','Transmisión finalizada');set('creator','PLAYVERSE');set('viewers','');return}
+  const data=await response.json();const p=data.overlay||{};
+  root.className='theme-'+(p.theme||'arcade')+' layout-'+(p.layout||'wide');
+  set('creator','@'+(data.stream.creator||''));
+  set('title',data.stream.title);
+  set('branding',p.brandingText);
+  const socials=[p.socialYouTube&&'YouTube '+p.socialYouTube,p.socialTwitch&&'Twitch '+p.socialTwitch,p.socialTikTok&&'TikTok '+p.socialTikTok].filter(Boolean).join('  •  ');
+  set('social',socials);
+  set('viewers',p.showViewerCount?'● '+data.viewerCount+' espectadores':'');
+ }catch{set('title','Reconectando…')}
+}
+refresh();setInterval(refresh,5000);
+</script></body></html>`);
 });
 
 app.post('/api/register', authLimiter, async (req, res, next) => {
