@@ -6,6 +6,7 @@ const liveStreamSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true, maxlength: 100 },
   description: { type: String, default: '', trim: true, maxlength: 500 },
   roomName: { type: String, required: true, unique: true, immutable: true },
+  overlayTokenHash: { type: String, default: null, select: false },
   status: { type: String, enum: ['live', 'ended'], default: 'live', index: true },
   startedAt: { type: Date, default: Date.now, immutable: true },
   endedAt: { type: Date, default: null }
