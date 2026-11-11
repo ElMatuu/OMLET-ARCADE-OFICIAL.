@@ -62,6 +62,15 @@ test('agent config requires valid API, token, port, protocol and player limits',
     playerCount: 0,
     intervalMs: 30000
   });
+
+  assert.equal(readConfig({
+    PLAYVERSE_API_URL: 'https://api.example',
+    GAME_SERVER_ID: 'a'.repeat(24),
+    GAME_SERVER_TOKEN: 'A'.repeat(43),
+    GAME_SERVER_HOST: 'bedrock.example.net',
+    GAME_SERVER_PORT: '19132',
+    GAME_SERVER_PROTOCOL: 'minecraft-bedrock'
+  }).protocol, 'minecraft-bedrock');
 });
 
 test('TCP probe detects a listening local server', async () => {
