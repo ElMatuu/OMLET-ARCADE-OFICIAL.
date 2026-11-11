@@ -2,7 +2,10 @@ services:
   mongo:
     image: mongo:7.0
     restart: unless-stopped
-    command: ["mongod", "--bind_ip_all"]
+    command: ["mongod", "--bind_ip_all", "--auth"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env.selfhost}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env.selfhost}
     volumes:
       - playverse_mongo_data:/data/db
     healthcheck:
@@ -20,7 +23,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      MONGODB_URI: mongodb://mongo:27017/playverse
+      MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongo:27017/playverse?authSource=admin
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.selfhost}
       CORS_ORIGIN: ${CORS_ORIGIN:?Set CORS_ORIGIN in .env.selfhost}
       LIVEKIT_URL: ${LIVEKIT_URL:?Set LIVEKIT_URL in .env.selfhost}
