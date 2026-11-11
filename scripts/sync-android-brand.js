@@ -103,6 +103,6 @@ const splashStyles = [
   '        <item name="android:background">@drawable/playverse_splash_background</item>',
   '    </style>',
   '</resources>'
-].join('\\n') + '\\n';
+].join(String.fromCharCode(10)) + String.fromCharCode(10);
 fs.writeFileSync(path.join(v31, 'styles.xml'), splashStyles);
 console.log('PLAYVERSE: official icon installed for Android launcher; branded splash configured for legacy Android and Android 12+.');
