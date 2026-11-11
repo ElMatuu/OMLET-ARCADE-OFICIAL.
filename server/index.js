@@ -69,7 +69,7 @@ app.use(helmet({
       styleSrcAttr: ["'unsafe-inline'"],
       fontSrc: ["'self'", 'https://cdnjs.cloudflare.com', 'https://fonts.gstatic.com', 'data:'],
       imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'", 'https://playverse-api-bgyg.onrender.com', 'wss://playverse-api-bgyg.onrender.com', ...(liveKitConfigForCsp ? [liveKitConfigForCsp.clientUrl] : [])]
+      connectSrc: ["'self'", 'wss:', 'ws:', ...(liveKitConfigForCsp ? [liveKitConfigForCsp.clientUrl] : [])]
     }
   }
 }));
