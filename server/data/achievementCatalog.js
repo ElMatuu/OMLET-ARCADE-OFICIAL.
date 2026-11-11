@@ -1,5 +1,5 @@
 const ACHIEVEMENTS = [
-  { id: 'first-purchase-bonus', title: 'Primera compra', description: 'Reclamá el bonus de experiencia de tu primera compra con monedas PLAYVERSE.', category: 'Colección', tier: 'novato', icon: '🎁', metric: 'firstPurchaseBonusClaimed', target: 1, xp: 250 },
+  { id: 'first-purchase-bonus', title: 'Primera compra', description: 'Reclamá el bonus de experiencia de tu primera compra con monedas PLAYVERSE.', category: 'Colección', tier: 'novato', icon: '🎁', metric: 'firstPurchaseBonusAvailable', target: 1, xp: 250 },
   { id: 'comments-10', title: 'Buen compañero', description: 'Aportá diez comentarios a conversaciones de la comunidad.', category: 'Comunidad', tier: 'intermedio', icon: '🗣️', metric: 'comments', target: 10, xp: 60 },
   { id: 'comments-100', title: 'Voz influyente', description: 'Alcanzá cien comentarios en publicaciones de la comunidad.', category: 'Comunidad', tier: 'avanzado', icon: '🎤', metric: 'comments', target: 100, xp: 320 },
   { id: 'rooms-5', title: 'Organizador de partidas', description: 'Creá cinco salas para coordinar partidas con otros jugadores.', category: 'Escuadras', tier: 'intermedio', icon: '🧭', metric: 'rooms', target: 5, xp: 100 },
