@@ -4728,17 +4728,18 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 '1440p': [2560, 1440],
                 '2160p': [3840, 2160]
             };
-            const selected = resolutionMap[activeStreamingPreferences.resolution] || [1280, 720];
+            const selected = resolutionMap[activeStreamingPreferences.resolution];
             const portrait = activeStreamingPreferences.orientation === 'portrait';
             const fps = Number(activeStreamingPreferences.fps) || 30;
-            return {
-                resolution: {
+            const options = { frameRate: fps };
+            if (selected) {
+                options.resolution = {
                     width: portrait ? selected[1] : selected[0],
                     height: portrait ? selected[0] : selected[1],
                     frameRate: fps
-                },
-                frameRate: fps
-            };
+                };
+            }
+            return options;
         }
 
         function applyLocalCameraPresentation(preview) {
@@ -4752,9 +4753,10 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             preview.style.aspectRatio = '';
             preview.style.objectFit = 'contain';
             preview.style.zIndex = '';
-            preview.style.border = '0';
             preview.style.borderRadius = '0.75rem';
             preview.style.boxShadow = '';
+            const frame = activeStreamingPreferences.cameraFrame;
+            preview.style.border = frame === 'cyan' ? '3px solid #22d3ee' : frame === 'violet' ? '3px solid #a78bfa' : '1px solid rgba(255,255,255,.35)';
             if (!screenShare || !screenShare.track || screenShare.track.isMuted) return;
             const positions = {
                 'top-left': { top: '0.75rem', left: '0.75rem' },
@@ -4774,8 +4776,6 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 boxShadow: '0 8px 24px rgba(0,0,0,.55)',
                 ...positions[activeStreamingPreferences.cameraPosition] || positions['bottom-right']
             });
-            const frame = activeStreamingPreferences.cameraFrame;
-            preview.style.border = frame === 'cyan' ? '3px solid #22d3ee' : frame === 'violet' ? '3px solid #a78bfa' : '1px solid rgba(255,255,255,.35)';
         }
 
         function detachLiveTrack(track) {
@@ -4830,9 +4830,18 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                     if (activeStreamingPreferences.cameraEnabled === true) {
                         const fps = Number(activeStreamingPreferences.fps) || 30;
                         const bitrate = Math.max(1, Number(activeStreamingPreferences.bitrateMbps) || 6) * 1000000;
-                        const publication = await room.localParticipant.setCameraEnabled(true, getLiveCameraCaptureOptions(), {
-                            videoEncoding: { maxBitrate: bitrate, maxFramerate: fps }
-                        });
+                        let publication;
+                        try {
+                            publication = await room.localParticipant.setCameraEnabled(true, getLiveCameraCaptureOptions(), {
+                                videoEncoding: { maxBitrate: bitrate, maxFramerate: fps }
+                            });
+                        } catch (captureError) {
+                            publication = await room.localParticipant.setCameraEnabled(true, {
+                                resolution: { width: 1280, height: 720, frameRate: 30 },
+                                frameRate: 30
+                            }, { videoEncoding: { maxBitrate: 4000000, maxFramerate: 30 } });
+                            document.getElementById('live-player-status').textContent = 'El dispositivo no admite la calidad elegida. Se inició la cámara con un perfil compatible de 720p/30 FPS.';
+                        }
                         const cameraPublication = publication || room.localParticipant.getTrackPublication(LivekitClient.Track.Source.Camera);
                         if (cameraPublication && cameraPublication.videoTrack) {
                             preview.classList.remove('hidden');
@@ -5161,9 +5170,18 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 if (enabled) {
                     const fps = Number(activeStreamingPreferences.fps) || 30;
                     const bitrate = Math.max(1, Number(activeStreamingPreferences.bitrateMbps) || 6) * 1000000;
-                    const publication = await liveKitRoom.localParticipant.setCameraEnabled(true, getLiveCameraCaptureOptions(), {
-                        videoEncoding: { maxBitrate: bitrate, maxFramerate: fps }
-                    });
+                    let publication;
+                    try {
+                        publication = await liveKitRoom.localParticipant.setCameraEnabled(true, getLiveCameraCaptureOptions(), {
+                            videoEncoding: { maxBitrate: bitrate, maxFramerate: fps }
+                        });
+                    } catch (captureError) {
+                        publication = await liveKitRoom.localParticipant.setCameraEnabled(true, {
+                            resolution: { width: 1280, height: 720, frameRate: 30 },
+                            frameRate: 30
+                        }, { videoEncoding: { maxBitrate: 4000000, maxFramerate: 30 } });
+                        document.getElementById('live-player-status').textContent = 'Calidad solicitada no compatible; cámara iniciada en 720p/30 FPS.';
+                    }
                     const preview = document.getElementById('live-local-preview');
                     const cameraPublication = publication || liveKitRoom.localParticipant.getTrackPublication(LivekitClient.Track.Source.Camera);
                     if (cameraPublication && cameraPublication.videoTrack) {
