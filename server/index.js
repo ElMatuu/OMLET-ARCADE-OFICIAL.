@@ -2495,6 +2495,43 @@ app.post('/api/tournaments/:tournamentId/register', requireAuth, friendshipLimit
   } catch (error) { return next(error); }
 });
 
+app.post('/api/tournaments/:tournamentId/register-team', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.tournamentId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    const tournament = await Tournament.findOne({ _id: req.params.tournamentId, status: 'open', registrationClosesAt: { $gt: new Date() } });
+    if (!tournament) return res.status(404).json({ success: false, message: 'Inscripciones cerradas o torneo no disponible.' });
+    if (tournament.teamSize < 2) return res.status(400).json({ success: false, message: 'Este torneo es individual.' });
+    const teamName = typeof req.body.teamName === 'string' ? req.body.teamName.trim() : '';
+    const requested = Array.isArray(req.body.members) ? req.body.members : [];
+    const usernames = [req.auth.username, ...requested.map((name) => typeof name === 'string' ? name.trim().replace(/^@/, '') : '')];
+    if (teamName.length < 2 || teamName.length > 40 || usernames.length !== tournament.teamSize ||
+      usernames.some((name) => !/^[a-zA-Z0-9_]{3,24}$/.test(name)) || new Set(usernames.map((name) => name.toLowerCase())).size !== usernames.length) {
+      return res.status(400).json({ success: false, message: 'El nombre del equipo y la lista de jugadores no son válidos. Incluí exactamente ' + (tournament.teamSize - 1) + ' compañeros.' });
+    }
+    if (tournament.entries.filter((entry) => entry.status !== 'withdrawn').length >= tournament.maxEntries) {
+      return res.status(409).json({ success: false, message: 'El torneo alcanzó el máximo de inscripciones.' });
+    }
+    const users = await User.find({ username: { $in: usernames } }).select('_id username').lean();
+    if (users.length !== usernames.length) return res.status(404).json({ success: false, message: 'No se encontraron todas las cuentas del equipo.' });
+    const ids = new Set(users.map((user) => String(user._id)));
+    const alreadyRegistered = tournament.entries.some((entry) =>
+      entry.status !== 'withdrawn' && entry.members.some((member) => ids.has(String(member.user)))
+    );
+    if (alreadyRegistered) return res.status(409).json({ success: false, message: 'Uno o más jugadores ya están inscriptos en este torneo.' });
+    const captain = users.find((user) => String(user._id) === req.auth.sub);
+    if (!captain) return res.status(404).json({ success: false, message: 'No se pudo validar al capitán del equipo.' });
+    const status = tournament.approvalMode === 'manual' ? 'pending' : 'approved';
+    tournament.entries.push({
+      teamName, captain: captain._id, captainUsername: captain.username,
+      members: users.map((user) => ({ user: user._id, username: user.username })),
+      registrationType: 'team', status
+    });
+    tournament.updatedAt = new Date();
+    await tournament.save();
+    return res.status(201).json({ success: true, entryStatus: status, message: status === 'pending' ? 'Equipo enviado para aprobación.' : 'Equipo inscripto correctamente.' });
+  } catch (error) { return next(error); }
+});
+
 app.post('/api/tournaments/:tournamentId/entries/:entryId/check-in', requireAuth, friendshipLimiter, async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.tournamentId) || !mongoose.isValidObjectId(req.params.entryId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
