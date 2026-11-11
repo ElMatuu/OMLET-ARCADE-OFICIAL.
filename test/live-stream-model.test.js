@@ -37,3 +37,16 @@ test('LiveStream enforces at most one active session per creator at the database
     Object.keys(keys).length === 1 && keys.owner === 1 && options.unique !== true
   ), false, 'do not create a duplicate non-unique owner index');
 });
+
+test('LiveStream stores only a non-selected overlay token hash', () => {
+  const stream = new LiveStream({
+    owner: new mongoose.Types.ObjectId(),
+    ownerUsername: 'creator',
+    title: 'Overlay stream',
+    roomName: 'pv_overlay_test',
+    overlayTokenHash: 'a'.repeat(64)
+  });
+  assert.equal(stream.overlayTokenHash, 'a'.repeat(64));
+  assert.equal(LiveStream.schema.path('overlayTokenHash').options.select, false);
+  assert.equal(LiveStream.schema.path('overlayTokenHash').options.default, null);
+});
