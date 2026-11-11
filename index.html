@@ -1996,6 +1996,23 @@
                     }
                     entryList.appendChild(row);
                 });
+                if (tournament.teamSize > 1 && tournament.status === 'open') {
+                    const teamForm = document.createElement('form');
+                    teamForm.className = 'grid gap-2 rounded-xl border border-slate-800 bg-slate-950 p-3';
+                    teamForm.innerHTML = '<h5 class="text-sm font-bold">Inscribir equipo completo</h5><input name="teamName" required minlength="2" maxlength="40" class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs" placeholder="Nombre del equipo"><input name="members" required class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs" placeholder="Usuarios compañeros, separados por coma"><button class="rounded-lg bg-sky-500 px-3 py-2 text-xs font-black text-slate-950">Inscribir equipo de ' + tournament.teamSize + '</button><p class="text-[10px] text-slate-500">Ingresá exactamente ' + (tournament.teamSize - 1) + ' nombres de usuario; vos sos el capitán.</p>';
+                    teamForm.addEventListener('submit', async (event) => {
+                        event.preventDefault();
+                        const form = new FormData(teamForm);
+                        const members = String(form.get('members') || '').split(',').map((name) => name.trim()).filter(Boolean);
+                        try {
+                            const result = await apiRequest('/api/tournaments/' + tournamentId + '/register-team', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teamName: form.get('teamName'), members }) });
+                            status.textContent = result.message;
+                            await openTournamentDetails(tournamentId);
+                            await loadTournaments();
+                        } catch (error) { status.textContent = error.message; }
+                    });
+                    card.insertBefore(teamForm, card.querySelector('#tournament-match-list').parentElement);
+                }
                 const matchList = card.querySelector('#tournament-match-list');
                 tournament.matches.forEach((match) => {
                     const row = document.createElement('div');
