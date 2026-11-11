@@ -11,6 +11,9 @@ Feature inspiration does not authorize copying another product's proprietary cod
 - **API:** Express over HTTPS in deployment, JWT-authenticated endpoints, rate limits and server-side authorization. Liveness and database-readiness probes are available; graceful shutdown marks the instance unready, closes Socket.IO connections and then disconnects MongoDB.
 - **Database:** MongoDB/Mongoose for accounts, friendships, posts, comments, rooms and room messages.
 - **Realtime:** Socket.IO for authenticated room and private chat, with database-backed presence records. The current deployment is a single API instance; multi-instance fan-out requires a shared Socket.IO adapter and coordinated deployment.
+
+- **Community game servers:** MongoDB stores public listings and hashed heartbeat tokens. The owner-run Node.js agent supports generic TCP reachability, Minecraft Java Server List Ping over TCP, and Minecraft Bedrock RakNet Unconnected Ping over UDP. Java/Bedrock modes report protocol-derived player counts, capacity and game version. The API trusts the authenticated heartbeat; it does not independently probe the remote game port. The directory does not host game worlds or provide arbitrary game-state synchronization.
+
 - **Web client:** current `index.html` interface, local Tailwind build and service-worker update foundation.
 - **Android shell:** Capacitor configuration and generated adaptive launcher resources. Native build and install still require verification.
 - **Windows shell:** Electron with hardened renderer settings. Installer build and real-machine verification remain pending.
@@ -35,6 +38,7 @@ A real streaming feature needs a separate media plane; ordinary REST or room-cha
 - Profiles, posts, comments, friend requests, public multiplayer rooms and persistent room chat have backend foundations.
 - Private one-to-one chat, online presence, push notifications, invitations and community/server administration still require implementation.
 - Clips, uploads, favorites, creator pages and stream archives require media storage and processing before being presented as live product features.
+- Offline LAN game discovery, local multiplayer orchestration and cross-device game-state synchronization are not implemented; they require native network discovery and game-specific integration, not just Socket.IO rooms.
 - Store items, gifting, donations, paid subscriptions and creator payouts require a ledger, payment provider, refunds, chargeback and fraud handling, age/legal/tax review and transparent purchase UX. Do not ship a fake wallet or pretend credits have monetary value.
 
 ## Trust, safety and security
