@@ -19,6 +19,7 @@ for (const density of ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
   const destination = path.join(resources, 'mipmap-' + density);
   fs.mkdirSync(destination, { recursive: true });
   fs.copyFileSync(path.join(generated, density, 'ic_launcher.png'), path.join(destination, 'ic_launcher.png'));
+  fs.copyFileSync(path.join(generated, density, 'ic_launcher.png'), path.join(destination, 'ic_launcher_round.png'));
 }
 fs.mkdirSync(path.join(resources, 'mipmap-anydpi-v26'), { recursive: true });
 for (const name of ['ic_launcher.xml', 'ic_launcher_round.xml']) {
