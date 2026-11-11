@@ -631,6 +631,9 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     const markReadAck = await emitSocketAck(bobDirectSocket, 'mark_direct_messages_read', { conversationId });
     assert.equal(markReadAck.success, true);
     assert.equal(markReadAck.readCount, 1);
+    const repeatedMarkReadAck = await emitSocketAck(bobDirectSocket, 'mark_direct_messages_read', { conversationId });
+    assert.equal(repeatedMarkReadAck.success, true);
+    assert.equal(repeatedMarkReadAck.readCount, 0);
     const readReceipt = await readReceiptDelivery;
     assert.equal(readReceipt.readerId, bob.body.user.id);
     assert.equal(readReceipt.throughMessageId, privateRealtimeMessage.id);
