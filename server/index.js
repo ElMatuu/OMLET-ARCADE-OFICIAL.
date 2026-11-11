@@ -715,14 +715,39 @@ app.get('/api/me/posts', requireAuth, async (req, res, next) => {
   try {
     const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
     if (!Number.isInteger(limit) || limit < 1 || limit > 50) return res.status(400).json({ success: false, message: 'El límite debe ser un número entero entre 1 y 50.' });
-    const posts = await Post.find({ author: req.auth.sub }).sort({ createdAt: -1, _id: -1 }).limit(limit)
+    let cursor = null;
+    if (typeof req.query.cursor === 'string' && req.query.cursor) {
+      if (req.query.cursor.length > 256) return res.status(400).json({ success: false, message: 'Cursor de publicaciones inválido.' });
+      try { cursor = JSON.parse(Buffer.from(req.query.cursor, 'base64url').toString('utf8')); }
+      catch { return res.status(400).json({ success: false, message: 'Cursor de publicaciones inválido.' }); }
+      const cursorDate = cursor && typeof cursor.createdAt === 'string' ? new Date(cursor.createdAt) : null;
+      if (!cursor || !mongoose.isValidObjectId(cursor.id) || !cursorDate || !Number.isFinite(cursorDate.getTime()) || cursorDate.toISOString() !== cursor.createdAt) {
+        return res.status(400).json({ success: false, message: 'Cursor de publicaciones inválido.' });
+      }
+    }
+    const filter = { author: req.auth.sub };
+    if (cursor) {
+      const cursorDate = new Date(cursor.createdAt);
+      filter.$or = [
+        { createdAt: { $lt: cursorDate } },
+        { createdAt: cursorDate, _id: { $lt: new mongoose.Types.ObjectId(cursor.id) } }
+      ];
+    }
+    const records = await Post.find(filter).sort({ createdAt: -1, _id: -1 }).limit(limit + 1)
       .select('authorUsername content likes commentCount createdAt').lean();
-    return res.json({ success: true, posts: posts.map((post) => ({
-      id: String(post._id), authorUsername: post.authorUsername, content: post.content,
-      likeCount: Array.isArray(post.likes) ? post.likes.length : 0,
-      likedByMe: Array.isArray(post.likes) && post.likes.some((id) => String(id) === req.auth.sub),
-      commentCount: Number(post.commentCount) || 0, createdAt: post.createdAt
-    })) });
+    const hasMore = records.length > limit;
+    const posts = records.slice(0, limit);
+    const last = posts[posts.length - 1];
+    return res.json({
+      success: true,
+      posts: posts.map((post) => ({
+        id: String(post._id), authorUsername: post.authorUsername, content: post.content,
+        likeCount: Array.isArray(post.likes) ? post.likes.length : 0,
+        likedByMe: Array.isArray(post.likes) && post.likes.some((id) => String(id) === req.auth.sub),
+        commentCount: Number(post.commentCount) || 0, createdAt: post.createdAt
+      })),
+      page: { limit, hasMore, nextCursor: hasMore && last ? Buffer.from(JSON.stringify({ createdAt: last.createdAt.toISOString(), id: String(last._id) })).toString('base64url') : null }
+    });
   } catch (error) { return next(error); }
 });
 
