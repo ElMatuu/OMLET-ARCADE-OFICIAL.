@@ -106,4 +106,86 @@ const splashStyles = [
   '</resources>'
 ].join(String.fromCharCode(10)) + String.fromCharCode(10);
 fs.writeFileSync(path.join(v31, 'styles.xml'), splashStyles);
-console.log('PLAYVERSE: official icon installed for Android launcher; branded splash configured for legacy Android and Android 12+.');
+
+const overlayPermission = '    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />';
+if (!manifest.includes('android.permission.SYSTEM_ALERT_WINDOW')) {
+  const appAt = manifest.indexOf('<application');
+  manifest = manifest.slice(0, appAt) + overlayPermission + '\n    ' + manifest.slice(appAt);
+  fs.writeFileSync(manifestPath, manifest);
+}
+
+const mainActivityPath = path.join(androidRoot, 'java');
+function findMainActivity(directory) {
+  if (!fs.existsSync(directory)) return null;
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const candidate = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      const found = findMainActivity(candidate);
+      if (found) return found;
+    } else if (entry.name === 'MainActivity.java') return candidate;
+  }
+  return null;
+}
+const activityPath = findMainActivity(mainActivityPath);
+if (!activityPath) throw new Error('Capacitor MainActivity.java was not found; cannot register overlay permission bridge.');
+let activity = fs.readFileSync(activityPath, 'utf8');
+const packageMatch = activity.match(/^package\s+([\w.]+);/m);
+if (!packageMatch) throw new Error('Could not determine Android application package for overlay permission bridge.');
+const javaPackage = packageMatch[1];
+const pluginPath = path.join(path.dirname(activityPath), 'OverlayPermissionPlugin.java');
+const pluginSource = `package ${javaPackage};
+
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Build;
+import android.provider.Settings;
+import com.getcapacitor.JSObject;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.CapacitorPlugin;
+
+@CapacitorPlugin(name = "OverlayPermission")
+public class OverlayPermissionPlugin extends Plugin {
+    @PluginMethod
+    public void check(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("supported", Build.VERSION.SDK_INT >= Build.VERSION_CODES.M);
+        result.put("granted", Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(getContext()));
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void request(PluginCall call) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(getContext())) {
+            JSObject result = new JSObject();
+            result.put("opened", false);
+            result.put("granted", true);
+            call.resolve(result);
+            return;
+        }
+        Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.parse("package:" + getContext().getPackageName()));
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        getContext().startActivity(intent);
+        JSObject result = new JSObject();
+        result.put("opened", true);
+        result.put("granted", false);
+        call.resolve(result);
+    }
+}
+`;
+fs.writeFileSync(pluginPath, pluginSource);
+if (!activity.includes('OverlayPermissionPlugin.class')) {
+  activity = activity.replace(/public class MainActivity extends BridgeActivity\s*\{/, `public class MainActivity extends BridgeActivity {
+    @Override
+    public void onCreate(android.os.Bundle savedInstanceState) {
+        registerPlugin(OverlayPermissionPlugin.class);
+        super.onCreate(savedInstanceState);
+    }
+`);
+  if (!activity.includes('OverlayPermissionPlugin.class')) throw new Error('Could not safely register OverlayPermissionPlugin in MainActivity.');
+  fs.writeFileSync(activityPath, activity);
+}
+
+console.log('PLAYVERSE: official icon installed for Android launcher; branded splash and overlay permission bridge configured for Android.');

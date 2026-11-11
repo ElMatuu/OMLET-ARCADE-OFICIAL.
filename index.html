@@ -93,22 +93,49 @@
   }
 </style>
 
+<style id="playverse-arcade-boot">
+.pv-boot{overflow:hidden;background:radial-gradient(ellipse at 50% 43%,#172c52 0%,#0d1931 38%,#080d1b 72%,#060913 100%);isolation:isolate;transition:opacity .42s ease,visibility .42s ease}
+.pv-boot-stars{position:absolute;inset:0;opacity:.36;background-image:radial-gradient(2px 2px at 12% 22%,#fff 45%,transparent 55%),radial-gradient(1px 1px at 78% 18%,#9ddcff 45%,transparent 55%),radial-gradient(2px 2px at 84% 74%,#fff 45%,transparent 55%),radial-gradient(1px 1px at 22% 82%,#ffc16d 45%,transparent 55%),radial-gradient(1px 1px at 62% 62%,#fff 45%,transparent 55%);background-size:310px 270px}
+.pv-boot-orbit{position:absolute;width:min(76vw,330px);aspect-ratio:1;border:1px solid rgba(110,190,255,.13);border-radius:50%;animation:pv-orbit 18s linear infinite}
+.pv-boot-orbit:before,.pv-boot-orbit:after{content:"";position:absolute;inset:13%;border:1px solid rgba(255,139,75,.14);border-radius:50%;transform:rotateX(68deg) rotate(-24deg)}
+.pv-boot-orbit:after{inset:27%;border-color:rgba(153,112,255,.18);transform:rotateX(68deg) rotate(36deg)}
+.pv-boot-orbit span{position:absolute;width:11px;height:11px;border-radius:50%;background:#ff9b55;box-shadow:0 0 18px currentColor;top:13%;left:23%}
+.pv-boot-orbit span:nth-child(2){top:27%;left:88%;background:#52d7e8;color:#52d7e8}.pv-boot-orbit span:nth-child(3){top:83%;left:74%;background:#a78bfa;color:#a78bfa}.pv-boot-orbit span:nth-child(4){top:75%;left:8%;background:#ffd166;color:#ffd166}.pv-boot-orbit span:nth-child(5){top:3%;left:61%;width:6px;height:6px;background:#fff;color:#fff}
+.pv-boot-emblem{position:relative;z-index:1;width:116px;height:116px;border-radius:34px;display:grid;place-items:center;background:linear-gradient(145deg,#ff8c42,#ed4f43 58%,#9c4be8);border:1px solid rgba(255,255,255,.4);box-shadow:0 0 0 9px rgba(255,255,255,.035),0 18px 65px rgba(245,104,68,.28),inset 0 1px 0 rgba(255,255,255,.5);animation:pv-emblem-float 3s ease-in-out infinite}
+.pv-boot-emblem i{font-size:53px;color:#fff;text-shadow:0 3px 18px rgba(75,20,20,.28)}.pv-boot-spark{position:absolute;color:#ffe2a6;text-shadow:0 0 15px #ffb65e}.pv-spark-one{right:-17px;top:4px;font-size:24px}.pv-spark-two{left:-18px;bottom:6px;font-size:19px}
+.pv-boot-wordmark{position:relative;z-index:1;margin:29px 0 0;font-size:clamp(27px,7vw,36px);font-weight:950;letter-spacing:.18em;background:linear-gradient(90deg,#fff,#ffcfad 52%,#c9c5ff);color:transparent;background-clip:text}
+.pv-boot-tagline{position:relative;z-index:1;margin:8px 0 0;font-size:10px;letter-spacing:.24em;color:#a9c4e8;font-weight:800}
+.pv-boot-loader{position:relative;z-index:1;width:min(58vw,220px);height:4px;margin-top:46px;background:rgba(160,190,230,.16);border-radius:99px;overflow:hidden}.pv-boot-loader span{display:block;width:0;height:100%;border-radius:99px;background:linear-gradient(90deg,#58d8e8,#ff9b55,#b78aff);box-shadow:0 0 14px #ff9b55;transition:width .35s ease}
+.pv-boot-status{position:relative;z-index:1;margin:13px 0 0;color:#a8b9d3;font-size:11px;letter-spacing:.02em}.pv-boot-version{position:absolute;bottom:max(25px,env(safe-area-inset-bottom));font-size:8px;letter-spacing:.24em;color:#526783}
+@keyframes pv-orbit{to{transform:rotate(360deg)}}@keyframes pv-emblem-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}@media(prefers-reduced-motion:reduce){.pv-boot-orbit,.pv-boot-emblem{animation:none}}
+</style>
 </head>
 <body class="h-screen w-screen flex flex-col justify-between relative">
 
-    <!-- 1. INTRO / SPLASH SCREEN OFICIAL -->
-    <div id="splash-screen" class="fixed inset-0 z-50 PLAYVERSE-gradient flex flex-col items-center justify-center text-white transition-all duration-700">
-        <div class="relative mb-6">
-            <div class="absolute inset-0 bg-white/20 rounded-3xl blur-xl animate-pulse"></div>
-            <div class="relative w-28 h-28 bg-slate-950 rounded-3xl flex items-center justify-center shadow-2xl border-2 border-orange-400/50">
-                <i class="fa-solid fa-gamepad text-5xl text-orange-500 animate-bounce"></i>
+    <!-- PLAYVERSE arcade launch: original artwork, independent of Omlet Arcade assets -->
+    <div id="splash-screen" class="pv-boot fixed inset-0 z-[100] flex flex-col items-center justify-center text-white">
+        <div class="pv-boot-stars" aria-hidden="true"></div>
+        <div class="pv-boot-orbit" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="pv-boot-emblem"><i class="fa-solid fa-gamepad" aria-hidden="true"></i><span class="pv-boot-spark pv-spark-one">✦</span><span class="pv-boot-spark pv-spark-two">✧</span></div>
+        <h1 class="pv-boot-wordmark">PLAYVERSE</h1>
+        <p class="pv-boot-tagline">JUGÁ · CONECTÁ · TRANSMITÍ</p>
+        <div class="pv-boot-loader" role="progressbar" aria-label="Cargando PLAYVERSE"><span id="splash-progress"></span></div>
+        <p id="splash-status" class="pv-boot-status" aria-live="polite">Preparando tu universo gamer…</p>
+        <span class="pv-boot-version">ARCADE COMMUNITY PLATFORM</span>
+    </div>
+
+    <div id="overlay-permission-screen" class="fixed inset-0 z-[90] hidden items-center justify-center bg-[#071126]/95 backdrop-blur-xl p-5">
+        <section class="w-full max-w-sm rounded-[28px] border border-sky-300/20 bg-gradient-to-b from-[#18345c] to-[#101b34] p-6 text-center shadow-2xl">
+            <div class="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-rose-500 shadow-[0_0_45px_rgba(249,115,80,.28)]">
+                <i class="fa-solid fa-gamepad text-5xl text-white"></i>
             </div>
-        </div>
-        <h1 class="text-4xl font-black tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white via-orange-200 to-amber-300">PLAYVERSE</h1>
-        <p class="text-xs text-orange-200/80 mt-2 font-mono tracking-widest uppercase">GAMING • COMMUNITY • LIVE</p>
-        <div class="mt-10 w-48 h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/10">
-            <div id="splash-progress" class="h-full bg-gradient-to-r from-orange-400 to-amber-300 w-0 transition-all duration-1000"></div>
-        </div>
+            <p class="mb-2 text-[10px] font-black tracking-[.22em] text-sky-200">FUNCIONES ARCADE</p>
+            <h2 class="text-xl font-black text-white">Activá la ventana flotante de PLAYVERSE</h2>
+            <p class="mt-3 text-sm leading-6 text-slate-300">Este permiso permite mostrar los controles flotantes de PLAYVERSE mientras jugás, cuando esa función esté disponible. Android te va a llevar a su pantalla oficial de permisos.</p>
+            <p id="overlay-permission-status" class="mt-3 text-xs text-sky-200" aria-live="polite">Es opcional. Podés continuar sin activarlo.</p>
+            <button id="overlay-permission-enable" type="button" class="mt-5 w-full rounded-xl bg-gradient-to-r from-orange-400 to-rose-500 px-4 py-3.5 text-sm font-black text-white shadow-lg">Habilitar permiso</button>
+            <button id="overlay-permission-later" type="button" class="mt-2 w-full rounded-xl border border-white/10 px-4 py-3 text-sm font-bold text-slate-300">Ahora no</button>
+        </section>
     </div>
 
     <!-- 2. PANTALLA DE AUTENTICACIÓN (LOGIN/REG) -->
@@ -1065,18 +1092,90 @@
             }
         }
 
+        async function checkPlayverseOverlayPermission() {
+            const plugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.OverlayPermission;
+            if (!plugin || typeof plugin.check !== 'function') return { supported: false, granted: false };
+            try { return await plugin.check(); } catch { return { supported: false, granted: false }; }
+        }
+
+        async function openPlayverseOverlayPermission() {
+            const status = document.getElementById('overlay-permission-status');
+            const plugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.OverlayPermission;
+            if (!plugin || typeof plugin.request !== 'function') {
+                status.textContent = 'Este permiso solo se puede solicitar desde la aplicación Android instalada.';
+                return;
+            }
+            try {
+                const result = await plugin.request();
+                status.textContent = result.granted
+                    ? 'Permiso concedido por Android.'
+                    : 'Terminá de habilitar “Mostrar sobre otras apps” y volvé a PLAYVERSE.';
+            } catch (error) {
+                status.textContent = 'Android no pudo abrir los ajustes: ' + error.message;
+            }
+        }
+
+        function setupOverlayPermissionPrompt() {
+            if (!window.Capacitor || window.Capacitor.getPlatform() !== 'android') return;
+            const screen = document.getElementById('overlay-permission-screen');
+            const enable = document.getElementById('overlay-permission-enable');
+            const later = document.getElementById('overlay-permission-later');
+            const status = document.getElementById('overlay-permission-status');
+            if (!screen || localStorage.getItem('pv-overlay-permission-dismissed') === '1') return;
+            checkPlayverseOverlayPermission().then((permission) => {
+                if (permission.granted) return;
+                screen.classList.remove('hidden');
+                screen.classList.add('flex');
+            });
+            enable.addEventListener('click', openPlayverseOverlayPermission);
+            later.addEventListener('click', () => {
+                localStorage.setItem('pv-overlay-permission-dismissed', '1');
+                screen.classList.add('hidden');
+                screen.classList.remove('flex');
+            });
+            const verifyOnReturn = async () => {
+                const permission = await checkPlayverseOverlayPermission();
+                if (permission.granted) {
+                    status.textContent = '¡Permiso habilitado! PLAYVERSE ya tiene autorización de Android.';
+                    localStorage.setItem('pv-overlay-permission-dismissed', '1');
+                    setTimeout(() => { screen.classList.add('hidden'); screen.classList.remove('flex'); }, 900);
+                }
+            };
+            window.addEventListener('focus', verifyOnReturn);
+            document.addEventListener('visibilitychange', () => { if (!document.hidden) verifyOnReturn(); });
+        }
+
         window.addEventListener('DOMContentLoaded', async () => {
             const progress = document.getElementById('splash-progress');
-            setTimeout(() => { progress.style.width = '100%'; }, 200);
-            setTimeout(async () => {
-                const splash = document.getElementById('splash-screen');
+            const status = document.getElementById('splash-status');
+            const stages = [
+                { at: 12, label: 'Iniciando motor gráfico…' },
+                { at: 38, label: 'Preparando comunidad y juegos…' },
+                { at: 66, label: 'Conectando servicios PLAYVERSE…' },
+                { at: 88, label: 'Restaurando tu sesión…' }
+            ];
+            const stageTimers = stages.map((stage) => setTimeout(() => {
+                if (progress) progress.style.width = stage.at + '%';
+                if (status) status.textContent = stage.label;
+            }, stage.at * 5));
+            try {
+                const restored = await restoreSession();
+                stageTimers.forEach(clearTimeout);
+                if (!restored) document.getElementById('auth-screen').classList.remove('hidden');
+                if (progress) progress.style.width = '100%';
+                if (status) status.textContent = '¡Listo! Entrando a PLAYVERSE…';
+            } catch (error) {
+                if (status) status.textContent = 'PLAYVERSE está listo para iniciar.';
+                document.getElementById('auth-screen').classList.remove('hidden');
+            }
+            await new Promise((resolve) => setTimeout(resolve, 280));
+            const splash = document.getElementById('splash-screen');
+            if (splash) {
                 splash.style.opacity = '0';
-                setTimeout(async () => {
-                    splash.remove();
-                    const restored = await restoreSession();
-                    if (!restored) document.getElementById('auth-screen').classList.remove('hidden');
-                }, 500);
-            }, 900);
+                splash.style.visibility = 'hidden';
+                setTimeout(() => splash.remove(), 460);
+            }
+            setupOverlayPermissionPrompt();
         });
 
         let isRegisterMode = false;
