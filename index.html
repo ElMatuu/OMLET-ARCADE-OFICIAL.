@@ -3197,7 +3197,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             } catch (_) {}
         }
 
-        function showPlayverseRewardModal({ title, description, xp, onClaim }) {
+        function showPlayverseRewardModal({ title, description, xp, rewardLabel, onClaim }) {
             const previous = document.getElementById('pv-reward-modal');
             if (previous) previous.remove();
             const overlay = document.createElement('div');
@@ -3220,7 +3220,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             body.textContent = description;
             const amount = document.createElement('p');
             amount.className = 'mt-4 text-3xl font-black text-amber-300';
-            amount.textContent = '+' + Number(xp || 0).toLocaleString('es-AR') + ' XP';
+            amount.textContent = rewardLabel || ('+' + Number(xp || 0).toLocaleString('es-AR') + ' XP');
             const claim = document.createElement('button');
             claim.type = 'button';
             claim.className = 'mt-5 w-full rounded-xl bg-orange-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-400 disabled:cursor-wait disabled:opacity-60';
@@ -3238,7 +3238,9 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                     const result = await onClaim();
                     heading.textContent = '¡Recompensa reclamada!';
                     body.textContent = result.message || 'La experiencia se acreditó correctamente en tu perfil.';
-                    amount.textContent = '+' + Number(result.xp || xp || 0).toLocaleString('es-AR') + ' XP';
+                    amount.textContent = result.rewardTokens
+                        ? '+' + Number(result.rewardTokens).toLocaleString('es-AR') + ' ' + (result.currency === 'diamond' ? '💎 Diamantes' : result.currency === 'purple' ? '🟣 Cristales Violetas' : '🟡 Oro')
+                        : (result.xp ? '+' + Number(result.xp).toLocaleString('es-AR') + ' XP' : (rewardLabel || ('+' + Number(xp || 0).toLocaleString('es-AR') + ' XP')));
                     claim.textContent = '¡Listo!';
                     rewardClaimed = true;
                     claim.disabled = false;
