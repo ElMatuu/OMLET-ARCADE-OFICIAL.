@@ -28,6 +28,7 @@ const Report = require('./models/Report');
 const Notification = require('./models/Notification');
 const UserPresence = require('./models/UserPresence');
 const LiveStream = require('./models/LiveStream');
+const LiveStreamMessage = require('./models/LiveStreamMessage');
 const Conversation = require('./models/Conversation');
 const DirectMessage = require('./models/DirectMessage');
 const Inventory = require('./models/Inventory');
@@ -256,6 +257,43 @@ app.get('/api/streams', async (req, res, next) => {
         description: stream.description,
         startedAt: stream.startedAt
       }))
+    });
+  } catch (error) { return next(error); }
+});
+
+app.get('/api/streams/:streamId/messages', requireAuth, async (req, res, next) => {
+  try {
+    if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
+    const stream = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' })
+      .select('owner').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
+    const isOwner = String(stream.owner) === String(req.auth.sub);
+    if (!isOwner) {
+      const blocked = await Block.exists({
+        $or: [
+          { blocker: req.auth.sub, blocked: stream.owner },
+          { blocker: stream.owner, blocked: req.auth.sub }
+        ]
+      });
+      if (blocked) return res.status(403).json({ success: false, message: 'No podés acceder al chat de esta transmisión.' });
+    }
+    const rawLimit = req.query.limit === undefined ? 50 : Number(req.query.limit);
+    if (!Number.isInteger(rawLimit) || rawLimit < 1 || rawLimit > 100) {
+      return res.status(400).json({ success: false, message: 'El límite debe estar entre 1 y 100.' });
+    }
+    const [messages, owner] = await Promise.all([
+      LiveStreamMessage.find({ stream: stream._id, status: 'visible' })
+        .sort({ createdAt: -1, _id: -1 }).limit(rawLimit)
+        .select('author username message createdAt').lean(),
+      User.findById(stream.owner).select('streamingPreferences.chatRules').lean()
+    ]);
+    return res.json({
+      success: true,
+      messages: messages.reverse().map((item) => ({
+        id: String(item._id), authorId: String(item.author), username: item.username,
+        message: item.message, createdAt: item.createdAt
+      })),
+      chatRules: owner?.streamingPreferences?.chatRules || ''
     });
   } catch (error) { return next(error); }
 });
