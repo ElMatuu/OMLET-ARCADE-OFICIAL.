@@ -2663,8 +2663,8 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                     } else if (mission.claimable) {
                         const claim = document.createElement('button');
                         claim.type = 'button';
-                        claim.className = 'w-full rounded-lg px-3 py-2 text-xs font-black bg-amber-400 text-slate-950 hover:bg-amber-300 disabled:opacity-50';
-                        claim.textContent = 'Reclamar ' + Number(mission.rewardTokens || 0).toLocaleString('es-AR') + ' ' + (mission.rewardCurrency === 'diamond' ? '💎' : mission.rewardCurrency === 'purple' ? '🟣' : '🟡');
+                        claim.className = 'w-full rounded-lg px-3 py-2 text-xs font-black bg-emerald-400 text-slate-950 hover:bg-emerald-300 disabled:opacity-50';
+                        claim.textContent = 'Reclamar recompensa · ' + Number(mission.rewardTokens || 0).toLocaleString('es-AR') + ' ' + (mission.rewardCurrency === 'diamond' ? '💎' : mission.rewardCurrency === 'purple' ? '🟣' : '🟡');
                         claim.addEventListener('click', async () => {
                             claim.disabled = true;
                             claim.textContent = 'Acreditando recompensa…';
