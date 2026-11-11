@@ -34,3 +34,12 @@ test('startup has a bounded cinematic hold and respects reduced motion', () => {
   assert.match(html, /5200 - \(Date\.now\(\) - startedAt\)/);
   assert.match(html, /prefers-reduced-motion:reduce/);
 });
+
+test('earned mission rewards use an audible claim dialog with an orange claim action', () => {
+  assert.match(html, /function playPlayverseRewardChime\(\)/);
+  assert.match(html, /function showPlayverseRewardModal\(/);
+  assert.match(html, /showPlayverseRewardModal\(\{[\s\S]{0,450}title: '¡Misión completada!'/);
+  assert.match(html, /claim\.textContent = 'Reclamar'/);
+  assert.match(html, /bg-orange-500 text-white hover:bg-orange-400/);
+  assert.match(html, /apiRequest\('\/api\/me\/missions\/' \+ encodeURIComponent\(mission\.id\) \+ '\/claim'/);
+});
