@@ -34,3 +34,13 @@ test('community server UI labels owner heartbeat as a report, not independent re
   assert.match(html, /dato reportado por el anfitrión/);
   assert.doesNotMatch(html, /● EN LÍNEA/);
 });
+
+
+test('community server publishing selects the correct default port for Java and Bedrock', () => {
+  assert.match(html, /id="game-server-edition" onchange="updateGameServerDefaultPort\(\)"/);
+  assert.match(html, /edition\.value === 'java' \? 25565/);
+  assert.match(html, /edition\.value === 'bedrock' \? 19132/);
+  assert.match(html, /GAME_SERVER_PROTOCOL=minecraft-java \(TCP\)/);
+  assert.match(html, /GAME_SERVER_PROTOCOL=minecraft-bedrock \(UDP\)/);
+  assert.match(html, /No se volverá a mostrar/);
+});
