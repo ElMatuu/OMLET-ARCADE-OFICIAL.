@@ -172,3 +172,18 @@ test('ordinary accounts cannot read the moderator report queue', async () => {
     assert.equal(body.success, false);
   });
 });
+
+test('CORS preflight allows authenticated moderator PATCH actions', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/admin/reports/507f1f77bcf86cd799439011', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'https://playverse-test.example',
+        'Access-Control-Request-Method': 'PATCH',
+        'Access-Control-Request-Headers': 'authorization,content-type'
+      }
+    });
+    assert.equal(response.status, 204);
+    assert.match(response.headers.get('access-control-allow-methods') || '', /PATCH/);
+  });
+});
