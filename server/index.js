@@ -3102,14 +3102,18 @@ app.post('/api/game-servers/:serverId/heartbeat', async (req, res, next) => {
     const playerCount = Number(req.body.playerCount);
     const maxPlayers = Number(req.body.maxPlayers);
     const isOnline = req.body.isOnline !== false;
+    const version = typeof req.body.version === 'string' ? req.body.version.trim().slice(0, 40) : '';
     if (!Number.isInteger(playerCount) || playerCount < 0 || playerCount > 1000000 ||
-        !Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 1000000 || playerCount > maxPlayers) {
-      return res.status(400).json({ success: false, message: 'Cantidad de jugadores o capacidad inválida.' });
+        !Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 1000000 || playerCount > maxPlayers ||
+        (typeof req.body.version === 'string' && req.body.version.trim().length > 40)) {
+      return res.status(400).json({ success: false, message: 'Cantidad de jugadores, capacidad o versión inválida.' });
     }
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const heartbeatUpdate = { playerCount, maxPlayers, isOnline, lastHeartbeatAt: new Date(), updatedAt: new Date() };
+    if (version) heartbeatUpdate.version = version;
     const server = await GameServerListing.findOneAndUpdate(
       { _id: req.params.serverId, heartbeatTokenHash: tokenHash },
-      { $set: { playerCount, maxPlayers, isOnline, lastHeartbeatAt: new Date(), updatedAt: new Date() } },
+      { $set: heartbeatUpdate },
       { new: true }
     ).select('-heartbeatTokenHash').lean();
     if (!server) return res.status(404).json({ success: false, message: 'Servidor no encontrado o token revocado.' });
