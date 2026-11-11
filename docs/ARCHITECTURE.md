@@ -36,7 +36,10 @@ A real streaming feature needs a separate media plane; ordinary REST or room-cha
 ## Creator and social feature boundaries
 
 - Profiles, posts, comments, friend requests, public multiplayer rooms and persistent room chat have backend foundations.
-- Private one-to-one chat, online presence, push notifications, invitations and community/server administration still require implementation.
+- Private one-to-one conversations have authenticated REST history/send endpoints plus Socket.IO delivery, typing indicators and read receipts. Access is restricted to accepted friends and rechecked against blocks. This is a backend foundation; end-to-end client UX, reconnect behavior and multi-instance delivery still need acceptance testing.
+- Online presence has authenticated Socket.IO connections, heartbeat refresh and expiring database records. It is best-effort presence, not a push-notification service; mobile background behavior and multi-instance correctness still need device testing.
+- In-app notifications are persisted for selected events. Native push delivery, invitations and full community/server administration are not complete product workflows.
+- Reports, blocks and moderator-gated report handling have backend foundations; moderation staffing, audit/appeal workflows and operational response still need completion.
 - Clips, uploads, favorites, creator pages and stream archives require media storage and processing before being presented as live product features.
 - Offline LAN game discovery, local multiplayer orchestration and cross-device game-state synchronization are not implemented; they require native network discovery and game-specific integration, not just Socket.IO rooms.
 - Store items, gifting, donations, paid subscriptions and creator payouts require a ledger, payment provider, refunds, chargeback and fraud handling, age/legal/tax review and transparent purchase UX. Do not ship a fake wallet or pretend credits have monetary value.
