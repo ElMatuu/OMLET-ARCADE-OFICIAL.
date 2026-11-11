@@ -110,14 +110,20 @@
 .pv-boot-wordmark{position:relative;z-index:1;margin:29px 0 0;font-size:clamp(27px,7vw,36px);font-weight:950;letter-spacing:.18em;background:linear-gradient(90deg,#fff,#ffcfad 52%,#c9c5ff);color:transparent;background-clip:text}
 .pv-boot-tagline{position:relative;z-index:1;margin:8px 0 0;font-size:10px;letter-spacing:.24em;color:#a9c4e8;font-weight:800}
 .pv-boot-loader{position:relative;z-index:1;width:min(58vw,220px);height:4px;margin-top:46px;background:rgba(160,190,230,.16);border-radius:99px;overflow:hidden}.pv-boot-loader span{display:block;width:0;height:100%;border-radius:99px;background:linear-gradient(90deg,#58d8e8,#ff9b55,#b78aff);box-shadow:0 0 14px #ff9b55;transition:width .35s ease}
-.pv-boot-status{position:relative;z-index:1;margin:13px 0 0;color:#a8b9d3;font-size:11px;letter-spacing:.02em}.pv-boot-version{position:absolute;bottom:max(25px,env(safe-area-inset-bottom));font-size:8px;letter-spacing:.24em;color:#526783}
-@keyframes pv-orbit{to{transform:rotate(360deg)}}@keyframes pv-emblem-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}@media(prefers-reduced-motion:reduce){.pv-boot-orbit,.pv-boot-emblem{animation:none}}
+.pv-boot-status{position:relative;z-index:1;margin:13px 0 0;color:#a8b9d3;font-size:11px;letter-spacing:.02em;min-height:16px}.pv-boot-version{position:absolute;bottom:max(25px,env(safe-area-inset-bottom));font-size:8px;letter-spacing:.24em;color:#526783}
+.pv-boot-sound{position:absolute;z-index:3;top:max(18px,env(safe-area-inset-top));right:18px;border:1px solid rgba(183,211,255,.22);border-radius:999px;background:rgba(8,17,35,.62);color:#cfe3ff;padding:8px 11px;font-size:10px;font-weight:800;letter-spacing:.04em;backdrop-filter:blur(12px)}
+.pv-boot-emblem:after{content:"";position:absolute;inset:-13px;border:1px solid rgba(255,180,130,.22);border-radius:40px;animation:pv-emblem-pulse 2.8s ease-out infinite}
+.pv-boot-spark{animation:pv-spark-drift 3.6s ease-in-out infinite}.pv-spark-two{animation-delay:-1.8s}
+.pv-boot-loader span{will-change:width}
+@keyframes pv-orbit{to{transform:rotate(360deg)}}@keyframes pv-emblem-float{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-7px) rotate(1deg)}}@keyframes pv-emblem-pulse{0%{transform:scale(.94);opacity:.7}100%{transform:scale(1.2);opacity:0}}@keyframes pv-spark-drift{0%,100%{transform:translate3d(0,0,0) rotate(0deg);opacity:.7}50%{transform:translate3d(4px,-8px,0) rotate(22deg);opacity:1}}
+@media(prefers-reduced-motion:reduce){.pv-boot-orbit,.pv-boot-emblem,.pv-boot-emblem:after,.pv-boot-spark{animation:none}}
 </style>
 </head>
 <body class="h-screen w-screen flex flex-col justify-between relative">
 
     <!-- PLAYVERSE arcade launch: original artwork, independent of Omlet Arcade assets -->
     <div id="splash-screen" class="pv-boot fixed inset-0 z-[100] flex flex-col items-center justify-center text-white">
+        <button id="splash-sound-toggle" class="pv-boot-sound" type="button" aria-pressed="false" aria-label="Activar música de inicio">♫ Activar sonido</button>
         <div class="pv-boot-stars" aria-hidden="true"></div>
         <div class="pv-boot-orbit" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
         <div class="pv-boot-emblem"><i class="fa-solid fa-gamepad" aria-hidden="true"></i><span class="pv-boot-spark pv-spark-one">✦</span><span class="pv-boot-spark pv-spark-two">✧</span></div>
@@ -1370,30 +1376,136 @@
             document.addEventListener('visibilitychange', () => { if (!document.hidden) verifyOnReturn(); });
         }
 
+        // Original PLAYVERSE startup theme, synthesized locally (no third-party track or network dependency).
+        let pvBootAudioContext = null;
+        let pvBootAudioNodes = [];
+        let pvBootAudioPlayed = false;
+        let pvBootAudioMuted = false;
+        function stopPlayverseBootMusic() {
+            const context = pvBootAudioContext;
+            if (!context) return;
+            const now = context.currentTime;
+            pvBootAudioNodes.forEach((node) => {
+                try {
+                    if (node.gain) node.gain.gain.setTargetAtTime(0, now, 0.22);
+                    if (node.stop) node.stop(now + 0.85);
+                } catch (_) {}
+            });
+            pvBootAudioNodes = [];
+            setTimeout(() => { if (pvBootAudioContext === context) context.close().catch(() => {}); }, 1000);
+            pvBootAudioContext = null;
+        }
+        async function playPlayverseBootMusic() {
+            if (pvBootAudioPlayed || pvBootAudioMuted) return false;
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) return false;
+            try {
+                const context = new AudioContextClass();
+                pvBootAudioContext = context;
+                if (context.state === 'suspended') await context.resume();
+                const master = context.createGain();
+                master.gain.setValueAtTime(0.0001, context.currentTime);
+                master.gain.exponentialRampToValueAtTime(0.105, context.currentTime + 1.1);
+                master.connect(context.destination);
+                pvBootAudioNodes.push(master);
+                const notes = [261.63, 329.63, 392.00, 493.88, 392.00, 329.63, 293.66, 349.23, 440.00, 523.25, 440.00, 392.00, 329.63, 392.00, 493.88, 587.33];
+                const start = context.currentTime + 0.12;
+                notes.forEach((frequency, index) => {
+                    const at = start + index * 0.58;
+                    const osc = context.createOscillator();
+                    const envelope = context.createGain();
+                    const tone = context.createBiquadFilter();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(frequency, at);
+                    tone.type = 'lowpass';
+                    tone.frequency.setValueAtTime(1500, at);
+                    envelope.gain.setValueAtTime(0.0001, at);
+                    envelope.gain.exponentialRampToValueAtTime(index % 4 === 0 ? 0.24 : 0.15, at + 0.09);
+                    envelope.gain.exponentialRampToValueAtTime(0.0001, at + 0.52);
+                    osc.connect(tone); tone.connect(envelope); envelope.connect(master);
+                    osc.start(at); osc.stop(at + 0.56);
+                    pvBootAudioNodes.push(osc, envelope);
+                });
+                const pad = context.createOscillator();
+                const padGain = context.createGain();
+                pad.type = 'triangle';
+                pad.frequency.setValueAtTime(130.81, start);
+                padGain.gain.setValueAtTime(0.0001, start);
+                padGain.gain.exponentialRampToValueAtTime(0.035, start + 1.4);
+                padGain.gain.setTargetAtTime(0.0001, start + 8.4, 0.8);
+                pad.connect(padGain); padGain.connect(master);
+                pad.start(start); pad.stop(start + 11.5);
+                pvBootAudioNodes.push(pad, padGain);
+                master.gain.setTargetAtTime(0.0001, start + 9.3, 0.65);
+                pvBootAudioPlayed = true;
+                setTimeout(stopPlayverseBootMusic, 11500);
+                return true;
+            } catch (_) {
+                stopPlayverseBootMusic();
+                return false;
+            }
+        }
+        function setupPlayverseBootSound() {
+            const button = document.getElementById('splash-sound-toggle');
+            if (!button) return;
+            pvBootAudioMuted = localStorage.getItem('pv-boot-sound') === 'off';
+            const paint = (playing) => {
+                button.textContent = pvBootAudioMuted ? '♪ Sonido apagado' : (playing ? '♫ Sonando' : '♫ Activar sonido');
+                button.setAttribute('aria-pressed', String(!pvBootAudioMuted && playing));
+                button.setAttribute('aria-label', pvBootAudioMuted ? 'Activar música de inicio' : 'Silenciar música de inicio');
+            };
+            paint(false);
+            button.addEventListener('click', async () => {
+                if (pvBootAudioContext || pvBootAudioPlayed) {
+                    pvBootAudioMuted = true;
+                    localStorage.setItem('pv-boot-sound', 'off');
+                    stopPlayverseBootMusic();
+                    paint(false);
+                    return;
+                }
+                pvBootAudioMuted = false;
+                localStorage.setItem('pv-boot-sound', 'on');
+                const started = await playPlayverseBootMusic();
+                paint(started);
+            });
+            if (!pvBootAudioMuted) playPlayverseBootMusic().then((started) => paint(started));
+        }
+
         window.addEventListener('DOMContentLoaded', async () => {
             const progress = document.getElementById('splash-progress');
             const status = document.getElementById('splash-status');
-            const stages = [
-                { at: 12, label: 'Iniciando motor gráfico…' },
-                { at: 38, label: 'Preparando comunidad y juegos…' },
-                { at: 66, label: 'Conectando servicios PLAYVERSE…' },
-                { at: 88, label: 'Restaurando tu sesión…' }
-            ];
-            const stageTimers = stages.map((stage) => setTimeout(() => {
-                if (progress) progress.style.width = stage.at + '%';
-                if (status) status.textContent = stage.label;
-            }, stage.at * 5));
+            const splash = document.getElementById('splash-screen');
+            const startedAt = Date.now();
+            let ready = false;
+            let currentProgress = 1;
+            setupPlayverseBootSound();
+            if (progress) progress.style.width = '1%';
+            const progressTimer = setInterval(() => {
+                if (ready) return;
+                // Honest indeterminate preparation: it never reaches 100% before session restoration finishes.
+                currentProgress = Math.min(92, currentProgress + (currentProgress < 55 ? 1.15 : 0.42));
+                if (progress) progress.style.width = currentProgress.toFixed(1) + '%';
+                if (status) status.textContent = currentProgress < 24 ? 'Despertando el universo PLAYVERSE…' :
+                    currentProgress < 48 ? 'Preparando juegos y comunidad…' :
+                    currentProgress < 72 ? 'Sincronizando servicios…' : 'Restaurando tu sesión…';
+            }, 120);
             try {
                 const restored = await restoreSession();
-                stageTimers.forEach(clearTimeout);
                 if (!restored) document.getElementById('auth-screen').classList.remove('hidden');
-                if (progress) progress.style.width = '100%';
-                if (status) status.textContent = '¡Listo! Entrando a PLAYVERSE…';
             } catch (error) {
-                if (status) status.textContent = 'PLAYVERSE está listo para iniciar.';
+                if (status) status.textContent = 'No se pudo restaurar la sesión. Podés iniciar sesión igualmente.';
                 document.getElementById('auth-screen').classList.remove('hidden');
             }
-            await new Promise((resolve) => setTimeout(resolve, 280));
+            // Keep a short cinematic beat, but never hold the user through a long artificial loading delay.
+            await new Promise((resolve) => setTimeout(resolve, Math.max(0, 2600 - (Date.now() - startedAt))));
+            ready = true;
+            clearInterval(progressTimer);
+            if (progress) progress.style.width = '100%';
+            const bar = progress && progress.parentElement;
+            if (bar) bar.setAttribute('aria-valuenow', '100');
+            if (status) status.textContent = '¡Tu universo está listo!';
+            await new Promise((resolve) => setTimeout(resolve, 420));
+            stopPlayverseBootMusic();
             const splash = document.getElementById('splash-screen');
             if (splash) {
                 splash.style.opacity = '0';
