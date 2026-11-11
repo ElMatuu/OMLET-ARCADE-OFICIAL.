@@ -20,7 +20,8 @@ function groupSoloEntries(entries, teamSize) {
       registeredAt: group[0].registeredAt
     });
   }
-  return existingTeams.concat(teams);
+  const remainder = solos.slice(Math.floor(solos.length / teamSize) * teamSize);
+  return existingTeams.concat(teams, remainder);
 }
 
 function buildSingleEliminationBracket(entries) {
@@ -32,22 +33,15 @@ function buildSingleEliminationBracket(entries) {
   while (current.length < bracketSize) current.push(null);
   let round = 1;
   while (current.length > 1) {
-    const next = [];
+    const winners = [];
     for (let index = 0; index < current.length; index += 2) {
       const entryA = current[index];
       const entryB = current[index + 1];
-      const match = {
-        round,
-        matchNumber: index / 2 + 1,
-        entryA,
-        entryB,
-        winner: entryA && !entryB ? entryA : null,
-        status: entryA && !entryB ? 'completed' : 'pending'
-      };
-      matches.push(match);
-      next.push(match.winner);
+      const winner = entryA && !entryB ? entryA : null;
+      matches.push({ round, matchNumber: index / 2 + 1, entryA, entryB, winner, status: winner ? 'completed' : 'pending' });
+      winners.push(winner);
     }
-    current = next;
+    current = winners;
     round += 1;
   }
   return matches;
