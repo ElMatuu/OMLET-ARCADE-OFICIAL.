@@ -129,6 +129,41 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     const archivedCannotBeJoined = await request(baseUrl, '/api/clubs/' + clubId + '/join', { method: 'POST' }, charlie.body.token);
     assert.equal(archivedCannotBeJoined.status, 404);
 
+    const tournamentStart = new Date(Date.now() + 1800);
+    const tournamentCreated = await request(baseUrl, '/api/tournaments', {
+      method: 'POST',
+      body: {
+        title: 'Copa de integración',
+        game: 'Minecraft',
+        format: 'single-elimination',
+        mode: 'quick',
+        teamSize: 1,
+        maxEntries: 8,
+        startsAt: tournamentStart.toISOString(),
+        registrationClosesAt: new Date(tournamentStart.getTime() - 300).toISOString(),
+        checkInMinutes: 0,
+        approvalMode: 'automatic'
+      }
+    }, alice.body.token);
+    assert.equal(tournamentCreated.status, 201);
+    const tournamentId = tournamentCreated.body.tournament.id;
+    const bobTournamentEntry = await request(baseUrl, '/api/tournaments/' + tournamentId + '/register', { method: 'POST' }, bob.body.token);
+    const charlieTournamentEntry = await request(baseUrl, '/api/tournaments/' + tournamentId + '/register', { method: 'POST' }, charlie.body.token);
+    assert.equal(bobTournamentEntry.status, 201);
+    assert.equal(charlieTournamentEntry.status, 201);
+    await new Promise((resolve) => setTimeout(resolve, 1900));
+    const startedTournament = await request(baseUrl, '/api/tournaments/' + tournamentId + '/start', { method: 'POST' }, alice.body.token);
+    assert.equal(startedTournament.status, 200);
+    assert.equal(startedTournament.body.matches, 1);
+    const tournamentDetails = await request(baseUrl, '/api/tournaments/' + tournamentId, {}, alice.body.token);
+    assert.equal(tournamentDetails.status, 200);
+    const finalMatch = tournamentDetails.body.tournament.matches[0];
+    const matchWinner = await request(baseUrl, '/api/tournaments/' + tournamentId + '/matches/1/1/result', {
+      method: 'POST', body: { winnerEntryId: finalMatch.entryA }
+    }, alice.body.token);
+    assert.equal(matchWinner.status, 200);
+    assert.equal(matchWinner.body.status, 'completed');
+
     const liveCatalog = await request(baseUrl, '/api/streams');
     assert.equal(liveCatalog.status, 200);
     assert.ok(Array.isArray(liveCatalog.body.streams));
