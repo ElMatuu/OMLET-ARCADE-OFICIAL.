@@ -1928,7 +1928,7 @@ app.get('/api/clubs', requireAuth, async (req, res, next) => {
     const query = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 60) : '';
     const filter = { visibility: 'public', status: 'active' };
     if (query) {
-      const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\app.get('/api/rooms', requireAuth, async (req, res, next) => {');
+      const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       filter.$or = [
         { name: { $regex: safeQuery, $options: 'i' } },
         { game: { $regex: safeQuery, $options: 'i' } },
