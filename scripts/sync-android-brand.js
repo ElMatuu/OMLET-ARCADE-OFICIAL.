@@ -107,7 +107,11 @@ const splashStyles = [
 ].join(String.fromCharCode(10)) + String.fromCharCode(10);
 fs.writeFileSync(path.join(v31, 'styles.xml'), splashStyles);
 
-const overlayPermission = '    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />';
+const overlayPermission = [
+  '    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />',
+  '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />',
+  '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />',\n  '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />'
+].join(String.fromCharCode(10));
 if (!manifest.includes('android.permission.SYSTEM_ALERT_WINDOW')) {
   const appAt = manifest.indexOf('<application');
   manifest = manifest.slice(0, appAt) + overlayPermission + '\n    ' + manifest.slice(appAt);
@@ -193,6 +197,16 @@ public class OverlayPermissionPlugin extends Plugin {
         getContext().stopService(new Intent(getContext(), FloatingControlsService.class));
         JSObject result = new JSObject();
         result.put("stopped", true);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void consumePendingAction(PluginCall call) {
+        android.content.SharedPreferences prefs = getContext().getSharedPreferences("playverse_floating", android.content.Context.MODE_PRIVATE);
+        String action = prefs.getString("pending_action", "");
+        prefs.edit().remove("pending_action").apply();
+        JSObject result = new JSObject();
+        result.put("action", action);
         call.resolve(result);
     }
 }
@@ -351,7 +365,7 @@ public class FloatingControlsService extends Service {
 `;
 fs.writeFileSync(path.join(path.dirname(activityPath), 'FloatingControlsService.java'), serviceSource);
 if (!manifest.includes('FloatingControlsService')) {
-  manifest = manifest.replace('</application>', '        <service android:name=".FloatingControlsService" android:exported="false" android:stopWithTask="false" />\\n    </application>');
+  manifest = manifest.replace('</application>', '        <service android:name=".FloatingControlsService" android:exported="false" android:stopWithTask="false" />\n    </application>');
   fs.writeFileSync(manifestPath, manifest);
 }
 
