@@ -1,6 +1,6 @@
 # Publicar un servidor comunitario en PLAYVERSE
 
-PLAYVERSE ofrece un directorio y una capa de descubrimiento. **No aloja ni administra los mundos anunciados** y no garantiza que un proveedor externo permanezca disponible. El indicador verde significa únicamente que el agente del propietario envió un heartbeat reciente; no es una comprobación independiente de conexión TCP/UDP ni una garantía de que cualquier jugador pueda entrar.
+PLAYVERSE ofrece un directorio y una capa de descubrimiento. **No aloja ni administra los mundos anunciados** y no garantiza que un proveedor externo permanezca disponible. El indicador verde significa que se recibió un heartbeat reciente. Si el propietario usa el agente oficial en modo `minecraft-java` o `minecraft-bedrock`, ese agente valida el protocolo de estado antes de informar disponibilidad; el backend no hace una segunda comprobación independiente y el estado no garantiza que un jugador pueda autenticarse o entrar a una partida. Un heartbeat manual sigue siendo un dato declarado por el propietario.
 
 ## Crear la publicación
 
