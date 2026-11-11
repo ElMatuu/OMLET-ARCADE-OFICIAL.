@@ -100,6 +100,8 @@
 <style id="playverse-arcade-boot">
 .pv-boot{overflow:hidden;background:radial-gradient(ellipse at 50% 43%,#172c52 0%,#0d1931 38%,#080d1b 72%,#060913 100%);isolation:isolate;transition:opacity .42s ease,visibility .42s ease}
 .pv-boot-stars{position:absolute;inset:0;opacity:.36;background-image:radial-gradient(2px 2px at 12% 22%,#fff 45%,transparent 55%),radial-gradient(1px 1px at 78% 18%,#9ddcff 45%,transparent 55%),radial-gradient(2px 2px at 84% 74%,#fff 45%,transparent 55%),radial-gradient(1px 1px at 22% 82%,#ffc16d 45%,transparent 55%),radial-gradient(1px 1px at 62% 62%,#fff 45%,transparent 55%);background-size:310px 270px}
+.pv-boot-stars:after{content:"";position:absolute;top:12%;left:-24%;width:25%;height:2px;transform:rotate(-24deg);background:linear-gradient(90deg,transparent,rgba(174,220,255,.05),rgba(255,221,170,.95),transparent);filter:blur(1px);box-shadow:0 0 14px rgba(255,190,130,.7);animation:pv-shooting-star 7.4s ease-in-out infinite}
+@keyframes pv-shooting-star{0%,62%{transform:translate3d(0,0,0) rotate(-24deg);opacity:0}68%{opacity:1}84%{transform:translate3d(520px,220px,0) rotate(-24deg);opacity:0}100%{opacity:0}}
 .pv-boot-orbit{position:absolute;width:min(76vw,330px);aspect-ratio:1;border:1px solid rgba(110,190,255,.13);border-radius:50%;animation:pv-orbit 18s linear infinite}
 .pv-boot-orbit:before,.pv-boot-orbit:after{content:"";position:absolute;inset:13%;border:1px solid rgba(255,139,75,.14);border-radius:50%;transform:rotateX(68deg) rotate(-24deg)}
 .pv-boot-orbit:after{inset:27%;border-color:rgba(153,112,255,.18);transform:rotateX(68deg) rotate(36deg)}
@@ -116,7 +118,7 @@
 .pv-boot-spark{animation:pv-spark-drift 3.6s ease-in-out infinite}.pv-spark-two{animation-delay:-1.8s}
 .pv-boot-loader span{will-change:width}
 @keyframes pv-orbit{to{transform:rotate(360deg)}}@keyframes pv-emblem-float{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-7px) rotate(1deg)}}@keyframes pv-emblem-pulse{0%{transform:scale(.94);opacity:.7}100%{transform:scale(1.2);opacity:0}}@keyframes pv-emblem-life{0%,100%{transform:translateY(0) scale(1) rotate(-1deg);filter:brightness(1)}35%{transform:translateY(-4px) scale(1.035) rotate(1deg);filter:brightness(1.12)}65%{transform:translateY(0) scale(.99) rotate(0deg);filter:brightness(1.02)}}@keyframes pv-spark-drift{0%,100%{transform:translate3d(0,0,0) rotate(0deg);opacity:.7}50%{transform:translate3d(4px,-8px,0) rotate(22deg);opacity:1}}
-@media(prefers-reduced-motion:reduce){.pv-boot-orbit,.pv-boot-emblem,.pv-boot-emblem:after,.pv-boot-spark{animation:none}}
+@media(prefers-reduced-motion:reduce){.pv-boot-orbit,.pv-boot-emblem,.pv-boot-emblem:after,.pv-boot-spark,.pv-boot-stars:after{animation:none}}
 </style>
 </head>
 <body class="h-screen w-screen flex flex-col justify-between relative">
