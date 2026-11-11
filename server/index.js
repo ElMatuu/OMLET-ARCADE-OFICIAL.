@@ -11,6 +11,7 @@ const jwt = require('jsonwebtoken');
 const { rateLimit } = require('express-rate-limit');
 const User = require('./models/User');
 const Room = require('./models/Room');
+const Club = require('./models/Club');
 const RoomMessage = require('./models/RoomMessage');
 const Post = require('./models/Post');
 const SavedPost = require('./models/SavedPost');
@@ -1920,6 +1921,91 @@ app.delete('/api/posts/:postId/comments/:commentId', requireAuth, commentLimiter
   } catch (error) {
     return next(error);
   }
+});
+
+app.get('/api/clubs', requireAuth, async (req, res, next) => {
+  try {
+    const query = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 60) : '';
+    const filter = { visibility: 'public', status: 'active' };
+    if (query) {
+      const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\app.get('/api/rooms', requireAuth, async (req, res, next) => {');
+      filter.$or = [
+        { name: { $regex: safeQuery, $options: 'i' } },
+        { game: { $regex: safeQuery, $options: 'i' } },
+        { description: { $regex: safeQuery, $options: 'i' } }
+      ];
+    }
+    const clubs = await Club.find(filter)
+      .select('name description game ownerUsername members memberCount createdAt updatedAt')
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(60)
+      .lean();
+    return res.json({ success: true, clubs: clubs.map((club) => ({
+      id: String(club._id),
+      name: club.name,
+      description: club.description,
+      game: club.game,
+      ownerUsername: club.ownerUsername,
+      memberCount: club.memberCount,
+      isMember: club.members.some((member) => String(member.user) === req.auth.sub),
+      isOwner: club.members.some((member) => String(member.user) === req.auth.sub && member.role === 'owner')
+    })) });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/clubs', requireAuth, profileLimiter, async (req, res, next) => {
+  try {
+    const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+    const game = typeof req.body.game === 'string' ? req.body.game.trim() : '';
+    const description = typeof req.body.description === 'string' ? req.body.description.trim() : '';
+    if (name.length < 3 || name.length > 40 || game.length < 2 || game.length > 40 || description.length > 240) {
+      return res.status(400).json({ success: false, message: 'Nombre (3-40), juego (2-40) o descripción (máximo 240) inválidos.' });
+    }
+    const club = await Club.create({
+      name, game, description,
+      owner: req.auth.sub,
+      ownerUsername: req.auth.username,
+      members: [{ user: req.auth.sub, username: req.auth.username, role: 'owner' }],
+      memberCount: 1
+    });
+    return res.status(201).json({ success: true, club: {
+      id: String(club._id), name: club.name, description: club.description,
+      game: club.game, ownerUsername: club.ownerUsername, memberCount: club.memberCount,
+      isMember: true, isOwner: true
+    } });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/clubs/:clubId/join', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.clubId)) return res.status(400).json({ success: false, message: 'Identificador de club inválido.' });
+    const club = await Club.findOne({ _id: req.params.clubId, visibility: 'public', status: 'active' });
+    if (!club) return res.status(404).json({ success: false, message: 'Club no encontrado.' });
+    if (club.members.some((member) => String(member.user) === req.auth.sub)) {
+      return res.status(409).json({ success: false, message: 'Ya pertenecés a este club.' });
+    }
+    club.members.push({ user: req.auth.sub, username: req.auth.username, role: 'member' });
+    club.memberCount = club.members.length;
+    club.updatedAt = new Date();
+    await club.save();
+    return res.json({ success: true, memberCount: club.memberCount, message: 'Te uniste al club.' });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/clubs/:clubId/leave', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.clubId)) return res.status(400).json({ success: false, message: 'Identificador de club inválido.' });
+    const club = await Club.findOne({ _id: req.params.clubId, status: 'active' });
+    if (!club) return res.status(404).json({ success: false, message: 'Club no encontrado.' });
+    const member = club.members.find((entry) => String(entry.user) === req.auth.sub);
+    if (!member) return res.status(409).json({ success: false, message: 'No pertenecés a este club.' });
+    if (member.role === 'owner') return res.status(400).json({ success: false, message: 'El propietario no puede abandonar su club. Transferí la propiedad o archivá el club.' });
+    club.members = club.members.filter((entry) => String(entry.user) !== req.auth.sub);
+    club.memberCount = club.members.length;
+    club.updatedAt = new Date();
+    await club.save();
+    return res.json({ success: true, memberCount: club.memberCount, message: 'Saliste del club.' });
+  } catch (error) { return next(error); }
 });
 
 app.get('/api/rooms', requireAuth, async (req, res, next) => {
