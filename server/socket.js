@@ -201,6 +201,7 @@ function attachSocketServer(httpServer, allowedOrigins) {
               readAt
             });
           }
+        }
         return acknowledge({ success: true, readCount: unreadMessages.length, readAt });
       } catch {
         return acknowledge({ success: false, message: 'No se pudieron marcar los mensajes como leídos.' });
