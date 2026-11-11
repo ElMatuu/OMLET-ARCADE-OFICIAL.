@@ -1075,8 +1075,25 @@
                 const progress = document.createElement('div'); progress.className = 'mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800';
                 const fill = document.createElement('div'); fill.className = 'h-full rounded-full bg-slate-300'; fill.style.width = Math.min(100, (achievement.progress / achievement.target) * 100) + '%'; progress.append(fill);
                 const foot = document.createElement('p'); foot.className = 'mt-1.5 text-[9px] text-slate-500';
-                foot.textContent = achievement.unlocked ? 'Desbloqueado · ' + new Date(achievement.unlockedAt).toLocaleDateString('es-AR') : Math.min(achievement.metricValue, achievement.target).toLocaleString('es-AR') + ' / ' + achievement.target.toLocaleString('es-AR') + ' · objetivo';
-                card.append(head, progress, foot); list.append(card);
+                foot.textContent = achievement.claimed
+                    ? 'Reclamado · ' + new Date(achievement.unlockedAt).toLocaleDateString('es-AR')
+                    : achievement.claimable ? 'Objetivo cumplido · recompensa lista para reclamar'
+                    : achievement.unlocked ? 'Desbloqueado' : Math.min(achievement.metricValue, achievement.target).toLocaleString('es-AR') + ' / ' + achievement.target.toLocaleString('es-AR') + ' · objetivo';
+                card.append(head, progress, foot);
+                if (achievement.claimable) {
+                    const claim = document.createElement('button');
+                    claim.type = 'button';
+                    claim.className = 'mt-2 w-full rounded-lg bg-orange-500 px-3 py-2 text-[10px] font-black text-white hover:bg-orange-400';
+                    claim.textContent = 'Reclamar · +' + Number(achievement.xp).toLocaleString('es-AR') + ' XP';
+                    claim.addEventListener('click', () => showPlayverseRewardModal({
+                        title: '¡Trofeo desbloqueado!',
+                        description: 'Completaste «' + achievement.title + '». Reclamá tu experiencia para que se sume a tu nivel de PLAYVERSE.',
+                        xp: achievement.xp,
+                        onClaim: () => apiRequest('/api/me/achievements/' + encodeURIComponent(achievement.id) + '/claim', { method: 'POST' })
+                    }));
+                    card.appendChild(claim);
+                }
+                list.append(card);
             });
             more.classList.toggle('hidden', profileAchievements.length <= 6);
             more.textContent = showAllAchievements ? 'Mostrar menos' : 'Ver todos los objetivos (' + profileAchievements.length + ')';
@@ -4206,7 +4223,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                             title.textContent = trophy.title;
                             const meta = document.createElement('p');
                             meta.className = 'text-[9px] text-slate-400';
-                            meta.textContent = trophy.tier + ' · +' + trophy.xp + ' XP';
+                            meta.textContent = trophy.tier + ' · +' + trophy.xp + ' XP · ' + (trophy.claimed ? 'reclamado' : 'pendiente de reclamar');
                             details.append(title, meta);
                             badge.append(icon, details);
                             trophyList.appendChild(badge);
