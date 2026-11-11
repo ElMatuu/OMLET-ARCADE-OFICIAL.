@@ -2011,7 +2011,7 @@
                             await loadTournaments();
                         } catch (error) { status.textContent = error.message; }
                     });
-                    card.insertBefore(teamForm, card.querySelector('#tournament-match-list').parentElement);
+                    card.appendChild(teamForm);
                 }
                 const matchList = card.querySelector('#tournament-match-list');
                 tournament.matches.forEach((match) => {
