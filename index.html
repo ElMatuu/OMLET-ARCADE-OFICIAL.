@@ -2800,7 +2800,7 @@
                     title.append(name, meta);
                     const state = document.createElement('span');
                     state.className = server.status === 'online' ? 'shrink-0 rounded-full bg-emerald-500/15 px-2 py-1 text-[10px] font-bold text-emerald-300' : 'shrink-0 rounded-full bg-slate-800 px-2 py-1 text-[10px] font-bold text-slate-400';
-                    state.textContent = server.status === 'online' ? '● EN LÍNEA' : '○ SIN HEARTBEAT';
+                    state.textContent = server.status === 'online' ? '● HEARTBEAT RECIBIDO' : '○ SIN HEARTBEAT';
                     top.append(title, state);
                     const description = document.createElement('p');
                     description.className = 'text-xs text-slate-300';
@@ -2808,7 +2808,7 @@
                     const count = document.createElement('p');
                     count.className = 'text-xs font-bold text-emerald-300';
                     count.textContent = server.status === 'online' && Number.isInteger(server.playerCount)
-                        ? server.playerCount + ' / ' + server.maxPlayers + ' jugadores conectados'
+                        ? server.playerCount + ' / ' + server.maxPlayers + ' jugadores (dato reportado por el anfitrión)'
                         : 'Jugadores: sin dato en tiempo real';
                     const address = document.createElement('code');
                     address.className = 'block break-all rounded-lg bg-slate-900 p-2 text-[11px] text-cyan-200';
