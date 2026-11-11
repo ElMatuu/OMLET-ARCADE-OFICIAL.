@@ -166,6 +166,7 @@ function attachSocketServer(httpServer, allowedOrigins) {
           readAt: null
         }).sort({ createdAt: 1, _id: 1 }).select('_id').lean();
         const readAt = new Date();
+        let markedReadCount = 0;
         if (unreadMessages.length) {
           const readResult = await DirectMessage.updateMany(
             {
@@ -176,7 +177,7 @@ function attachSocketServer(httpServer, allowedOrigins) {
             },
             { $set: { readAt } }
           );
-          const markedReadCount = readResult.modifiedCount || 0;
+          markedReadCount = readResult.modifiedCount || 0;
           if (markedReadCount > 0) {
             const unreadField = String(conversation.participantA) === socket.user.sub ? 'unreadCountA' : 'unreadCountB';
             await Conversation.updateOne(
@@ -202,7 +203,7 @@ function attachSocketServer(httpServer, allowedOrigins) {
             });
           }
         }
-        return acknowledge({ success: true, readCount: unreadMessages.length, readAt });
+        return acknowledge({ success: true, readCount: markedReadCount, readAt });
       } catch {
         return acknowledge({ success: false, message: 'No se pudieron marcar los mensajes como leídos.' });
       }
