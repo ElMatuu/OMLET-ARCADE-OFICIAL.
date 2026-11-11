@@ -4935,7 +4935,8 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 }
             }
             const preview = document.getElementById('live-local-preview');
-            if (restoreCamera && participant && state.cameraTrack.mediaStreamTrack.readyState === 'live') {
+            if (restoreCamera && participant && state.cameraTrack.mediaStreamTrack.readyState === 'live' &&
+                state.cameraTrack.mediaStreamTrack.enabled) {
                 try {
                     await participant.publishTrack(state.cameraTrack, {
                         source: LivekitClient.Track.Source.Camera,
@@ -4945,7 +4946,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                         }
                     });
                     preview.srcObject = new MediaStream([state.cameraTrack.mediaStreamTrack]);
-                    preview.classList.toggle('hidden', !state.cameraTrack.mediaStreamTrack.enabled);
+                    preview.classList.remove('hidden');
                     applyLocalCameraPresentation(preview);
                 } catch (error) {
                     preview.srcObject = null;
