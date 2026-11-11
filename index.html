@@ -3181,10 +3181,12 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             claim.type = 'button';
             claim.className = 'mt-5 w-full rounded-xl bg-orange-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-400 disabled:cursor-wait disabled:opacity-60';
             claim.textContent = 'Reclamar';
+            let rewardClaimed = false;
             const status = document.createElement('p');
             status.className = 'mt-3 min-h-4 text-xs text-slate-400';
             status.setAttribute('role', 'status');
             claim.addEventListener('click', async () => {
+                if (rewardClaimed) { overlay.remove(); return; }
                 claim.disabled = true;
                 playPlayverseRewardChime();
                 status.textContent = 'Acreditando tu experiencia…';
@@ -3194,8 +3196,8 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                     body.textContent = result.message || 'La experiencia se acreditó correctamente en tu perfil.';
                     amount.textContent = '+' + Number(result.xp || xp || 0).toLocaleString('es-AR') + ' XP';
                     claim.textContent = '¡Listo!';
+                    rewardClaimed = true;
                     claim.disabled = false;
-                    claim.onclick = () => overlay.remove();
                     status.textContent = 'Tu progreso ya quedó guardado.';
                     if (typeof loadProfileAchievements === 'function') loadProfileAchievements();
                 } catch (error) {
