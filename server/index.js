@@ -2225,14 +2225,18 @@ const GAME_SERVER_TOKEN_PATTERN = /^[A-Za-z0-9_-]{40,60}$/;
 
 function normalizePublicServerAddress(value) {
   const address = typeof value === 'string' ? value.trim().toLowerCase() : '';
-  if (!address || address.length > 253 || /[\\s/@?#]/.test(address)) return null;
+  if (!address || address.length > 253 || address.includes(' ') ||
+      address.includes('/') || address.includes('@') || address.includes('?') ||
+      address.includes('#') || address.includes('\\\\')) return null;
   if (address === 'localhost' || address.endsWith('.localhost') || address.endsWith('.local')) return null;
   const labels = address.split('.');
   if (labels.length < 2 || labels.some((label) =>
     !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)
   )) return null;
-  if (/^(10|127|0)\\./.test(address) || /^192\\.168\\./.test(address) ||
-      /^172\\.(1[6-9]|2\\d|3[01])\\./.test(address)) return null;
+  const octets = address.split('.');
+  if (['10', '127', '0', '192'].includes(octets[0]) &&
+      (octets[0] !== '192' || octets[1] === '168')) return null;
+  if (octets[0] === '172' && Number(octets[1]) >= 16 && Number(octets[1]) <= 31) return null;
   return address;
 }
 
