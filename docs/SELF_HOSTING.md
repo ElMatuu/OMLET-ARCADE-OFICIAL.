@@ -23,7 +23,7 @@ Todo el software de esta composición puede ejecutarse sin licencias de servicio
 
 1. Configurá registros DNS A/AAAA de API_DOMAIN y LIVE_DOMAIN hacia la IP pública de tu servidor.
 2. Copiá .env.selfhost.example a .env.selfhost.
-3. Reemplazá todos los valores de ejemplo por secretos aleatorios únicos. La contraseña MongoDB debe ser alfanumérica para evitar problemas de codificación en la URI.
+3. Reemplazá todos los valores de ejemplo por secretos aleatorios únicos. La contraseña del administrador MongoDB debe ser alfanumérica. La cuenta de aplicación debe usar entre 24 y 128 caracteres alfanuméricos, guiones o guiones bajos; la API recibe únicamente permisos readWrite sobre la base playverse, no credenciales de administrador.
 4. Configurá CORS_ORIGIN con el origen HTTPS exacto de la API y LIVEKIT_URL con wss:// más el dominio LiveKit.
 5. Abrí y redirigí TCP 80/443, TCP 7881 y UDP 3478, 50000-50100 y 50101-50200 hacia el host. El rango UDP se usa para el transporte de medios WebRTC.
 6. Ejecutá:
@@ -45,7 +45,7 @@ docker compose --env-file .env.selfhost logs --tail=200 api livekit
 docker compose --env-file .env.selfhost exec mongo mongosh -u "$MONGO_ROOT_USERNAME" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin
 ~~~
 
-MongoDB persiste en el volumen playverse_mongo_data; Caddy guarda estado y certificados en playverse_caddy_data y playverse_caddy_config. Hacé backups externos periódicos y probá su restauración antes de almacenar datos importantes.
+MongoDB crea una cuenta de aplicación separada con permisos readWrite únicamente sobre playverse; la API no utiliza el usuario administrador. La inicialización se ejecuta solo al crear por primera vez el volumen, así que cambiar credenciales luego requiere un procedimiento de rotación manual. MongoDB persiste en el volumen playverse_mongo_data; Caddy guarda estado y certificados en playverse_caddy_data y playverse_caddy_config. Hacé backups externos periódicos y probá su restauración antes de almacenar datos importantes.
 
 ## Límites que deben resolverse antes de una apertura pública
 
