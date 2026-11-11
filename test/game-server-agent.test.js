@@ -199,6 +199,7 @@ test('Minecraft Bedrock mode reports offline if RakNet ping fails', async () => 
     sendHeartbeat: async (_config, isOnline) => { online = isOnline; }
   });
   assert.equal(result.reachable, false);
+  assert.equal(result.diagnostic, 'no RakNet pong');
   assert.equal(online, false);
 });
 
@@ -222,6 +223,7 @@ test('Minecraft Java mode reports offline if protocol status fails', async () =>
     sendHeartbeat: async (_config, isOnline) => { online = isOnline; }
   });
   assert.equal(result.reachable, false);
+  assert.equal(result.diagnostic, 'not a Minecraft server');
   assert.equal(online, false);
 });
 
