@@ -1274,6 +1274,45 @@ app.post('/api/wallet/transfers', requireAuth, storeLimiter, async (req, res, ne
   }
 });
 
+app.get('/api/me/experience-rewards', requireAuth, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.auth.sub)
+      .select('firstStorePurchaseBonusAvailableAt firstStorePurchaseBonusClaimedAt').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    const available = Boolean(user.firstStorePurchaseBonusAvailableAt && !user.firstStorePurchaseBonusClaimedAt);
+    return res.json({
+      success: true,
+      rewards: available ? [{ id: 'first-purchase-bonus', title: '¡Tu primera compra!', description: 'Reclamá un bonus de experiencia equivalente al 50% de un nivel.', xp: 250, available: true }] : [],
+      claimed: Boolean(user.firstStorePurchaseBonusClaimedAt)
+    });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/me/experience-rewards/first-purchase/claim', requireAuth, storeLimiter, async (req, res, next) => {
+  const session = await mongoose.startSession();
+  let claimed = false;
+  try {
+    await session.withTransaction(async () => {
+      const user = await User.findOneAndUpdate(
+        { _id: req.auth.sub, firstStorePurchaseBonusAvailableAt: { $ne: null }, firstStorePurchaseBonusClaimedAt: null },
+        { $set: { firstStorePurchaseBonusClaimedAt: new Date() } },
+        { new: true, session }
+      ).select('_id');
+      if (!user) return;
+      await UserAchievement.updateOne(
+        { user: req.auth.sub, achievementId: 'first-purchase-bonus' },
+        { $setOnInsert: { user: req.auth.sub, achievementId: 'first-purchase-bonus', earnedXP: 250, unlockedAt: new Date() } },
+        { upsert: true, session }
+      );
+      claimed = true;
+    });
+    if (!claimed) return res.status(409).json({ success: false, message: 'La recompensa no está disponible o ya fue reclamada.' });
+    const snapshot = await buildAchievementSnapshot(req.auth.sub);
+    return res.json({ success: true, message: '¡Bonus reclamado! Sumaste 250 XP.', xp: 250, summary: snapshot ? snapshot.summary : null });
+  } catch (error) { return next(error); }
+  finally { await session.endSession(); }
+});
+
 app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next) => {
   const itemId = typeof req.body.itemId === 'string' ? req.body.itemId : '';
   const product = STORE_CATALOG.find((entry) => entry.id === itemId);
@@ -1285,6 +1324,9 @@ app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next
   let result;
   try {
     await session.withTransaction(async () => {
+      const nonGiftItemIds = STORE_CATALOG.filter((entry) => entry.category !== 'stream-gift').map((entry) => entry.id);
+      const previousPurchases = product.category === 'stream-gift' ? 1
+        : await Inventory.countDocuments({ user: req.auth.sub, itemId: { $in: nonGiftItemIds } }).session(session);
       const existing = await Inventory.findOne({ user: req.auth.sub, itemId }).session(session);
       if (existing && product.category !== 'stream-gift') { result = { error: 'ALREADY_OWNED' }; return; }
       const user = await User.findOneAndUpdate(
@@ -1306,11 +1348,26 @@ app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next
         user: req.auth.sub, type: 'purchase', currency, amount: -product.priceTokens, itemId,
         balanceAfter: getWalletBalances(user)[currency]
       }], { session });
-      result = { balances: getWalletBalances(user) };
+      let firstPurchaseBonusAvailable = false;
+      if (product.category !== 'stream-gift' && previousPurchases === 0) {
+        const bonus = await User.updateOne(
+          { _id: req.auth.sub, firstStorePurchaseBonusAvailableAt: null, firstStorePurchaseBonusClaimedAt: null },
+          { $set: { firstStorePurchaseBonusAvailableAt: new Date() } },
+          { session }
+        );
+        firstPurchaseBonusAvailable = bonus.modifiedCount === 1;
+      }
+      result = { balances: getWalletBalances(user), firstPurchaseBonusAvailable };
     });
     if (result?.error === 'ALREADY_OWNED') return res.status(409).json({ success: false, message: 'Ya tenés este artículo en tu inventario.' });
     if (result?.error === 'INSUFFICIENT_TOKENS') return res.status(409).json({ success: false, code: result.error, message: 'No tenés saldo suficiente de ' + getCurrencyLabel(currency) + '.' });
-    return res.status(201).json({ success: true, message: 'Compra registrada.', wallet: { tokens: result.balances.gold, balances: result.balances } });
+    return res.status(201).json({
+      success: true,
+      message: 'Compra registrada.',
+      wallet: { tokens: result.balances.gold, balances: result.balances },
+      firstPurchaseBonusAvailable: result.firstPurchaseBonusAvailable === true,
+      firstPurchaseBonus: result.firstPurchaseBonusAvailable ? { xp: 250, label: 'Bonus de primera compra: +250 XP (50% de un nivel)' } : null
+    });
   } catch (error) {
     return next(error);
   } finally {
