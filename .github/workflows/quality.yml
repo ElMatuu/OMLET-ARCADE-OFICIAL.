@@ -56,7 +56,9 @@ jobs:
             'LIVEKIT_API_KEY=ci-playverse-key' \
             'LIVEKIT_API_SECRET=ci-only-livekit-secret-00000000000000000000000000000000' \
             'MONGO_ROOT_USERNAME=playverse_ci' \
-            'MONGO_ROOT_PASSWORD=ci-only-password-1234567890' \
+            'MONGO_ROOT_PASSWORD=ci-only-password-1234567890' \\
+            'MONGO_APP_USERNAME=playverse_ci_app' \\
+            'MONGO_APP_PASSWORD=ci-only-app-password-1234567890' \
             'API_DOMAIN=api.example.com' \
             'LIVE_DOMAIN=live.example.com' \
             'LIVEKIT_URL=wss://live.example.com' \
