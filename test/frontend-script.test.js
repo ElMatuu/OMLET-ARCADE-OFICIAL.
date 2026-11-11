@@ -38,7 +38,8 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /id="stream-overlay-layout"/, 'Creators must be able to choose an overlay layout');
   assert.match(html, /id="stream-welcome-message"/, 'Creators must be able to configure stream welcome messages');
   assert.match(html, /id="stream-farewell-message"/, 'Creators must be able to configure stream farewell messages');
-  assert.match(html, /overlayShowDonations: document\.getElementById\('stream-overlay-show-donations'\)\.checked/, 'Overlay donation panel preference must be persisted');
+  assert.match(html, /id="stream-overlay-show-donations"[^>]*disabled/, 'Donation controls must stay disabled until a real payments and gifts system exists');
+  assert.match(html, /overlayShowDonations: false/, 'Unavailable donation functionality must never be saved as enabled');
 
   assert.match(html, /function joinLiveStream\(/, 'Viewers must be able to join live streams from the UI');
   assert.match(html, /function toggleLiveScreenShare\(/, 'Creators must have a screen-sharing control');
