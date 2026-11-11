@@ -39,6 +39,7 @@ fs.writeFileSync(path.join(resources, 'values', 'playverse_brand.xml'), `<?xml v
 const drawable = path.join(resources, 'drawable-nodpi');
 fs.mkdirSync(drawable, { recursive: true });
 fs.copyFileSync(path.join(generated, 'playverse_splash.png'), path.join(drawable, 'playverse_splash.png'));
+fs.mkdirSync(path.join(resources, 'drawable'), { recursive: true });
 fs.writeFileSync(path.join(resources, 'drawable', 'playverse_splash_background.xml'), `<?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/playverse_icon_background" />
@@ -81,11 +82,11 @@ fs.writeFileSync(manifestPath, manifest);
 const baseStyles = path.join(resources, 'values', 'styles.xml');
 if (!fs.existsSync(baseStyles)) throw new Error('Capacitor styles.xml not found; cannot safely configure legacy splash.');
 let styles = fs.readFileSync(baseStyles, 'utf8');
-const stylePattern = /(<style\s+name="AppTheme\.NoActionBar"[^>]*>)([\s\S]*?)(<\/style>)/;
-if (!stylePattern.test(styles)) throw new Error('AppTheme.NoActionBar style not found in Capacitor resources.');
+const stylePattern = /(<style\s+name="AppTheme\.NoActionBarLaunch"[^>]*>)([\s\S]*?)(<\/style>)/;
+if (!stylePattern.test(styles)) throw new Error('AppTheme.NoActionBarLaunch style not found in Capacitor resources.');
 styles = styles.replace(stylePattern, (match, open, body, close) => {
-  if (body.includes('android:windowBackground')) return match;
-  return open + body + '\n        <item name="android:windowBackground">@drawable/playverse_splash_background</item>\n    ' + close;
+  if (body.includes('android:background')) return match;
+  return open + body + '\n        <item name="android:background">@drawable/playverse_splash_background</item>\n    ' + close;
 });
 fs.writeFileSync(baseStyles, styles);
 
@@ -93,12 +94,12 @@ const v31 = path.join(resources, 'values-v31');
 fs.mkdirSync(v31, { recursive: true });
 fs.writeFileSync(path.join(v31, 'styles.xml'), `<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="AppTheme.NoActionBar">
+    <style name="AppTheme.NoActionBarLaunch">
         <item name="android:windowSplashScreenBackground">#08090D</item>
         <item name="android:windowSplashScreenAnimatedIcon">@mipmap/playverse_foreground</item>
         <item name="android:windowSplashScreenIconBackgroundColor">#08090D</item>
         <item name="android:postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
-        <item name="android:windowBackground">@drawable/playverse_splash_background</item>
+  return open + body + '\n        <item name="android:background">@drawable/playverse_splash_background</item>\n    ' + close;
     </style>
 </resources>
 `);
