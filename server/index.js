@@ -1032,7 +1032,17 @@ const DEFAULT_STREAMING_PREFERENCES = {
   socialTwitch: '',
   socialTikTok: '',
   welcomeMessage: '',
-  farewellMessage: ''
+  farewellMessage: '',
+  streamDelay: 'none',
+  streamNotificationsEnabled: true,
+  chatRules: '',
+  whoCanChat: 'everyone',
+  textToSpeechEnabled: false,
+  welcomeMessageEnabled: true,
+  farewellMessageEnabled: true,
+  customThumbnailUrl: '',
+  shieldModeEnabled: false,
+  shieldModeImageUrl: ''
 };
 
 const STREAMING_PREFERENCE_RULES = {
@@ -1055,7 +1065,17 @@ const STREAMING_PREFERENCE_RULES = {
   socialTwitch: (value) => typeof value === 'string' && value.trim().length <= 60,
   socialTikTok: (value) => typeof value === 'string' && value.trim().length <= 60,
   welcomeMessage: (value) => typeof value === 'string' && value.trim().length <= 200,
-  farewellMessage: (value) => typeof value === 'string' && value.trim().length <= 200
+  farewellMessage: (value) => typeof value === 'string' && value.trim().length <= 200,
+  streamDelay: (value) => ['none', '5', '10', '15', '30', '60'].includes(value),
+  streamNotificationsEnabled: (value) => typeof value === 'boolean',
+  chatRules: (value) => typeof value === 'string' && value.trim().length <= 1000,
+  whoCanChat: (value) => ['everyone', 'followers', 'friends', 'nobody'].includes(value),
+  textToSpeechEnabled: (value) => typeof value === 'boolean',
+  welcomeMessageEnabled: (value) => typeof value === 'boolean',
+  farewellMessageEnabled: (value) => typeof value === 'boolean',
+  customThumbnailUrl: (value) => typeof value === 'string' && value.length <= 500 && (!value.trim() || /^https:\/\//i.test(value.trim())),
+  shieldModeEnabled: (value) => typeof value === 'boolean',
+  shieldModeImageUrl: (value) => typeof value === 'string' && value.length <= 500 && (!value.trim() || /^https:\/\//i.test(value.trim()))
 };
 
 app.get('/api/me/streaming-preferences', requireAuth, async (req, res, next) => {
