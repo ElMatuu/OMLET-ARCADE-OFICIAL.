@@ -2,6 +2,7 @@ const { app, BrowserWindow, shell, dialog, session, desktopCapturer } = require(
 const path = require('node:path');
 
 let mainWindow = null;
+let splashWindow = null;
 
 function isTrustedAppContent(webContents) {
   const url = webContents && webContents.getURL();
@@ -75,7 +76,8 @@ function createWindow() {
     minWidth: 640,
     minHeight: 480,
     show: false,
-    backgroundColor: '#050509',
+    backgroundColor: '#08090D',
+    icon: path.join(__dirname, '..', 'assets', 'playverse-icon.png'),
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
@@ -86,7 +88,11 @@ function createWindow() {
   });
 
   mainWindow = window;
-  window.once('ready-to-show', () => window.show());
+  window.once('ready-to-show', () => {
+    if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
+    splashWindow = null;
+    window.show();
+  });
 
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://')) shell.openExternal(url);
@@ -111,6 +117,13 @@ function createWindow() {
 
 app.whenReady().then(() => {
   configureMediaPermissions();
+  splashWindow = new BrowserWindow({
+    width: 440, height: 320, resizable: false, movable: true, frame: false,
+    center: true, show: true, backgroundColor: '#08090D',
+    icon: path.join(__dirname, '..', 'assets', 'playverse-icon.png'),
+    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true }
+  });
+  splashWindow.loadFile(path.join(__dirname, 'splash.html'));
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
