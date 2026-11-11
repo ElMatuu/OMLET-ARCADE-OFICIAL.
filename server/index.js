@@ -508,7 +508,7 @@ app.get('/api/avatar-catalog', requireAuth, (req, res) => {
 app.get('/api/me', requireAuth, async (req, res, next) => {
   try {
     const user = await User.findById(req.auth.sub)
-      .select('username role displayName bio avatarUrl avatarPreset createdAt')
+      .select('username role displayName bio profileBannerUrl profileTheme favoriteGames socialYouTubeUrl socialTwitchUrl socialTikTokUrl avatarUrl avatarPreset createdAt')
       .lean();
     if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
     return res.json({ success: true, user: {
@@ -517,6 +517,12 @@ app.get('/api/me', requireAuth, async (req, res, next) => {
       role: user.role,
       displayName: user.displayName || '',
       bio: user.bio || '',
+      profileBannerUrl: user.profileBannerUrl || '',
+      profileTheme: user.profileTheme || 'arcade',
+      favoriteGames: user.favoriteGames || [],
+      socialYouTubeUrl: user.socialYouTubeUrl || '',
+      socialTwitchUrl: user.socialTwitchUrl || '',
+      socialTikTokUrl: user.socialTikTokUrl || '',
       avatarUrl: user.avatarUrl || '',
       avatarPreset: user.avatarPreset || 'arcade-hero',
       createdAt: user.createdAt
@@ -768,6 +774,28 @@ app.put('/api/me/profile', requireAuth, profileLimiter, async (req, res, next) =
       }
       updates.bio = req.body.bio.trim();
     }
+    if (Object.prototype.hasOwnProperty.call(req.body, 'profileBannerUrl')) {
+      if (typeof req.body.profileBannerUrl !== 'string' || req.body.profileBannerUrl.trim().length > 500) return res.status(400).json({ success: false, message: 'La portada admite una dirección de hasta 500 caracteres.' });
+      const bannerUrl = req.body.profileBannerUrl.trim();
+      if (bannerUrl) { let parsed; try { parsed = new URL(bannerUrl); } catch { return res.status(400).json({ success: false, message: 'La portada debe usar HTTPS.' }); } if (parsed.protocol !== 'https:') return res.status(400).json({ success: false, message: 'La portada debe usar HTTPS.' }); }
+      updates.profileBannerUrl = bannerUrl;
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body, 'profileTheme')) {
+      if (!['arcade', 'neon', 'minimal', 'esports'].includes(req.body.profileTheme)) return res.status(400).json({ success: false, message: 'Elegí un tema de perfil disponible.' });
+      updates.profileTheme = req.body.profileTheme;
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body, 'favoriteGames')) {
+      if (!Array.isArray(req.body.favoriteGames) || req.body.favoriteGames.length > 8 || req.body.favoriteGames.some((game) => typeof game !== 'string' || game.trim().length < 2 || game.trim().length > 32)) return res.status(400).json({ success: false, message: 'Elegí hasta 8 juegos favoritos de 2 a 32 caracteres.' });
+      updates.favoriteGames = [...new Set(req.body.favoriteGames.map((game) => game.trim()))];
+    }
+    for (const field of ['socialYouTubeUrl', 'socialTwitchUrl', 'socialTikTokUrl']) {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+        if (typeof req.body[field] !== 'string' || req.body[field].trim().length > 200) return res.status(400).json({ success: false, message: 'Los enlaces sociales deben ser HTTPS y tener hasta 200 caracteres.' });
+        const value = req.body[field].trim();
+        if (value) { let parsed; try { parsed = new URL(value); } catch { return res.status(400).json({ success: false, message: 'Cada enlace social debe usar HTTPS.' }); } if (parsed.protocol !== 'https:') return res.status(400).json({ success: false, message: 'Cada enlace social debe usar HTTPS.' }); }
+        updates[field] = value;
+      }
+    }
     if (Object.prototype.hasOwnProperty.call(req.body, 'avatarUrl')) {
       if (typeof req.body.avatarUrl !== 'string' || req.body.avatarUrl.trim().length > 500) {
         return res.status(400).json({ success: false, message: 'La dirección de imagen no es válida.' });
@@ -801,7 +829,7 @@ app.put('/api/me/profile', requireAuth, profileLimiter, async (req, res, next) =
       req.auth.sub,
       { $set: updates },
       { new: true, runValidators: true }
-    ).select('username role displayName bio avatarUrl avatarPreset createdAt').lean();
+    ).select('username role displayName bio profileBannerUrl profileTheme favoriteGames socialYouTubeUrl socialTwitchUrl socialTikTokUrl avatarUrl avatarPreset createdAt').lean();
     if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
     return res.json({ success: true, user: {
       id: String(user._id),
@@ -809,6 +837,12 @@ app.put('/api/me/profile', requireAuth, profileLimiter, async (req, res, next) =
       role: user.role,
       displayName: user.displayName || '',
       bio: user.bio || '',
+      profileBannerUrl: user.profileBannerUrl || '',
+      profileTheme: user.profileTheme || 'arcade',
+      favoriteGames: user.favoriteGames || [],
+      socialYouTubeUrl: user.socialYouTubeUrl || '',
+      socialTwitchUrl: user.socialTwitchUrl || '',
+      socialTikTokUrl: user.socialTikTokUrl || '',
       avatarUrl: user.avatarUrl || '',
       avatarPreset: user.avatarPreset || 'arcade-hero',
       createdAt: user.createdAt
