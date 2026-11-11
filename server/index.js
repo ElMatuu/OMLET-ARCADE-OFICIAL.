@@ -1366,9 +1366,9 @@ app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next
   let result;
   try {
     await session.withTransaction(async () => {
-      const nonGiftItemIds = STORE_CATALOG.filter((entry) => entry.category !== 'stream-gift').map((entry) => entry.id);
-      const previousPurchases = product.category === 'stream-gift' ? 1
-        : await Inventory.countDocuments({ user: req.auth.sub, itemId: { $in: nonGiftItemIds } }).session(session);
+      const previousPurchases = await TokenTransaction.countDocuments({
+        user: req.auth.sub, type: 'purchase'
+      }).session(session);
       const existing = await Inventory.findOne({ user: req.auth.sub, itemId }).session(session);
       if (existing && product.category !== 'stream-gift') { result = { error: 'ALREADY_OWNED' }; return; }
       const user = await User.findOneAndUpdate(
@@ -1391,7 +1391,7 @@ app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next
         balanceAfter: getWalletBalances(user)[currency]
       }], { session });
       let firstPurchaseBonusAvailable = false;
-      if (product.category !== 'stream-gift' && previousPurchases === 0) {
+      if (previousPurchases === 0) {
         const bonus = await User.updateOne(
           { _id: req.auth.sub, firstStorePurchaseBonusAvailableAt: null, firstStorePurchaseBonusClaimedAt: null },
           { $set: { firstStorePurchaseBonusAvailableAt: new Date() } },
