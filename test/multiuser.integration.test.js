@@ -81,9 +81,13 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     const charlie = await request(baseUrl, '/api/register', {
       method: 'POST', body: { username: 'charlie_test', password }
     });
+    const dave = await request(baseUrl, '/api/register', {
+      method: 'POST', body: { username: 'dave_test', password }
+    });
     assert.equal(alice.status, 201);
     assert.equal(bob.status, 201);
     assert.equal(charlie.status, 201);
+    assert.equal(dave.status, 201);
     assert.ok(alice.body.token);
     assert.ok(bob.body.token);
     assert.notEqual(alice.body.user.id, bob.body.user.id);
@@ -348,33 +352,33 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     const unauthenticatedAppPreferences = await request(baseUrl, '/api/me/app-preferences');
     assert.equal(unauthenticatedAppPreferences.status, 401);
 
-    const sentRequest = await request(baseUrl, '/api/friends/requests/charlie_test', {
+    const sentRequest = await request(baseUrl, '/api/friends/requests/dave_test', {
       method: 'POST'
     }, alice.body.token);
     assert.equal(sentRequest.status, 201);
-    const charlieNotifications = await request(baseUrl, '/api/me/notifications', {}, charlie.body.token);
-    assert.equal(charlieNotifications.status, 200);
-    assert.equal(charlieNotifications.body.notifications.length, 1);
-    assert.equal(charlieNotifications.body.notifications[0].type, 'friend_request');
-    assert.equal(charlieNotifications.body.unreadCount, 1);
-    assert.equal(charlieNotifications.body.notifications[0].actor.username, 'alice_test');
-    const charlieNotificationRead = await request(baseUrl,
-      '/api/me/notifications/' + charlieNotifications.body.notifications[0].id + '/read',
-      { method: 'PUT' }, charlie.body.token);
-    assert.equal(charlieNotificationRead.status, 200);
-    const charlieNotificationsAfterRead = await request(baseUrl, '/api/me/notifications', {}, charlie.body.token);
-    assert.equal(charlieNotificationsAfterRead.body.unreadCount, 0);
+    const daveNotifications = await request(baseUrl, '/api/me/notifications', {}, dave.body.token);
+    assert.equal(daveNotifications.status, 200);
+    assert.equal(daveNotifications.body.notifications.length, 1);
+    assert.equal(daveNotifications.body.notifications[0].type, 'friend_request');
+    assert.equal(daveNotifications.body.unreadCount, 1);
+    assert.equal(daveNotifications.body.notifications[0].actor.username, 'alice_test');
+    const daveNotificationRead = await request(baseUrl,
+      '/api/me/notifications/' + daveNotifications.body.notifications[0].id + '/read',
+      { method: 'PUT' }, dave.body.token);
+    assert.equal(daveNotificationRead.status, 200);
+    const daveNotificationsAfterRead = await request(baseUrl, '/api/me/notifications', {}, dave.body.token);
+    assert.equal(daveNotificationsAfterRead.body.unreadCount, 0);
     const unauthenticatedNotifications = await request(baseUrl, '/api/me/notifications');
     assert.equal(unauthenticatedNotifications.status, 401);
-    const charlieFriendsBefore = await request(baseUrl, '/api/friends', {}, charlie.body.token);
-    assert.equal(charlieFriendsBefore.status, 200);
-    assert.equal(charlieFriendsBefore.body.incomingRequests.length, 1);
-    assert.equal(charlieFriendsBefore.body.incomingRequests[0].username, 'alice_test');
+    const daveFriendsBefore = await request(baseUrl, '/api/friends', {}, dave.body.token);
+    assert.equal(daveFriendsBefore.status, 200);
+    assert.equal(daveFriendsBefore.body.incomingRequests.length, 1);
+    assert.equal(daveFriendsBefore.body.incomingRequests[0].username, 'alice_test');
 
-    const friendshipId = charlieFriendsBefore.body.incomingRequests[0].friendshipId;
+    const friendshipId = daveFriendsBefore.body.incomingRequests[0].friendshipId;
     const accepted = await request(baseUrl, '/api/friends/requests/' + friendshipId + '/accept', {
       method: 'PUT'
-    }, charlie.body.token);
+    }, dave.body.token);
     assert.equal(accepted.status, 200);
     assert.equal(accepted.body.status, 'accepted');
     const aliceFriendAccepted = await request(baseUrl, '/api/me/notifications', {}, alice.body.token);
