@@ -179,6 +179,20 @@ test('Bedrock RakNet ping receives a real UDP pong from a local test server', as
   }
 });
 
+
+test('Bedrock RakNet ping times out when the UDP server does not answer', async () => {
+  const server = dgram.createSocket('udp4');
+  await new Promise((resolve) => server.bind(0, '127.0.0.1', resolve));
+  try {
+    await assert.rejects(
+      pingMinecraftBedrock('127.0.0.1', server.address().port, 40),
+      /Timeout consultando estado Minecraft Bedrock/
+    );
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('Minecraft Bedrock mode sends RakNet-derived metrics in heartbeat', async () => {
   let captured;
   const result = await runOnce(config({ protocol: 'minecraft-bedrock' }), {
@@ -239,6 +253,7 @@ test('agent reports reachable status only after a successful TCP probe', async (
   });
   assert.equal(online.reachable, true);
   assert.equal(offline.reachable, false);
+  assert.equal(offline.diagnostic, 'No se pudo establecer conexión TCP con el host y puerto configurados.');
   assert.deepEqual(sent, [true, false]);
 });
 
