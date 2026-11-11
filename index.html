@@ -1154,12 +1154,13 @@
                 { at: 66, label: 'Conectando servicios PLAYVERSE…' },
                 { at: 88, label: 'Restaurando tu sesión…' }
             ];
-            stages.forEach((stage) => setTimeout(() => {
+            const stageTimers = stages.map((stage) => setTimeout(() => {
                 if (progress) progress.style.width = stage.at + '%';
                 if (status) status.textContent = stage.label;
             }, stage.at * 5));
             try {
                 const restored = await restoreSession();
+                stageTimers.forEach(clearTimeout);
                 if (!restored) document.getElementById('auth-screen').classList.remove('hidden');
                 if (progress) progress.style.width = '100%';
                 if (status) status.textContent = '¡Listo! Entrando a PLAYVERSE…';
