@@ -165,6 +165,15 @@ test('creator streaming preferences remain protected by authentication', async (
   });
 });
 
+test('achievement progress endpoint requires an authenticated account', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/me/achievements');
+    const body = await response.json();
+    assert.equal(response.status, 401);
+    assert.equal(body.success, false);
+  });
+});
+
 test('report submission requires an authenticated account', async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(baseUrl + '/api/reports', {
