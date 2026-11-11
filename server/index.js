@@ -33,6 +33,8 @@ const DirectMessage = require('./models/DirectMessage');
 const Inventory = require('./models/Inventory');
 const TokenTransaction = require('./models/TokenTransaction');
 const MissionClaim = require('./models/MissionClaim');
+const UserAchievement = require('./models/UserAchievement');
+const { ACHIEVEMENTS } = require('./data/achievementCatalog');
 const { STORE_CATALOG } = require('./data/storeCatalog');
 const { AVATAR_CATALOG, AVATAR_BY_ID } = require('./data/avatarCatalog');
 const { requireAuth } = require('./middleware/auth');
@@ -708,6 +710,70 @@ app.get('/api/me/profile-summary', requireAuth, async (req, res, next) => {
     return next(error);
   }
 });
+
+app.get('/api/me/achievements', requireAuth, async (req, res, next) => {
+  try {
+    const userId = req.auth.sub;
+    const [posts, comments, rooms, roomMessages, friends, followers, savedPosts, tournaments, tournamentWins, streams] = await Promise.all([
+      Post.countDocuments({ author: userId }),
+      Comment.countDocuments({ author: userId }),
+      Room.countDocuments({ owner: userId }),
+      RoomMessage.countDocuments({ author: userId }),
+      Friendship.countDocuments({ status: 'accepted', $or: [{ requester: userId }, { recipient: userId }] }),
+      Follow.countDocuments({ following: userId }),
+      SavedPost.countDocuments({ user: userId }),
+      Tournament.countDocuments({ entries: { $elemMatch: { $or: [{ captain: userId }, { 'members.user': userId }], status: { $in: ['approved', 'checked-in'] } } } }),
+      Tournament.countDocuments({ entries: { $elemMatch: { captain: userId, placement: 1 } } }),
+      LiveStream.countDocuments({ owner: userId, status: 'ended' })
+    ]);
+    const metrics = { posts, comments, rooms, roomMessages, friends, followers, savedPosts, tournaments, tournamentWins, streams };
+    const unlocked = ACHIEVEMENTS.filter((item) => metrics[item.metric] >= item.target);
+    if (unlocked.length) {
+      await UserAchievement.bulkWrite(unlocked.map((item) => ({
+        updateOne: {
+          filter: { user: userId, achievementId: item.id },
+          update: { $setOnInsert: { user: userId, achievementId: item.id, earnedXP: item.xp, unlockedAt: new Date() } },
+          upsert: true
+        }
+      })), { ordered: false });
+    }
+    const earned = await UserAchievement.find({ user: userId }).select('achievementId earnedXP unlockedAt').lean();
+    const earnedById = new Map(earned.map((item) => [item.achievementId, item]));
+    const achievements = ACHIEVEMENTS.map((item) => {
+      const progress = Math.min(metrics[item.metric] || 0, item.target);
+      const record = earnedById.get(item.id);
+      return {
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        category: item.category,
+        tier: item.tier,
+        icon: item.icon,
+        target: item.target,
+        progress,
+        metricValue: metrics[item.metric] || 0,
+        xp: item.xp,
+        unlocked: Boolean(record),
+        unlockedAt: record ? record.unlockedAt : null
+      };
+    });
+    const totalXP = earned.reduce((sum, item) => sum + item.earnedXP, 0);
+    return res.json({
+      success: true,
+      summary: {
+        unlocked: earned.length,
+        total: ACHIEVEMENTS.length,
+        totalXP,
+        level: Math.floor(totalXP / 500) + 1,
+        nextLevelXP: 500 - (totalXP % 500)
+      },
+      metrics,
+      achievements,
+      source: 'persisted-platform-activity'
+    });
+  } catch (error) { return next(error); }
+});
+
 
 
 const ACTIVITY_SOURCES = [
