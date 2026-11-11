@@ -3662,7 +3662,24 @@ app.get('/api/conversations/:conversationId/messages', requireAuth, async (req, 
           [{
             $set: {
               [unreadField]: {
-                $max: [0, { $subtract: [{ $ifNull: ['
+                $max: [0, {
+                  $subtract: [
+                    { $ifNull: ['$' + unreadField, 0] },
+                    markedReadCount
+                  ]
+                }]
+              }
+            }
+          }]
+        );
+        io.to('dm:' + conversationId).emit('direct_messages_read', {
+          conversationId,
+          readerId: String(req.auth.sub),
+          throughMessageId: String(unreadMessages[unreadMessages.length - 1]._id),
+          readAt
+        });
+      }
+    }
     const messages = await DirectMessage.find({ conversation: conversationId })
       .sort({ createdAt: -1, _id: -1 }).limit(100).lean();
     return res.json({ success: true, messages: messages.reverse().map(serializeDirectMessage) });
