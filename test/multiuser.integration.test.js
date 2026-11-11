@@ -146,7 +146,7 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     const duplicateDailyReward = await request(baseUrl, '/api/me/missions/' + encodeURIComponent(dailyPostMission.id) + '/claim', { method: 'POST' }, charlie.body.token);
     assert.equal(duplicateDailyReward.status, 409);
 
-    const tournamentStart = new Date(Date.now() + 5000);
+    const tournamentStart = new Date(Date.now() + 12000);
     const tournamentCreated = await request(baseUrl, '/api/tournaments', {
       method: 'POST',
       body: {
@@ -157,7 +157,7 @@ integrationTest('multiple independent accounts can interact concurrently with ow
         teamSize: 1,
         maxEntries: 8,
         startsAt: tournamentStart.toISOString(),
-        registrationClosesAt: new Date(tournamentStart.getTime() - 4000).toISOString(),
+        registrationClosesAt: new Date(tournamentStart.getTime() - 6000).toISOString(),
         checkInMinutes: 0,
         approvalMode: 'automatic'
       }
@@ -168,7 +168,7 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     const charlieTournamentEntry = await request(baseUrl, '/api/tournaments/' + tournamentId + '/register', { method: 'POST' }, charlie.body.token);
     assert.equal(bobTournamentEntry.status, 201);
     assert.equal(charlieTournamentEntry.status, 201);
-    await new Promise((resolve) => setTimeout(resolve, 5100));
+    await new Promise((resolve) => setTimeout(resolve, 12100));
     const startedTournament = await request(baseUrl, '/api/tournaments/' + tournamentId + '/start', { method: 'POST' }, alice.body.token);
     assert.equal(startedTournament.status, 200);
     assert.equal(startedTournament.body.matches, 1);
