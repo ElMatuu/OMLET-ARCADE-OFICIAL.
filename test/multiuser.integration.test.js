@@ -6,6 +6,9 @@ const { attachSocketServer } = require('../server/socket');
 const Club = require('../server/models/Club');
 const LiveStream = require('../server/models/LiveStream');
 const LiveStreamMessage = require('../server/models/LiveStreamMessage');
+const User = require('../server/models/User');
+const Follow = require('../server/models/Follow');
+const Friendship = require('../server/models/Friendship');
 
 const mongoUri = process.env.PLAYVERSE_TEST_MONGODB_URI;
 const integrationTest = mongoUri ? test : test.skip;
@@ -234,6 +237,54 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.equal(moderatedHistory.body.messages.length, 0);
     const persistedModeration = await LiveStreamMessage.findById(sentLiveMessage.message.id).lean();
     assert.equal(persistedModeration.status, 'deleted');
+
+    await User.updateOne({ _id: alice.body.user.id }, { $set: { 'streamingPreferences.whoCanChat': 'followers' } });
+    const nonFollowerJoin = await emitSocketAck(viewerLiveSocket, 'join_stream_chat', { streamId: String(liveChatStream._id) });
+    assert.equal(nonFollowerJoin.success, true);
+    assert.equal(nonFollowerJoin.canChat, false);
+    const nonFollowerSend = await emitSocketAck(viewerLiveSocket, 'send_stream_chat_message', {
+      streamId: String(liveChatStream._id), message: 'No debería pasar como no seguidor'
+    });
+    assert.equal(nonFollowerSend.success, false);
+    await Follow.create({ follower: bob.body.user.id, following: alice.body.user.id });
+    const followerJoin = await emitSocketAck(viewerLiveSocket, 'join_stream_chat', { streamId: String(liveChatStream._id) });
+    assert.equal(followerJoin.canChat, true);
+    const followerSend = await emitSocketAck(viewerLiveSocket, 'send_stream_chat_message', {
+      streamId: String(liveChatStream._id), message: 'Ahora sí, soy seguidor'
+    });
+    assert.equal(followerSend.success, true);
+    await User.updateOne({ _id: alice.body.user.id }, { $set: { 'streamingPreferences.whoCanChat': 'friends' } });
+    const nonFriendJoin = await emitSocketAck(viewerLiveSocket, 'join_stream_chat', { streamId: String(liveChatStream._id) });
+    assert.equal(nonFriendJoin.canChat, false);
+    const nonFriendSend = await emitSocketAck(viewerLiveSocket, 'send_stream_chat_message', {
+      streamId: String(liveChatStream._id), message: 'No debería pasar como no amigo'
+    });
+    assert.equal(nonFriendSend.success, false);
+    const pairKey = [String(alice.body.user.id), String(bob.body.user.id)].sort().join(':');
+    await Friendship.create({
+      pairKey,
+      requester: alice.body.user.id,
+      recipient: bob.body.user.id,
+      status: 'accepted'
+    });
+    const friendJoin = await emitSocketAck(viewerLiveSocket, 'join_stream_chat', { streamId: String(liveChatStream._id) });
+    assert.equal(friendJoin.canChat, true);
+    const friendSend = await emitSocketAck(viewerLiveSocket, 'send_stream_chat_message', {
+      streamId: String(liveChatStream._id), message: 'Ahora sí, somos amigos'
+    });
+    assert.equal(friendSend.success, true);
+    await User.updateOne({ _id: alice.body.user.id }, { $set: { 'streamingPreferences.whoCanChat': 'nobody' } });
+    const closedChatJoin = await emitSocketAck(viewerLiveSocket, 'join_stream_chat', { streamId: String(liveChatStream._id) });
+    assert.equal(closedChatJoin.success, true);
+    assert.equal(closedChatJoin.canChat, false);
+    const closedChatSend = await emitSocketAck(viewerLiveSocket, 'send_stream_chat_message', {
+      streamId: String(liveChatStream._id), message: 'El chat está cerrado'
+    });
+    assert.equal(closedChatSend.success, false);
+    const closedChatOwnerSend = await emitSocketAck(ownerLiveSocket, 'send_stream_chat_message', {
+      streamId: String(liveChatStream._id), message: 'El creador sí puede escribir'
+    });
+    assert.equal(closedChatOwnerSend.success, true);
 
     const aliceStreamingPreferences = await request(baseUrl, '/api/me/streaming-preferences', {
       method: 'PUT',
