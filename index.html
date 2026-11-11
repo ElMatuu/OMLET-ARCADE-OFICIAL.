@@ -4793,7 +4793,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             body.className = 'mt-1 text-xs text-slate-100 whitespace-pre-wrap break-words';
             body.textContent = String(message.message || '');
             item.append(header, body);
-            if (streamChatOwner && message.authorId !== String(appState.userId || '')) {
+            if (streamChatOwner) {
                 const moderate = document.createElement('button');
                 moderate.type = 'button';
                 moderate.className = 'mt-1 text-[9px] text-red-300';
@@ -4860,6 +4860,18 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                         return;
                     }
                     streamChatOwner = result.isOwner === true;
+                    if (streamChatOwner) {
+                        messages.querySelectorAll('[data-message-id]').forEach((item) => {
+                            if (item.querySelector('[data-stream-moderate]')) return;
+                            const moderate = document.createElement('button');
+                            moderate.type = 'button';
+                            moderate.dataset.streamModerate = 'true';
+                            moderate.className = 'mt-1 text-[9px] text-red-300';
+                            moderate.textContent = 'Eliminar mensaje';
+                            moderate.addEventListener('click', () => moderateStreamChatMessage(item.dataset.messageId));
+                            item.appendChild(moderate);
+                        });
+                    }
                     state.textContent = streamChatOwner ? 'Chat de creador' : 'Conectado';
                     const canWrite = result.canChat === true;
                     input.disabled = !canWrite;
