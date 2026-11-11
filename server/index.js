@@ -261,7 +261,7 @@ app.get('/api/streams', async (req, res, next) => {
   } catch (error) { return next(error); }
 });
 
-app.get('/api/streams/:streamId/messages', requireAuth, async (req, res, next) => {
+app.get('/api/streams/:streamId/messages', requireAuth, streamLimiter, async (req, res, next) => {
   try {
     if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
     const stream = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' })
