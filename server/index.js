@@ -1703,6 +1703,60 @@ const MISSION_CATALOG = [
   ,{ id: 'community-new-creators-3', rewardCurrency: 'purple', chapter: 'Comunidad que impulsa', title: 'Dale la bienvenida a los nuevos', description: 'Seguí a tres creadores que se hayan unido durante los últimos 30 días. El progreso se calcula con seguimientos reales y cuentas distintas.', metric: 'newCreatorFollows', target: 3, rewardTokens: 15 }
 ];
 
+const DAILY_MISSION_POOL = [
+  { key: 'post', title: 'Compartí algo hoy', description: 'Publicá una actualización para tu comunidad.', metric: 'posts', target: 1, rewardTokens: 45, rewardCurrency: 'gold' },
+  { key: 'room-chat', title: 'Activá una sala', description: 'Enviá cinco mensajes en salas de la comunidad.', metric: 'roomMessages', target: 5, rewardTokens: 18, rewardCurrency: 'purple' },
+  { key: 'private-chat', title: 'Conectá por privado', description: 'Enviá tres mensajes privados.', metric: 'directMessages', target: 3, rewardTokens: 35, rewardCurrency: 'gold' },
+  { key: 'comments', title: 'Sumá conversación', description: 'Comentá dos publicaciones.', metric: 'comments', target: 2, rewardTokens: 12, rewardCurrency: 'purple' },
+  { key: 'follow', title: 'Descubrí un creador', description: 'Seguí a una cuenta nueva.', metric: 'follows', target: 1, rewardTokens: 15, rewardCurrency: 'purple' },
+  { key: 'room', title: 'Abrí una sala', description: 'Creá una sala para jugar con la comunidad.', metric: 'rooms', target: 1, rewardTokens: 50, rewardCurrency: 'gold' },
+  { key: 'friend', title: 'Hacé una conexión', description: 'Aceptá o completá una amistad nueva.', metric: 'friends', target: 1, rewardTokens: 1, rewardCurrency: 'diamond' },
+  { key: 'posts-two', title: 'Doble publicación', description: 'Compartí dos publicaciones durante el día.', metric: 'posts', target: 2, rewardTokens: 70, rewardCurrency: 'gold' }
+];
+
+function getDailyMissionDefinitions(now = new Date()) {
+  const dateKey = now.toISOString().slice(0, 10);
+  const dayNumber = Math.floor(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) / 86400000);
+  return Array.from({ length: 4 }, (_, index) => {
+    const definition = DAILY_MISSION_POOL[(dayNumber + index) % DAILY_MISSION_POOL.length];
+    return { ...definition, id: 'daily:' + dateKey + ':' + definition.key, chapter: 'Misiones diarias', daily: true, dateKey };
+  });
+}
+
+async function buildDailyMissionProgress(userId, session = null, now = new Date()) {
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const end = new Date(start.getTime() + 86400000);
+  const count = (Model, filter) => {
+    const query = Model.countDocuments(filter);
+    return session ? query.session(session) : query;
+  };
+  const range = { $gte: start, $lt: end };
+  const [posts, roomMessages, directMessages, comments, follows, rooms, friends] = await Promise.all([
+    count(Post, { author: userId, createdAt: range }),
+    count(RoomMessage, { author: userId, sentAt: range }),
+    count(DirectMessage, { sender: userId, createdAt: range }),
+    count(Comment, { author: userId, createdAt: range }),
+    count(Follow, { follower: userId, createdAt: range }),
+    count(Room, { owner: userId, createdAt: range }),
+    count(Friendship, { status: 'accepted', createdAt: range, $or: [{ requester: userId }, { recipient: userId }] })
+  ]);
+  const definitions = getDailyMissionDefinitions(now);
+  const claimsQuery = MissionClaim.find({ user: userId, missionId: { $in: definitions.map((item) => item.id) } }).select('missionId claimedAt').lean();
+  if (session) claimsQuery.session(session);
+  const claims = await claimsQuery;
+  const claimedById = new Map(claims.map((claim) => [claim.missionId, claim]));
+  const metrics = { posts, roomMessages, directMessages, comments, follows, rooms, friends };
+  return definitions.map((definition) => {
+    const claim = claimedById.get(definition.id);
+    const current = Math.min(metrics[definition.metric] || 0, definition.target);
+    return {
+      ...definition, current, completed: current >= definition.target,
+      claimed: Boolean(claim), claimable: current >= definition.target && !claim,
+      claimedAt: claim ? claim.claimedAt : null
+    };
+  });
+}
+
 async function buildMissionProgress(userId, session = null) {
   const count = (Model, filter) => {
     const query = Model.countDocuments(filter);
