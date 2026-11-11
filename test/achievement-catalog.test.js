@@ -3,7 +3,11 @@ const assert = require('node:assert/strict');
 const { ACHIEVEMENTS } = require('../server/data/achievementCatalog');
 
 test('achievement catalog has unique IDs, meaningful progression and valid rewards', () => {
-  assert.ok(ACHIEVEMENTS.length >= 25);
+  assert.ok(ACHIEVEMENTS.length >= 30);
+  const firstPurchaseBonus = ACHIEVEMENTS.find((item) => item.id === 'first-purchase-bonus');
+  assert.ok(firstPurchaseBonus);
+  assert.equal(firstPurchaseBonus.metric, 'firstPurchaseBonusClaimed');
+  assert.equal(firstPurchaseBonus.xp, 250);
   const ids = ACHIEVEMENTS.map((item) => item.id);
   assert.equal(new Set(ids).size, ids.length);
   const tiers = new Set(['novato', 'intermedio', 'avanzado', 'profesional']);
@@ -13,7 +17,7 @@ test('achievement catalog has unique IDs, meaningful progression and valid rewar
     assert.ok(tiers.has(item.tier));
     assert.ok(Number.isInteger(item.target) && item.target > 0);
     assert.ok(Number.isInteger(item.xp) && item.xp > 0);
-    assert.ok(['posts', 'comments', 'rooms', 'roomMessages', 'friends', 'followers', 'savedPosts', 'tournaments', 'tournamentWins', 'streams'].includes(item.metric));
+    assert.ok(['posts', 'comments', 'rooms', 'roomMessages', 'friends', 'followers', 'savedPosts', 'tournaments', 'tournamentWins', 'streams', 'firstPurchaseBonusClaimed'].includes(item.metric));
   }
 });
 
