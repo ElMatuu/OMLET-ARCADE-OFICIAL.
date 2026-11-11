@@ -92,15 +92,17 @@ fs.writeFileSync(baseStyles, styles);
 
 const v31 = path.join(resources, 'values-v31');
 fs.mkdirSync(v31, { recursive: true });
-fs.writeFileSync(path.join(v31, 'styles.xml'), `<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <style name="AppTheme.NoActionBarLaunch">
-        <item name="android:windowSplashScreenBackground">#08090D</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/playverse_foreground</item>
-        <item name="android:windowSplashScreenIconBackgroundColor">#08090D</item>
-        <item name="android:postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
-  return open + body + '\n        <item name="android:background">@drawable/playverse_splash_background</item>\n    ' + close;
-    </style>
-</resources>
-`);
+const splashStyles = [
+  '<?xml version="1.0" encoding="utf-8"?>',
+  '<resources>',
+  '    <style name="AppTheme.NoActionBarLaunch">',
+  '        <item name="android:windowSplashScreenBackground">#08090D</item>',
+  '        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/playverse_foreground</item>',
+  '        <item name="android:windowSplashScreenIconBackgroundColor">#08090D</item>',
+  '        <item name="android:postSplashScreenTheme">@style/AppTheme.NoActionBar</item>',
+  '        <item name="android:background">@drawable/playverse_splash_background</item>',
+  '    </style>',
+  '</resources>'
+].join('\\n') + '\\n';
+fs.writeFileSync(path.join(v31, 'styles.xml'), splashStyles);
 console.log('PLAYVERSE: official icon installed for Android launcher; branded splash configured for legacy Android and Android 12+.');
