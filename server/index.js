@@ -3645,21 +3645,297 @@ app.get('/api/conversations/:conversationId/messages', requireAuth, async (req, 
     }).sort({ createdAt: 1, _id: 1 }).select('_id').lean();
     const readAt = new Date();
     if (unreadMessages.length) {
-      await DirectMessage.updateMany(
-        { conversation: conversationId, recipient: req.auth.sub, readAt: null },
+      const readResult = await DirectMessage.updateMany(
+        {
+          _id: { $in: unreadMessages.map((message) => message._id) },
+          conversation: conversationId,
+          recipient: req.auth.sub,
+          readAt: null
+        },
         { $set: { readAt } }
       );
-      await Conversation.updateOne(
-        { _id: conversationId },
-        { $set: { [getUnreadCountField(conversation, req.auth.sub)]: 0 } }
-      );
-      const io = req.app.get('io');
-      if (io) io.to('dm:' + String(conversationId)).emit('direct_messages_read', {
-        conversationId: String(conversationId),
-        readerId: String(req.auth.sub),
-        throughMessageId: String(unreadMessages[unreadMessages.length - 1]._id),
-        readAt
+      const markedReadCount = readResult.modifiedCount || 0;
+      if (markedReadCount > 0) {
+        const unreadField = getUnreadCountField(conversation, req.auth.sub);
+        await Conversation.updateOne(
+          { _id: conversationId },
+          [{
+            $set: {
+              [unreadField]: {
+                $max: [0, { $subtract: [{ $ifNull: ['
+    const messages = await DirectMessage.find({ conversation: conversationId })
+      .sort({ createdAt: -1, _id: -1 }).limit(100).lean();
+    return res.json({ success: true, messages: messages.reverse().map(serializeDirectMessage) });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/conversations/:conversationId/messages', requireAuth, directMessageLimiter, async (req, res, next) => {
+  try {
+    const { conversationId } = req.params;
+    const body = typeof req.body.body === 'string' ? req.body.body.trim() : '';
+    if (!isValidObjectId(conversationId)) return res.status(400).json({ success: false, message: 'Conversación inválida.' });
+    if (!body || body.length > 2000) return res.status(400).json({ success: false, message: 'El mensaje debe tener entre 1 y 2000 caracteres.' });
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      $or: [{ participantA: req.auth.sub }, { participantB: req.auth.sub }]
+    });
+    if (!conversation) return res.status(404).json({ success: false, message: 'Conversación no encontrada.' });
+    const recipientId = String(conversation.participantA) === req.auth.sub
+      ? conversation.participantB : conversation.participantA;
+    if (!(await areAcceptedFriends(req.auth.sub, recipientId))) {
+      return res.status(403).json({ success: false, message: 'Ya no tienen una amistad activa para usar este chat.' });
+    }
+    const saved = await DirectMessage.create({
+      conversation: conversation._id,
+      sender: req.auth.sub,
+      senderUsername: req.auth.username,
+      recipient: recipientId,
+      body
+    });
+    await createNotification({
+      recipient: recipientId,
+      actor: req.auth.sub,
+      type: 'direct_message',
+      title: 'Nuevo mensaje privado',
+      body: '@' + req.auth.username + ': ' + body.slice(0, 180),
+      entityId: conversation._id
+    });
+    await Conversation.updateOne(
+      { _id: conversation._id },
+      {
+        $set: { lastMessage: body, lastMessageAt: saved.createdAt, lastMessageSender: req.auth.sub },
+        $inc: { [getUnreadCountField(conversation, recipientId)]: 1 }
+      }
+    );
+    const message = serializeDirectMessage(saved);
+    const io = req.app.get('io');
+    if (io) {
+      io.to('dm:' + String(conversation._id)).emit('receive_direct_message', message);
+      io.to('user:' + String(recipientId)).emit('direct_message_notification', {
+        conversationId: String(conversation._id),
+        senderUsername: req.auth.username,
+        body,
+        createdAt: saved.createdAt
       });
+    }
+    return res.status(201).json({ success: true, message });
+  } catch (error) { return next(error); }
+});
+
+
+function requireModerator(req, res, next) {
+  if (!req.auth || !['moderator', 'admin'].includes(req.auth.role)) {
+    return res.status(403).json({ success: false, message: 'Esta función requiere permisos de moderación.' });
+  }
+  return next();
+}
+
+app.post('/api/reports', requireAuth, reportLimiter, async (req, res, next) => {
+  try {
+    const targetType = req.body && req.body.targetType;
+    const targetId = req.body && req.body.targetId;
+    const reason = req.body && req.body.reason;
+    const details = typeof (req.body && req.body.details) === 'string' ? req.body.details.trim() : '';
+    const validTypes = ['user', 'post', 'comment', 'room', 'stream'];
+    const validReasons = ['harassment', 'hate', 'spam', 'sexual_content', 'violence', 'impersonation', 'scam', 'other'];
+    if (!validTypes.includes(targetType) || typeof targetId !== 'string' ||
+        !validReasons.includes(reason) || details.length > 1000) {
+      return res.status(400).json({ success: false, message: 'Revisá el tipo, identificador, motivo y detalle del reporte.' });
+    }
+    let resolvedTargetId = targetId.trim();
+    if (targetType === 'user') {
+      const username = resolvedTargetId.replace(/^@/, '');
+      if (!/^[a-zA-Z0-9_]{3,24}$/.test(username)) {
+        return res.status(400).json({ success: false, message: 'Ingresá un nombre de usuario válido.' });
+      }
+      const targetUser = await User.findOne({ username }).select('_id').lean();
+      if (!targetUser) return res.status(404).json({ success: false, message: 'La cuenta que querés reportar no existe.' });
+      resolvedTargetId = String(targetUser._id);
+    } else if (!mongoose.isValidObjectId(resolvedTargetId)) {
+      return res.status(400).json({ success: false, message: 'El ID del contenido debe tener 24 caracteres hexadecimales.' });
+    }
+    const targetExists = targetType === 'user' ? await User.exists({ _id: resolvedTargetId })
+      : targetType === 'post' ? await Post.exists({ _id: resolvedTargetId })
+      : targetType === 'comment' ? await Comment.exists({ _id: resolvedTargetId })
+      : targetType === 'room' ? await Room.exists({ _id: resolvedTargetId })
+      : await LiveStream.exists({ _id: resolvedTargetId });
+    if (!targetExists) return res.status(404).json({ success: false, message: 'El contenido o cuenta que querés reportar no existe.' });
+    if (targetType === 'user' && String(resolvedTargetId) === String(req.auth.sub)) {
+      return res.status(400).json({ success: false, message: 'No podés reportar tu propia cuenta.' });
+    }
+    try {
+      const report = await Report.create({
+        reporter: req.auth.sub, targetType, targetId: resolvedTargetId, reason, details
+      });
+      return res.status(201).json({
+        success: true,
+        message: 'Reporte recibido. El equipo de moderación podrá revisarlo.',
+        report: { id: String(report._id), status: report.status, createdAt: report.createdAt }
+      });
+    } catch (error) {
+      if (error && error.code === 11000) {
+        return res.status(409).json({ success: false, message: 'Ya enviaste un reporte sobre este elemento.' });
+      }
+      throw error;
+    }
+  } catch (error) { return next(error); }
+});
+
+app.get('/api/admin/reports', requireAuth, requireModerator, async (req, res, next) => {
+  try {
+    const status = ['pending', 'reviewed', 'dismissed'].includes(req.query.status) ? req.query.status : 'pending';
+    const reports = await Report.find({ status })
+      .populate('reporter', 'username displayName')
+      .populate('reviewedBy', 'username')
+      .sort({ createdAt: 1, _id: 1 }).limit(100).lean();
+    return res.json({ success: true, reports: reports.map((report) => ({
+      id: String(report._id), targetType: report.targetType, targetId: String(report.targetId),
+      reason: report.reason, details: report.details, status: report.status,
+      reporter: report.reporter ? { username: report.reporter.username, displayName: report.reporter.displayName || '' } : null,
+      moderatorNotes: report.moderatorNotes || '',
+      reviewedBy: report.reviewedBy ? report.reviewedBy.username : null,
+      reviewedAt: report.reviewedAt, createdAt: report.createdAt
+    })) });
+  } catch (error) { return next(error); }
+});
+
+app.patch('/api/admin/reports/:reportId', requireAuth, requireModerator, async (req, res, next) => {
+  const action = req.body && req.body.action ? req.body.action : 'none';
+  const status = req.body && req.body.status;
+  const moderatorNotes = typeof (req.body && req.body.moderatorNotes) === 'string' ? req.body.moderatorNotes.trim() : '';
+  if (!mongoose.isValidObjectId(req.params.reportId)) {
+    return res.status(400).json({ success: false, message: 'Identificador de reporte inválido.' });
+  }
+  if (!['reviewed', 'dismissed'].includes(status) || !['none', 'remove_content'].includes(action) || moderatorNotes.length > 500 ||
+      (action === 'remove_content' && status !== 'reviewed')) {
+    return res.status(400).json({ success: false, message: 'Estado, acción o nota de moderación inválidos.' });
+  }
+  const session = await mongoose.startSession();
+  let result;
+  let liveKitRoomName = null;
+  try {
+    await session.withTransaction(async () => {
+      const report = await Report.findOne({ _id: req.params.reportId, status: 'pending' }).session(session);
+      if (!report) { result = { error: 'REPORT_NOT_FOUND' }; return; }
+      if (action === 'remove_content') {
+        if (report.targetType === 'user') { result = { error: 'USER_ACTION_UNSUPPORTED' }; return; }
+        let removed = false;
+        if (report.targetType === 'post') {
+          const post = await Post.findByIdAndDelete(report.targetId, { session });
+          removed = Boolean(post);
+          if (post) {
+            await Comment.deleteMany({ post: post._id }, { session });
+            await SavedPost.deleteMany({ post: post._id }, { session });
+          }
+        } else if (report.targetType === 'comment') {
+          const comment = await Comment.findByIdAndDelete(report.targetId, { session });
+          removed = Boolean(comment);
+          if (comment) {
+            await Post.updateOne({ _id: comment.post, commentCount: { $gt: 0 } }, { $inc: { commentCount: -1 } }, { session });
+          }
+        } else if (report.targetType === 'room') {
+          const room = await Room.findByIdAndDelete(report.targetId, { session });
+          removed = Boolean(room);
+          if (room) await RoomMessage.deleteMany({ room: room._id }, { session });
+        } else if (report.targetType === 'stream') {
+          const stream = await LiveStream.findOneAndUpdate(
+            { _id: report.targetId, status: 'live' },
+            { $set: { status: 'ended', endedAt: new Date(), overlayTokenHash: null } },
+            { new: true, session }
+          ).select('roomName').lean();
+          removed = Boolean(stream);
+          if (stream) liveKitRoomName = stream.roomName;
+        }
+        if (!removed) { result = { error: 'TARGET_NOT_FOUND' }; return; }
+        report.actionTaken = 'content_removed';
+      }
+      report.status = status;
+      report.moderatorNotes = moderatorNotes;
+      report.reviewedBy = req.auth.sub;
+      report.reviewedAt = new Date();
+      await report.save({ session });
+      result = { reportId: String(report._id), status: report.status, actionTaken: report.actionTaken, reviewedAt: report.reviewedAt };
+    });
+    if (result && result.error === 'REPORT_NOT_FOUND') return res.status(404).json({ success: false, message: 'El reporte ya fue atendido o no existe.' });
+    if (result && result.error === 'USER_ACTION_UNSUPPORTED') return res.status(400).json({ success: false, message: 'Los reportes de cuenta requieren un procedimiento de sanción específico; no se elimina una cuenta desde esta acción.' });
+    if (result && result.error === 'TARGET_NOT_FOUND') return res.status(404).json({ success: false, message: 'El contenido ya no existe o fue moderado anteriormente.' });
+    if (liveKitRoomName) {
+      const config = getLiveKitConfig();
+      if (config) {
+        try { await createLiveKitApi(config).room.deleteRoom(liveKitRoomName); }
+        catch (error) { console.error('Unable to close moderated LiveKit room:', error.message); }
+      }
+    }
+    return res.json({ success: true, report: result });
+  } catch (error) { return next(error); }
+  finally { await session.endSession(); }
+});
+
+app.use((error, req, res, next) => {
+  if (res.headersSent) return next(error);
+  if (error && error.type === 'entity.parse.failed') {
+    return res.status(400).json({ success: false, message: 'El cuerpo JSON no es válido.' });
+  }
+  console.error('API error:', error.message);
+  return res.status(500).json({ success: false, message: 'Error interno del servidor.' });
+});
+
+async function start() {
+  await mongoose.connect(process.env.MONGODB_URI);
+  httpServer.io = attachSocketServer(httpServer, allowedOrigins);
+  app.set('io', httpServer.io);
+  httpServer.listen(PORT, '0.0.0.0', () => {
+    console.log(`PLAYVERSE API listening on port ${PORT}`);
+  });
+}
+
+let shutdownPromise;
+async function shutdown(signal = 'shutdown') {
+  if (shutdownPromise) return shutdownPromise;
+  app.set('isShuttingDown', true);
+  shutdownPromise = (async () => {
+    console.log(`PLAYVERSE API shutting down (${signal}); readiness disabled`);
+    if (httpServer.io) {
+      await new Promise((resolve) => httpServer.io.close(resolve));
+    } else if (httpServer.listening) {
+      await new Promise((resolve, reject) => httpServer.close((error) => error ? reject(error) : resolve()));
+    }
+    await mongoose.disconnect();
+    console.log('PLAYVERSE API shutdown complete');
+  })();
+  return shutdownPromise;
+}
+
+if (require.main === module) {
+  start().catch((error) => {
+    console.error('Unable to start PLAYVERSE API:', error.message);
+    process.exit(1);
+  });
+
+  for (const signal of ['SIGTERM', 'SIGINT']) {
+    process.on(signal, () => {
+      shutdown(signal).then(() => process.exit(0)).catch((error) => {
+        console.error('PLAYVERSE API shutdown failed:', error.message);
+        process.exit(1);
+      });
+    });
+  }
+}
+
+module.exports = { app, httpServer, start, shutdown };
+ + unreadField, 0] }, markedReadCount] }]
+              }
+            }
+          }]
+        );
+        const io = req.app.get('io');
+        if (io) io.to('dm:' + String(conversationId)).emit('direct_messages_read', {
+          conversationId: String(conversationId),
+          readerId: String(req.auth.sub),
+          throughMessageId: String(unreadMessages[unreadMessages.length - 1]._id),
+          readAt
+        });
+      }
     }
     const messages = await DirectMessage.find({ conversation: conversationId })
       .sort({ createdAt: -1, _id: -1 }).limit(100).lean();
