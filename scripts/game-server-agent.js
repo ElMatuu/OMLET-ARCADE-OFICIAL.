@@ -18,7 +18,8 @@ function readConfig(env = process.env) {
   const maxPlayers = Number(env.GAME_SERVER_MAX_PLAYERS || 20);
   const playerCount = Number(env.GAME_SERVER_PLAYER_COUNT || 0);
   const intervalMs = Number(env.GAME_SERVER_HEARTBEAT_INTERVAL_MS || 30000);
-  if (!/^https?:\/\//i.test(apiBase)) throw new Error('PLAYVERSE_API_URL debe usar HTTP o HTTPS.');
+  if (!/^https:\/\//i.test(apiBase)) throw new Error('PLAYVERSE_API_URL debe usar HTTPS.');
+  if (!/^[a-f0-9]{24}$/i.test(serverId)) throw new Error('GAME_SERVER_ID debe ser un ObjectId de MongoDB válido.');
   if (!/^[A-Za-z0-9_-]{40,60}$/.test(token)) throw new Error('GAME_SERVER_TOKEN tiene un formato inválido.');
   if (!host || host.length > 253 || !Number.isInteger(port) || port < 1 || port > 65535) throw new Error('GAME_SERVER_HOST o GAME_SERVER_PORT inválido.');
   if (!Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 1000000 ||
