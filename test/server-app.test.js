@@ -106,6 +106,17 @@ test('CORS rejects an origin outside the explicit allowlist', async () => {
   });
 });
 
+test('public stream overlay rejects malformed tokens without querying stream data', async () => {
+  await withServer(async (baseUrl) => {
+    const page = await fetch(baseUrl + '/overlay/not-a-valid-token');
+    assert.equal(page.status, 404);
+    const api = await fetch(baseUrl + '/api/public/stream-overlay/not-a-valid-token');
+    assert.equal(api.status, 404);
+    const body = await api.json();
+    assert.equal(body.success, false);
+  });
+});
+
 test('liveness probe stays healthy independently of database state', async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(baseUrl + '/api/health/live');
