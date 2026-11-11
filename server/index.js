@@ -3059,23 +3059,75 @@ app.get('/api/admin/reports', requireAuth, requireModerator, async (req, res, ne
 });
 
 app.patch('/api/admin/reports/:reportId', requireAuth, requireModerator, async (req, res, next) => {
+  const action = req.body && req.body.action ? req.body.action : 'none';
+  const status = req.body && req.body.status;
+  const moderatorNotes = typeof (req.body && req.body.moderatorNotes) === 'string' ? req.body.moderatorNotes.trim() : '';
+  if (!mongoose.isValidObjectId(req.params.reportId)) {
+    return res.status(400).json({ success: false, message: 'Identificador de reporte inválido.' });
+  }
+  if (!['reviewed', 'dismissed'].includes(status) || !['none', 'remove_content'].includes(action) || moderatorNotes.length > 500 ||
+      (action === 'remove_content' && status !== 'reviewed')) {
+    return res.status(400).json({ success: false, message: 'Estado, acción o nota de moderación inválidos.' });
+  }
+  const session = await mongoose.startSession();
+  let result;
+  let liveKitRoomName = null;
   try {
-    if (!mongoose.isValidObjectId(req.params.reportId)) {
-      return res.status(400).json({ success: false, message: 'Identificador de reporte inválido.' });
+    await session.withTransaction(async () => {
+      const report = await Report.findOne({ _id: req.params.reportId, status: 'pending' }).session(session);
+      if (!report) { result = { error: 'REPORT_NOT_FOUND' }; return; }
+      if (action === 'remove_content') {
+        if (report.targetType === 'user') { result = { error: 'USER_ACTION_UNSUPPORTED' }; return; }
+        let removed = false;
+        if (report.targetType === 'post') {
+          const post = await Post.findByIdAndDelete(report.targetId, { session });
+          removed = Boolean(post);
+          if (post) {
+            await Comment.deleteMany({ post: post._id }, { session });
+            await SavedPost.deleteMany({ post: post._id }, { session });
+          }
+        } else if (report.targetType === 'comment') {
+          const comment = await Comment.findByIdAndDelete(report.targetId, { session });
+          removed = Boolean(comment);
+          if (comment) {
+            await Post.updateOne({ _id: comment.post, commentCount: { $gt: 0 } }, { $inc: { commentCount: -1 } }, { session });
+          }
+        } else if (report.targetType === 'room') {
+          const room = await Room.findByIdAndDelete(report.targetId, { session });
+          removed = Boolean(room);
+          if (room) await RoomMessage.deleteMany({ room: room._id }, { session });
+        } else if (report.targetType === 'stream') {
+          const stream = await LiveStream.findOneAndUpdate(
+            { _id: report.targetId, status: 'live' },
+            { $set: { status: 'ended', endedAt: new Date(), overlayTokenHash: null } },
+            { new: true, session }
+          ).select('roomName').lean();
+          removed = Boolean(stream);
+          if (stream) liveKitRoomName = stream.roomName;
+        }
+        if (!removed) { result = { error: 'TARGET_NOT_FOUND' }; return; }
+        report.actionTaken = 'content_removed';
+      }
+      report.status = status;
+      report.moderatorNotes = moderatorNotes;
+      report.reviewedBy = req.auth.sub;
+      report.reviewedAt = new Date();
+      await report.save({ session });
+      result = { reportId: String(report._id), status: report.status, actionTaken: report.actionTaken, reviewedAt: report.reviewedAt };
+    });
+    if (result && result.error === 'REPORT_NOT_FOUND') return res.status(404).json({ success: false, message: 'El reporte ya fue atendido o no existe.' });
+    if (result && result.error === 'USER_ACTION_UNSUPPORTED') return res.status(400).json({ success: false, message: 'Los reportes de cuenta requieren un procedimiento de sanción específico; no se elimina una cuenta desde esta acción.' });
+    if (result && result.error === 'TARGET_NOT_FOUND') return res.status(404).json({ success: false, message: 'El contenido ya no existe o fue moderado anteriormente.' });
+    if (liveKitRoomName) {
+      const config = getLiveKitConfig();
+      if (config) {
+        try { await createLiveKitApi(config).room.deleteRoom(liveKitRoomName); }
+        catch (error) { console.error('Unable to close moderated LiveKit room:', error.message); }
+      }
     }
-    const status = req.body && req.body.status;
-    const moderatorNotes = typeof (req.body && req.body.moderatorNotes) === 'string' ? req.body.moderatorNotes.trim() : '';
-    if (!['reviewed', 'dismissed'].includes(status) || moderatorNotes.length > 500) {
-      return res.status(400).json({ success: false, message: 'Estado o nota de moderación inválidos.' });
-    }
-    const report = await Report.findOneAndUpdate(
-      { _id: req.params.reportId, status: 'pending' },
-      { $set: { status, moderatorNotes, reviewedBy: req.auth.sub, reviewedAt: new Date() } },
-      { new: true, runValidators: true }
-    ).lean();
-    if (!report) return res.status(404).json({ success: false, message: 'El reporte ya fue atendido o no existe.' });
-    return res.json({ success: true, report: { id: String(report._id), status: report.status, reviewedAt: report.reviewedAt } });
+    return res.json({ success: true, report: result });
   } catch (error) { return next(error); }
+  finally { await session.endSession(); }
 });
 
 app.use((error, req, res, next) => {
