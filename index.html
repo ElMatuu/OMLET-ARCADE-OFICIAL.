@@ -129,7 +129,8 @@
         <div class="pv-boot-emblem"><i class="fa-solid fa-gamepad" aria-hidden="true"></i><span class="pv-boot-spark pv-spark-one">✦</span><span class="pv-boot-spark pv-spark-two">✧</span></div>
         <h1 class="pv-boot-wordmark">PLAYVERSE</h1>
         <p class="pv-boot-tagline">JUGÁ · CONECTÁ · TRANSMITÍ</p>
-        <div class="pv-boot-loader" role="progressbar" aria-label="Cargando PLAYVERSE"><span id="splash-progress"></span></div>
+        <div class="pv-boot-loader" role="progressbar" aria-label="Cargando PLAYVERSE" aria-valuemin="0" aria-valuemax="100" aria-valuenow="1"><span id="splash-progress"></span></div>
+        <p id="splash-percent" class="pv-boot-status" aria-live="off">1%</p>
         <p id="splash-status" class="pv-boot-status" aria-live="polite">Preparando tu universo gamer…</p>
         <span class="pv-boot-version">ARCADE COMMUNITY PLATFORM</span>
     </div>
@@ -1474,17 +1475,22 @@
         window.addEventListener('DOMContentLoaded', async () => {
             const progress = document.getElementById('splash-progress');
             const status = document.getElementById('splash-status');
+            const percentLabel = document.getElementById('splash-percent');
+            const progressTrack = progress && progress.parentElement;
             const splash = document.getElementById('splash-screen');
             const startedAt = Date.now();
             let ready = false;
             let currentProgress = 1;
             setupPlayverseBootSound();
             if (progress) progress.style.width = '1%';
+            if (progressTrack) progressTrack.setAttribute('aria-valuenow', '1');
             const progressTimer = setInterval(() => {
                 if (ready) return;
                 // Honest indeterminate preparation: it never reaches 100% before session restoration finishes.
                 currentProgress = Math.min(92, currentProgress + (currentProgress < 55 ? 1.15 : 0.42));
                 if (progress) progress.style.width = currentProgress.toFixed(1) + '%';
+                if (percentLabel) percentLabel.textContent = Math.floor(currentProgress) + '%';
+                if (progressTrack) progressTrack.setAttribute('aria-valuenow', String(Math.floor(currentProgress)));
                 if (status) status.textContent = currentProgress < 24 ? 'Despertando el universo PLAYVERSE…' :
                     currentProgress < 48 ? 'Preparando juegos y comunidad…' :
                     currentProgress < 72 ? 'Sincronizando servicios…' : 'Restaurando tu sesión…';
@@ -1501,8 +1507,8 @@
             ready = true;
             clearInterval(progressTimer);
             if (progress) progress.style.width = '100%';
-            const bar = progress && progress.parentElement;
-            if (bar) bar.setAttribute('aria-valuenow', '100');
+            if (percentLabel) percentLabel.textContent = '100%';
+            if (progressTrack) progressTrack.setAttribute('aria-valuenow', '100');
             if (status) status.textContent = '¡Tu universo está listo!';
             await new Promise((resolve) => setTimeout(resolve, 420));
             stopPlayverseBootMusic();
