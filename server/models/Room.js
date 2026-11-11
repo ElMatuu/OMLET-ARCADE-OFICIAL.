@@ -30,6 +30,13 @@ const roomSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  joinRequests: [{
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    username: { type: String, required: true, maxlength: 24 },
+    status: { type: String, enum: ['pending', 'accepted', 'declined'], default: 'pending' },
+    requestedAt: { type: Date, default: Date.now },
+    respondedAt: { type: Date, default: null }
+  }],
   memberCount: {
     type: Number,
     default: 1,

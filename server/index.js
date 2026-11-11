@@ -2135,6 +2135,78 @@ app.post('/api/rooms/:roomId/messages', requireAuth, commentLimiter, async (req,
   }
 });
 
+app.get('/api/rooms/:roomId/participation-requests', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.roomId)) return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
+    const room = await Room.findOne({ _id: req.params.roomId, owner: req.auth.sub, status: 'open' })
+      .select('joinRequests name').lean();
+    if (!room) return res.status(404).json({ success: false, message: 'Sala no encontrada o no sos su anfitrión.' });
+    return res.json({ success: true, requests: (room.joinRequests || [])
+      .filter((item) => item.status === 'pending')
+      .map((item) => ({ userId: String(item.user), username: item.username, requestedAt: item.requestedAt })) });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/rooms/:roomId/participation-requests', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.roomId)) return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
+    const room = await Room.findOneAndUpdate({
+      _id: req.params.roomId,
+      visibility: 'public',
+      status: 'open',
+      owner: { $ne: req.auth.sub },
+      members: { $ne: req.auth.sub },
+      'joinRequests.user': { $ne: req.auth.sub }
+    }, {
+      $push: { joinRequests: { user: req.auth.sub, username: req.auth.username, status: 'pending', requestedAt: new Date() } }
+    }, { new: true }).select('name ownerUsername').lean();
+    if (!room) {
+      const existing = await Room.findById(req.params.roomId).select('owner members joinRequests status').lean();
+      if (!existing) return res.status(404).json({ success: false, message: 'Sala no encontrada.' });
+      const request = (existing.joinRequests || []).find((item) => String(item.user) === req.auth.sub);
+      if (request && request.status === 'pending') return res.json({ success: true, alreadyRequested: true, status: 'pending' });
+      if (request && request.status === 'accepted') return res.json({ success: true, alreadyAccepted: true, status: 'accepted' });
+      return res.status(409).json({ success: false, message: 'No podés solicitar participar en esta sala.' });
+    }
+    return res.status(201).json({ success: true, status: 'pending', room: { name: room.name, ownerUsername: room.ownerUsername } });
+  } catch (error) { return next(error); }
+});
+
+app.patch('/api/rooms/:roomId/participation-requests/:userId', requireAuth, async (req, res, next) => {
+  try {
+    const { roomId, userId } = req.params;
+    const decision = req.body && req.body.decision;
+    if (!mongoose.isValidObjectId(roomId) || !mongoose.isValidObjectId(userId)) {
+      return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    }
+    if (!['accept', 'decline'].includes(decision)) {
+      return res.status(400).json({ success: false, message: 'La decisión debe ser accept o decline.' });
+    }
+    const update = decision === 'accept'
+      ? { $set: { 'joinRequests.$.status': 'accepted', 'joinRequests.$.respondedAt': new Date() }, $addToSet: { members: userId }, $inc: { memberCount: 1 } }
+      : { $set: { 'joinRequests.$.status': 'declined', 'joinRequests.$.respondedAt': new Date() } };
+    const filter = {
+      _id: roomId,
+      owner: req.auth.sub,
+      status: 'open',
+      joinRequests: { $elemMatch: { user: userId, status: 'pending' } },
+      members: { $ne: userId }
+    };
+    if (decision === 'accept') filter.$expr = { $lt: ['$memberCount', '$capacity'] };
+    const room = await Room.findOneAndUpdate(filter, update, { new: true, runValidators: true })
+      .select('name memberCount capacity').lean();
+    if (!room) return res.status(409).json({ success: false, message: decision === 'accept'
+      ? 'La solicitud ya fue respondida, la sala se cerró o está completa.'
+      : 'La solicitud ya fue respondida o la sala se cerró.' });
+    const io = httpServer.io;
+    if (io) io.to(String(roomId)).emit('room_participation_request_updated', {
+      roomId: String(roomId), userId: String(userId), status: decision === 'accept' ? 'accepted' : 'declined'
+    });
+    return res.json({ success: true, status: decision === 'accept' ? 'accepted' : 'declined',
+      room: { name: room.name, memberCount: room.memberCount, capacity: room.capacity } });
+  } catch (error) { return next(error); }
+});
+
 app.post('/api/rooms/:roomId/leave', requireAuth, async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.roomId)) {
