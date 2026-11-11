@@ -184,7 +184,23 @@ function attachSocketServer(httpServer, allowedOrigins) {
               [{
                 $set: {
                   [unreadField]: {
-                    $max: [0, { $subtract: [{ $ifNull: ['
+                    $max: [0, {
+                      $subtract: [
+                        { $ifNull: ['$' + unreadField, 0] },
+                        markedReadCount
+                      ]
+                    }]
+                  }
+                }
+              }]
+            );
+            io.to('dm:' + conversationId).emit('direct_messages_read', {
+              conversationId,
+              readerId: String(socket.user.sub),
+              throughMessageId: String(unreadMessages[unreadMessages.length - 1]._id),
+              readAt
+            });
+          }
         return acknowledge({ success: true, readCount: unreadMessages.length, readAt });
       } catch {
         return acknowledge({ success: false, message: 'No se pudieron marcar los mensajes como leídos.' });
