@@ -1939,6 +1939,22 @@
                     action.disabled = club.isOwner;
                     action.addEventListener('click', () => club.isMember ? leaveClub(club.id) : joinClub(club.id));
                     card.append(top, description, owner, action);
+                    if (club.isOwner) {
+                        const ownerActions = document.createElement('div');
+                        ownerActions.className = 'grid grid-cols-2 gap-2';
+                        const transferButton = document.createElement('button');
+                        transferButton.type = 'button';
+                        transferButton.className = 'rounded-xl border border-slate-700 px-3 py-2.5 text-[11px] font-bold text-slate-200';
+                        transferButton.textContent = 'Transferir propiedad';
+                        transferButton.addEventListener('click', () => transferClubOwnership(club.id));
+                        const archiveButton = document.createElement('button');
+                        archiveButton.type = 'button';
+                        archiveButton.className = 'rounded-xl border border-rose-500/40 px-3 py-2.5 text-[11px] font-bold text-rose-300';
+                        archiveButton.textContent = 'Archivar club';
+                        archiveButton.addEventListener('click', () => archiveClub(club.id));
+                        ownerActions.append(transferButton, archiveButton);
+                        card.appendChild(ownerActions);
+                    }
                     list.appendChild(card);
                 });
             } catch (error) {
@@ -1965,6 +1981,35 @@
                 document.getElementById('clubs-status').textContent = error.message;
             }
         }
+        async function transferClubOwnership(clubId) {
+            const username = window.prompt('Ingresá el nombre de usuario de un miembro del club para transferirle la propiedad:');
+            if (!username || !username.trim()) return;
+            if (!window.confirm('¿Confirmás transferir la propiedad del club a @' + username.trim().replace(/^@/, '') + '? Vas a quedar como moderador.')) return;
+            const status = document.getElementById('clubs-status');
+            try {
+                await apiRequest('/api/clubs/' + encodeURIComponent(clubId) + '/transfer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: username.trim() })
+                });
+                if (status) status.textContent = 'Propiedad transferida correctamente.';
+                await loadClubs(document.getElementById('club-search').value.trim());
+            } catch (error) {
+                if (status) status.textContent = 'No se pudo transferir el club: ' + error.message;
+            }
+        }
+        async function archiveClub(clubId) {
+            if (!window.confirm('¿Archivar este club? Dejará de aparecer en el directorio y sus miembros ya no podrán unirse.')) return;
+            const status = document.getElementById('clubs-status');
+            try {
+                await apiRequest('/api/clubs/' + encodeURIComponent(clubId) + '/archive', { method: 'POST' });
+                if (status) status.textContent = 'Club archivado correctamente.';
+                await loadClubs(document.getElementById('club-search').value.trim());
+            } catch (error) {
+                if (status) status.textContent = 'No se pudo archivar el club: ' + error.message;
+            }
+        }
+
         async function createClub(event) {
             event.preventDefault();
             const button = document.getElementById('club-create-submit');
