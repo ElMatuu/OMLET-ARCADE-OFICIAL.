@@ -1717,10 +1717,12 @@ const DAILY_MISSION_POOL = [
 function getDailyMissionDefinitions(now = new Date()) {
   const dateKey = now.toISOString().slice(0, 10);
   const dayNumber = Math.floor(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) / 86400000);
-  return Array.from({ length: 4 }, (_, index) => {
-    const definition = DAILY_MISSION_POOL[(dayNumber + index) % DAILY_MISSION_POOL.length];
-    return { ...definition, id: 'daily:' + dateKey + ':' + definition.key, chapter: 'Misiones diarias', daily: true, dateKey };
-  });
+  const rotatingPool = DAILY_MISSION_POOL.slice(1);
+  const selected = [DAILY_MISSION_POOL[0], ...Array.from({ length: 3 }, (_, index) => rotatingPool[(dayNumber + index) % rotatingPool.length])];
+  return selected.map((definition) => ({
+    ...definition, id: 'daily:' + dateKey + ':' + definition.key,
+    chapter: 'Misiones diarias', daily: true, dateKey
+  }));
 }
 
 async function buildDailyMissionProgress(userId, session = null, now = new Date()) {
