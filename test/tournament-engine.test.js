@@ -65,8 +65,8 @@ test('six entrants receive two first-round byes without empty first-round matche
   assert.equal(firstRound.filter((match) => match.status === 'completed').length, 2);
   assert.equal(firstRound.filter((match) => match.status === 'pending').length, 2);
   const laterRounds = matches.filter((match) => match.round > 1);
-  assert.ok(laterRounds.every((match) => match.entryA || match.entryB || match.status === 'pending'));
-  assert.ok(laterRounds.every((match) => match.status === 'pending' || match.winner));
+  assert.ok(laterRounds.every((match) => match.status === 'pending'));
+  assert.equal(laterRounds[laterRounds.length - 1].status, 'pending');
 });
 
 test('five entrants receive three byes and no empty first-round match', () => {
