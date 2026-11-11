@@ -393,6 +393,16 @@
                         <button type="button" onclick="endLiveStream()" class="rounded-xl bg-red-600/20 border border-red-500/40 text-red-200 px-3 py-2 text-xs font-bold">Finalizar transmisión</button>
                     </div>
                     <p id="live-player-status" class="text-xs text-slate-400" role="status"></p>
+                    <section class="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-2">
+                        <div class="flex items-center justify-between gap-2"><h5 class="text-xs font-black uppercase tracking-wider text-orange-300">Chat del directo</h5><span id="stream-chat-state" class="text-[10px] text-slate-500">Conectando…</span></div>
+                        <p id="stream-chat-rules" class="hidden text-[11px] text-amber-200/80 whitespace-pre-wrap"></p>
+                        <div id="stream-chat-messages" class="h-44 overflow-y-auto space-y-2 rounded-lg bg-slate-900/70 p-2" aria-live="polite"><p class="text-[11px] text-slate-500">Cargando conversación…</p></div>
+                        <form id="stream-chat-form" class="flex gap-2" onsubmit="sendStreamChatMessage(event)">
+                            <input id="stream-chat-input" maxlength="500" required autocomplete="off" class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" placeholder="Escribí en el chat…" disabled>
+                            <button id="stream-chat-send" type="submit" class="rounded-lg bg-orange-500 px-3 py-2 text-xs font-bold text-white" disabled>Enviar</button>
+                        </form>
+                        <p id="stream-chat-feedback" class="text-[10px] text-slate-500" role="status"></p>
+                    </section>
                 </section>
                 <section class="PLAYVERSE-card rounded-2xl p-4 space-y-2">
                     <h4 class="font-bold text-sm">Multi-Stream Squads</h4>
@@ -4529,7 +4539,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             try {
                 const data = await apiRequest('/api/me/streaming-preferences');
                 const preferences = data.preferences || {};
-                activeStreamingPreferences = { cameraEnabled: preferences.cameraEnabled === true, microphoneEnabled: preferences.microphoneEnabled !== false, systemAudioEnabled: preferences.systemAudioEnabled === true, orientation: preferences.orientation || 'auto', cameraPosition: preferences.cameraPosition || 'bottom-right', cameraFrame: preferences.cameraFrame || 'none' };
+                activeStreamingPreferences = { cameraEnabled: preferences.cameraEnabled === true, microphoneEnabled: preferences.microphoneEnabled !== false, systemAudioEnabled: preferences.systemAudioEnabled === true, orientation: preferences.orientation || 'auto', cameraPosition: preferences.cameraPosition || 'bottom-right', cameraFrame: preferences.cameraFrame || 'none', textToSpeechEnabled: preferences.textToSpeechEnabled === true };
                 document.getElementById('stream-resolution').value = preferences.resolution || 'auto';
                 document.getElementById('stream-fps').value = String(preferences.fps || 30);
                 document.getElementById('stream-bitrate').value = String(preferences.bitrateMbps || 6);
@@ -4684,7 +4694,10 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         let liveKitRoom = null;
         let activeLiveStream = null;
         let activeLiveStreamRole = null;
-        let activeStreamingPreferences = { cameraEnabled: false, microphoneEnabled: true };
+        let activeStreamingPreferences = { cameraEnabled: false, microphoneEnabled: true, textToSpeechEnabled: false };
+        let streamChatSocket = null;
+        let streamChatSocketScriptLoading = false;
+        let streamChatOwner = false;
 
         function setLiveStatus(message) {
             const status = document.getElementById('live-stream-status');
@@ -4738,6 +4751,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             activeLiveStream = stream;
             activeLiveStreamRole = role;
             document.getElementById('live-player-panel').classList.remove('hidden');
+            connectStreamChat(stream);
             document.getElementById('live-player-title').textContent = stream.title || 'Transmisión PLAYVERSE';
             document.getElementById('live-player-role').textContent = role === 'publisher' ? 'Estás transmitiendo' : 'Estás viendo en vivo';
             document.getElementById('live-host-controls').classList.toggle('hidden', role !== 'publisher');
@@ -4758,6 +4772,138 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 try { await room.localParticipant.setMicrophoneEnabled(activeStreamingPreferences.microphoneEnabled !== false); }
                 catch (error) { document.getElementById('live-player-status').textContent += ' Micrófono no disponible: ' + error.message; }
             }
+        }
+
+        function appendStreamChatMessage(message) {
+            const container = document.getElementById('stream-chat-messages');
+            if (!container || !message) return;
+            const item = document.createElement('article');
+            item.className = 'rounded-lg border border-slate-800 bg-slate-900/80 p-2';
+            item.dataset.messageId = String(message.id || '');
+            const header = document.createElement('div');
+            header.className = 'flex items-center justify-between gap-2';
+            const author = document.createElement('strong');
+            author.className = 'text-[10px] text-orange-300';
+            author.textContent = '@' + String(message.username || 'Jugador');
+            const time = document.createElement('time');
+            time.className = 'text-[9px] text-slate-500';
+            time.textContent = new Date(message.createdAt || Date.now()).toLocaleTimeString();
+            header.append(author, time);
+            const body = document.createElement('p');
+            body.className = 'mt-1 text-xs text-slate-100 whitespace-pre-wrap break-words';
+            body.textContent = String(message.message || '');
+            item.append(header, body);
+            if (streamChatOwner && message.authorId !== String(appState.userId || '')) {
+                const moderate = document.createElement('button');
+                moderate.type = 'button';
+                moderate.className = 'mt-1 text-[9px] text-red-300';
+                moderate.textContent = 'Eliminar mensaje';
+                moderate.addEventListener('click', () => moderateStreamChatMessage(message.id));
+                item.appendChild(moderate);
+            }
+            container.appendChild(item);
+            while (container.children.length > 100) container.firstElementChild.remove();
+            container.scrollTop = container.scrollHeight;
+            if (streamChatOwner && activeStreamingPreferences.textToSpeechEnabled &&
+                'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined') {
+                const utterance = new SpeechSynthesisUtterance(String(message.username || 'Jugador') + ' dice: ' + String(message.message || ''));
+                utterance.lang = 'es-AR';
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        async function connectStreamChat(stream) {
+            if (!stream || !stream.id || !authToken) return;
+            const state = document.getElementById('stream-chat-state');
+            const messages = document.getElementById('stream-chat-messages');
+            const input = document.getElementById('stream-chat-input');
+            const send = document.getElementById('stream-chat-send');
+            const rules = document.getElementById('stream-chat-rules');
+            state.textContent = 'Cargando…';
+            messages.replaceChildren();
+            input.disabled = true;
+            send.disabled = true;
+            try {
+                const history = await apiRequest('/api/streams/' + encodeURIComponent(stream.id) + '/messages?limit=100');
+                (history.messages || []).forEach(appendStreamChatMessage);
+                if (history.chatRules) {
+                    rules.textContent = 'Reglas: ' + history.chatRules;
+                    rules.classList.remove('hidden');
+                } else rules.classList.add('hidden');
+            } catch (error) {
+                state.textContent = 'Historial no disponible';
+                document.getElementById('stream-chat-feedback').textContent = error.message;
+            }
+            if (!window.io) {
+                if (streamChatSocketScriptLoading) return;
+                streamChatSocketScriptLoading = true;
+                const script = document.createElement('script');
+                script.src = API_URL + '/socket.io/socket.io.js';
+                script.onload = () => {
+                    streamChatSocketScriptLoading = false;
+                    if (activeLiveStream && String(activeLiveStream.id) === String(stream.id)) connectStreamChat(stream);
+                };
+                script.onerror = () => {
+                    streamChatSocketScriptLoading = false;
+                    state.textContent = 'Chat en vivo no disponible';
+                };
+                document.head.appendChild(script);
+                return;
+            }
+            if (streamChatSocket) streamChatSocket.disconnect();
+            streamChatSocket = window.io(API_URL, { auth: { token: authToken } });
+            streamChatSocket.on('connect', () => {
+                streamChatSocket.emit('join_stream_chat', { streamId: stream.id }, (result) => {
+                    if (!result || !result.success) {
+                        state.textContent = 'Acceso denegado';
+                        document.getElementById('stream-chat-feedback').textContent = result?.message || 'No se pudo entrar al chat.';
+                        return;
+                    }
+                    streamChatOwner = result.isOwner === true;
+                    state.textContent = streamChatOwner ? 'Chat de creador' : 'Conectado';
+                    const canWrite = streamChatOwner || result.whoCanChat !== 'nobody';
+                    input.disabled = !canWrite;
+                    send.disabled = !canWrite;
+                    if (!canWrite) document.getElementById('stream-chat-feedback').textContent = 'El creador cerró el chat.';
+                });
+            });
+            streamChatSocket.on('receive_stream_chat_message', appendStreamChatMessage);
+            streamChatSocket.on('stream_chat_message_moderated', (event) => {
+                if (!event || String(event.streamId) !== String(stream.id)) return;
+                const item = messages.querySelector('[data-message-id="' + CSS.escape(String(event.messageId)) + '"]');
+                if (item) item.remove();
+            });
+            streamChatSocket.on('connect_error', () => { state.textContent = 'Reconectando…'; });
+            streamChatSocket.on('disconnect', () => { state.textContent = 'Chat desconectado'; input.disabled = true; send.disabled = true; });
+        }
+
+        function sendStreamChatMessage(event) {
+            event.preventDefault();
+            if (!streamChatSocket || !streamChatSocket.connected || !activeLiveStream) return;
+            const input = document.getElementById('stream-chat-input');
+            const send = document.getElementById('stream-chat-send');
+            const message = input.value.trim();
+            if (!message) return;
+            send.disabled = true;
+            streamChatSocket.emit('send_stream_chat_message', { streamId: activeLiveStream.id, message }, (result) => {
+                if (!result || !result.success) {
+                    document.getElementById('stream-chat-feedback').textContent = result?.message || 'No se pudo enviar el mensaje.';
+                } else {
+                    input.value = '';
+                    document.getElementById('stream-chat-feedback').textContent = '';
+                }
+                send.disabled = !streamChatSocket?.connected;
+            });
+        }
+
+        function moderateStreamChatMessage(messageId) {
+            if (!streamChatSocket || !activeLiveStream || !streamChatOwner) return;
+            streamChatSocket.emit('moderate_stream_chat_message', {
+                streamId: activeLiveStream.id, messageId
+            }, (result) => {
+                document.getElementById('stream-chat-feedback').textContent =
+                    result && result.success ? 'Mensaje eliminado.' : (result?.message || 'No se pudo moderar el mensaje.');
+            });
         }
 
         async function loadLiveStreams() {
@@ -4817,7 +4963,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                     const preferences = saved.preferences || {};
                     activeStreamingPreferences = { cameraEnabled: preferences.cameraEnabled === true, microphoneEnabled: preferences.microphoneEnabled !== false, systemAudioEnabled: preferences.systemAudioEnabled === true, orientation: preferences.orientation || 'auto', cameraPosition: preferences.cameraPosition || 'bottom-right', cameraFrame: preferences.cameraFrame || 'none' };
                 } catch (preferencesError) {
-                    activeStreamingPreferences = { cameraEnabled: false, microphoneEnabled: true };
+                    activeStreamingPreferences = { cameraEnabled: false, microphoneEnabled: true, textToSpeechEnabled: false };
                 }
                 setLiveStatus('Creando sala segura y solicitando acceso de emisión…');
                 const data = await apiRequest('/api/me/streams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description }) });
@@ -4905,6 +5051,13 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         async function closeLivePlayer() {
             if (liveKitRoom) await liveKitRoom.disconnect();
             liveKitRoom = null;
+            if (streamChatSocket) streamChatSocket.disconnect();
+            streamChatSocket = null;
+            streamChatOwner = false;
+            document.getElementById('stream-chat-messages').replaceChildren();
+            document.getElementById('stream-chat-input').value = '';
+            document.getElementById('stream-chat-input').disabled = true;
+            document.getElementById('stream-chat-send').disabled = true;
             activeLiveStream = null;
             activeLiveStreamRole = null;
             const preview = document.getElementById('live-local-preview');
