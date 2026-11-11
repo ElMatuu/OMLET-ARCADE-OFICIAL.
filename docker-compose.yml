@@ -11,8 +11,6 @@ services:
     volumes:
       - playverse_mongo_data:/data/db
       - ./docker/mongo-init:/docker-entrypoint-initdb.d:ro
-    volumes:
-      - playverse_mongo_data:/data/db
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
