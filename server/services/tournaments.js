@@ -1,7 +1,5 @@
 function groupSoloEntries(entries, teamSize) {
-  if (!Number.isInteger(teamSize) || teamSize < 1 || teamSize > 10) {
-    throw new TypeError('teamSize must be an integer between 1 and 10');
-  }
+  if (!Number.isInteger(teamSize) || teamSize < 1 || teamSize > 10) throw new TypeError('teamSize must be an integer between 1 and 10');
   if (teamSize === 1) return entries;
   const teams = [];
   const solos = entries.filter((entry) => entry.registrationType === 'solo' && entry.status !== 'withdrawn');
@@ -28,20 +26,67 @@ function buildSingleEliminationBracket(entries) {
   const active = entries.filter((entry) => entry.status === 'approved' || entry.status === 'checked-in');
   if (active.length < 2) throw new Error('Se necesitan al menos dos equipos aprobados.');
   const bracketSize = 2 ** Math.ceil(Math.log2(active.length));
+  const byeCount = bracketSize - active.length;
+  const fullMatchCount = (active.length - byeCount) / 2;
   const matches = [];
-  let current = active.map((entry) => String(entry._id));
-  while (current.length < bracketSize) current.push(null);
-  let round = 1;
-  while (current.length > 1) {
-    const winners = [];
-    for (let index = 0; index < current.length; index += 2) {
-      const entryA = current[index];
-      const entryB = current[index + 1];
-      const winner = entryA && !entryB ? entryA : null;
-      matches.push({ round, matchNumber: index / 2 + 1, entryA, entryB, winner, status: winner ? 'completed' : 'pending' });
-      winners.push(winner);
+  let entrantIndex = 0;
+  let fullMatchesCreated = 0;
+  let byeMatchesCreated = 0;
+
+  // Interleave real matches and byes; never create a first-round empty-vs-empty.
+  while (fullMatchesCreated < fullMatchCount || byeMatchesCreated < byeCount) {
+    if (fullMatchesCreated < fullMatchCount) {
+      matches.push({
+        round: 1,
+        matchNumber: matches.length + 1,
+        entryA: String(active[entrantIndex++]._id),
+        entryB: String(active[entrantIndex++]._id),
+        winner: null,
+        status: 'pending'
+      });
+      fullMatchesCreated += 1;
     }
-    current = winners;
+    if (byeMatchesCreated < byeCount) {
+      const entrant = String(active[entrantIndex++]._id);
+      matches.push({
+        round: 1,
+        matchNumber: matches.length + 1,
+        entryA: entrant,
+        entryB: null,
+        winner: entrant,
+        status: 'completed'
+      });
+      byeMatchesCreated += 1;
+    }
+  }
+
+  let feeders = matches.map((match) => ({
+    winner: match.winner,
+    resolved: match.status === 'completed'
+  }));
+  let round = 2;
+  while (feeders.length > 1) {
+    const nextFeeders = [];
+    for (let index = 0; index < feeders.length; index += 2) {
+      const left = feeders[index];
+      const right = feeders[index + 1];
+      const entryA = left.resolved ? left.winner : null;
+      const entryB = right.resolved ? right.winner : null;
+      const bothResolved = left.resolved && right.resolved;
+      const hasSingleEntrant = bothResolved && Boolean(entryA) !== Boolean(entryB);
+      const winner = hasSingleEntrant ? (entryA || entryB) : null;
+      const match = {
+        round,
+        matchNumber: index / 2 + 1,
+        entryA,
+        entryB,
+        winner,
+        status: hasSingleEntrant ? 'completed' : 'pending'
+      };
+      matches.push(match);
+      nextFeeders.push({ winner, resolved: match.status === 'completed' });
+    }
+    feeders = nextFeeders;
     round += 1;
   }
   return matches;
