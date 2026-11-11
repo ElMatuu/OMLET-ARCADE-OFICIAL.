@@ -21,6 +21,32 @@ curl -X POST "https://TU-DOMINIO/api/game-servers/ID/heartbeat" \
 
 Al apagar el servidor, el agente puede enviar `isOnline:false`. Si no llegan heartbeats durante 90 segundos, PLAYVERSE muestra el estado como desconectado y deja el recuento como desconocido; no inventa un cero.
 
+## Agente de monitoreo TCP (Node.js 20+)
+
+El repositorio incluye `scripts/game-server-agent.js`. Ejecutalo en la misma máquina o red del servidor de juego para que compruebe el puerto TCP real antes de informar `isOnline:true`. Esto verifica que el puerto acepta una conexión TCP; no valida el protocolo del juego, no comprueba UDP/Bedrock y no descubre automáticamente jugadores conectados.
+
+Configurá estas variables en el entorno del equipo anfitrión (no las subas al repositorio):
+
+```bash
+PLAYVERSE_API_URL=https://TU-DOMINIO
+GAME_SERVER_ID=ID_DE_LA_PUBLICACION
+GAME_SERVER_TOKEN=TOKEN_PRIVADO
+GAME_SERVER_HOST=127.0.0.1
+GAME_SERVER_PORT=25565
+GAME_SERVER_MAX_PLAYERS=20
+GAME_SERVER_PLAYER_COUNT=0
+```
+
+`GAME_SERVER_HOST` y `GAME_SERVER_PORT` deben apuntar al puerto local real del juego. `GAME_SERVER_PLAYER_COUNT` es un valor manual; no lo presentes como contador en vivo. En una terminal del anfitrión ejecutá:
+
+```bash
+node scripts/game-server-agent.js
+```
+
+El agente hace una comprobación inmediata y repite cada 30 segundos. Si el puerto no acepta TCP, envía `isOnline:false`. Requiere salida HTTPS hacia la API y Node.js 20 o superior. Para detenerlo, usá Ctrl+C. No compartas el token ni lo pongas en argumentos visibles de procesos.
+
+**Límites importantes:** este agente no crea ni aloja el mundo, no abre puertos del router, no configura firewall, no implementa partidas ni sincroniza estados de juego. Para Minecraft Bedrock/otros servidores basados en UDP se necesita un monitor UDP específico; este agente TCP no es compatible con ellos.
+
 ## Minecraft
 
 - Java: el jugador copia host y puerto y los pega en Multiplayer → Direct Connection o Add Server.
