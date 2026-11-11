@@ -43,7 +43,11 @@
 .pv-coin-purple{color:#e879f9;background:radial-gradient(circle at 30% 25%,#f5d0fe,#a855f7 48%,#581c87)}
 .pv-coin-diamond{color:#67e8f9;background:radial-gradient(circle at 30% 25%,#ecfeff,#67e8f9 48%,#155e75)}
 @keyframes pv-coin-glow{0%,100%{filter:brightness(1);transform:rotateY(0deg)}50%{filter:brightness(1.3);transform:rotateY(18deg)}}
-@media(prefers-reduced-motion:reduce){.pv-coin{animation:none}}
+.pv-animated-frame{animation:pv-frame-spectrum 5s linear infinite}
+.pv-animated-overlay{background-size:220% 220%!important;animation:pv-overlay-spectrum 7s ease-in-out infinite}
+@keyframes pv-frame-spectrum{0%,100%{filter:hue-rotate(0deg) brightness(1)}50%{filter:hue-rotate(150deg) brightness(1.35)}}
+@keyframes pv-overlay-spectrum{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+@media(prefers-reduced-motion:reduce){.pv-coin,.pv-animated-frame,.pv-animated-overlay{animation:none}}
 </style>
 </head>
 <body class="h-screen w-screen flex flex-col justify-between relative">
@@ -2183,6 +2187,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             frame.style.boxShadow = item.category === 'avatar-frame' && look ? look[1] : 'none';
             frame.style.borderStyle = item.category === 'avatar-frame' && look ? look[2] : 'solid';
             frame.style.borderWidth = '4px';
+            frame.classList.toggle('pv-animated-frame', item.category === 'avatar-frame' && item.animation === 'css');
             if (item.category === 'stream-overlay') {
                 const overlayLooks = {
                     'overlay-retro-arcade': 'linear-gradient(135deg, #14532d, #020617)',
@@ -2198,10 +2203,18 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 overlay.style.borderColor = '#ff7a18';
                 overlay.style.background = overlayLooks[item.id] || 'linear-gradient(135deg, rgba(255,82,50,.25), rgba(15,23,42,.95))';
                 overlay.textContent = item.name;
+                overlay.classList.toggle('pv-animated-overlay', item.animation === 'css');
             } else if (item.category !== 'avatar-frame') {
-                overlay.style.borderColor = '#475569';
-                overlay.style.background = '#020617';
-                overlay.textContent = 'Vista previa del HUD';
+                overlay.style.borderColor = item.category === 'stream-gift' ? '#fbbf24' : item.category === 'entrance-effect' ? '#a78bfa' : '#475569';
+                overlay.style.background = item.category === 'stream-gift'
+                    ? 'linear-gradient(135deg,#78350f,#f59e0b,#1e1b4b)'
+                    : item.category === 'entrance-effect'
+                        ? 'linear-gradient(135deg,#312e81,#a855f7,#020617)'
+                        : item.category === 'chat-effect'
+                            ? 'linear-gradient(135deg,#164e63,#0f172a,#7c3aed)'
+                            : '#020617';
+                overlay.textContent = item.name;
+                overlay.classList.toggle('pv-animated-overlay', item.animation === 'css');
             }
         }
 
