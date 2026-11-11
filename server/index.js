@@ -370,7 +370,7 @@ app.get('/api/public/stream-overlay/:token', async (req, res, next) => {
       Promise.resolve(getLiveKitConfig())
     ]);
     if (!owner || !config) return res.status(503).json({ success: false, message: 'El overlay no está disponible temporalmente.' });
-    let viewerCount = 0;
+    let viewerCount = null;
     try {
       const participants = await createLiveKitApi(config).room.listParticipants(stream.roomName);
       viewerCount = Math.max(0, (participants || []).filter((participant) =>
