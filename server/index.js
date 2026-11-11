@@ -1462,7 +1462,7 @@ app.get('/api/stories', requireAuth, async (req, res, next) => {
       { blocker: req.auth.sub }, { blocked: req.auth.sub }
     ] }).select('blocker blocked').lean();
     const blockedIds = new Set(blocked.flatMap((item) => [String(item.blocker), String(item.blocked)]));
-    const allowedAuthors = visibleAuthors.filter((id) => !blockedIds.has(id));
+    const allowedAuthors = visibleAuthors.filter((id) => id === req.auth.sub || !blockedIds.has(id));
     const stories = await Story.find({
       expiresAt: { $gt: new Date() },
       $or: [
