@@ -66,6 +66,19 @@ test('web client and update assets are served by the same HTTPS-ready origin', a
   });
 });
 
+test('clubs discovery and creation endpoints require an authenticated account', async () => {
+  await withServer(async (baseUrl) => {
+    const read = await fetch(baseUrl + '/api/clubs');
+    assert.equal(read.status, 401);
+    const create = await fetch(baseUrl + '/api/clubs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Club de prueba', game: 'Minecraft' })
+    });
+    assert.equal(create.status, 401);
+  });
+});
+
 test('protected profile endpoint rejects unauthenticated requests', async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(baseUrl + '/api/me');
