@@ -2812,7 +2812,7 @@
                     name.textContent = server.name;
                     const meta = document.createElement('p');
                     meta.className = 'mt-1 text-[10px] text-slate-400';
-                    meta.textContent = server.game + ' · ' + String(server.edition || 'other').toUpperCase() + ' · @' + server.ownerUsername;
+                    meta.textContent = server.game + ' · ' + String(server.edition || 'other').toUpperCase() + (server.version ? ' · v' + server.version : '') + ' · @' + server.ownerUsername;
                     title.append(name, meta);
                     const state = document.createElement('span');
                     state.className = server.status === 'online' ? 'shrink-0 rounded-full bg-emerald-500/15 px-2 py-1 text-[10px] font-bold text-emerald-300' : 'shrink-0 rounded-full bg-slate-800 px-2 py-1 text-[10px] font-bold text-slate-400';
