@@ -34,7 +34,7 @@ docker compose --env-file .env.selfhost ps
 docker compose --env-file .env.selfhost logs -f api livekit caddy
 ~~~
 
-La aplicación web alojada en el mismo origen utiliza automáticamente el dominio de la API. Para el cliente Electron de Windows, configurá la variable de entorno PLAYVERSE_API_URL con la URL HTTPS de tu API autohospedada antes de iniciar PLAYVERSE; el preload aislado la expone al renderer sin habilitar Node.js en la interfaz.\n\nLa API solo se considera lista cuando MongoDB responde. Caddy obtiene certificados para dominios públicos válidos; para pruebas de red local sin DNS público, usá un entorno local separado y no publiques los puertos en Internet.
+Para generar Android o Windows contra tu servidor, cargá las variables del archivo .env.selfhost en la terminal y ejecutá el build con PLAYVERSE_API_URL=https://API_DOMAIN. Por ejemplo, en Linux: export PLAYVERSE_API_URL=https://api.example.com; npm run android:build. En Windows PowerShell: $env:PLAYVERSE_API_URL='https://api.example.com'; npm run build:win. La preparación web genera www/config.js con ese endpoint para el APK/instalador. La aplicación web alojada en el mismo origen utiliza automáticamente el dominio de la API. Para el cliente Electron de Windows, configurá la variable de entorno PLAYVERSE_API_URL con la URL HTTPS de tu API autohospedada antes de iniciar PLAYVERSE; el preload aislado la expone al renderer sin habilitar Node.js en la interfaz.\n\nLa API solo se considera lista cuando MongoDB responde. Caddy obtiene certificados para dominios públicos válidos; para pruebas de red local sin DNS público, usá un entorno local separado y no publiques los puertos en Internet.
 
 ## Operación
 
