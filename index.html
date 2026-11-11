@@ -1536,6 +1536,43 @@
             }
         }
 
+        async function requestRoomParticipation(roomId) {
+            try {
+                const result = await apiRequest('/api/rooms/' + encodeURIComponent(roomId) + '/participation-requests', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                alert(result.alreadyAccepted ? 'Tu solicitud ya fue aceptada. Abrí el chat de la sala.' : 'Solicitud enviada al anfitrión. Te avisaremos cuando responda.');
+                await loadRooms();
+            } catch (error) {
+                alert('No se pudo enviar la solicitud: ' + error.message);
+            }
+        }
+
+        async function reviewRoomParticipationRequests(roomId) {
+            try {
+                const data = await apiRequest('/api/rooms/' + encodeURIComponent(roomId) + '/participation-requests');
+                const requests = data.requests || [];
+                if (!requests.length) {
+                    alert('No hay solicitudes pendientes para esta sala.');
+                    return;
+                }
+                for (const request of requests) {
+                    const accept = window.confirm('@' + request.username + ' quiere participar. ¿Aceptar?');
+                    await apiRequest('/api/rooms/' + encodeURIComponent(roomId) + '/participation-requests/' + encodeURIComponent(request.userId), {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ decision: accept ? 'accept' : 'decline' })
+                    });
+                }
+                await loadRooms();
+                alert('Solicitudes revisadas.');
+            } catch (error) {
+                alert('No se pudieron revisar las solicitudes: ' + error.message);
+            }
+        }
+
         async function loadRooms() {
             const container = document.getElementById('rooms-container');
             const status = document.getElementById('rooms-status');
@@ -1563,6 +1600,12 @@
                         chatButton.textContent = 'Abrir chat';
                         chatButton.addEventListener('click', () => openRoomChat(room.id, room.name));
                         actions.appendChild(chatButton);
+                        const requestsButton = document.createElement('button');
+                        requestsButton.type = 'button';
+                        requestsButton.className = 'rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-200 text-xs font-bold px-3 py-2';
+                        requestsButton.textContent = 'Solicitudes';
+                        requestsButton.addEventListener('click', () => reviewRoomParticipationRequests(room.id));
+                        actions.appendChild(requestsButton);
                         const membershipButton = document.createElement('button');
                         membershipButton.type = 'button';
                         membershipButton.className = (isOwner ? 'bg-rose-500 text-white' : 'bg-slate-700 text-white') + ' text-xs font-black px-3 py-2 rounded-xl';
@@ -1576,10 +1619,10 @@
                         const joinButton = document.createElement('button');
                         joinButton.type = 'button';
                         joinButton.className = 'bg-emerald-500 text-slate-950 text-xs font-black px-3 py-2 rounded-xl';
-                        joinButton.textContent = Number(room.memberCount) >= Number(room.capacity) ? 'Completa' : 'Unirse';
+                        joinButton.textContent = Number(room.memberCount) >= Number(room.capacity) ? 'Completa' : 'Solicitar';
                         joinButton.disabled = Number(room.memberCount) >= Number(room.capacity);
                         joinButton.classList.toggle('opacity-50', joinButton.disabled);
-                        joinButton.addEventListener('click', () => joinRoom(room.id, room.name));
+                        joinButton.addEventListener('click', () => requestRoomParticipation(room.id));
                         actions.appendChild(joinButton);
                     }
                     container.appendChild(card);
