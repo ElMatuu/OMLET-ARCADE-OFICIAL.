@@ -8,6 +8,7 @@ const reportSchema = new mongoose.Schema({
   details: { type: String, trim: true, maxlength: 1000, default: '' },
   status: { type: String, enum: ['pending', 'reviewed', 'dismissed'], default: 'pending', index: true },
   moderatorNotes: { type: String, trim: true, maxlength: 500, default: '' },
+  actionTaken: { type: String, enum: ['none', 'content_removed'], default: 'none' },
   reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   reviewedAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now }
