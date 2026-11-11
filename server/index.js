@@ -22,6 +22,7 @@ const Comment = require('./models/Comment');
 const Friendship = require('./models/Friendship');
 const Follow = require('./models/Follow');
 const Block = require('./models/Block');
+const Report = require('./models/Report');
 const Notification = require('./models/Notification');
 const UserPresence = require('./models/UserPresence');
 const LiveStream = require('./models/LiveStream');
@@ -74,7 +75,7 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error('Origin not allowed by CORS'));
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
@@ -155,6 +156,14 @@ const streamLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { success: false, message: 'Demasiadas operaciones de streaming. Probá en un minuto.' }
+});
+
+const reportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, message: 'Alcanzaste el límite de reportes por hora.' }
 });
 
 const directMessageLimiter = rateLimit({
@@ -2961,6 +2970,103 @@ app.post('/api/conversations/:conversationId/messages', requireAuth, directMessa
       });
     }
     return res.status(201).json({ success: true, message });
+  } catch (error) { return next(error); }
+});
+
+
+function requireModerator(req, res, next) {
+  if (!req.auth || !['moderator', 'admin'].includes(req.auth.role)) {
+    return res.status(403).json({ success: false, message: 'Esta función requiere permisos de moderación.' });
+  }
+  return next();
+}
+
+app.post('/api/reports', requireAuth, reportLimiter, async (req, res, next) => {
+  try {
+    const targetType = req.body && req.body.targetType;
+    const targetId = req.body && req.body.targetId;
+    const reason = req.body && req.body.reason;
+    const details = typeof (req.body && req.body.details) === 'string' ? req.body.details.trim() : '';
+    const validTypes = ['user', 'post', 'comment', 'room', 'stream'];
+    const validReasons = ['harassment', 'hate', 'spam', 'sexual_content', 'violence', 'impersonation', 'scam', 'other'];
+    if (!validTypes.includes(targetType) || typeof targetId !== 'string' ||
+        !validReasons.includes(reason) || details.length > 1000) {
+      return res.status(400).json({ success: false, message: 'Revisá el tipo, identificador, motivo y detalle del reporte.' });
+    }
+    let resolvedTargetId = targetId.trim();
+    if (targetType === 'user') {
+      const username = resolvedTargetId.replace(/^@/, '');
+      if (!/^[a-zA-Z0-9_]{3,24}$/.test(username)) {
+        return res.status(400).json({ success: false, message: 'Ingresá un nombre de usuario válido.' });
+      }
+      const targetUser = await User.findOne({ username }).select('_id').lean();
+      if (!targetUser) return res.status(404).json({ success: false, message: 'La cuenta que querés reportar no existe.' });
+      resolvedTargetId = String(targetUser._id);
+    } else if (!mongoose.isValidObjectId(resolvedTargetId)) {
+      return res.status(400).json({ success: false, message: 'El ID del contenido debe tener 24 caracteres hexadecimales.' });
+    }
+    const targetExists = targetType === 'user' ? await User.exists({ _id: resolvedTargetId })
+      : targetType === 'post' ? await Post.exists({ _id: resolvedTargetId })
+      : targetType === 'comment' ? await Comment.exists({ _id: resolvedTargetId })
+      : targetType === 'room' ? await Room.exists({ _id: resolvedTargetId })
+      : await LiveStream.exists({ _id: resolvedTargetId });
+    if (!targetExists) return res.status(404).json({ success: false, message: 'El contenido o cuenta que querés reportar no existe.' });
+    if (targetType === 'user' && String(resolvedTargetId) === String(req.auth.sub)) {
+      return res.status(400).json({ success: false, message: 'No podés reportar tu propia cuenta.' });
+    }
+    try {
+      const report = await Report.create({
+        reporter: req.auth.sub, targetType, targetId: resolvedTargetId, reason, details
+      });
+      return res.status(201).json({
+        success: true,
+        message: 'Reporte recibido. El equipo de moderación podrá revisarlo.',
+        report: { id: String(report._id), status: report.status, createdAt: report.createdAt }
+      });
+    } catch (error) {
+      if (error && error.code === 11000) {
+        return res.status(409).json({ success: false, message: 'Ya enviaste un reporte sobre este elemento.' });
+      }
+      throw error;
+    }
+  } catch (error) { return next(error); }
+});
+
+app.get('/api/admin/reports', requireAuth, requireModerator, async (req, res, next) => {
+  try {
+    const status = ['pending', 'reviewed', 'dismissed'].includes(req.query.status) ? req.query.status : 'pending';
+    const reports = await Report.find({ status })
+      .populate('reporter', 'username displayName')
+      .populate('reviewedBy', 'username')
+      .sort({ createdAt: 1, _id: 1 }).limit(100).lean();
+    return res.json({ success: true, reports: reports.map((report) => ({
+      id: String(report._id), targetType: report.targetType, targetId: String(report.targetId),
+      reason: report.reason, details: report.details, status: report.status,
+      reporter: report.reporter ? { username: report.reporter.username, displayName: report.reporter.displayName || '' } : null,
+      moderatorNotes: report.moderatorNotes || '',
+      reviewedBy: report.reviewedBy ? report.reviewedBy.username : null,
+      reviewedAt: report.reviewedAt, createdAt: report.createdAt
+    })) });
+  } catch (error) { return next(error); }
+});
+
+app.patch('/api/admin/reports/:reportId', requireAuth, requireModerator, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.reportId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de reporte inválido.' });
+    }
+    const status = req.body && req.body.status;
+    const moderatorNotes = typeof (req.body && req.body.moderatorNotes) === 'string' ? req.body.moderatorNotes.trim() : '';
+    if (!['reviewed', 'dismissed'].includes(status) || moderatorNotes.length > 500) {
+      return res.status(400).json({ success: false, message: 'Estado o nota de moderación inválidos.' });
+    }
+    const report = await Report.findOneAndUpdate(
+      { _id: req.params.reportId, status: 'pending' },
+      { $set: { status, moderatorNotes, reviewedBy: req.auth.sub, reviewedAt: new Date() } },
+      { new: true, runValidators: true }
+    ).lean();
+    if (!report) return res.status(404).json({ success: false, message: 'El reporte ya fue atendido o no existe.' });
+    return res.json({ success: true, report: { id: String(report._id), status: report.status, reviewedAt: report.reviewedAt } });
   } catch (error) { return next(error); }
 });
 
