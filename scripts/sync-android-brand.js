@@ -107,10 +107,19 @@ const splashStyles = [
 ].join(String.fromCharCode(10)) + String.fromCharCode(10);
 fs.writeFileSync(path.join(v31, 'styles.xml'), splashStyles);
 
-const overlayPermission = '    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />';
-if (!manifest.includes('android.permission.SYSTEM_ALERT_WINDOW')) {
+const overlayPermissions = [
+  '    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />',
+  '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />',
+  '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />',
+  '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />'
+];
+const missingOverlayPermissions = overlayPermissions.filter((entry) => {
+  const name = entry.match(/android:name="([^"]+)"/)[1];
+  return !manifest.includes('android:name="' + name + '"');
+});
+if (missingOverlayPermissions.length) {
   const appAt = manifest.indexOf('<application');
-  manifest = manifest.slice(0, appAt) + overlayPermission + '\n    ' + manifest.slice(appAt);
+  manifest = manifest.slice(0, appAt) + missingOverlayPermissions.join('\n') + '\n    ' + manifest.slice(appAt);
   fs.writeFileSync(manifestPath, manifest);
 }
 
@@ -173,9 +182,198 @@ public class OverlayPermissionPlugin extends Plugin {
         result.put("granted", false);
         call.resolve(result);
     }
+
+    @PluginMethod
+    public void startBubble(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(getContext())) {
+            call.reject("Android todavía no concedió el permiso de ventana flotante.");
+            return;
+        }
+        Intent intent = new Intent(getContext(), FloatingControlsService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) getContext().startForegroundService(intent);
+        else getContext().startService(intent);
+        JSObject result = new JSObject();
+        result.put("started", true);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void stopBubble(PluginCall call) {
+        getContext().stopService(new Intent(getContext(), FloatingControlsService.class));
+        JSObject result = new JSObject();
+        result.put("stopped", true);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void consumePendingAction(PluginCall call) {
+        android.content.SharedPreferences prefs = getContext().getSharedPreferences("playverse_floating", android.content.Context.MODE_PRIVATE);
+        String action = prefs.getString("pending_action", "");
+        prefs.edit().remove("pending_action").apply();
+        JSObject result = new JSObject();
+        result.put("action", action);
+        call.resolve(result);
+    }
 }
 `;
 fs.writeFileSync(pluginPath, pluginSource);
+
+const serviceSource = `package ${javaPackage};
+
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.app.Service;
+import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.PixelFormat;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.os.Build;
+import android.os.IBinder;
+import android.view.Gravity;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.WindowManager;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+
+public class FloatingControlsService extends Service {
+    private static final String CHANNEL = "playverse_floating_controls";
+    private WindowManager manager;
+    private View bubble;
+    private View panel;
+    private WindowManager.LayoutParams bubbleParams;
+    private WindowManager.LayoutParams panelParams;
+    private boolean expanded = false;
+    private float downX, downY, startX, startY;
+    private int dp(float value) { return (int) (value * getResources().getDisplayMetrics().density + 0.5f); }
+
+    @Override public void onCreate() {
+        super.onCreate();
+        manager = (WindowManager) getSystemService(WINDOW_SERVICE);
+        createNotificationChannel();
+        startForeground(7401, buildNotification());
+        showBubble();
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(CHANNEL, "Controles flotantes PLAYVERSE", NotificationManager.IMPORTANCE_LOW);
+            channel.setDescription("Mantiene disponibles los controles flotantes mientras jugás.");
+            channel.setShowBadge(false);
+            ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(channel);
+        }
+    }
+
+    private Notification buildNotification() {
+        Intent open = getPackageManager().getLaunchIntentForPackage(getPackageName());
+        PendingIntent pending = PendingIntent.getActivity(this, 7401, open,
+            PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            return new Notification.Builder(this, CHANNEL).setSmallIcon(getApplicationInfo().icon)
+                .setContentTitle("PLAYVERSE está listo").setContentText("Controles flotantes activos · Tocá para volver")
+                .setContentIntent(pending).setOngoing(true).setCategory(Notification.CATEGORY_SERVICE).build();
+        }
+        return new Notification.Builder(this).setSmallIcon(getApplicationInfo().icon)
+            .setContentTitle("PLAYVERSE está listo").setContentText("Controles flotantes activos")
+            .setContentIntent(pending).setOngoing(true).build();
+    }
+
+    private GradientDrawable shape(int color, int radius) {
+        GradientDrawable d = new GradientDrawable(); d.setColor(color); d.setCornerRadius(dp(radius));
+        d.setStroke(dp(1), Color.argb(70,255,255,255)); return d;
+    }
+
+    private TextView label(String text, int size, int color) {
+        TextView v = new TextView(this); v.setText(text); v.setTextSize(size); v.setTextColor(color);
+        v.setGravity(Gravity.CENTER); v.setTypeface(Typeface.DEFAULT, Typeface.BOLD); v.setPadding(dp(10),dp(9),dp(10),dp(9));
+        return v;
+    }
+
+    private WindowManager.LayoutParams params(int width, int height, int gravity) {
+        int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE;
+        return new WindowManager.LayoutParams(width < 0 ? width : dp(width), height < 0 ? height : dp(height),
+            type, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT);
+    }
+
+    private void showBubble() {
+        if (bubble != null) return;
+        TextView icon = label("🎮", 25, Color.WHITE);
+        icon.setBackground(shape(Color.rgb(239,91,72), 28));
+        bubble = icon;
+        bubbleParams = params(56,56,Gravity.TOP | Gravity.LEFT);
+        bubbleParams.x = dp(10); bubbleParams.y = dp(180);
+        icon.setOnTouchListener((view,event) -> {
+            switch(event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    downX = event.getRawX(); downY = event.getRawY(); startX = bubbleParams.x; startY = bubbleParams.y; return true;
+                case MotionEvent.ACTION_MOVE:
+                    bubbleParams.x = (int)(startX + event.getRawX() - downX);
+                    bubbleParams.y = Math.max(dp(24), (int)(startY + event.getRawY() - downY));
+                    manager.updateViewLayout(bubble,bubbleParams); return true;
+                case MotionEvent.ACTION_UP:
+                    float dx = Math.abs(event.getRawX()-downX), dy = Math.abs(event.getRawY()-downY);
+                    if (dx < dp(8) && dy < dp(8)) togglePanel();
+                    else {
+                        int screen = getResources().getDisplayMetrics().widthPixels;
+                        bubbleParams.x = bubbleParams.x + dp(28) < screen/2 ? dp(4) : screen - dp(60);
+                        manager.updateViewLayout(bubble,bubbleParams);
+                    }
+                    return true;
+            }
+            return false;
+        });
+        manager.addView(bubble,bubbleParams);
+    }
+
+    private void togglePanel() {
+        if (expanded) { hidePanel(); return; }
+        LinearLayout box = new LinearLayout(this); box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(8),dp(8),dp(8),dp(8)); box.setBackground(shape(Color.rgb(13,27,52),22));
+        TextView title = label("PLAYVERSE  ·  ARCADE",12,Color.WHITE);
+        box.addView(title);
+        TextView chat = label("  CHAT  ·  Abrir PLAYVERSE",13,Color.WHITE);
+        chat.setBackground(shape(Color.rgb(30,64,100),14)); box.addView(chat);
+        chat.setOnClickListener(v -> launchApp("chat"));
+        TextView live = label("  EN DIRECTO  ·  Abrir PLAYVERSE",13,Color.WHITE);
+        live.setBackground(shape(Color.rgb(153,61,65),14)); box.addView(live);
+        live.setOnClickListener(v -> launchApp("live"));
+        TextView hide = label("Ocultar burbuja",12,Color.LTGRAY); box.addView(hide);
+        hide.setOnClickListener(v -> { hidePanel(); stopSelf(); });
+        panel = box;
+        panelParams = params(224,-2,Gravity.TOP | Gravity.LEFT);
+        panelParams.x = Math.max(dp(8), Math.min(bubbleParams.x - dp(165), getResources().getDisplayMetrics().widthPixels - dp(232)));
+        panelParams.y = Math.max(dp(30), bubbleParams.y - dp(110));
+        manager.addView(panel,panelParams); expanded = true;
+    }
+
+    private void launchApp(String action) {
+        try {
+            getSharedPreferences("playverse_floating", MODE_PRIVATE).edit().putString("pending_action", action).apply();
+            Intent intent = getPackageManager().getLaunchIntentForPackage(getPackageName());
+            if (intent != null) { intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP); startActivity(intent); }
+        } finally { hidePanel(); }
+    }
+
+    private void hidePanel() {
+        if (panel != null) { try { manager.removeView(panel); } catch (Exception ignored) {} panel = null; }
+        expanded = false;
+    }
+
+    @Override public int onStartCommand(Intent intent, int flags, int startId) { return START_STICKY; }
+    @Override public void onDestroy() { hidePanel(); if (bubble != null) { try { manager.removeView(bubble); } catch (Exception ignored) {} bubble = null; } super.onDestroy(); }
+    @Override public IBinder onBind(Intent intent) { return null; }
+}
+`;
+fs.writeFileSync(path.join(path.dirname(activityPath), 'FloatingControlsService.java'), serviceSource);
+if (!manifest.includes('FloatingControlsService')) {
+  manifest = manifest.replace('</application>', '        <service android:name=".FloatingControlsService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="specialUse">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-requested floating in-game controls" />\n        </service>\n    </application>');
+  fs.writeFileSync(manifestPath, manifest);
+}
+
 if (!activity.includes('OverlayPermissionPlugin.class')) {
   activity = activity.replace(/public class MainActivity extends BridgeActivity\s*\{/, `public class MainActivity extends BridgeActivity {
     @Override
