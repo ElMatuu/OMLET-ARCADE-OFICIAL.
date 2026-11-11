@@ -896,6 +896,7 @@
         const API_URL = window.PLAYVERSE_API_URL || (isNativeShell || ['file:', 'capacitor:'].includes(window.location.protocol) ? 'https://playverse-api-bgyg.onrender.com' : window.location.origin);
         const SESSION_KEY = 'playverse_session_token';
         let authToken = sessionStorage.getItem(SESSION_KEY);
+        let pendingFloatingAction = '';
         let appState = { username: '', walletTokens: 0, walletBalances: { gold: 0, purple: 0, diamond: 0 }, profile: null };
         let activeRoomId = null;
         let activeRoomName = '';
@@ -1134,6 +1135,11 @@
             loadCommunityPosts();
             refreshNotificationBadge();
             connectPresenceSocket();
+            if (pendingFloatingAction) {
+                const action = pendingFloatingAction;
+                pendingFloatingAction = '';
+                switchTab(action);
+            }
             if (!friendsPresenceTimer) {
                 friendsPresenceTimer = setInterval(() => {
                     const friendsTab = document.getElementById('tab-friends');
@@ -1263,10 +1269,10 @@
             function consumeFloatingAction() {
                 if (!overlayPlugin || typeof overlayPlugin.consumePendingAction !== 'function') return;
                 overlayPlugin.consumePendingAction().then(function(result) {
-                    if (result && result.action === 'chat') switchTab('chat');
-                    if (result && result.action === 'live') switchTab('live');
-                    if (result && result.action === 'lobbies') switchTab('lobbies');
-                    if (result && result.action === 'clubs') switchTab('clubs');
+                    const action = result && result.action;
+                    if (!['chat', 'live', 'lobbies', 'clubs'].includes(action)) return;
+                    if (authToken) switchTab(action);
+                    else pendingFloatingAction = action;
                 }).catch(function() {});
             }
             consumeFloatingAction();
