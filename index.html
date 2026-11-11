@@ -203,43 +203,51 @@
         </header>
 
         <!-- DRAWER LATERAL -->
-        <div id="drawer-backdrop" onclick="toggleDrawer(false)" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden"></div>
-        <div id="drawer-panel" class="fixed inset-y-0 left-0 w-80 bg-slate-900 border-r border-slate-800 z-50 flex flex-col transform -translate-x-full transition-transform duration-300 will-change-transform shadow-2xl">
-            <div class="p-5 border-b border-slate-800 flex items-center justify-between PLAYVERSE-gradient">
-                <div class="flex items-center space-x-3">
-                    <div class="w-12 h-12 rounded-full bg-slate-950 border-2 border-white/40 flex items-center justify-center text-2xl shadow-lg">🎮</div>
-                    <div>
-                        <h4 id="drawer-username" class="font-bold text-sm text-white">Wachin Gamer</h4>
-                        <span id="drawer-profile-subtitle" class="text-[10px] text-orange-200 font-mono font-bold">Comunidad gamer</span>
+        <div id="drawer-backdrop" onclick="toggleDrawer(false)" class="fixed inset-0 bg-black/65 backdrop-blur-sm z-50 hidden"></div>
+        <aside id="drawer-panel" aria-label="Menú principal" class="fixed inset-y-0 left-0 w-[min(21rem,88vw)] bg-[#101722] border-r border-slate-700/70 z-50 flex flex-col transform -translate-x-full transition-transform duration-300 will-change-transform shadow-2xl">
+            <div class="relative border-b border-slate-700/70 p-3">
+                <button type="button" onclick="openDrawerProfile()" class="group relative block w-full overflow-hidden rounded-2xl border border-slate-600/70 bg-slate-900 text-left" aria-label="Abrir mi perfil">
+                    <img id="drawer-profile-banner" class="absolute inset-0 h-full w-full object-cover opacity-35 hidden" alt="">
+                    <div class="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/75 to-slate-900/60"></div>
+                    <div class="relative flex items-center gap-3 p-4">
+                        <div class="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-slate-300/70 bg-slate-800 shadow-lg">
+                            <span id="drawer-avatar-placeholder" class="flex h-full w-full items-center justify-center text-2xl">🎮</span>
+                            <img id="drawer-avatar" class="hidden h-full w-full object-cover" alt="Tu avatar">
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <span class="block text-[9px] font-bold uppercase tracking-[.2em] text-slate-300">Tu espacio PLAYVERSE</span>
+                            <strong id="drawer-username" class="mt-1 block truncate text-base font-black text-white">Tu perfil</strong>
+                            <span id="drawer-profile-subtitle" class="mt-0.5 block truncate text-[11px] text-slate-300">Comunidad gamer</span>
+                            <span class="mt-2 inline-flex items-center gap-1 rounded-full border border-slate-500/70 bg-slate-950/70 px-2 py-1 text-[9px] font-bold text-slate-200">Ver perfil completo <i class="fa-solid fa-arrow-up-right-from-square"></i></span>
+                        </div>
                     </div>
-                </div>
-                <button onclick="toggleDrawer(false)" class="text-white hover:bg-black/20 p-2 rounded-xl"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </button>
+                <button type="button" onclick="toggleDrawer(false)" aria-label="Cerrar menú" class="absolute right-5 top-5 rounded-lg bg-slate-950/80 p-2 text-slate-300 hover:bg-slate-800 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <nav class="p-3 space-y-1.5 flex-1 overflow-y-auto">
-                <button onclick="switchTab('feed'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-tv text-orange-400 w-5"></i><span>Feed y Transmisiones</span></button>
-                <button onclick="switchTab('live'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-tower-broadcast text-rose-400 w-5"></i><span>En Vivo</span></button>
-                <button onclick="switchTab('lobbies'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-gamepad text-emerald-400 w-5"></i><span>Juegos y Salas</span></button>
-                <button onclick="switchTab('clubs'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-users text-orange-300 w-5"></i><span>Clubs y Comunidades</span></button>
-                <button onclick="switchTab('tournaments'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-trophy text-amber-300 w-5"></i><span>Torneos</span></button>
-                <button onclick="switchTab('chat'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-comments text-sky-400 w-5"></i><span>Chat y Grupos</span></button>
-                <button onclick="switchTab('shop'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-store text-purple-400 w-5"></i><span>Tienda Arcade & Marcos</span></button>
-                <button onclick="switchTab('events'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-sparkles text-amber-400 w-5"></i><span>Eventos</span></button>
-                <button onclick="switchTab('profile'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-user-gear text-orange-400 w-5"></i><span>Mi Perfil</span></button>
-                <button onclick="switchTab('friends'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-user-group text-pink-400 w-5"></i><span>Amigos y solicitudes</span></button>
-                <button onclick="switchTab('notifications'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-bell text-amber-300 w-5"></i><span>Notificaciones</span><span id="drawer-notifications-count" class="ml-auto text-[10px] text-rose-300"></span></button>
-                <button onclick="switchTab('saved'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-bookmark text-cyan-300 w-5"></i><span>Guardados y VODs</span></button>
-                <button onclick="switchTab('events'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-list-check text-amber-300 w-5"></i><span>Misiones</span></button>
-                <button onclick="switchTab('help'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-circle-question text-sky-300 w-5"></i><span>Ayuda y soporte</span></button>
+            <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-3">
+                <p class="px-3 pb-1 pt-1 text-[9px] font-black uppercase tracking-[.2em] text-slate-500">Explorar</p>
+                <button onclick="switchTab('feed'); toggleDrawer(false);" class="w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-800/90"><i class="fa-solid fa-house w-5 text-center text-slate-400"></i><span>Inicio y comunidad</span></button>
+                <button onclick="switchTab('live'); toggleDrawer(false);" class="w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-800/90"><i class="fa-solid fa-tower-broadcast w-5 text-center text-slate-400"></i><span>En vivo</span></button>
+                <button onclick="switchTab('lobbies'); toggleDrawer(false);" class="w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-800/90"><i class="fa-solid fa-gamepad w-5 text-center text-slate-400"></i><span>Juegos y salas</span></button>
+                <button onclick="switchTab('clubs'); toggleDrawer(false);" class="w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-800/90"><i class="fa-solid fa-users w-5 text-center text-slate-400"></i><span>Clubs y comunidades</span></button>
+                <button onclick="switchTab('tournaments'); toggleDrawer(false);" class="w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-800/90"><i class="fa-solid fa-trophy w-5 text-center text-slate-400"></i><span>Torneos y competitivo</span></button>
+                <button onclick="switchTab('events'); toggleDrawer(false);" class="w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-800/90"><i class="fa-solid fa-calendar-days w-5 text-center text-slate-400"></i><span>Eventos y misiones</span></button>
+                <div class="my-3 border-t border-slate-800"></div>
+                <p class="px-3 pb-1 text-[9px] font-black uppercase tracking-[.2em] text-slate-500">Conectar</p>
+                <button onclick="switchTab('chat'); toggleDrawer(false);" class="w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-800/90"><i class="fa-solid fa-comments w-5 text-center text-slate-400"></i><span>Chat y grupos</span></button>
+                <button onclick="switchTab('friends'); toggleDrawer(false);" class="w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-800/90"><i class="fa-solid fa-user-group w-5 text-center text-slate-400"></i><span>Amigos y solicitudes</span></button>
+                <button onclick="switchTab('notifications'); toggleDrawer(false);" class="w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-800/90"><i class="fa-solid fa-bell w-5 text-center text-slate-400"></i><span>Notificaciones</span><span id="drawer-notifications-count" class="ml-auto text-[10px] text-slate-300"></span></button>
+                <div class="my-3 border-t border-slate-800"></div>
+                <p class="px-3 pb-1 text-[9px] font-black uppercase tracking-[.2em] text-slate-500">Tu espacio</p>
+                <button onclick="switchTab('saved'); toggleDrawer(false);" class="w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-800/90"><i class="fa-solid fa-bookmark w-5 text-center text-slate-400"></i><span>Guardados y VODs</span></button>
+                <button onclick="switchTab('shop'); toggleDrawer(false);" class="w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-800/90"><i class="fa-solid fa-store w-5 text-center text-slate-400"></i><span>Tienda e inventario</span></button>
+                <button onclick="switchTab('help'); toggleDrawer(false);" class="w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-200 hover:bg-slate-800/90"><i class="fa-solid fa-circle-question w-5 text-center text-slate-400"></i><span>Ayuda y soporte</span></button>
             </nav>
-            <div class="p-4 border-t border-slate-800 space-y-2">
-                <button onclick="openSettingsModal(); toggleDrawer(false);" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold text-slate-300">
-                    <i class="fa-solid fa-gear text-slate-400 w-5"></i><span>Ajustes de PLAYVERSE</span>
-                </button>
-                <button onclick="logout()" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-red-950/40 text-sm font-semibold text-red-300">
-                    <i class="fa-solid fa-right-from-bracket w-5"></i><span>Cerrar sesión</span>
-                </button>
+            <div class="space-y-1 border-t border-slate-700/70 p-3">
+                <button onclick="openSettingsModal(); toggleDrawer(false);" class="w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-300 hover:bg-slate-800"><i class="fa-solid fa-gear w-5 text-center text-slate-400"></i><span>Ajustes</span></button>
+                <button onclick="logout()" class="w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-400 hover:bg-slate-800 hover:text-slate-100"><i class="fa-solid fa-right-from-bracket w-5 text-center"></i><span>Cerrar sesión</span></button>
             </div>
-        </div>
+        </aside>
 
         <!-- CONTENIDO TABS -->
         <main class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-4xl mx-auto w-full"><!-- TAB FEED -->
@@ -664,6 +672,23 @@
                         <p id="profile-bio" class="text-sm text-slate-300 mt-3 whitespace-pre-wrap break-words">Todavía no agregaste una biografía.</p>
                     </div>
                     <div id="profile-favorite-games" class="flex flex-wrap justify-center gap-2" aria-label="Juegos favoritos"></div>
+                    <section class="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-left">
+                        <div class="flex items-center justify-between gap-2"><div><h4 class="text-xs font-black uppercase tracking-wider text-slate-200">Medallero y logros</h4><p class="mt-1 text-[10px] text-slate-500">Objetivos reales de tu actividad en PLAYVERSE</p></div><span id="achievement-summary" class="rounded-full border border-slate-700 px-2.5 py-1 text-[10px] font-bold text-slate-300">Cargando…</span></div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div class="rounded-xl bg-slate-900 p-2.5"><span class="block text-[9px] font-bold text-slate-500">NIVEL</span><strong id="achievement-level" class="text-lg font-black text-white">—</strong></div>
+                            <div class="rounded-xl bg-slate-900 p-2.5"><span class="block text-[9px] font-bold text-slate-500">XP TOTAL</span><strong id="achievement-xp" class="text-lg font-black text-white">—</strong></div>
+                            <div class="rounded-xl bg-slate-900 p-2.5"><span class="block text-[9px] font-bold text-slate-500">TROFEOS</span><strong id="achievement-unlocked" class="text-lg font-black text-white">—</strong></div>
+                        </div>
+                        <div class="h-1.5 overflow-hidden rounded-full bg-slate-800"><div id="achievement-level-progress" class="h-full rounded-full bg-slate-300 transition-all" style="width:0%"></div></div>
+                        <div id="profile-achievement-list" class="grid grid-cols-1 gap-2 sm:grid-cols-2" aria-live="polite"><p class="text-xs text-slate-500">Cargando medallas…</p></div>
+                        <button id="achievement-show-more" type="button" onclick="toggleAllAchievements()" class="hidden w-full rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800">Ver todos los objetivos</button>
+                        <p id="achievement-status" class="text-[10px] text-slate-500" role="status"></p>
+                    </section>
+                    <section class="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-left">
+                        <div class="flex items-center justify-between"><h4 class="text-xs font-black uppercase tracking-wider text-slate-200">Mis publicaciones</h4><span id="profile-post-count" class="text-[10px] text-slate-500">—</span></div>
+                        <div id="profile-post-list" class="space-y-2" aria-live="polite"><p class="text-xs text-slate-500">Cargando publicaciones…</p></div>
+                        <p id="profile-post-status" class="text-[10px] text-slate-500" role="status"></p>
+                    </section>
                     <div id="profile-social-links" class="flex flex-wrap justify-center gap-2"></div>
                     <div class="grid grid-cols-3 gap-3">
                         <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800"><span class="block text-[10px] text-slate-400 font-bold">ROL</span><span id="profile-role" class="font-black text-sm text-white">Jugador</span></div>
@@ -926,6 +951,17 @@
             appState.profile = user;
             const displayName = user.displayName || user.username;
             document.getElementById('drawer-username').textContent = displayName;
+            const drawerBanner = document.getElementById('drawer-profile-banner');
+            if (drawerBanner) {
+                if (user.profileBannerUrl) { drawerBanner.src = user.profileBannerUrl; drawerBanner.classList.remove('hidden'); }
+                else { drawerBanner.removeAttribute('src'); drawerBanner.classList.add('hidden'); }
+            }
+            const drawerAvatar = document.getElementById('drawer-avatar');
+            const drawerPlaceholder = document.getElementById('drawer-avatar-placeholder');
+            if (drawerAvatar && drawerPlaceholder) {
+                if (user.avatarUrl) { drawerAvatar.src = user.avatarUrl; drawerAvatar.classList.remove('hidden'); drawerPlaceholder.classList.add('hidden'); }
+                else { drawerAvatar.removeAttribute('src'); drawerAvatar.classList.add('hidden'); drawerPlaceholder.classList.remove('hidden'); }
+            }
             document.getElementById('profile-display-name').textContent = displayName;
             document.getElementById('profile-username').textContent = '@' + user.username;
             document.getElementById('profile-bio').textContent = user.bio || 'Todavía no agregaste una biografía.';
@@ -981,6 +1017,80 @@
                 const status = document.getElementById('profile-status');
                 if (status) status.textContent = error.message;
             }
+        }
+
+        let profileAchievements = [];
+        let showAllAchievements = false;
+
+        async function loadProfileAchievements() {
+            const list = document.getElementById('profile-achievement-list');
+            const status = document.getElementById('achievement-status');
+            if (!list || !status || !authToken) return;
+            status.textContent = 'Sincronizando objetivos con tu actividad guardada…';
+            try {
+                const data = await apiRequest('/api/me/achievements');
+                const summary = data.summary || {};
+                profileAchievements = Array.isArray(data.achievements) ? data.achievements : [];
+                document.getElementById('achievement-summary').textContent = (summary.unlocked || 0) + ' / ' + (summary.total || 0) + ' desbloqueados';
+                document.getElementById('achievement-level').textContent = summary.level || 1;
+                document.getElementById('achievement-xp').textContent = Number(summary.totalXP || 0).toLocaleString('es-AR');
+                document.getElementById('achievement-unlocked').textContent = summary.unlocked || 0;
+                const levelProgress = summary.nextLevelXP === undefined ? 0 : ((500 - summary.nextLevelXP) / 500) * 100;
+                document.getElementById('achievement-level-progress').style.width = Math.max(0, Math.min(100, levelProgress)) + '%';
+                renderProfileAchievements();
+                status.textContent = 'Progreso calculado desde publicaciones, comentarios, salas, amistades, torneos y directos registrados.';
+            } catch (error) {
+                status.textContent = error.message || 'No se pudieron cargar los logros.';
+                list.textContent = 'No pudimos sincronizar tus objetivos. Intentá de nuevo más tarde.';
+            }
+        }
+
+        function renderProfileAchievements() {
+            const list = document.getElementById('profile-achievement-list');
+            const more = document.getElementById('achievement-show-more');
+            if (!list || !more) return;
+            list.replaceChildren();
+            const items = showAllAchievements ? profileAchievements : profileAchievements.slice(0, 6);
+            items.forEach((achievement) => {
+                const card = document.createElement('article');
+                card.className = 'rounded-xl border p-3 ' + (achievement.unlocked ? 'border-slate-500/70 bg-slate-800/80' : 'border-slate-800 bg-slate-900/60');
+                const head = document.createElement('div'); head.className = 'flex items-start gap-2';
+                const icon = document.createElement('span'); icon.className = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-xl'; icon.textContent = achievement.unlocked ? achievement.icon : '🔒';
+                const copy = document.createElement('div'); copy.className = 'min-w-0 flex-1';
+                const title = document.createElement('p'); title.className = 'text-xs font-black text-slate-100'; title.textContent = achievement.title;
+                const desc = document.createElement('p'); desc.className = 'mt-1 text-[10px] leading-relaxed text-slate-400'; desc.textContent = achievement.description;
+                const meta = document.createElement('p'); meta.className = 'mt-1 text-[9px] font-bold uppercase tracking-wider text-slate-500'; meta.textContent = achievement.category + ' · ' + achievement.tier + ' · ' + achievement.xp + ' XP';
+                copy.append(title, desc, meta); head.append(icon, copy);
+                const progress = document.createElement('div'); progress.className = 'mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800';
+                const fill = document.createElement('div'); fill.className = 'h-full rounded-full bg-slate-300'; fill.style.width = Math.min(100, (achievement.progress / achievement.target) * 100) + '%'; progress.append(fill);
+                const foot = document.createElement('p'); foot.className = 'mt-1.5 text-[9px] text-slate-500';
+                foot.textContent = achievement.unlocked ? 'Desbloqueado · ' + new Date(achievement.unlockedAt).toLocaleDateString('es-AR') : Math.min(achievement.metricValue, achievement.target).toLocaleString('es-AR') + ' / ' + achievement.target.toLocaleString('es-AR') + ' · objetivo';
+                card.append(head, progress, foot); list.append(card);
+            });
+            more.classList.toggle('hidden', profileAchievements.length <= 6);
+            more.textContent = showAllAchievements ? 'Mostrar menos' : 'Ver todos los objetivos (' + profileAchievements.length + ')';
+        }
+
+        function toggleAllAchievements() { showAllAchievements = !showAllAchievements; renderProfileAchievements(); }
+
+        async function loadProfilePosts() {
+            const list = document.getElementById('profile-post-list');
+            const status = document.getElementById('profile-post-status');
+            if (!list || !status || !authToken) return;
+            list.textContent = 'Cargando tus publicaciones…';
+            try {
+                const data = await apiRequest('/api/me/posts?limit=20');
+                list.replaceChildren();
+                document.getElementById('profile-post-count').textContent = (data.posts || []).length + ' recientes';
+                (data.posts || []).forEach((post) => {
+                    const article = document.createElement('article'); article.className = 'rounded-xl border border-slate-800 bg-slate-900/70 p-3';
+                    const body = document.createElement('p'); body.className = 'whitespace-pre-wrap break-words text-xs text-slate-200'; body.textContent = post.content;
+                    const meta = document.createElement('p'); meta.className = 'mt-2 text-[10px] text-slate-500'; meta.textContent = '♥ ' + post.likeCount + ' · Comentarios ' + post.commentCount + ' · ' + new Date(post.createdAt).toLocaleDateString('es-AR');
+                    article.append(body, meta); list.append(article);
+                });
+                if (!(data.posts || []).length) list.textContent = 'Todavía no publicaste nada. Compartí tu primera jugada desde Inicio.';
+                status.textContent = 'Publicaciones cargadas desde tu cuenta.';
+            } catch (error) { status.textContent = error.message || 'No se pudieron cargar tus publicaciones.'; list.textContent = 'No pudimos cargar tus publicaciones.'; }
         }
 
         async function loadProfileSummary() {
@@ -1367,7 +1477,7 @@
                 if (panel) panel.classList.toggle('hidden', !canModerate);
                 if (canModerate) loadModerationReports();
             }
-            if (tabName === 'profile') { loadMyProfile(); loadProfileSummary(); loadProfileActivity(true); }
+            if (tabName === 'profile') { loadMyProfile(); loadProfileSummary(); loadProfileActivity(true); loadProfileAchievements(); loadProfilePosts(); }
             if (tabName === 'shop') loadStore();
             ['feed', 'live', 'chat', 'clubs', 'shop', 'events', 'friends', 'profile', 'notifications'].forEach(t => {
                 const btn = document.getElementById('nav-btn-' + t);
@@ -2698,6 +2808,11 @@
             } catch (error) {
                 document.getElementById('rooms-status').textContent = error.message;
             }
+        }
+
+        function openDrawerProfile() {
+            switchTab('profile');
+            toggleDrawer(false);
         }
 
         function toggleDrawer(open) {
