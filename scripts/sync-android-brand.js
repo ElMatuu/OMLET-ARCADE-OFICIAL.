@@ -341,12 +341,18 @@ public class FloatingControlsService extends Service {
         TextView live = label("  EN DIRECTO  ·  Abrir PLAYVERSE",13,Color.WHITE);
         live.setBackground(shape(Color.rgb(153,61,65),14)); box.addView(live);
         live.setOnClickListener(v -> launchApp("live"));
+        TextView rooms = label("  SALAS  ·  Multijugador",13,Color.WHITE);
+        rooms.setBackground(shape(Color.rgb(26,105,83),14)); box.addView(rooms);
+        rooms.setOnClickListener(v -> launchApp("lobbies"));
+        TextView clubs = label("  COMUNIDAD  ·  Clubs",13,Color.WHITE);
+        clubs.setBackground(shape(Color.rgb(94,66,139),14)); box.addView(clubs);
+        clubs.setOnClickListener(v -> launchApp("clubs"));
         TextView hide = label("Ocultar burbuja",12,Color.LTGRAY); box.addView(hide);
         hide.setOnClickListener(v -> { hidePanel(); stopSelf(); });
         panel = box;
         panelParams = params(224,-2,Gravity.TOP | Gravity.LEFT);
         panelParams.x = Math.max(dp(8), Math.min(bubbleParams.x - dp(165), getResources().getDisplayMetrics().widthPixels - dp(232)));
-        panelParams.y = Math.max(dp(30), bubbleParams.y - dp(110));
+        panelParams.y = Math.max(dp(30), Math.min(bubbleParams.y - dp(110), getResources().getDisplayMetrics().heightPixels - dp(260)));
         manager.addView(panel,panelParams); expanded = true;
     }
 
