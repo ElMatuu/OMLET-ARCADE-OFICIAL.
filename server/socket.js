@@ -290,10 +290,21 @@ function attachSocketServer(httpServer, allowedOrigins) {
         }
         await socket.join('streamchat:' + streamId);
         const owner = await User.findById(stream.owner).select('streamingPreferences.whoCanChat streamingPreferences.chatRules').lean();
+        const whoCanChat = owner?.streamingPreferences?.whoCanChat || 'everyone';
+        let canChat = isOwner || whoCanChat === 'everyone';
+        if (!isOwner && whoCanChat === 'followers') {
+          canChat = Boolean(await Follow.exists({ follower: socket.user.sub, following: stream.owner }));
+        } else if (!isOwner && whoCanChat === 'friends') {
+          const pairKey = [String(socket.user.sub), String(stream.owner)].sort().join(':');
+          canChat = Boolean(await Friendship.exists({ pairKey, status: 'accepted' }));
+        } else if (!isOwner && whoCanChat === 'nobody') {
+          canChat = false;
+        }
         return acknowledge({
           success: true,
           isOwner,
-          whoCanChat: owner?.streamingPreferences?.whoCanChat || 'everyone',
+          canChat,
+          whoCanChat,
           chatRules: owner?.streamingPreferences?.chatRules || ''
         });
       } catch {
