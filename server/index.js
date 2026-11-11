@@ -51,6 +51,14 @@ const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
   .map((origin) => origin.trim())
   .filter(Boolean);
 const liveKitConfigForCsp = getLiveKitConfig();
+const allowedWebSocketOrigins = allowedOrigins.map((origin) => {
+  try {
+    const parsed = new URL(origin);
+    const protocol = parsed.protocol === 'https:' ? 'wss:' : (parsed.protocol === 'http:' ? 'ws:' : null);
+    return protocol ? protocol + '//' + parsed.host : null;
+  } catch { return null; }
+}).filter(Boolean);
+
 
 if (!process.env.MONGODB_URI) {
   throw new Error('MONGODB_URI is required. Copy .env.example to .env and configure it.');
@@ -69,7 +77,7 @@ app.use(helmet({
       styleSrcAttr: ["'unsafe-inline'"],
       fontSrc: ["'self'", 'https://cdnjs.cloudflare.com', 'https://fonts.gstatic.com', 'data:'],
       imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'", 'wss:', 'ws:', ...(liveKitConfigForCsp ? [liveKitConfigForCsp.clientUrl] : [])]
+      connectSrc: ["'self'", ...allowedWebSocketOrigins, ...(liveKitConfigForCsp ? [liveKitConfigForCsp.clientUrl] : [])]
     }
   }
 }));
