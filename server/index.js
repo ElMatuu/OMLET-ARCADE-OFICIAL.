@@ -751,75 +751,87 @@ app.get('/api/me/posts', requireAuth, async (req, res, next) => {
   } catch (error) { return next(error); }
 });
 
+async function buildAchievementSnapshot(userId) {
+  const [user, posts, comments, rooms, roomMessages, friends, followers, savedPosts, tournaments, tournamentWins, streams] = await Promise.all([
+    User.findById(userId).select('firstStorePurchaseBonusClaimedAt').lean(),
+    Post.countDocuments({ author: userId }),
+    Comment.countDocuments({ author: userId }),
+    Room.countDocuments({ owner: userId }),
+    RoomMessage.countDocuments({ author: userId }),
+    Friendship.countDocuments({ status: 'accepted', $or: [{ requester: userId }, { recipient: userId }] }),
+    Follow.countDocuments({ following: userId }),
+    SavedPost.countDocuments({ user: userId }),
+    Tournament.countDocuments({ entries: { $elemMatch: { $or: [{ captain: userId }, { 'members.user': userId }], status: { $in: ['approved', 'checked-in'] } } } }),
+    Tournament.countDocuments({ entries: { $elemMatch: { $or: [{ captain: userId }, { 'members.user': userId }], placement: 1 } } }),
+    LiveStream.countDocuments({ owner: userId, status: 'ended' })
+  ]);
+  if (!user) return null;
+  const metrics = {
+    posts, comments, rooms, roomMessages, friends, followers, savedPosts, tournaments, tournamentWins, streams,
+    firstPurchaseBonusClaimed: user.firstStorePurchaseBonusClaimedAt ? 1 : 0
+  };
+  const unlocked = ACHIEVEMENTS.filter((item) => (metrics[item.metric] || 0) >= item.target);
+  if (unlocked.length) {
+    await Promise.all(unlocked.map(async (item) => {
+      try {
+        await UserAchievement.updateOne(
+          { user: userId, achievementId: item.id },
+          { $setOnInsert: { user: userId, achievementId: item.id, earnedXP: item.xp, unlockedAt: new Date() } },
+          { upsert: true }
+        );
+      } catch (error) {
+        if (!error || error.code !== 11000) throw error;
+      }
+    }));
+  }
+  const earned = await UserAchievement.find({ user: userId }).select('achievementId earnedXP unlockedAt').lean();
+  const earnedById = new Map(earned.map((item) => [item.achievementId, item]));
+  const achievements = ACHIEVEMENTS.map((item) => {
+    const metricValue = metrics[item.metric] || 0;
+    const record = earnedById.get(item.id);
+    return {
+      id: item.id, title: item.title, description: item.description, category: item.category,
+      tier: item.tier, icon: item.icon, target: item.target,
+      progress: Math.min(metricValue, item.target), metricValue, xp: item.xp,
+      unlocked: Boolean(record), unlockedAt: record ? record.unlockedAt : null
+    };
+  });
+  const totalXP = earned.reduce((sum, item) => sum + item.earnedXP, 0);
+  return {
+    summary: {
+      unlocked: achievements.filter((item) => item.unlocked).length,
+      total: ACHIEVEMENTS.length,
+      totalXP,
+      level: Math.floor(totalXP / 500) + 1,
+      nextLevelXP: 500 - (totalXP % 500)
+    },
+    metrics,
+    achievements,
+    source: 'persisted-platform-activity'
+  };
+}
+
 app.get('/api/me/achievements', requireAuth, async (req, res, next) => {
   try {
-    const userId = req.auth.sub;
-    const [posts, comments, rooms, roomMessages, friends, followers, savedPosts, tournaments, tournamentWins, streams] = await Promise.all([
-      Post.countDocuments({ author: userId }),
-      Comment.countDocuments({ author: userId }),
-      Room.countDocuments({ owner: userId }),
-      RoomMessage.countDocuments({ author: userId }),
-      Friendship.countDocuments({ status: 'accepted', $or: [{ requester: userId }, { recipient: userId }] }),
-      Follow.countDocuments({ following: userId }),
-      SavedPost.countDocuments({ user: userId }),
-      Tournament.countDocuments({ entries: { $elemMatch: { $or: [{ captain: userId }, { 'members.user': userId }], status: { $in: ['approved', 'checked-in'] } } } }),
-      Tournament.countDocuments({ entries: { $elemMatch: { $or: [{ captain: userId }, { 'members.user': userId }], placement: 1 } } }),
-      LiveStream.countDocuments({ owner: userId, status: 'ended' })
-    ]);
-    const metrics = { posts, comments, rooms, roomMessages, friends, followers, savedPosts, tournaments, tournamentWins, streams };
-    const unlocked = ACHIEVEMENTS.filter((item) => metrics[item.metric] >= item.target);
-    if (unlocked.length) {
-      await Promise.all(unlocked.map(async (item) => {
-        try {
-          await UserAchievement.updateOne(
-            { user: userId, achievementId: item.id },
-            { $setOnInsert: { user: userId, achievementId: item.id, earnedXP: item.xp, unlockedAt: new Date() } },
-            { upsert: true }
-          );
-        } catch (error) {
-          // A simultaneous profile refresh may win the unique insert; that is an already-earned trophy.
-          if (!error || error.code !== 11000) throw error;
-        }
-      }));
-    }
-    const earned = await UserAchievement.find({ user: userId }).select('achievementId earnedXP unlockedAt').lean();
-    const earnedById = new Map(earned.map((item) => [item.achievementId, item]));
-    const achievements = ACHIEVEMENTS.map((item) => {
-      const progress = Math.min(metrics[item.metric] || 0, item.target);
-      const record = earnedById.get(item.id);
-      return {
-        id: item.id,
-        title: item.title,
-        description: item.description,
-        category: item.category,
-        tier: item.tier,
-        icon: item.icon,
-        target: item.target,
-        progress,
-        metricValue: metrics[item.metric] || 0,
-        xp: item.xp,
-        unlocked: Boolean(record),
-        unlockedAt: record ? record.unlockedAt : null
-      };
-    });
-    const totalXP = earned.reduce((sum, item) => sum + item.earnedXP, 0);
-    return res.json({
-      success: true,
-      summary: {
-        unlocked: earned.length,
-        total: ACHIEVEMENTS.length,
-        totalXP,
-        level: Math.floor(totalXP / 500) + 1,
-        nextLevelXP: 500 - (totalXP % 500)
-      },
-      metrics,
-      achievements,
-      source: 'persisted-platform-activity'
-    });
+    const snapshot = await buildAchievementSnapshot(req.auth.sub);
+    if (!snapshot) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    return res.json({ success: true, ...snapshot });
   } catch (error) { return next(error); }
 });
 
-
+app.get('/api/users/:username/achievements', requireAuth, async (req, res, next) => {
+  try {
+    const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
+    const player = await User.findOne({ username }).select('_id').lean();
+    if (!player) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    if (String(player._id) !== req.auth.sub && await hasBlockBetween(req.auth.sub, player._id)) {
+      return res.status(403).json({ success: false, message: 'No podés ver el perfil de este jugador.' });
+    }
+    const snapshot = await buildAchievementSnapshot(player._id);
+    if (!snapshot) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    return res.json({ success: true, username, ...snapshot });
+  } catch (error) { return next(error); }
+});
 
 const ACTIVITY_SOURCES = [
   { model: Post, type: 'post', dateField: 'createdAt', filter: (userId) => ({ author: userId }), title: 'Publicaste en la comunidad', description: 'Nueva publicación' },
@@ -1149,7 +1161,8 @@ app.put('/api/me/app-preferences', requireAuth, profileLimiter, async (req, res,
 app.get('/api/store/catalog', requireAuth, (req, res) => {
   return res.json({
     success: true,
-    currencies: Object.entries(CURRENCY_CONFIG).map(([id, currency]) => ({ id, label: currency.label, icon: currency.icon, symbol: currency.symbol })),
+    currencies: Object.entries(CURRENCY_CONFIG).map(([id, currency]) => ({ id, label: currency.label, icon: currency.icon, symbol: currency.symbol, referenceGoldUnits: currency.referenceGoldUnits })),
+    economyNotice: 'Monedas virtuales exclusivas de PLAYVERSE. Las equivalencias son referencias internas de balance; no representan oro, plata o diamantes reales, no tienen valor monetario y no se pueden comprar con dinero real ni canjear por efectivo.',
     items: STORE_CATALOG.map(({ id, name, category, description, priceTokens, priceCurrency, rarity, animation, assetKey }) => ({
       id, name, category, description, priceTokens, priceCurrency: priceCurrency || 'gold', currencyLabel: getCurrencyLabel(priceCurrency || 'gold'), rarity, animation, assetKey
     }))
@@ -1766,9 +1779,9 @@ app.delete('/api/stories/:storyId', requireAuth, async (req, res, next) => {
 });
 
 const CURRENCY_CONFIG = {
-  gold: { label: 'Oro PLAYVERSE', shortLabel: 'Oro', field: 'walletTokens', symbol: 'PV', icon: '🟡' },
-  purple: { label: 'Plata PLAYVERSE', shortLabel: 'Plata', field: 'walletPurpleTokens', symbol: 'PV', icon: '🥈' },
-  diamond: { label: 'Diamante PLAYVERSE', shortLabel: 'Diamante', field: 'walletDiamondTokens', symbol: 'PV', icon: '💎' }
+  gold: { label: 'Oro PLAYVERSE', shortLabel: 'Oro', field: 'walletTokens', symbol: 'PV', icon: '🟡', referenceGoldUnits: 1 },
+  purple: { label: 'Cristal Violeta PLAYVERSE', shortLabel: 'Violeta', field: 'walletPurpleTokens', symbol: 'PV', icon: '🟣', referenceGoldUnits: 100 },
+  diamond: { label: 'Diamante PLAYVERSE', shortLabel: 'Diamante', field: 'walletDiamondTokens', symbol: 'PV', icon: '💎', referenceGoldUnits: 1000 }
 };
 function getCurrencyField(currency) {
   return CURRENCY_CONFIG[currency]?.field || null;
