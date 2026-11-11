@@ -3672,7 +3672,8 @@ app.get('/api/conversations/:conversationId/messages', requireAuth, async (req, 
             }
           }]
         );
-        io.to('dm:' + conversationId).emit('direct_messages_read', {
+        const io = req.app.get('io');
+        if (io) io.to('dm:' + conversationId).emit('direct_messages_read', {
           conversationId,
           readerId: String(req.auth.sub),
           throughMessageId: String(unreadMessages[unreadMessages.length - 1]._id),
