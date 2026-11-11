@@ -545,8 +545,36 @@
             <div id="tab-help" class="space-y-4 hidden max-w-lg mx-auto">
                 <section class="PLAYVERSE-card rounded-2xl p-5 space-y-3">
                     <div class="flex items-center gap-3"><i class="fa-solid fa-life-ring text-2xl text-sky-300"></i><h3 class="font-black text-xl">Ayuda y soporte</h3></div>
-                    <p class="text-sm text-slate-300">PLAYVERSE está en construcción. Desde acá vamos a reunir ayuda de cuenta, seguridad, reportes y preguntas frecuentes.</p>
-                    <p class="text-xs text-slate-500">El canal de soporte todavía no está conectado. No se publica una dirección de contacto hasta que exista una oficial.</p>
+                    <p class="text-sm text-slate-300">Centro de seguridad y soporte de la comunidad. Podés enviar reportes que quedan registrados para revisión del equipo de moderación.</p>
+                </section>
+                <section class="PLAYVERSE-card rounded-2xl p-5 space-y-3">
+                    <h4 class="font-black text-base">Denunciar contenido o una cuenta</h4>
+                    <form id="content-report-form" onsubmit="submitContentReport(event)" class="space-y-3">
+                        <label class="block text-xs text-slate-400">Qué querés reportar
+                            <select id="report-target-type" required class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white">
+                                <option value="user">Cuenta de usuario</option><option value="post">Publicación</option><option value="comment">Comentario</option><option value="room">Sala</option><option value="stream">Transmisión</option>
+                            </select>
+                        </label>
+                        <label class="block text-xs text-slate-400">ID del elemento o usuario
+                            <input id="report-target-id" required maxlength="64" pattern="[a-fA-F0-9]{24}" class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white" placeholder="Pegá el ID de 24 caracteres">
+                        </label>
+                        <label class="block text-xs text-slate-400">Motivo
+                            <select id="report-reason" required class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white">
+                                <option value="harassment">Acoso o amenazas</option><option value="hate">Discurso de odio</option><option value="spam">Spam</option><option value="sexual_content">Contenido sexual</option><option value="violence">Violencia</option><option value="impersonation">Suplantación</option><option value="scam">Estafa</option><option value="other">Otro</option>
+                            </select>
+                        </label>
+                        <label class="block text-xs text-slate-400">Detalles (opcional)
+                            <textarea id="report-details" maxlength="1000" rows="3" class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white" placeholder="Contanos brevemente qué pasó."></textarea>
+                        </label>
+                        <p id="report-form-status" class="text-xs text-slate-400" role="status">Los reportes son privados y se revisan por moderadores autorizados.</p>
+                        <button id="report-submit" type="submit" class="w-full PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-black text-white">Enviar reporte</button>
+                    </form>
+                </section>
+                <section id="moderation-queue-panel" class="PLAYVERSE-card rounded-2xl p-5 space-y-3 hidden">
+                    <div class="flex items-center justify-between"><h4 class="font-black text-base">Cola de moderación</h4><button type="button" onclick="loadModerationReports()" class="text-xs text-orange-300">Actualizar</button></div>
+                    <p id="moderation-queue-status" class="text-xs text-slate-400" role="status">Solo moderadores y administradores.</p>
+                    <div id="moderation-reports-list" class="space-y-3"></div>
+                </section>
                 </section>
             </div>
 
@@ -1131,6 +1159,12 @@
             if (tabName === 'events') loadMissions();
             if (tabName === 'friends') loadFriends();
             if (tabName === 'notifications') loadNotifications(true);
+            if (tabName === 'help') {
+                const panel = document.getElementById('moderation-queue-panel');
+                const canModerate = appState.profile && ['moderator', 'admin'].includes(appState.profile.role);
+                if (panel) panel.classList.toggle('hidden', !canModerate);
+                if (canModerate) loadModerationReports();
+            }
             if (tabName === 'profile') { loadMyProfile(); loadProfileSummary(); loadProfileActivity(true); }
             if (tabName === 'shop') loadStore();
             ['feed', 'live', 'chat', 'clubs', 'shop', 'events', 'friends', 'profile', 'notifications'].forEach(t => {
@@ -1267,6 +1301,100 @@
                 updateNotificationBadge(data.unreadCount);
             } catch (error) {
                 // Badge refresh is non-critical; the inbox shows actionable errors when opened.
+            }
+        }
+
+        async function submitContentReport(event) {
+            event.preventDefault();
+            const status = document.getElementById('report-form-status');
+            const button = document.getElementById('report-submit');
+            if (button) button.disabled = true;
+            if (status) status.textContent = 'Enviando reporte…';
+            try {
+                const data = await apiRequest('/api/reports', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        targetType: document.getElementById('report-target-type').value,
+                        targetId: document.getElementById('report-target-id').value.trim(),
+                        reason: document.getElementById('report-reason').value,
+                        details: document.getElementById('report-details').value
+                    })
+                });
+                document.getElementById('content-report-form').reset();
+                if (status) status.textContent = data.message || 'Reporte enviado correctamente.';
+            } catch (error) {
+                if (status) status.textContent = error.message;
+            } finally {
+                if (button) button.disabled = false;
+            }
+        }
+
+        async function loadModerationReports() {
+            const status = document.getElementById('moderation-queue-status');
+            const list = document.getElementById('moderation-reports-list');
+            if (!list || !appState.profile || !['moderator', 'admin'].includes(appState.profile.role)) return;
+            if (status) status.textContent = 'Cargando reportes pendientes…';
+            list.replaceChildren();
+            try {
+                const data = await apiRequest('/api/admin/reports?status=pending');
+                const reports = Array.isArray(data.reports) ? data.reports : [];
+                if (status) status.textContent = reports.length + ' reporte(s) pendiente(s).';
+                if (!reports.length) {
+                    const empty = document.createElement('p');
+                    empty.className = 'text-xs text-slate-500';
+                    empty.textContent = 'No hay reportes pendientes.';
+                    list.append(empty);
+                    return;
+                }
+                reports.forEach((report) => {
+                    const card = document.createElement('article');
+                    card.className = 'rounded-xl border border-slate-700 bg-slate-950 p-3 space-y-2';
+                    const heading = document.createElement('p');
+                    heading.className = 'text-xs font-bold text-white';
+                    heading.textContent = report.targetType + ' · ' + report.reason + ' · @' + ((report.reporter && report.reporter.username) || 'cuenta');
+                    const target = document.createElement('p');
+                    target.className = 'text-[10px] text-slate-500 break-all';
+                    target.textContent = 'ID: ' + report.targetId + ' · ' + new Date(report.createdAt).toLocaleString('es-AR');
+                    const details = document.createElement('p');
+                    details.className = 'text-xs text-slate-300 whitespace-pre-wrap';
+                    details.textContent = report.details || 'Sin detalles adicionales.';
+                    const note = document.createElement('textarea');
+                    note.maxLength = 500;
+                    note.rows = 2;
+                    note.placeholder = 'Nota interna de moderación (opcional)';
+                    note.className = 'w-full rounded-lg border border-slate-700 bg-slate-900 p-2 text-xs text-white';
+                    const actions = document.createElement('div');
+                    actions.className = 'grid grid-cols-2 gap-2';
+                    [['reviewed', 'Marcar revisado'], ['dismissed', 'Descartar']].forEach(([decision, label]) => {
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.className = 'rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-200';
+                        button.textContent = label;
+                        button.addEventListener('click', () => resolveModerationReport(report.id, decision, note.value, button));
+                        actions.append(button);
+                    });
+                    card.append(heading, target, details, note, actions);
+                    list.append(card);
+                });
+            } catch (error) {
+                if (status) status.textContent = error.message;
+            }
+        }
+
+        async function resolveModerationReport(reportId, statusValue, moderatorNotes, button) {
+            if (button) button.disabled = true;
+            try {
+                await apiRequest('/api/admin/reports/' + encodeURIComponent(reportId), {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: statusValue, moderatorNotes })
+                });
+                await loadModerationReports();
+            } catch (error) {
+                const status = document.getElementById('moderation-queue-status');
+                if (status) status.textContent = error.message;
+                if (button) button.disabled = false;
             }
         }
 
