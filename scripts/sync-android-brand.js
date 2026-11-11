@@ -57,7 +57,7 @@ const application = manifest.match(/<application\b[^>]*>/);
 if (!application) throw new Error('AndroidManifest.xml does not contain an application element.');
 let appTag = application[0];
 for (const [attribute, value] of [['android:icon', '@mipmap/ic_launcher'], ['android:roundIcon', '@mipmap/ic_launcher_round'], ['android:label', 'PLAYVERSE']]) {
-  const pattern = new RegExp('\s' + attribute + '="[^"]*"');
+  const pattern = new RegExp('\\s' + attribute + '="[^"]*"');
   if (pattern.test(appTag)) appTag = appTag.replace(pattern, ' ' + attribute + '="' + value + '"');
   else appTag = appTag.slice(0, -1) + ' ' + attribute + '="' + value + '">';
 }
