@@ -1411,7 +1411,7 @@
                 const notes = [261.63, 329.63, 392.00, 493.88, 392.00, 329.63, 293.66, 349.23, 440.00, 523.25, 440.00, 392.00, 329.63, 392.00, 493.88, 587.33];
                 const start = context.currentTime + 0.12;
                 notes.forEach((frequency, index) => {
-                    const at = start + index * 0.58;
+                    const at = start + index * 0.32;
                     const osc = context.createOscillator();
                     const envelope = context.createGain();
                     const tone = context.createBiquadFilter();
@@ -1421,7 +1421,7 @@
                     tone.frequency.setValueAtTime(1500, at);
                     envelope.gain.setValueAtTime(0.0001, at);
                     envelope.gain.exponentialRampToValueAtTime(index % 4 === 0 ? 0.24 : 0.15, at + 0.09);
-                    envelope.gain.exponentialRampToValueAtTime(0.0001, at + 0.52);
+                    envelope.gain.exponentialRampToValueAtTime(0.0001, at + 0.28);
                     osc.connect(tone); tone.connect(envelope); envelope.connect(master);
                     osc.start(at); osc.stop(at + 0.56);
                     pvBootAudioNodes.push(osc, envelope);
@@ -1432,13 +1432,13 @@
                 pad.frequency.setValueAtTime(130.81, start);
                 padGain.gain.setValueAtTime(0.0001, start);
                 padGain.gain.exponentialRampToValueAtTime(0.035, start + 1.4);
-                padGain.gain.setTargetAtTime(0.0001, start + 8.4, 0.8);
+                padGain.gain.setTargetAtTime(0.0001, start + 4.8, 0.8);
                 pad.connect(padGain); padGain.connect(master);
-                pad.start(start); pad.stop(start + 11.5);
+                pad.start(start); pad.stop(start + 6.4);
                 pvBootAudioNodes.push(pad, padGain);
-                master.gain.setTargetAtTime(0.0001, start + 9.3, 0.65);
+                master.gain.setTargetAtTime(0.0001, start + 4.9, 0.65);
                 pvBootAudioPlayed = true;
-                setTimeout(stopPlayverseBootMusic, 11500);
+                setTimeout(stopPlayverseBootMusic, 6600);
                 return true;
             } catch (_) {
                 stopPlayverseBootMusic();
@@ -1497,7 +1497,7 @@
                 document.getElementById('auth-screen').classList.remove('hidden');
             }
             // Keep a short cinematic beat, but never hold the user through a long artificial loading delay.
-            await new Promise((resolve) => setTimeout(resolve, Math.max(0, 2600 - (Date.now() - startedAt))));
+            await new Promise((resolve) => setTimeout(resolve, Math.max(0, 5200 - (Date.now() - startedAt))));
             ready = true;
             clearInterval(progressTimer);
             if (progress) progress.style.width = '100%';
