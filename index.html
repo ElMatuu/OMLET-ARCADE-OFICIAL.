@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#080b16">
     <link rel="manifest" href="/manifest.webmanifest">
     <meta name="application-name" content="PLAYVERSE">
@@ -49,6 +49,50 @@
 @keyframes pv-overlay-spectrum{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
 @media(prefers-reduced-motion:reduce){.pv-coin,.pv-animated-frame,.pv-animated-overlay{animation:none}}
 </style>
+
+<style id="playverse-responsive-platforms">
+  :root { --pv-safe-top: env(safe-area-inset-top, 0px); --pv-safe-right: env(safe-area-inset-right, 0px); --pv-safe-bottom: env(safe-area-inset-bottom, 0px); --pv-safe-left: env(safe-area-inset-left, 0px); }
+  html, body { width: 100%; min-width: 320px; min-height: 100%; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+  body { min-height: 100dvh; padding: var(--pv-safe-top) var(--pv-safe-right) var(--pv-safe-bottom) var(--pv-safe-left); }
+  button, input, select, textarea { font: inherit; }
+  button, [role="button"] { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  :focus-visible { outline: 2px solid #f59e0b; outline-offset: 3px; }
+  #main-app { min-height: 0; height: 100%; }
+  #main-app > header { padding-left: max(1rem, var(--pv-safe-left)); padding-right: max(1rem, var(--pv-safe-right)); }
+  #main-app > main { width: 100%; min-width: 0; overscroll-behavior-y: contain; scrollbar-gutter: stable; }
+  #drawer-panel { width: min(20rem, calc(100vw - 1rem)); padding-bottom: var(--pv-safe-bottom); }
+  img, video, canvas, iframe { max-width: 100%; }
+  input, textarea, select { min-width: 0; max-width: 100%; }
+  [role="dialog"], .modal, .fixed.inset-0 > .PLAYVERSE-card { max-height: calc(100dvh - var(--pv-safe-top) - var(--pv-safe-bottom) - 1rem); }
+  @media (max-width: 639px) {
+    body { overflow: hidden; }
+    #main-app > header { min-height: 3.5rem; height: auto; gap: .5rem; padding-top: .25rem; padding-bottom: .25rem; }
+    #main-app > header .font-mono { display: none; }
+    #main-app > header .text-lg { font-size: 1rem; }
+    #main-app > main { padding: .75rem; padding-bottom: max(.75rem, var(--pv-safe-bottom)); }
+    #drawer-panel { width: min(19rem, calc(100vw - 1.25rem)); }
+    #profile-avatar-catalog { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    #main-app button, #main-app [role="button"] { min-height: 40px; }
+    #main-app input, #main-app select, #main-app textarea { font-size: 16px; }
+  }
+  @media (min-width: 640px) and (max-width: 1023px) {
+    #main-app > main { max-width: 58rem; padding: 1.25rem; }
+    #drawer-panel { width: 21rem; }
+  }
+  @media (min-width: 1024px) {
+    #main-app > main { max-width: 76rem; padding: 1.75rem 2rem; }
+    #drawer-panel { width: 22rem; }
+  }
+  @media (min-width: 1440px) {
+    #main-app > main { max-width: 88rem; padding-left: 2.5rem; padding-right: 2.5rem; }
+  }
+  @media (orientation: landscape) and (max-height: 520px) {
+    #main-app > header { min-height: 3rem; height: 3rem; }
+    #main-app > main { padding-top: .5rem; padding-bottom: .5rem; }
+    [role="dialog"], .modal { max-height: calc(100dvh - 1rem); overflow-y: auto; }
+  }
+</style>
+
 </head>
 <body class="h-screen w-screen flex flex-col justify-between relative">
 
