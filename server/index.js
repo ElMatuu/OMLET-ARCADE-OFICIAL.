@@ -2159,7 +2159,7 @@ app.post('/api/rooms/:roomId/participation-requests', requireAuth, async (req, r
       'joinRequests.user': { $ne: req.auth.sub }
     }, {
       $push: { joinRequests: { user: req.auth.sub, username: req.auth.username, status: 'pending', requestedAt: new Date() } }
-    }, { new: true }).select('name ownerUsername').lean();
+    }, { new: true }).select('name owner ownerUsername').lean();
     if (!room) {
       const existing = await Room.findById(req.params.roomId).select('owner members joinRequests status').lean();
       if (!existing) return res.status(404).json({ success: false, message: 'Sala no encontrada.' });
@@ -2167,6 +2167,23 @@ app.post('/api/rooms/:roomId/participation-requests', requireAuth, async (req, r
       if (request && request.status === 'pending') return res.json({ success: true, alreadyRequested: true, status: 'pending' });
       if (request && request.status === 'accepted') return res.json({ success: true, alreadyAccepted: true, status: 'accepted' });
       return res.status(409).json({ success: false, message: 'No podés solicitar participar en esta sala.' });
+    }
+    try {
+      const notification = await Notification.create({
+        recipient: room.owner,
+        actor: req.auth.sub,
+        type: 'room_participation_request',
+        title: 'Nueva solicitud para tu sala',
+        body: '@' + req.auth.username + ' quiere participar en ' + room.name,
+        entityId: req.params.roomId
+      });
+      const io = httpServer.io;
+      if (io) io.to('user:' + String(room.owner)).emit('new_notification', {
+        id: String(notification._id), type: notification.type, title: notification.title,
+        body: notification.body, entityId: String(req.params.roomId), createdAt: notification.createdAt
+      });
+    } catch (notificationError) {
+      console.error('Unable to persist room participation request notification:', notificationError.message);
     }
     return res.status(201).json({ success: true, status: 'pending', room: { name: room.name, ownerUsername: room.ownerUsername } });
   } catch (error) { return next(error); }
@@ -2194,10 +2211,30 @@ app.patch('/api/rooms/:roomId/participation-requests/:userId', requireAuth, asyn
     };
     if (decision === 'accept') filter.$expr = { $lt: ['$memberCount', '$capacity'] };
     const room = await Room.findOneAndUpdate(filter, update, { new: true, runValidators: true })
-      .select('name memberCount capacity').lean();
+      .select('name memberCount capacity ownerUsername joinRequests').lean();
     if (!room) return res.status(409).json({ success: false, message: decision === 'accept'
       ? 'La solicitud ya fue respondida, la sala se cerró o está completa.'
       : 'La solicitud ya fue respondida o la sala se cerró.' });
+    const requestRecord = (room.joinRequests || []).find((item) => String(item.user) === String(userId));
+    try {
+      const notification = await Notification.create({
+        recipient: userId,
+        actor: req.auth.sub,
+        type: decision === 'accept' ? 'room_participation_accepted' : 'room_participation_declined',
+        title: decision === 'accept' ? 'Solicitud aceptada' : 'Solicitud rechazada',
+        body: decision === 'accept'
+          ? 'Tu solicitud para participar en ' + room.name + ' fue aceptada.'
+          : 'Tu solicitud para participar en ' + room.name + ' fue rechazada.',
+        entityId: roomId
+      });
+      const io = httpServer.io;
+      if (io) io.to('user:' + String(userId)).emit('new_notification', {
+        id: String(notification._id), type: notification.type, title: notification.title,
+        body: notification.body, entityId: String(roomId), createdAt: notification.createdAt
+      });
+    } catch (notificationError) {
+      console.error('Unable to persist room participation decision notification:', notificationError.message);
+    }
     const io = httpServer.io;
     if (io) io.to(String(roomId)).emit('room_participation_request_updated', {
       roomId: String(roomId), userId: String(userId), status: decision === 'accept' ? 'accepted' : 'declined'
