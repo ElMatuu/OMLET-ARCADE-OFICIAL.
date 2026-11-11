@@ -3870,6 +3870,9 @@ app.patch('/api/admin/reports/:reportId', requireAuth, requireModerator, async (
 
 app.use((error, req, res, next) => {
   if (res.headersSent) return next(error);
+  if (error && error.type === 'entity.parse.failed') {
+    return res.status(400).json({ success: false, message: 'El cuerpo JSON no es válido.' });
+  }
   console.error('API error:', error.message);
   return res.status(500).json({ success: false, message: 'Error interno del servidor.' });
 });
