@@ -458,7 +458,7 @@ async function refresh(){
   set('branding',p.brandingText);
   const socials=[p.socialYouTube&&'YouTube '+p.socialYouTube,p.socialTwitch&&'Twitch '+p.socialTwitch,p.socialTikTok&&'TikTok '+p.socialTikTok].filter(Boolean).join('  •  ');
   set('social',socials);
-  set('viewers',p.showViewerCount?'● '+data.viewerCount+' espectadores':'');
+  set('viewers',p.showViewerCount?(Number.isInteger(data.viewerCount)?'● '+data.viewerCount+' espectadores':'● espectadores no disponibles'):'');
  }catch{set('title','Reconectando…')}
 }
 refresh();setInterval(refresh,5000);
