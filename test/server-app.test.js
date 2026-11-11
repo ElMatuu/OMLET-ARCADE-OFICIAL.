@@ -165,6 +165,29 @@ test('creator streaming preferences remain protected by authentication', async (
   });
 });
 
+test('profile publication history rejects malformed pagination cursors before database access', async () => {
+  const jwt = require('jsonwebtoken');
+  const mongoose = require('mongoose');
+  const token = jwt.sign({
+    sub: new mongoose.Types.ObjectId().toString(),
+    username: 'profile_reader',
+    role: 'user'
+  }, process.env.JWT_SECRET, {
+    algorithm: 'HS256',
+    expiresIn: '5m',
+    issuer: 'playverse-api',
+    audience: 'playverse-clients'
+  });
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/me/posts?cursor=not-a-valid-cursor', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    const body = await response.json();
+    assert.equal(response.status, 400);
+    assert.equal(body.success, false);
+  });
+});
+
 test('achievement progress endpoint requires an authenticated account', async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(baseUrl + '/api/me/achievements');
