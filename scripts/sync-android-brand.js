@@ -107,15 +107,19 @@ const splashStyles = [
 ].join(String.fromCharCode(10)) + String.fromCharCode(10);
 fs.writeFileSync(path.join(v31, 'styles.xml'), splashStyles);
 
-const overlayPermission = [
+const overlayPermissions = [
   '    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />',
   '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />',
   '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />',
   '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />'
-].join(String.fromCharCode(10));
-if (!manifest.includes('android.permission.SYSTEM_ALERT_WINDOW')) {
+];
+const missingOverlayPermissions = overlayPermissions.filter((entry) => {
+  const name = entry.match(/android:name="([^"]+)"/)[1];
+  return !manifest.includes('android:name="' + name + '"');
+});
+if (missingOverlayPermissions.length) {
   const appAt = manifest.indexOf('<application');
-  manifest = manifest.slice(0, appAt) + overlayPermission + '\n    ' + manifest.slice(appAt);
+  manifest = manifest.slice(0, appAt) + missingOverlayPermissions.join('\n') + '\n    ' + manifest.slice(appAt);
   fs.writeFileSync(manifestPath, manifest);
 }
 
