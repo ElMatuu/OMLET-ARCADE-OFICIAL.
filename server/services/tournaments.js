@@ -1,7 +1,5 @@
 function groupSoloEntries(entries, teamSize) {
-  if (!Number.isInteger(teamSize) || teamSize < 1 || teamSize > 10) {
-    throw new TypeError('teamSize must be an integer between 1 and 10');
-  }
+  if (!Number.isInteger(teamSize) || teamSize < 1 || teamSize > 10) throw new TypeError('teamSize must be an integer between 1 and 10');
   if (teamSize === 1) return entries;
   const teams = [];
   const solos = entries.filter((entry) => entry.registrationType === 'solo' && entry.status !== 'withdrawn');
@@ -27,22 +25,20 @@ function groupSoloEntries(entries, teamSize) {
 function buildSingleEliminationBracket(entries) {
   const active = entries.filter((entry) => entry.status === 'approved' || entry.status === 'checked-in');
   if (active.length < 2) throw new Error('Se necesitan al menos dos equipos aprobados.');
-
   const bracketSize = 2 ** Math.ceil(Math.log2(active.length));
   const byeCount = bracketSize - active.length;
   const fullMatchCount = (active.length - byeCount) / 2;
-  const firstRound = [];
+  const matches = [];
   let entrantIndex = 0;
   let fullMatchesCreated = 0;
   let byeMatchesCreated = 0;
 
-  // Alternate contested matches and byes so every bye occupies its own
-  // first-round match and feeds a real slot in the next round.
+  // Interleave real matches and byes; never create a first-round empty-vs-empty.
   while (fullMatchesCreated < fullMatchCount || byeMatchesCreated < byeCount) {
     if (fullMatchesCreated < fullMatchCount) {
-      firstRound.push({
+      matches.push({
         round: 1,
-        matchNumber: firstRound.length + 1,
+        matchNumber: matches.length + 1,
         entryA: String(active[entrantIndex++]._id),
         entryB: String(active[entrantIndex++]._id),
         winner: null,
@@ -52,9 +48,9 @@ function buildSingleEliminationBracket(entries) {
     }
     if (byeMatchesCreated < byeCount) {
       const entrant = String(active[entrantIndex++]._id);
-      firstRound.push({
+      matches.push({
         round: 1,
-        matchNumber: firstRound.length + 1,
+        matchNumber: matches.length + 1,
         entryA: entrant,
         entryB: null,
         winner: entrant,
@@ -64,13 +60,11 @@ function buildSingleEliminationBracket(entries) {
     }
   }
 
-  const matches = firstRound.slice();
-  let feeders = firstRound.map((match) => ({
+  let feeders = matches.map((match) => ({
     winner: match.winner,
     resolved: match.status === 'completed'
   }));
   let round = 2;
-
   while (feeders.length > 1) {
     const nextFeeders = [];
     for (let index = 0; index < feeders.length; index += 2) {
