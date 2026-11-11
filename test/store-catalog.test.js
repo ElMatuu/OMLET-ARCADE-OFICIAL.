@@ -7,6 +7,7 @@ const User = require('../server/models/User');
 test('store catalogue has unique identifiers and valid prices', () => {
   const ids = STORE_CATALOG.map((item) => item.id);
   assert.equal(new Set(ids).size, ids.length, 'catalogue item IDs must be unique');
+  assert.ok(STORE_CATALOG.length >= 35, 'the arcade store should expose a broad cosmetic and gifting catalogue');
   for (const item of STORE_CATALOG) {
     assert.ok(item.id && item.name && item.description && item.assetKey);
     assert.ok(Number.isInteger(item.priceTokens) && item.priceTokens > 0);
