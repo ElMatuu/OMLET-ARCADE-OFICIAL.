@@ -453,6 +453,12 @@ app.get('/api/public/stream-overlay/:token', overlayReadLimiter, async (req, res
       console.error('Unable to read LiveKit overlay participant count:', error.message);
     }
     const preferences = owner.streamingPreferences || {};
+    const showChat = preferences.overlayShowChat !== false;
+    const chatMessages = showChat
+      ? await LiveStreamMessage.find({ stream: stream._id, status: 'visible' })
+          .sort({ createdAt: -1, _id: -1 }).limit(6)
+          .select('username message createdAt').lean()
+      : [];
     return res.set('Cache-Control', 'no-store').json({
       success: true,
       stream: { title: stream.title, creator: stream.ownerUsername },
@@ -460,13 +466,19 @@ app.get('/api/public/stream-overlay/:token', overlayReadLimiter, async (req, res
         theme: preferences.overlayTheme || 'arcade',
         layout: preferences.overlayLayout || 'wide',
         showViewerCount: preferences.overlayShowViewerCount !== false,
+        showChat,
         brandingText: preferences.overlayBrandingText || '',
         socialYouTube: preferences.socialYouTube || '',
         socialTwitch: preferences.socialTwitch || '',
         socialTikTok: preferences.socialTikTok || ''
       },
       viewerCount,
-      capabilities: { viewerCount: viewerCount !== null, chat: false, donations: false }
+      chatMessages: chatMessages.reverse().map((item) => ({
+        username: item.username,
+        message: item.message,
+        createdAt: item.createdAt
+      })),
+      capabilities: { viewerCount: viewerCount !== null, chat: showChat, donations: false }
     });
   } catch (error) { return next(error); }
 });
@@ -491,11 +503,15 @@ app.get('/overlay/:token', (req, res) => {
 #branding{font-size:12px;color:#cbd5e1;margin-top:7px}
 #viewers{white-space:nowrap;padding:10px 14px;border-radius:999px;background:#10152be8;border:1px solid #ffffff35;font-weight:800}
 #social{font-size:11px;color:#dbeafe;margin-top:5px}
+#chat{display:none;max-width:min(38vw,420px);max-height:38vh;overflow:hidden;margin-top:10px;padding:10px 12px;border:1px solid #ffffff30;border-radius:12px;background:#090d1ddd}
+#chat.visible{display:block}#chat-title{font-size:10px;font-weight:900;letter-spacing:.12em;color:#a5b4fc;text-transform:uppercase;margin-bottom:6px}
+.chat-line{font-size:12px;line-height:1.35;overflow-wrap:anywhere;margin-top:4px;color:#f1f5f9}
+.chat-user{font-weight:800;color:#67e8f9;margin-right:5px}
 .theme-neon .panel,.theme-neon #viewers{border-color:#22d3ee99;box-shadow:0 0 22px #22d3ee33}
 .theme-minimal .panel,.theme-minimal #viewers{background:#111c;color:#fff;border-color:#ffffff55;box-shadow:none}
 .theme-esports .panel,.theme-esports #viewers{border-radius:4px;border-left:4px solid #f97316;background:#111827ed}
 .layout-compact .panel{padding:9px 12px}.layout-vertical{flex-direction:column;align-items:flex-start}.layout-vertical .panel{max-width:100%}
-</style></head><body><main id="overlay"><section class="panel"><div id="creator"></div><div id="title">Conectando con la transmisión…</div><div id="branding"></div><div id="social"></div></section><div id="viewers"></div></main>
+</style></head><body><main id="overlay"><section class="panel"><div id="creator"></div><div id="title">Conectando con la transmisión…</div><div id="branding"></div><div id="social"></div><section id="chat"><div id="chat-title">Chat en vivo</div><div id="chat-lines"></div></section></section><div id="viewers"></div></main>
 <script>
 const token=${JSON.stringify(token)};
 const root=document.getElementById('overlay');
@@ -512,6 +528,16 @@ async function refresh(){
   const socials=[p.socialYouTube&&'YouTube '+p.socialYouTube,p.socialTwitch&&'Twitch '+p.socialTwitch,p.socialTikTok&&'TikTok '+p.socialTikTok].filter(Boolean).join('  •  ');
   set('social',socials);
   set('viewers',p.showViewerCount?(Number.isInteger(data.viewerCount)?'● '+data.viewerCount+' espectadores':'● espectadores no disponibles'):'');
+  const chat=document.getElementById('chat');
+  const chatLines=document.getElementById('chat-lines');
+  chat.classList.toggle('visible',p.showChat===true);
+  chatLines.replaceChildren();
+  (Array.isArray(data.chatMessages)?data.chatMessages:[]).forEach((message)=>{
+   const line=document.createElement('div');line.className='chat-line';
+   const user=document.createElement('span');user.className='chat-user';user.textContent='@'+(message.username||'jugador');
+   const body=document.createElement('span');body.textContent=message.message||'';
+   line.append(user,body);chatLines.appendChild(line);
+  });
  }catch{set('title','Reconectando…')}
 }
 refresh();setInterval(refresh,5000);
