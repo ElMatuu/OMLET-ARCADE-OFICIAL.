@@ -6,5 +6,4 @@ rtc:
   port_range_end: 50100
   use_external_ip: true
 
-logging:
-  level: info
+log_level: info
