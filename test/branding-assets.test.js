@@ -15,8 +15,8 @@ test('PLAYVERSE installation identity is consistent across targets', () => {
   assert.equal(manifest.name, 'PLAYVERSE');
   assert.equal(manifest.short_name, 'PLAYVERSE');
   assert.equal(packageJson.build.productName, 'PLAYVERSE');
-  assert.match(html, /<title>PLAYVERSE<\\/title>/);
-  assert.match(html, /application-name" content="PLAYVERSE"/);
+  assert.ok(html.includes('<title>PLAYVERSE</title>'));
+  assert.ok(html.includes('application-name" content="PLAYVERSE"'));
 });
 
 test('one official vector logo is the source for Android and Windows native icons', () => {
@@ -25,12 +25,12 @@ test('one official vector logo is the source for Android and Windows native icon
   const androidSync = read('scripts/sync-android-brand.js');
   const manifest = JSON.parse(read('manifest.webmanifest'));
   const packageJson = JSON.parse(read('package.json'));
-  assert.match(icon, /<svg[^>]+viewBox="0 0 1024 1024"/);
+  assert.ok(icon.includes('viewBox="0 0 1024 1024"'));
   assert.equal(manifest.icons[0].src, '/assets/playverse-icon.svg');
-  assert.match(generator, /playverse-icon\\.ico/);
-  assert.match(generator, /ic_launcher\\.png/);
-  assert.match(androidSync, /android:icon/);
-  assert.match(androidSync, /windowSplashScreenAnimatedIcon/);
+  assert.ok(generator.includes('playverse-icon.ico'));
+  assert.ok(generator.includes('ic_launcher.png'));
+  assert.ok(androidSync.includes('android:icon'));
+  assert.ok(androidSync.includes('windowSplashScreenAnimatedIcon'));
   assert.equal(packageJson.build.win.icon, 'assets/playverse-icon.ico');
   assert.equal(packageJson.build.files.includes('assets/**/*'), true);
 });
