@@ -4695,6 +4695,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         }
         function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
         let liveKitRoom = null;
+        let liveCompositeBroadcast = null;
         let activeLiveStream = null;
         let activeLiveStreamRole = null;
         let activeStreamingPreferences = { cameraEnabled: false, microphoneEnabled: true, textToSpeechEnabled: false };
@@ -4780,6 +4781,184 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
 
         function detachLiveTrack(track) {
             if (track) track.detach().forEach((element) => element.remove());
+        }
+
+        function createCompositeVideoElement(track) {
+            const video = document.createElement('video');
+            video.autoplay = true;
+            video.muted = true;
+            video.playsInline = true;
+            video.srcObject = new MediaStream([track.mediaStreamTrack]);
+            return video;
+        }
+
+        async function startLiveCompositeBroadcast(screenPublication) {
+            if (liveCompositeBroadcast) return true;
+            const participant = liveKitRoom && liveKitRoom.localParticipant;
+            const screenTrack = screenPublication && screenPublication.videoTrack;
+            const cameraPublication = participant && participant.getTrackPublication(LivekitClient.Track.Source.Camera);
+            const cameraTrack = cameraPublication && cameraPublication.videoTrack;
+            if (!participant || !screenTrack || !cameraTrack) return false;
+
+            const screenVideo = createCompositeVideoElement(screenTrack);
+            const cameraVideo = createCompositeVideoElement(cameraTrack);
+            let canvasStream = null;
+            let outputTrack = null;
+            let published = false;
+            let animationFrame = 0;
+            try {
+                await Promise.all([screenVideo.play(), cameraVideo.play()]);
+                const sourceWidth = screenVideo.videoWidth || 1920;
+                const sourceHeight = screenVideo.videoHeight || 1080;
+                const scale = Math.min(1, 1920 / sourceWidth, 1080 / sourceHeight);
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(2, Math.round(sourceWidth * scale));
+                canvas.height = Math.max(2, Math.round(sourceHeight * scale));
+                const context = canvas.getContext('2d', { alpha: false });
+                if (!context || typeof canvas.captureStream !== 'function') {
+                    throw new Error('Este navegador no permite componer video en un canvas.');
+                }
+                const positions = {
+                    'top-left': (x, y, w, h, m) => [m, m],
+                    'top-right': (x, y, w, h, m) => [x - w - m, m],
+                    'bottom-left': (x, y, w, h, m) => [m, y - h - m],
+                    'bottom-right': (x, y, w, h, m) => [x - w - m, y - h - m]
+                };
+                const drawFrame = () => {
+                    if (!liveCompositeBroadcast || liveCompositeBroadcast.canvas !== canvas) return;
+                    if (screenVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+                        context.drawImage(screenVideo, 0, 0, canvas.width, canvas.height);
+                    } else {
+                        context.fillStyle = '#080b16';
+                        context.fillRect(0, 0, canvas.width, canvas.height);
+                    }
+                    if (cameraTrack.mediaStreamTrack.readyState === 'live' &&
+                        cameraTrack.mediaStreamTrack.enabled &&
+                        cameraVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+                        const margin = Math.max(16, Math.round(canvas.width * 0.018));
+                        const width = Math.round(canvas.width * 0.25);
+                        const height = Math.round(width * 3 / 4);
+                        const position = positions[activeStreamingPreferences.cameraPosition] || positions['bottom-right'];
+                        const [x, y] = position(canvas.width, canvas.height, width, height, margin);
+                        context.save();
+                        context.shadowColor = 'rgba(0,0,0,.65)';
+                        context.shadowBlur = Math.max(8, Math.round(width * 0.045));
+                        context.fillStyle = '#05070d';
+                        context.fillRect(x, y, width, height);
+                        context.shadowBlur = 0;
+                        context.drawImage(cameraVideo, x + 3, y + 3, width - 6, height - 6);
+                        context.lineWidth = Math.max(3, Math.round(canvas.width * 0.002));
+                        context.strokeStyle = activeStreamingPreferences.cameraFrame === 'cyan'
+                            ? '#22d3ee'
+                            : activeStreamingPreferences.cameraFrame === 'violet' ? '#a78bfa' : 'rgba(255,255,255,.8)';
+                        context.strokeRect(x + 1, y + 1, width - 2, height - 2);
+                        context.restore();
+                    }
+                    animationFrame = requestAnimationFrame(drawFrame);
+                };
+                canvasStream = canvas.captureStream(Math.min(30, Math.max(15, Number(activeStreamingPreferences.fps) || 30)));
+                outputTrack = canvasStream.getVideoTracks()[0];
+                if (!outputTrack) throw new Error('No se pudo crear la pista de video compuesta.');
+                const bitrate = Math.max(1, Number(activeStreamingPreferences.bitrateMbps) || 6) * 1000000;
+                await participant.publishTrack(outputTrack, {
+                    name: 'playverse-composite',
+                    source: LivekitClient.Track.Source.ScreenShare,
+                    videoEncoding: {
+                        maxBitrate: bitrate,
+                        maxFramerate: Math.min(30, Math.max(15, Number(activeStreamingPreferences.fps) || 30))
+                    }
+                });
+                published = true;
+                await participant.unpublishTrack(cameraTrack, false);
+                await participant.unpublishTrack(screenTrack, false);
+                detachLiveTrack(screenTrack);
+                liveCompositeBroadcast = {
+                    canvas, canvasStream, outputTrack, screenTrack, cameraTrack,
+                    screenVideo, cameraVideo, animationFrame
+                };
+                drawFrame();
+                const preview = document.getElementById('live-local-preview');
+                preview.srcObject = canvasStream;
+                preview.classList.remove('hidden');
+                preview.style.cssText = 'display:block;width:100%;max-height:56vh;object-fit:contain;border:0;border-radius:.75rem;';
+                screenTrack.mediaStreamTrack.addEventListener('ended', () => {
+                    if (liveCompositeBroadcast && liveCompositeBroadcast.screenTrack === screenTrack) {
+                        stopLiveCompositeBroadcast({ restoreCamera: true, stopScreen: true }).catch((error) => {
+                            document.getElementById('live-player-status').textContent = 'La pantalla terminó, pero no se pudo restaurar la cámara: ' + error.message;
+                        });
+                    }
+                }, { once: true });
+                return true;
+            } catch (error) {
+                if (animationFrame) cancelAnimationFrame(animationFrame);
+                if (published && outputTrack) {
+                    try { await participant.unpublishTrack(outputTrack, false); } catch {}
+                }
+                if (canvasStream) canvasStream.getTracks().forEach((track) => track.stop());
+                screenVideo.pause();
+                cameraVideo.pause();
+                screenVideo.srcObject = null;
+                cameraVideo.srcObject = null;
+                const currentCamera = participant.getTrackPublication(LivekitClient.Track.Source.Camera);
+                if (!currentCamera && cameraTrack.mediaStreamTrack.readyState === 'live') {
+                    try { await participant.publishTrack(cameraTrack, { source: LivekitClient.Track.Source.Camera }); } catch {}
+                }
+                const currentScreen = participant.getTrackPublication(LivekitClient.Track.Source.ScreenShare);
+                if (!currentScreen && screenTrack.mediaStreamTrack.readyState === 'live') {
+                    try { await participant.publishTrack(screenTrack, { source: LivekitClient.Track.Source.ScreenShare }); } catch {}
+                }
+                throw error;
+            }
+        }
+
+        async function stopLiveCompositeBroadcast({ restoreCamera = true, stopScreen = true } = {}) {
+            const state = liveCompositeBroadcast;
+            if (!state) return false;
+            liveCompositeBroadcast = null;
+            if (state.animationFrame) cancelAnimationFrame(state.animationFrame);
+            const participant = liveKitRoom && liveKitRoom.localParticipant;
+            if (participant) {
+                try { await participant.unpublishTrack(state.outputTrack, false); } catch {}
+            }
+            if (state.canvasStream) state.canvasStream.getTracks().forEach((track) => track.stop());
+            state.screenVideo.pause();
+            state.cameraVideo.pause();
+            state.screenVideo.srcObject = null;
+            state.cameraVideo.srcObject = null;
+            if (stopScreen) {
+                try { state.screenTrack.stop(); } catch {}
+                try { state.screenTrack.mediaStreamTrack.stop(); } catch {}
+                const audioSource = LivekitClient.Track.Source.ScreenShareAudio;
+                const audioPublication = audioSource && participant && participant.getTrackPublication(audioSource);
+                if (audioPublication && audioPublication.track) {
+                    try { await participant.unpublishTrack(audioPublication.track, true); } catch {}
+                }
+            }
+            const preview = document.getElementById('live-local-preview');
+            if (restoreCamera && participant && state.cameraTrack.mediaStreamTrack.readyState === 'live') {
+                try {
+                    await participant.publishTrack(state.cameraTrack, {
+                        source: LivekitClient.Track.Source.Camera,
+                        videoEncoding: {
+                            maxBitrate: Math.max(1, Number(activeStreamingPreferences.bitrateMbps) || 6) * 1000000,
+                            maxFramerate: Number(activeStreamingPreferences.fps) || 30
+                        }
+                    });
+                    preview.srcObject = new MediaStream([state.cameraTrack.mediaStreamTrack]);
+                    preview.classList.toggle('hidden', !state.cameraTrack.mediaStreamTrack.enabled);
+                    applyLocalCameraPresentation(preview);
+                } catch (error) {
+                    preview.srcObject = null;
+                    preview.classList.add('hidden');
+                    document.getElementById('live-player-status').textContent = 'No se pudo restaurar la cámara: ' + error.message;
+                }
+            } else {
+                try { state.cameraTrack.stop(); } catch {}
+                preview.pause();
+                preview.srcObject = null;
+                preview.classList.add('hidden');
+            }
+            return true;
         }
 
         async function connectLiveKitSession(connection, stream, role) {
@@ -5166,6 +5345,15 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         async function toggleLiveCamera() {
             if (!liveKitRoom || activeLiveStreamRole !== 'publisher') return;
             try {
+                if (liveCompositeBroadcast) {
+                    const enabled = !liveCompositeBroadcast.cameraTrack.mediaStreamTrack.enabled;
+                    liveCompositeBroadcast.cameraTrack.mediaStreamTrack.enabled = enabled;
+                    activeStreamingPreferences.cameraEnabled = enabled;
+                    document.getElementById('live-player-status').textContent = enabled
+                        ? 'Cámara activada dentro de la transmisión compuesta.'
+                        : 'Cámara desactivada dentro de la transmisión compuesta.';
+                    return;
+                }
                 const enabled = !liveKitRoom.localParticipant.isCameraEnabled;
                 if (enabled) {
                     const fps = Number(activeStreamingPreferences.fps) || 30;
@@ -5188,6 +5376,11 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                         preview.srcObject = new MediaStream([cameraPublication.videoTrack.mediaStreamTrack]);
                         preview.classList.remove('hidden');
                         applyLocalCameraPresentation(preview);
+                        const screenPublication = liveKitRoom.localParticipant.getTrackPublication(LivekitClient.Track.Source.ScreenShare);
+                        if (screenPublication) {
+                            const composed = await startLiveCompositeBroadcast(screenPublication);
+                            if (composed) document.getElementById('live-player-status').textContent = 'Cámara y pantalla combinadas en el video que reciben los espectadores.';
+                        }
                     }
                 } else {
                     await liveKitRoom.localParticipant.setCameraEnabled(false);
@@ -5205,7 +5398,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         async function toggleLiveScreenShare() {
             if (!liveKitRoom || activeLiveStreamRole !== 'publisher') return;
             try {
-                const enabling = !liveKitRoom.localParticipant.isScreenShareEnabled;
+                const enabling = !liveCompositeBroadcast && !liveKitRoom.localParticipant.isScreenShareEnabled;
                 if (enabling) {
                     await liveKitRoom.localParticipant.setScreenShareEnabled(true, {
                         audio: activeStreamingPreferences.systemAudioEnabled === true,
@@ -5215,12 +5408,21 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                     });
                     const screenPublication = liveKitRoom.localParticipant.getTrackPublication(LivekitClient.Track.Source.ScreenShare);
                     if (screenPublication && screenPublication.videoTrack) {
-                        attachLiveTrack(screenPublication.videoTrack, liveKitRoom.localParticipant);
+                        const composed = await startLiveCompositeBroadcast(screenPublication);
+                        if (!composed) {
+                            attachLiveTrack(screenPublication.videoTrack, liveKitRoom.localParticipant);
+                            applyLocalCameraPresentation(document.getElementById('live-local-preview'));
+                            document.getElementById('live-player-status').textContent = 'Pantalla compartida. Activá la cámara para combinar ambas señales en el video de salida.';
+                        } else {
+                            document.getElementById('live-player-status').textContent = 'Pantalla y cámara combinadas en una sola señal para los espectadores.';
+                        }
                     }
-                    applyLocalCameraPresentation(document.getElementById('live-local-preview'));
-                    document.getElementById('live-player-status').textContent = activeStreamingPreferences.systemAudioEnabled
-                        ? 'Pantalla compartida. El navegador ofrecerá audio del sistema si el dispositivo y la fuente seleccionada lo admiten.'
-                        : 'Pantalla compartida sin audio del sistema.';
+                    if (activeStreamingPreferences.systemAudioEnabled) {
+                        document.getElementById('live-player-status').textContent += ' El audio del sistema depende del navegador y de la fuente seleccionada.';
+                    }
+                } else if (liveCompositeBroadcast) {
+                    await stopLiveCompositeBroadcast({ restoreCamera: true, stopScreen: true });
+                    document.getElementById('live-player-status').textContent = 'Compartir pantalla finalizado; cámara restaurada.';
                 } else {
                     const screenPublication = liveKitRoom.localParticipant.getTrackPublication(LivekitClient.Track.Source.ScreenShare);
                     if (screenPublication && screenPublication.videoTrack) detachLiveTrack(screenPublication.videoTrack);
@@ -5232,6 +5434,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         }
 
         async function closeLivePlayer() {
+            if (liveCompositeBroadcast) await stopLiveCompositeBroadcast({ restoreCamera: false, stopScreen: true });
             if (liveKitRoom) await liveKitRoom.disconnect();
             liveKitRoom = null;
             if (streamChatSocket) streamChatSocket.disconnect();
