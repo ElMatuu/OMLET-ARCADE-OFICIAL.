@@ -2,17 +2,23 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
-const source = path.join(root, 'index.html');
 const outputDir = path.join(root, 'www');
+const source = path.join(root, 'index.html');
 const output = path.join(outputDir, 'index.html');
+const communitySource = path.join(root, 'community.html');
 
 if (!fs.existsSync(source)) {
   console.error('PLAYVERSE entry file index.html was not found.');
   process.exit(1);
 }
+if (!fs.existsSync(communitySource)) {
+  console.error('PLAYVERSE public community page was not found.');
+  process.exit(1);
+}
 
 fs.mkdirSync(outputDir, { recursive: true });
 fs.copyFileSync(source, output);
+fs.copyFileSync(communitySource, path.join(outputDir, 'community.html'));
 for (const asset of ['service-worker.js', 'app-update.js', 'manifest.webmanifest']) {
   const assetSource = path.join(root, asset);
   if (!fs.existsSync(assetSource)) {
@@ -39,4 +45,4 @@ if (!fs.existsSync(liveKitClientSource)) {
 }
 fs.copyFileSync(liveKitClientSource, path.join(outputDir, 'livekit-client.umd.js'));
 
-console.log('Prepared PLAYVERSE web client, LiveKit SDK and update assets in ./www');
+console.log('Prepared PLAYVERSE web client, public community page, LiveKit SDK and update assets in ./www');
