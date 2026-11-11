@@ -193,6 +193,14 @@ const directMessageLimiter = rateLimit({
   message: { success: false, message: 'Enviaste demasiados mensajes. Probá en un minuto.' }
 });
 
+const roomVoiceLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 12,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, message: 'Demasiados intentos de conexión de voz. Probá en un minuto.' }
+});
+
 function makeFriendshipPairKey(firstId, secondId) {
   return [String(firstId), String(secondId)].sort().join(':');
 }
@@ -3161,6 +3169,54 @@ app.post('/api/rooms/:roomId/join', requireAuth, async (req, res, next) => {
   } catch (error) {
     return next(error);
   }
+});
+
+
+app.post('/api/rooms/:roomId/voice-token', requireAuth, roomVoiceLimiter, async (req, res, next) => {
+  const config = getLiveKitConfig();
+  if (!config) return res.status(503).json({
+    success: false,
+    code: 'ROOM_VOICE_NOT_CONFIGURED',
+    message: 'La voz grupal todavía no está configurada en el servidor.'
+  });
+  try {
+    if (!isValidObjectId(req.params.roomId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
+    }
+    const room = await Room.findOne({
+      _id: req.params.roomId,
+      members: req.auth.sub,
+      status: 'open'
+    }).select('_id name game capacity').lean();
+    if (!room) return res.status(403).json({
+      success: false,
+      code: 'ROOM_MEMBERSHIP_REQUIRED',
+      message: 'Solo los miembros de una sala abierta pueden entrar a su voz.'
+    });
+    const user = await User.findById(req.auth.sub).select('username').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    const roomName = 'pv_squad_' + String(room._id);
+    const identity = 'user_' + String(req.auth.sub) + '_' + crypto.randomUUID();
+    const token = await createParticipantToken({
+      config,
+      identity,
+      name: user.username,
+      metadata: {
+        userId: String(req.auth.sub),
+        username: user.username,
+        role: 'squad_voice',
+        roomId: String(room._id),
+        game: room.game
+      },
+      roomName,
+      canPublish: true
+    });
+    return res.json({
+      success: true,
+      room: { id: String(room._id), name: room.name, game: room.game },
+      liveKit: { url: config.clientUrl, token, roomName, expiresInSeconds: 600 }
+    });
+  } catch (error) { return next(error); }
 });
 
 
