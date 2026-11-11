@@ -93,11 +93,12 @@ test('TCP probe reports a closed port as unreachable', async () => {
 });
 
 test('Minecraft Java status parser closes oversized responses instead of buffering unbounded data', async () => {
-  let closed = false;
+  let resolveSocketClosed;
+  const socketClosed = new Promise((resolve) => { resolveSocketClosed = resolve; });
   const server = net.createServer((socket) => {
+    socket.once('close', resolveSocketClosed);
     socket.once('data', () => {
       socket.write(Buffer.alloc(1024 * 1024 + 16, 0xff));
-      socket.once('close', () => { closed = true; });
     });
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -106,8 +107,7 @@ test('Minecraft Java status parser closes oversized responses instead of bufferi
       pingMinecraftJava('127.0.0.1', server.address().port, 1000),
       /excede el límite de tamaño/
     );
-    await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(closed, true);
+    await socketClosed;
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
