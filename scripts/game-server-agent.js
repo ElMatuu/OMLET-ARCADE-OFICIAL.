@@ -150,6 +150,7 @@ async function sendHeartbeat(config, isOnline, fetchImpl = fetch, metrics = {}) 
       body: JSON.stringify({
         playerCount: metrics.playerCount ?? config.playerCount,
         maxPlayers: metrics.maxPlayers ?? config.maxPlayers,
+        ...(metrics.version ? { version: String(metrics.version).slice(0, 40) } : {}),
         isOnline
       }),
       signal: AbortSignal.timeout(8000)
