@@ -2,6 +2,8 @@
 'use strict';
 
 const net = require('node:net');
+const dgram = require('node:dgram');
+const crypto = require('node:crypto');
 
 function requiredEnv(env, key) {
   const value = String(env[key] || '').trim();
@@ -23,7 +25,7 @@ function readConfig(env = process.env) {
   if (!/^[a-f0-9]{24}$/i.test(serverId)) throw new Error('GAME_SERVER_ID debe ser un ObjectId de MongoDB válido.');
   if (!/^[A-Za-z0-9_-]{40,60}$/.test(token)) throw new Error('GAME_SERVER_TOKEN tiene un formato inválido.');
   if (!host || host.length > 253 || !Number.isInteger(port) || port < 1 || port > 65535) throw new Error('GAME_SERVER_HOST o GAME_SERVER_PORT inválido.');
-  if (!['tcp', 'minecraft-java'].includes(protocol)) throw new Error('GAME_SERVER_PROTOCOL debe ser tcp o minecraft-java.');
+  if (!['tcp', 'minecraft-java', 'minecraft-bedrock'].includes(protocol)) throw new Error('GAME_SERVER_PROTOCOL debe ser tcp, minecraft-java o minecraft-bedrock.');
   if (!Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 1000000 ||
       !Number.isInteger(playerCount) || playerCount < 0 || playerCount > maxPlayers) throw new Error('Capacidad o cantidad de jugadores inválida.');
   if (!Number.isInteger(intervalMs) || intervalMs < 10000) throw new Error('El intervalo de heartbeat debe ser de al menos 10000 ms.');
@@ -121,6 +123,77 @@ function pingMinecraftJava(host, port, timeoutMs = 5000) {
   });
 }
 
+const RAKNET_MAGIC = Buffer.from('00ffff00fefefefefdfdfdfd12345678', 'hex');
+
+function createBedrockPingPacket(timestamp = BigInt(Date.now()), clientGuid = crypto.randomBytes(8)) {
+  if (!Buffer.isBuffer(clientGuid) || clientGuid.length !== 8) throw new Error('El GUID RakNet debe tener 8 bytes.');
+  const time = Buffer.alloc(8);
+  time.writeBigUInt64BE(BigInt(timestamp));
+  return Buffer.concat([Buffer.from([0x01]), time, RAKNET_MAGIC, clientGuid]);
+}
+
+function parseBedrockPong(message, expectedTimestamp) {
+  if (!Buffer.isBuffer(message) || message.length < 35 || message[0] !== 0x1c) {
+    throw new Error('Respuesta RakNet pong inválida o incompleta.');
+  }
+  const timestamp = message.readBigUInt64BE(1);
+  if (timestamp !== BigInt(expectedTimestamp)) throw new Error('La respuesta RakNet no corresponde al ping enviado.');
+  if (!message.subarray(17, 33).equals(RAKNET_MAGIC)) throw new Error('La respuesta RakNet no contiene la firma esperada.');
+  const textLength = message.readUInt16BE(33);
+  if (textLength < 1 || textLength > 4096 || 35 + textLength > message.length) {
+    throw new Error('Longitud del estado Minecraft Bedrock inválida.');
+  }
+  const motd = message.subarray(35, 35 + textLength).toString('utf8');
+  const fields = motd.split(';');
+  if (!['MCPE', 'MCEE'].includes(fields[0]) || fields.length < 6) {
+    throw new Error('Formato de estado Minecraft Bedrock desconocido.');
+  }
+  const protocolVersion = Number(fields[2]);
+  const playerCount = Number(fields[4]);
+  const maxPlayers = Number(fields[5]);
+  if (!Number.isInteger(protocolVersion) || protocolVersion < 0 ||
+      !Number.isInteger(playerCount) || playerCount < 0 ||
+      !Number.isInteger(maxPlayers) || maxPlayers < 1 || playerCount > maxPlayers) {
+    throw new Error('El servidor Bedrock devolvió métricas de jugadores inválidas.');
+  }
+  return {
+    playerCount,
+    maxPlayers,
+    version: String(fields[3] || '').slice(0, 40),
+    protocolVersion,
+    motd
+  };
+}
+
+function pingMinecraftBedrock(host, port, timeoutMs = 5000, options = {}) {
+  return new Promise((resolve, reject) => {
+    const timestamp = options.timestamp === undefined ? BigInt(Date.now()) : BigInt(options.timestamp);
+    const clientGuid = options.clientGuid || crypto.randomBytes(8);
+    const socket = dgram.createSocket(host.includes(':') ? 'udp6' : 'udp4');
+    let settled = false;
+    const finish = (error, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try { socket.close(); } catch {}
+      if (error) reject(error);
+      else resolve(value);
+    };
+    const timer = setTimeout(() => finish(new Error('Timeout consultando estado Minecraft Bedrock/RakNet.')), timeoutMs);
+    socket.once('error', (error) => finish(error));
+    socket.once('message', (message) => {
+      try {
+        finish(null, parseBedrockPong(message, timestamp));
+      } catch (error) {
+        finish(error);
+      }
+    });
+    socket.send(createBedrockPingPacket(timestamp, clientGuid), port, host, (error) => {
+      if (error) finish(error);
+    });
+  });
+}
+
 function probeTcp(host, port, timeoutMs = 3000) {
   return new Promise((resolve) => {
     const socket = net.createConnection({ host, port });
@@ -213,4 +286,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { readConfig, probeTcp, pingMinecraftJava, encodeVarInt, readVarInt, sendHeartbeat, runOnce };
+module.exports = { readConfig, probeTcp, pingMinecraftJava, pingMinecraftBedrock, createBedrockPingPacket, parseBedrockPong, RAKNET_MAGIC, encodeVarInt, readVarInt, sendHeartbeat, runOnce };
