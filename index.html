@@ -1356,6 +1356,9 @@
                     status.textContent = 'Nuevo mensaje de @' + String(notification.senderUsername || 'jugador') + '.';
                 }
             });
+            directSocket.on('new_notification', () => {
+                loadNotifications(true);
+            });
             directSocket.on('connect_error', () => {
                 directSocketJoined = false;
                 directTypingActive = false;
