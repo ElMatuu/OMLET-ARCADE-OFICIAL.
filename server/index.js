@@ -1280,6 +1280,7 @@ app.post('/api/wallet/transfers', requireAuth, storeLimiter, async (req, res, ne
 app.post('/api/me/achievements/:achievementId/claim', requireAuth, storeLimiter, async (req, res, next) => {
   const definition = ACHIEVEMENTS.find((item) => item.id === req.params.achievementId);
   if (!definition) return res.status(404).json({ success: false, message: 'Trofeo no encontrado.' });
+  try {
   const snapshot = await buildAchievementSnapshot(req.auth.sub);
   const progress = snapshot && snapshot.achievements.find((item) => item.id === definition.id);
   if (!progress || !progress.unlocked) return res.status(409).json({ success: false, message: 'Todavía no cumpliste los requisitos de este trofeo.' });
@@ -1314,6 +1315,7 @@ app.post('/api/me/achievements/:achievementId/claim', requireAuth, storeLimiter,
     });
   } catch (error) { return next(error); }
   finally { await session.endSession(); }
+  } catch (error) { return next(error); }
 });
 
 app.get('/api/me/experience-rewards', requireAuth, async (req, res, next) => {
