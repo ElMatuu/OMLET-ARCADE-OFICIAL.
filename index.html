@@ -2827,18 +2827,23 @@
                     const open = document.createElement('button');
                     open.type = 'button';
                     open.className = 'rounded-xl border border-slate-700 px-3 py-2 text-[11px] font-bold text-white';
-                    open.textContent = 'Abrir Minecraft';
+                    open.textContent = 'Cómo conectarse';
                     open.addEventListener('click', () => {
-                        if (server.game.toLowerCase() !== 'minecraft') {
-                            status.textContent = 'Abrí ' + server.game + ' y conectate con la dirección copiada.';
+                        const gameName = String(server.game || 'este juego');
+                        if (gameName.trim().toLowerCase() !== 'minecraft') {
+                            status.textContent = 'Para conectarte: abrí ' + gameName + ' por separado y usá la dirección copiada en su buscador o menú de servidores. PLAYVERSE no puede garantizar un enlace directo de unión para este juego.';
                             return;
                         }
-                        if (/Android|iPhone|iPad/i.test(navigator.userAgent)) {
-                            window.location.href = 'minecraft://';
+                        const edition = String(server.edition || 'other').toLowerCase();
+                        if (edition === 'java') {
+                            status.textContent = 'Minecraft Java: abrí Multijugador > Añadir servidor, ingresá el nombre y la dirección ' + server.address + ':' + server.port + ' y guardá. La conexión requiere una versión compatible con la del servidor.';
+                        } else if (edition === 'bedrock') {
+                            status.textContent = 'Minecraft Bedrock: abrí Jugar > Servidores > Añadir servidor, ingresá el nombre, la dirección ' + server.address + ' y el puerto ' + server.port + '. La conexión requiere una versión y plataforma compatibles.';
+                        } else if (edition === 'crossplay') {
+                            status.textContent = 'Minecraft crossplay: consultá con el administrador qué edición y método de conexión admite. Dirección: ' + server.address + ':' + server.port + '. Java y Bedrock no son intercambiables automáticamente.';
                         } else {
-                            window.open('https://www.minecraft.net/', '_blank', 'noopener,noreferrer');
+                            status.textContent = 'Minecraft: confirmá con el administrador si el servidor es Java o Bedrock antes de conectarte. Dirección publicada: ' + server.address + ':' + server.port + '.';
                         }
-                        status.textContent = 'Minecraft se abre en su pantalla principal. Pegá la dirección en Servidores > Agregar servidor; el enlace directo de unión no está garantizado por el proveedor del juego.';
                     });
                     actions.appendChild(open);
                     if (server.isOwner) {
