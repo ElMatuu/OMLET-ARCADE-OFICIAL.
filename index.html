@@ -1265,6 +1265,8 @@
                 overlayPlugin.consumePendingAction().then(function(result) {
                     if (result && result.action === 'chat') switchTab('chat');
                     if (result && result.action === 'live') switchTab('live');
+                    if (result && result.action === 'lobbies') switchTab('lobbies');
+                    if (result && result.action === 'clubs') switchTab('clubs');
                 }).catch(function() {});
             }
             consumeFloatingAction();
