@@ -638,6 +638,31 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.equal(readReceipt.readerId, bob.body.user.id);
     assert.equal(readReceipt.throughMessageId, privateRealtimeMessage.id);
 
+    const concurrentReadMessageDelivery = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Concurrent-read test message was not delivered')), 5000);
+      bobDirectSocket.once('receive_direct_message', (message) => {
+        clearTimeout(timer);
+        resolve(message);
+      });
+    });
+    const concurrentReadSend = await emitSocketAck(aliceSocket, 'send_direct_message', {
+      conversationId, body: 'Lectura concurrente de prueba'
+    });
+    assert.equal(concurrentReadSend.success, true);
+    const concurrentReadMessage = await concurrentReadMessageDelivery;
+    const concurrentReadAcks = await Promise.all([
+      emitSocketAck(bobDirectSocket, 'mark_direct_messages_read', { conversationId }),
+      emitSocketAck(bobDirectSocket, 'mark_direct_messages_read', { conversationId })
+    ]);
+    assert.ok(concurrentReadAcks.every((ack) => ack.success));
+    assert.deepEqual(concurrentReadAcks.map((ack) => ack.readCount).sort(), [0, 1]);
+    const concurrentReadHistory = await request(baseUrl, '/api/conversations/' + conversationId + '/messages', {}, bob.body.token);
+    assert.equal(concurrentReadHistory.status, 200);
+    const concurrentlyReadMessage = concurrentReadHistory.body.messages.find((message) => message.id === concurrentReadMessage.id);
+    assert.ok(concurrentlyReadMessage.readAt);
+    const concurrentReadInbox = await request(baseUrl, '/api/me/conversations', {}, bob.body.token);
+    assert.equal(concurrentReadInbox.body.conversations[0].unreadCount, 0);
+
     const privateNotification = await privateNotificationDelivery;
     assert.equal(privateNotification.senderUsername, 'alice_test');
     assert.equal(privateNotification.body, 'Privado por Socket.IO');
