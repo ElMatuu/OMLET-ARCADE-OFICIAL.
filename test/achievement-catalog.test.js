@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { ACHIEVEMENTS } = require('../server/data/achievementCatalog');
 
 test('achievement catalog has unique IDs, meaningful progression and valid rewards', () => {
-  assert.ok(ACHIEVEMENTS.length >= 30);
+  assert.ok(ACHIEVEMENTS.length >= 40);
   const firstPurchaseBonus = ACHIEVEMENTS.find((item) => item.id === 'first-purchase-bonus');
   assert.ok(firstPurchaseBonus);
   assert.equal(firstPurchaseBonus.metric, 'firstPurchaseBonusClaimed');
