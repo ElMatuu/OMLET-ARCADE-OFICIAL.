@@ -27,3 +27,10 @@ test('game server connection guidance never treats Java and Bedrock as interchan
   assert.match(handler, /Java y Bedrock no son intercambiables automáticamente/);
   assert.match(handler, /confirmá con el administrador si el servidor es Java o Bedrock/);
 });
+
+
+test('community server UI labels owner heartbeat as a report, not independent reachability verification', () => {
+  assert.match(html, /HEARTBEAT RECIBIDO/);
+  assert.match(html, /dato reportado por el anfitrión/);
+  assert.doesNotMatch(html, /● EN LÍNEA/);
+});
