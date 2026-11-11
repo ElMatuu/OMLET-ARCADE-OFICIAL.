@@ -36,12 +36,13 @@ function buildSingleEliminationBracket(entries) {
   let fullMatchesCreated = 0;
   let byeMatchesCreated = 0;
 
-  // Interleave unresolved matches and byes. This keeps later-round slots
-  // attached to their actual feeder match instead of creating empty-vs-empty
-  // first-round games or prematurely awarding the championship.
+  // Alternate contested matches and byes so every bye occupies its own
+  // first-round match and feeds a real slot in the next round.
   while (fullMatchesCreated < fullMatchCount || byeMatchesCreated < byeCount) {
     if (fullMatchesCreated < fullMatchCount) {
       firstRound.push({
+        round: 1,
+        matchNumber: firstRound.length + 1,
         entryA: String(active[entrantIndex++]._id),
         entryB: String(active[entrantIndex++]._id),
         winner: null,
@@ -50,24 +51,25 @@ function buildSingleEliminationBracket(entries) {
       fullMatchesCreated += 1;
     }
     if (byeMatchesCreated < byeCount) {
+      const entrant = String(active[entrantIndex++]._id);
       firstRound.push({
-        entryA: String(active[entrantIndex++]._id),
+        round: 1,
+        matchNumber: firstRound.length + 1,
+        entryA: entrant,
         entryB: null,
-        winner: String(active[entrantIndex - 1]._id),
+        winner: entrant,
         status: 'completed'
       });
       byeMatchesCreated += 1;
     }
   }
 
-  const matches = [];
+  const matches = firstRound.slice();
   let feeders = firstRound.map((match) => ({
-    entryA: match.entryA,
-    entryB: match.entryB,
     winner: match.winner,
     resolved: match.status === 'completed'
   }));
-  let round = 1;
+  let round = 2;
 
   while (feeders.length > 1) {
     const nextFeeders = [];
@@ -77,21 +79,18 @@ function buildSingleEliminationBracket(entries) {
       const entryA = left.resolved ? left.winner : null;
       const entryB = right.resolved ? right.winner : null;
       const bothResolved = left.resolved && right.resolved;
-      const soleEntrant = bothResolved && Boolean(entryA) !== Boolean(entryB);
-      const winner = soleEntrant ? (entryA || entryB) : null;
-      const status = soleEntrant ? 'completed' : 'pending';
-      matches.push({
+      const hasSingleEntrant = bothResolved && Boolean(entryA) !== Boolean(entryB);
+      const winner = hasSingleEntrant ? (entryA || entryB) : null;
+      const match = {
         round,
         matchNumber: index / 2 + 1,
-        entryA: round === 1 ? left.entryA : entryA,
-        entryB: round === 1 ? left.entryB : entryB,
-        winner: round === 1 ? left.winner : winner,
-        status: round === 1 ? (left.resolved ? 'completed' : 'pending') : status
-      });
-      nextFeeders.push({
-        winner: round === 1 ? left.winner : winner,
-        resolved: round === 1 ? left.resolved : soleEntrant
-      });
+        entryA,
+        entryB,
+        winner,
+        status: hasSingleEntrant ? 'completed' : 'pending'
+      };
+      matches.push(match);
+      nextFeeders.push({ winner, resolved: match.status === 'completed' });
     }
     feeders = nextFeeders;
     round += 1;
