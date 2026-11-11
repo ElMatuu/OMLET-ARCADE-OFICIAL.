@@ -44,3 +44,8 @@ test('community server publishing selects the correct default port for Java and 
   assert.match(html, /GAME_SERVER_PROTOCOL=minecraft-bedrock \(UDP\)/);
   assert.match(html, /No se volverá a mostrar/);
 });
+
+
+test('community server cards display the protocol-reported game version when available', () => {
+  assert.match(html, /server\.version \? ' · v' \+ server\.version/);
+});
