@@ -138,3 +138,37 @@ test('creator streaming preferences remain protected by authentication', async (
     assert.equal(write.status, 401);
   });
 });
+
+test('report submission requires an authenticated account', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetType: 'user', targetId: '507f1f77bcf86cd799439011', reason: 'spam' })
+    });
+    assert.equal(response.status, 401);
+  });
+});
+
+test('ordinary accounts cannot read the moderator report queue', async () => {
+  const jwt = require('jsonwebtoken');
+  const mongoose = require('mongoose');
+  const token = jwt.sign({
+    sub: new mongoose.Types.ObjectId().toString(),
+    username: 'ordinary_player',
+    role: 'user'
+  }, process.env.JWT_SECRET, {
+    algorithm: 'HS256',
+    expiresIn: '5m',
+    issuer: 'playverse-api',
+    audience: 'playverse-clients'
+  });
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/admin/reports', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    const body = await response.json();
+    assert.equal(response.status, 403);
+    assert.equal(body.success, false);
+  });
+});
