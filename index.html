@@ -37,6 +37,18 @@
         body.pv-high-contrast .text-slate-400 { color: #e2e8f0 !important; }
         body.pv-high-contrast .text-slate-500 { color: #cbd5e1 !important; }
     </style>
+<style>
+.pv-coin{display:inline-flex;width:25px;height:25px;align-items:center;justify-content:center;border-radius:999px;font-size:8px;font-weight:1000;letter-spacing:-1px;border:2px solid rgba(255,255,255,.65);box-shadow:inset 0 0 0 2px rgba(0,0,0,.18),0 0 12px currentColor;animation:pv-coin-glow 2.8s ease-in-out infinite}
+.pv-coin-gold{color:#fbbf24;background:radial-gradient(circle at 30% 25%,#fff2a6,#e6a91d 48%,#80500b)}
+.pv-coin-purple{color:#e879f9;background:radial-gradient(circle at 30% 25%,#f5d0fe,#a855f7 48%,#581c87)}
+.pv-coin-diamond{color:#67e8f9;background:radial-gradient(circle at 30% 25%,#ecfeff,#67e8f9 48%,#155e75)}
+@keyframes pv-coin-glow{0%,100%{filter:brightness(1);transform:rotateY(0deg)}50%{filter:brightness(1.3);transform:rotateY(18deg)}}
+.pv-animated-frame{animation:pv-frame-spectrum 5s linear infinite}
+.pv-animated-overlay{background-size:220% 220%!important;animation:pv-overlay-spectrum 7s ease-in-out infinite}
+@keyframes pv-frame-spectrum{0%,100%{filter:hue-rotate(0deg) brightness(1)}50%{filter:hue-rotate(150deg) brightness(1.35)}}
+@keyframes pv-overlay-spectrum{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+@media(prefers-reduced-motion:reduce){.pv-coin,.pv-animated-frame,.pv-animated-overlay{animation:none}}
+</style>
 </head>
 <body class="h-screen w-screen flex flex-col justify-between relative">
 
@@ -315,6 +327,20 @@
                 </div>
                 <p id="rooms-status" class="text-xs text-slate-400" role="status">Cargando salas…</p>
                 <div id="rooms-container" class="grid gap-3" aria-live="polite"></div>
+
+                <section class="space-y-3 rounded-2xl border border-emerald-500/20 bg-slate-900/70 p-4">
+                    <div class="flex items-center justify-between gap-3">
+                        <div><h3 class="font-black text-lg text-white"><i class="fa-solid fa-server text-emerald-400 mr-2"></i>Servidores de la comunidad</h3><p class="text-xs text-slate-400">Servidores alojados por sus comunidades, con estado actualizado por heartbeat</p></div>
+                        <button type="button" onclick="loadCommunityGameServers()" class="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-white">Actualizar</button>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <select id="game-server-filter" onchange="loadCommunityGameServers()" class="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white"><option value="">Todos los juegos</option><option value="Minecraft">Minecraft</option><option value="Roblox">Roblox</option><option value="Terraria">Terraria</option><option value="Otro">Otros</option></select>
+                        <button type="button" onclick="openGameServerModal()" class="rounded-xl bg-emerald-500 px-3 py-2 text-xs font-black text-slate-950">+ Publicar servidor</button>
+                    </div>
+                    <p id="game-servers-status" class="text-xs text-slate-400" role="status">Cargando servidores…</p>
+                    <div id="game-servers-container" class="grid gap-3 md:grid-cols-2" aria-live="polite"></div>
+                    <p class="text-[10px] leading-relaxed text-slate-500">PLAYVERSE no aloja mundos de terceros. El propietario mantiene el servidor y configura un heartbeat seguro para mostrar jugadores reales. La compatibilidad y el acceso dependen del juego, edición, versión y dispositivo.</p>
+                </section>
             </div>
 
             <!-- TAB FRIENDS -->
@@ -359,13 +385,31 @@
 
             <!-- TAB SHOP: CATALOGO E INVENTARIO REALES -->
             <div id="tab-shop" class="space-y-5 hidden">
+                <div id="creator-monetization-status" class="rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4">
+                    <div class="flex items-center gap-3"><span class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-300"><i class="fa-solid fa-hourglass-half"></i></span><div><p class="text-[10px] font-black uppercase tracking-widest text-amber-300">Herramientas para creadores</p><h3 class="text-sm font-black text-white">Monetización · En desarrollo</h3></div></div>
+                    <p class="mt-2 text-xs leading-relaxed text-slate-300">PLAYVERSE es gratuita en esta etapa. No hay cobros, recargas, suscripciones ni reparto de ingresos activos. Estamos evaluando los requisitos legales, técnicos y de proveedores antes de habilitar cualquier opción futura.</p>
+                </div>
                 <section class="PLAYVERSE-card rounded-2xl p-4 space-y-2">
                     <div class="flex items-center justify-between gap-3">
                         <div><p class="text-[10px] font-bold uppercase tracking-widest text-orange-300">PLAYVERSE STORE</p><h3 class="font-black text-xl">Tienda y personalización</h3></div>
-                        <div class="rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-right"><span class="block text-[10px] text-slate-400">Tu saldo</span><strong id="store-wallet-balance" class="text-amber-300">0 Tokens</strong></div>
+                        <div class="grid grid-cols-3 gap-2 w-full sm:w-auto">
+<div class="rounded-xl bg-slate-950 border border-amber-400/30 px-2 py-2 text-center"><span class="pv-coin pv-coin-gold">PV</span><strong id="wallet-gold-balance" class="block text-xs text-amber-300">0</strong><span class="text-[9px] text-slate-500">ORO</span></div>
+<div class="rounded-xl bg-slate-950 border border-fuchsia-400/30 px-2 py-2 text-center"><span class="pv-coin pv-coin-purple">PV</span><strong id="wallet-purple-balance" class="block text-xs text-fuchsia-300">0</strong><span class="text-[9px] text-slate-500">VIOLETA</span></div>
+<div class="rounded-xl bg-slate-950 border border-cyan-300/30 px-2 py-2 text-center"><span class="pv-coin pv-coin-diamond">PV</span><strong id="wallet-diamond-balance" class="block text-xs text-cyan-200">0</strong><span class="text-[9px] text-slate-500">DIAMANTE</span></div>
+</div>
                     </div>
-                    <p class="text-xs text-slate-400">Los artículos y las compras se validan en el servidor. Tu saldo inicial es cero; no hay recargas habilitadas todavía.</p>
+                    <p class="text-xs text-slate-400">Tres monedas virtuales independientes con identidad PLAYVERSE. Se consiguen jugando, completando misiones y participando en la comunidad; no se compran con dinero real.</p>
                 </section>
+                <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
+<div><h4 class="font-bold text-sm">Enviar monedas a otro jugador</h4><p class="text-[10px] text-slate-400">Transferencia entre billeteras PLAYVERSE. Se descuenta de tu saldo y se acredita al destinatario en una sola operación.</p></div>
+<form id="wallet-gift-form" class="grid grid-cols-2 gap-2">
+<input id="wallet-gift-recipient" maxlength="24" minlength="3" pattern="[A-Za-z0-9_]+" required class="col-span-2 min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-xs text-white" placeholder="Nombre de usuario destinatario">
+<select id="wallet-gift-currency" class="min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-xs text-white"><option value="gold">🟡 Oro</option><option value="purple">🟣 Violeta</option><option value="diamond">💎 Diamante</option></select>
+<input id="wallet-gift-amount" type="number" min="1" max="100000" step="1" required class="min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-xs text-white" placeholder="Cantidad">
+<button id="wallet-gift-submit" type="submit" class="col-span-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4 py-3 text-xs font-black">Enviar regalo</button>
+</form>
+<p id="wallet-gift-status" class="text-xs text-slate-400" role="status"></p>
+</section>
                 <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
                     <h4 class="font-bold text-sm">Vista previa</h4>
                     <div class="grid grid-cols-2 gap-3">
@@ -424,11 +468,11 @@
                 <section class="PLAYVERSE-card rounded-2xl p-5 space-y-2">
                     <div class="flex items-center justify-between gap-3">
                         <h3 class="font-black text-xl">Misiones de PLAYVERSE</h3>
-                        <span id="missions-summary" class="text-xs text-orange-300 font-bold">0/22 completadas</span>
+                        <span id="missions-summary" class="text-xs text-orange-300 font-bold">0/23 completadas</span>
                     </div>
                     <p id="missions-status" class="text-xs text-slate-400" role="status">El progreso se calcula con la actividad real de tu cuenta.</p>
                     <div id="missions-list" class="space-y-3"></div>
-                    <p class="text-xs text-slate-500 border-t border-slate-800 pt-3">Campaña de 22 misiones en cinco capítulos. Completá objetivos reales y reclamá cada recompensa de Tokens una sola vez.</p>
+                    <p class="text-xs text-slate-500 border-t border-slate-800 pt-3">Campaña de 23 misiones en seis capítulos. Completá objetivos reales y reclamá cada recompensa de Tokens una sola vez.</p>
                 </section>
             </div>
 
@@ -650,6 +694,29 @@
         </form>
     </div>
 
+    <div id="game-server-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <form id="game-server-form" onsubmit="createCommunityGameServer(event)" class="PLAYVERSE-card max-h-[90vh] w-full max-w-lg space-y-3 overflow-y-auto rounded-3xl border border-slate-700 p-5">
+            <div class="flex items-center justify-between"><h3 class="font-black text-white">Publicar servidor de la comunidad</h3><button type="button" onclick="closeGameServerModal()" class="text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button></div>
+            <label class="block text-xs text-slate-400">Nombre<input id="game-server-name" required minlength="3" maxlength="60" class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" placeholder="Mi mundo survival"></label>
+            <div class="grid grid-cols-2 gap-2">
+                <label class="block text-xs text-slate-400">Juego<select id="game-server-game" class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"><option>Minecraft</option><option>Roblox</option><option>Terraria</option><option>Otro</option></select></label>
+                <label class="block text-xs text-slate-400">Edición<select id="game-server-edition" class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"><option value="bedrock">Bedrock</option><option value="java">Java</option><option value="crossplay">Crossplay</option><option value="other">Otra</option></select></label>
+            </div>
+            <div class="grid grid-cols-[1fr_110px] gap-2">
+                <label class="block text-xs text-slate-400">Dirección pública<input id="game-server-address" required maxlength="253" class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" placeholder="play.ejemplo.net"></label>
+                <label class="block text-xs text-slate-400">Puerto<input id="game-server-port" required type="number" min="1" max="65535" value="19132" class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"></label>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <label class="block text-xs text-slate-400">Capacidad máxima<input id="game-server-capacity" type="number" min="1" max="1000000" value="20" class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"></label>
+                <label class="block text-xs text-slate-400">Versión<input id="game-server-version" maxlength="40" class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" placeholder="Ej. 1.21.x"></label>
+            </div>
+            <label class="block text-xs text-slate-400">Región<input id="game-server-region" maxlength="40" class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" placeholder="Argentina / Sudamérica"></label>
+            <label class="block text-xs text-slate-400">Descripción<textarea id="game-server-description" maxlength="500" rows="3" class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" placeholder="Modos, reglas, requisitos y comunidad…"></textarea></label>
+            <p id="game-server-form-status" class="text-xs text-slate-400" role="status">Publicá únicamente servidores que administrás o tenés autorización para anunciar.</p>
+            <div class="flex gap-2"><button type="button" onclick="closeGameServerModal()" class="flex-1 rounded-xl bg-slate-800 py-3 font-bold text-white">Cancelar</button><button id="game-server-submit" type="submit" class="PLAYVERSE-gradient flex-1 rounded-xl py-3 font-black text-white">Publicar</button></div>
+        </form>
+    </div>
+
     <div id="room-chat-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 hidden">
         <section class="PLAYVERSE-card rounded-3xl w-full max-w-xl h-[80vh] max-h-[720px] p-4 flex flex-col border border-slate-700">
             <div class="flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
@@ -669,7 +736,7 @@
         const API_URL = window.PLAYVERSE_API_URL || 'https://playverse-api-bgyg.onrender.com';
         const SESSION_KEY = 'playverse_session_token';
         let authToken = sessionStorage.getItem(SESSION_KEY);
-        let appState = { username: '', walletTokens: 0, profile: null };
+        let appState = { username: '', walletTokens: 0, walletBalances: { gold: 0, purple: 0, diamond: 0 }, profile: null };
         let activeRoomId = null;
         let activeRoomName = '';
         let roomSocket = null;
@@ -1627,6 +1694,7 @@
         }
 
         async function loadRooms() {
+            loadCommunityGameServers();
             const container = document.getElementById('rooms-container');
             const status = document.getElementById('rooms-status');
             if (!container || !status || !authToken) return;
@@ -1682,6 +1750,137 @@
                 });
             } catch (error) {
                 status.textContent = error.message;
+            }
+        }
+
+        function openGameServerModal() {
+            document.getElementById('game-server-form').reset();
+            document.getElementById('game-server-form-status').textContent = 'Publicá únicamente servidores que administrás o tenés autorización para anunciar.';
+            document.getElementById('game-server-modal').classList.remove('hidden');
+        }
+
+        function closeGameServerModal() {
+            document.getElementById('game-server-modal').classList.add('hidden');
+        }
+
+        async function loadCommunityGameServers() {
+            const container = document.getElementById('game-servers-container');
+            const status = document.getElementById('game-servers-status');
+            if (!container || !status || !authToken) return;
+            status.textContent = 'Consultando servidores…';
+            try {
+                const game = document.getElementById('game-server-filter')?.value || '';
+                const query = game ? '?game=' + encodeURIComponent(game) : '';
+                const data = await apiRequest('/api/game-servers' + query);
+                container.replaceChildren();
+                const servers = data.servers || [];
+                status.textContent = servers.length ? servers.length + ' servidor(es) publicado(s)' : 'Todavía no hay servidores publicados. ¡Podés agregar el primero!';
+                servers.forEach((server) => {
+                    const card = document.createElement('article');
+                    card.className = 'rounded-2xl border border-slate-700 bg-slate-950 p-4 space-y-3';
+                    const top = document.createElement('div');
+                    top.className = 'flex items-start justify-between gap-2';
+                    const title = document.createElement('div');
+                    title.className = 'min-w-0';
+                    const name = document.createElement('h4');
+                    name.className = 'break-words text-sm font-black text-white';
+                    name.textContent = server.name;
+                    const meta = document.createElement('p');
+                    meta.className = 'mt-1 text-[10px] text-slate-400';
+                    meta.textContent = server.game + ' · ' + String(server.edition || 'other').toUpperCase() + ' · @' + server.ownerUsername;
+                    title.append(name, meta);
+                    const state = document.createElement('span');
+                    state.className = server.status === 'online' ? 'shrink-0 rounded-full bg-emerald-500/15 px-2 py-1 text-[10px] font-bold text-emerald-300' : 'shrink-0 rounded-full bg-slate-800 px-2 py-1 text-[10px] font-bold text-slate-400';
+                    state.textContent = server.status === 'online' ? '● EN LÍNEA' : '○ SIN HEARTBEAT';
+                    top.append(title, state);
+                    const description = document.createElement('p');
+                    description.className = 'text-xs text-slate-300';
+                    description.textContent = server.description || 'Sin descripción.';
+                    const count = document.createElement('p');
+                    count.className = 'text-xs font-bold text-emerald-300';
+                    count.textContent = server.status === 'online' && Number.isInteger(server.playerCount)
+                        ? server.playerCount + ' / ' + server.maxPlayers + ' jugadores conectados'
+                        : 'Jugadores: sin dato en tiempo real';
+                    const address = document.createElement('code');
+                    address.className = 'block break-all rounded-lg bg-slate-900 p-2 text-[11px] text-cyan-200';
+                    address.textContent = server.address + ':' + server.port;
+                    const actions = document.createElement('div');
+                    actions.className = 'flex flex-wrap gap-2';
+                    const copy = document.createElement('button');
+                    copy.type = 'button';
+                    copy.className = 'rounded-xl bg-emerald-500 px-3 py-2 text-[11px] font-black text-slate-950';
+                    copy.textContent = 'Copiar dirección';
+                    copy.addEventListener('click', async () => {
+                        try { await navigator.clipboard.writeText(server.address + ':' + server.port); copy.textContent = 'Copiado'; }
+                        catch { status.textContent = 'No se pudo copiar automáticamente. Seleccioná la dirección del servidor.'; }
+                    });
+                    actions.appendChild(copy);
+                    const open = document.createElement('button');
+                    open.type = 'button';
+                    open.className = 'rounded-xl border border-slate-700 px-3 py-2 text-[11px] font-bold text-white';
+                    open.textContent = 'Abrir Minecraft';
+                    open.addEventListener('click', () => {
+                        if (server.game.toLowerCase() !== 'minecraft') {
+                            status.textContent = 'Abrí ' + server.game + ' y conectate con la dirección copiada.';
+                            return;
+                        }
+                        if (/Android|iPhone|iPad/i.test(navigator.userAgent)) {
+                            window.location.href = 'minecraft://';
+                        } else {
+                            window.open('https://www.minecraft.net/', '_blank', 'noopener,noreferrer');
+                        }
+                        status.textContent = 'Minecraft se abre en su pantalla principal. Pegá la dirección en Servidores > Agregar servidor; el enlace directo de unión no está garantizado por el proveedor del juego.';
+                    });
+                    actions.appendChild(open);
+                    if (server.isOwner) {
+                        const remove = document.createElement('button');
+                        remove.type = 'button';
+                        remove.className = 'rounded-xl border border-rose-500/30 px-3 py-2 text-[11px] font-bold text-rose-300';
+                        remove.textContent = 'Quitar publicación';
+                        remove.addEventListener('click', async () => {
+                            if (!confirm('¿Quitar este servidor de PLAYVERSE?')) return;
+                            try { await apiRequest('/api/game-servers/' + encodeURIComponent(server.id), { method: 'DELETE' }); await loadCommunityGameServers(); }
+                            catch (error) { status.textContent = error.message; }
+                        });
+                        actions.appendChild(remove);
+                    }
+                    card.append(top, description, count, address, actions);
+                    container.appendChild(card);
+                });
+            } catch (error) {
+                status.textContent = 'No se pudieron cargar los servidores: ' + error.message;
+            }
+        }
+
+        async function createCommunityGameServer(event) {
+            event.preventDefault();
+            const button = document.getElementById('game-server-submit');
+            const status = document.getElementById('game-server-form-status');
+            button.disabled = true;
+            status.textContent = 'Publicando servidor…';
+            try {
+                const result = await apiRequest('/api/game-servers', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: document.getElementById('game-server-name').value.trim(),
+                        game: document.getElementById('game-server-game').value,
+                        edition: document.getElementById('game-server-edition').value,
+                        address: document.getElementById('game-server-address').value.trim(),
+                        port: Number(document.getElementById('game-server-port').value),
+                        maxPlayers: Number(document.getElementById('game-server-capacity').value),
+                        version: document.getElementById('game-server-version').value.trim(),
+                        region: document.getElementById('game-server-region').value.trim(),
+                        description: document.getElementById('game-server-description').value.trim()
+                    })
+                });
+                closeGameServerModal();
+                window.alert('Servidor publicado. Guardá este token privado para configurar el heartbeat del servidor. No se volverá a mostrar.\n\n' + result.heartbeatToken + '\n\nEndpoint: ' + result.heartbeatEndpoint + '\nIntervalo: cada 30 segundos.');
+                await loadCommunityGameServers();
+            } catch (error) {
+                status.textContent = error.message;
+            } finally {
+                button.disabled = false;
             }
         }
 
@@ -1869,7 +2068,25 @@
         }
 
 
-        let storeItems = [];
+document.getElementById('wallet-gift-form')?.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const status = document.getElementById('wallet-gift-status');
+            const button = document.getElementById('wallet-gift-submit');
+            const recipientUsername = document.getElementById('wallet-gift-recipient').value.trim();
+            const currency = document.getElementById('wallet-gift-currency').value;
+            const amount = Number(document.getElementById('wallet-gift-amount').value);
+            if (!Number.isSafeInteger(amount) || amount < 1) { status.textContent = 'Ingresá una cantidad válida.'; return; }
+            button.disabled = true; button.textContent = 'Enviando…';
+            try {
+                const result = await apiRequest('/api/wallet/transfers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recipientUsername, currency, amount }) });
+                status.textContent = result.message + ' Se acreditaron ' + amount + ' ' + (currency === 'diamond' ? '💎 Diamantes' : currency === 'purple' ? '🟣 Violetas' : '🟡 Oros') + '.';
+                document.getElementById('wallet-gift-amount').value = '';
+                await loadStore();
+            } catch (error) { status.textContent = error.message; }
+            finally { button.disabled = false; button.textContent = 'Enviar regalo'; }
+        });
+
+                let storeItems = [];
         let inventoryItems = [];
         let selectedStoreCategory = 'avatar-frame';
         let selectedStoreItemId = null;
@@ -1893,9 +2110,11 @@
                 ]);
                 storeItems = catalog.items || [];
                 inventoryItems = inventory.items || [];
-                appState.walletTokens = Number(inventory.wallet?.tokens || 0);
-                const balance = appState.walletTokens.toLocaleString('es-AR') + ' Tokens';
-                document.getElementById('store-wallet-balance').textContent = balance;
+                appState.walletBalances = inventory.wallet?.balances || { gold: Number(inventory.wallet?.tokens || 0), purple: 0, diamond: 0 };
+                appState.walletTokens = Number(appState.walletBalances.gold || 0);
+                document.getElementById('wallet-gold-balance').textContent = Number(appState.walletBalances.gold || 0).toLocaleString('es-AR');
+                document.getElementById('wallet-purple-balance').textContent = Number(appState.walletBalances.purple || 0).toLocaleString('es-AR');
+                document.getElementById('wallet-diamond-balance').textContent = Number(appState.walletBalances.diamond || 0).toLocaleString('es-AR');
                 document.getElementById('header-créditos').textContent = appState.walletTokens.toLocaleString('es-AR');
                 renderStoreItems();
                 renderStoreInventory(inventory);
@@ -1934,10 +2153,10 @@
                 const icon = item.category === 'avatar-frame' ? '🖼️' : item.category === 'stream-overlay' ? '🎥' : item.category === 'stream-gift' ? '🎁' : '✨';
                 card.innerHTML = '<div class="h-20 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-3xl">' + icon + '</div>' +
                     '<div><h4 class="text-xs font-bold text-white">' + escapeHtml(item.name) + '</h4><p class="text-[10px] text-slate-400 mt-1">' + escapeHtml(item.description) + '</p><p class="text-[9px] uppercase tracking-wider text-orange-300 mt-1">' + escapeHtml(item.rarity || 'common') + ' · ' + escapeHtml(item.animation || 'static') + '</p></div>' +
-                    '<p class="text-[10px] text-amber-300 font-bold">' + Number(item.priceTokens).toLocaleString('es-AR') + ' Tokens</p>' +
+                    '<p class="text-[10px] font-bold ' + (item.priceCurrency === 'diamond' ? 'text-cyan-200' : item.priceCurrency === 'purple' ? 'text-fuchsia-300' : 'text-amber-300') + '">' + (item.priceCurrency === 'diamond' ? '💎 ' : item.priceCurrency === 'purple' ? '🟣 ' : '🟡 ') + Number(item.priceTokens).toLocaleString('es-AR') + ' ' + (item.priceCurrency === 'diamond' ? 'Diamantes' : item.priceCurrency === 'purple' ? 'Violetas' : 'Oros') + '</p>' +
                     '<button type="button" data-preview-id="' + escapeHtml(item.id) + '" class="w-full rounded-lg border border-slate-700 px-2 py-2 text-[10px] font-bold text-slate-200">Previsualizar</button>' +
                     '<button type="button" data-buy-id="' + escapeHtml(item.id) + '" class="w-full rounded-lg px-2 py-2 text-[10px] font-bold ' + (owned && item.category !== 'stream-gift' ? 'bg-emerald-900/50 text-emerald-300' : 'bg-orange-500 text-white') + '" ' + (owned && item.category !== 'stream-gift' ? 'disabled' : '') + '>' +
-                    (owned && item.category !== 'stream-gift' ? 'En inventario' : (appState.walletTokens >= item.priceTokens ? 'Comprar' : 'Sin Tokens')) + '</button>';
+                    (owned && item.category !== 'stream-gift' ? 'En inventario' : (Number(appState.walletBalances[item.priceCurrency || 'gold'] || 0) >= item.priceTokens ? 'Comprar' : 'Sin saldo')) + '</button>';
                 grid.appendChild(card);
             });
             grid.querySelectorAll('[data-preview-id]').forEach(button => button.addEventListener('click', () => selectStoreItem(button.dataset.previewId)));
@@ -1968,6 +2187,7 @@
             frame.style.boxShadow = item.category === 'avatar-frame' && look ? look[1] : 'none';
             frame.style.borderStyle = item.category === 'avatar-frame' && look ? look[2] : 'solid';
             frame.style.borderWidth = '4px';
+            frame.classList.toggle('pv-animated-frame', item.category === 'avatar-frame' && item.animation === 'css');
             if (item.category === 'stream-overlay') {
                 const overlayLooks = {
                     'overlay-retro-arcade': 'linear-gradient(135deg, #14532d, #020617)',
@@ -1983,18 +2203,28 @@
                 overlay.style.borderColor = '#ff7a18';
                 overlay.style.background = overlayLooks[item.id] || 'linear-gradient(135deg, rgba(255,82,50,.25), rgba(15,23,42,.95))';
                 overlay.textContent = item.name;
+                overlay.classList.toggle('pv-animated-overlay', item.animation === 'css');
             } else if (item.category !== 'avatar-frame') {
-                overlay.style.borderColor = '#475569';
-                overlay.style.background = '#020617';
-                overlay.textContent = 'Vista previa del HUD';
+                overlay.style.borderColor = item.category === 'stream-gift' ? '#fbbf24' : item.category === 'entrance-effect' ? '#a78bfa' : '#475569';
+                overlay.style.background = item.category === 'stream-gift'
+                    ? 'linear-gradient(135deg,#78350f,#f59e0b,#1e1b4b)'
+                    : item.category === 'entrance-effect'
+                        ? 'linear-gradient(135deg,#312e81,#a855f7,#020617)'
+                        : item.category === 'chat-effect'
+                            ? 'linear-gradient(135deg,#164e63,#0f172a,#7c3aed)'
+                            : '#020617';
+                overlay.textContent = item.name;
+                overlay.classList.toggle('pv-animated-overlay', item.animation === 'css');
             }
         }
 
         async function purchaseStoreItem(itemId) {
             const item = storeItems.find(entry => entry.id === itemId);
             if (!item) return;
-            if (appState.walletTokens < item.priceTokens) {
-                document.getElementById('store-status').textContent = 'Saldo insuficiente. Las recargas de Tokens todavía no están habilitadas.';
+            const currency = item.priceCurrency || 'gold';
+            const available = Number(appState.walletBalances[currency] || 0);
+            if (available < item.priceTokens) {
+                document.getElementById('store-status').textContent = 'Saldo insuficiente de ' + (currency === 'diamond' ? 'Diamantes' : currency === 'purple' ? 'Violetas' : 'Oros') + '. Completá misiones para conseguir más.';
                 return;
             }
             try {
@@ -2028,7 +2258,7 @@
                 detail.className = 'min-w-0';
                 const title = document.createElement('p');
                 title.className = 'text-xs font-semibold text-white';
-                title.textContent = transaction.itemName || (transaction.type === 'credit' ? 'Acreditación de Tokens' : 'Movimiento de Tokens');
+                title.textContent = transaction.itemName || (transaction.type === 'credit' ? 'Acreditación de monedas' : transaction.type === 'transfer_in' ? 'Regalo recibido' : transaction.type === 'transfer_out' ? 'Regalo enviado' : 'Movimiento de billetera');
                 const date = document.createElement('p');
                 date.className = 'text-[10px] text-slate-500';
                 const parsed = new Date(transaction.createdAt);
@@ -2036,7 +2266,7 @@
                 detail.append(title, date);
                 const amount = document.createElement('strong');
                 amount.className = 'text-xs shrink-0 ' + (transaction.amount < 0 ? 'text-rose-300' : 'text-emerald-300');
-                amount.textContent = (transaction.amount > 0 ? '+' : '') + transaction.amount + ' Tokens';
+                amount.textContent = (transaction.amount > 0 ? '+' : '') + transaction.amount + ' ' + (transaction.currency === 'diamond' ? '💎' : transaction.currency === 'purple' ? '🟣' : '🟡');
                 row.append(detail, amount);
                 container.appendChild(row);
             });
@@ -2423,7 +2653,7 @@
                     count.textContent = mission.current + ' / ' + mission.target;
                     const reward = document.createElement('p');
                     reward.className = 'text-xs font-semibold text-amber-300';
-                    reward.textContent = 'Recompensa: ' + Number(mission.rewardTokens || 0).toLocaleString('es-AR') + ' Tokens';
+                    reward.textContent = 'Recompensa: ' + Number(mission.rewardTokens || 0).toLocaleString('es-AR') + ' ' + (mission.rewardCurrency === 'diamond' ? '💎 Diamantes' : mission.rewardCurrency === 'purple' ? '🟣 Violetas' : '🟡 Oros');
                     card.append(top, description, progress, count, reward);
                     if (mission.claimed) {
                         const claimed = document.createElement('p');
@@ -2433,14 +2663,14 @@
                     } else if (mission.claimable) {
                         const claim = document.createElement('button');
                         claim.type = 'button';
-                        claim.className = 'w-full rounded-lg px-3 py-2 text-xs font-black bg-amber-400 text-slate-950 hover:bg-amber-300 disabled:opacity-50';
-                        claim.textContent = 'Reclamar ' + Number(mission.rewardTokens || 0).toLocaleString('es-AR') + ' Tokens';
+                        claim.className = 'w-full rounded-lg px-3 py-2 text-xs font-black bg-emerald-400 text-slate-950 hover:bg-emerald-300 disabled:opacity-50';
+                        claim.textContent = 'Reclamar recompensa · ' + Number(mission.rewardTokens || 0).toLocaleString('es-AR') + ' ' + (mission.rewardCurrency === 'diamond' ? '💎' : mission.rewardCurrency === 'purple' ? '🟣' : '🟡');
                         claim.addEventListener('click', async () => {
                             claim.disabled = true;
                             claim.textContent = 'Acreditando recompensa…';
                             try {
                                 const result = await apiRequest('/api/me/missions/' + encodeURIComponent(mission.id) + '/claim', { method: 'POST' });
-                                status.textContent = '¡Recompensa acreditada! Nuevo saldo: ' + result.wallet.tokens + ' Tokens.';
+                                status.textContent = '¡Recompensa acreditada en tu billetera! ' + result.rewardTokens + ' ' + (result.currency === 'diamond' ? '💎 Diamantes' : result.currency === 'purple' ? '🟣 Violetas' : '🟡 Oros') + '.';
                                 await Promise.all([loadMissions(), loadStore()]);
                             } catch (error) {
                                 status.textContent = 'No se pudo reclamar la recompensa: ' + error.message;

@@ -70,7 +70,9 @@ const userSchema = new mongoose.Schema({
     type: appPreferencesSchema,
     default: () => ({})
   },
-  walletTokens: { type: Number, min: 0, default: 0 },
+  walletTokens: { type: Number, min: 0, default: 0 }, // Legacy balance retained as PLAYVERSE Gold.
+  walletPurpleTokens: { type: Number, min: 0, default: 0 },
+  walletDiamondTokens: { type: Number, min: 0, default: 0 },
   activeAvatarFrame: { type: String, default: null },
   activeStreamOverlay: { type: String, default: null },
   role: {

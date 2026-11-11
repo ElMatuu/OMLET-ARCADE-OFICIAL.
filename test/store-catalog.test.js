@@ -8,9 +8,14 @@ test('store catalogue has unique identifiers and valid prices', () => {
   const ids = STORE_CATALOG.map((item) => item.id);
   assert.equal(new Set(ids).size, ids.length, 'catalogue item IDs must be unique');
   assert.ok(STORE_CATALOG.length >= 35, 'the arcade store should expose a broad cosmetic and gifting catalogue');
+  assert.ok(STORE_CATALOG.some((item) => item.priceCurrency === 'gold'));
+  assert.ok(STORE_CATALOG.some((item) => item.priceCurrency === 'purple'));
+  assert.ok(STORE_CATALOG.some((item) => item.priceCurrency === 'diamond'));
   for (const item of STORE_CATALOG) {
     assert.ok(item.id && item.name && item.description && item.assetKey);
     assert.ok(Number.isInteger(item.priceTokens) && item.priceTokens > 0);
+    assert.ok(['gold', 'purple', 'diamond'].includes(item.priceCurrency), 'every item must declare its currency explicitly');
+    assert.ok(['static', 'css'].includes(item.animation));
     assert.ok(['avatar-frame', 'stream-overlay', 'chat-effect', 'entrance-effect', 'stream-gift'].includes(item.category));
   }
 });
@@ -27,4 +32,27 @@ test('wallet starts at zero and cannot be negative', () => {
   const wallet = User.schema.path('walletTokens');
   assert.equal(wallet.options.default, 0);
   assert.equal(wallet.options.min, 0);
+});
+
+test('PLAYVERSE exposes three independent non-negative token wallets', () => {
+  const User = require('../server/models/User');
+  assert.equal(User.schema.path('walletTokens').options.default, 0);
+  assert.equal(User.schema.path('walletPurpleTokens').options.default, 0);
+  assert.equal(User.schema.path('walletDiamondTokens').options.default, 0);
+  assert.equal(User.schema.path('walletPurpleTokens').options.min, 0);
+  assert.equal(User.schema.path('walletDiamondTokens').options.min, 0);
+});
+
+test('wallet ledger supports currency-aware transfers', () => {
+  const TokenTransaction = require('../server/models/TokenTransaction');
+  assert.ok(TokenTransaction.schema.path('currency').enumValues.includes('gold'));
+  assert.ok(TokenTransaction.schema.path('currency').enumValues.includes('purple'));
+  assert.ok(TokenTransaction.schema.path('currency').enumValues.includes('diamond'));
+  assert.ok(TokenTransaction.schema.path('type').enumValues.includes('transfer_in'));
+  assert.ok(TokenTransaction.schema.path('type').enumValues.includes('transfer_out'));
+});
+
+test('mission claims store the reward currency separately', () => {
+  const MissionClaim = require('../server/models/MissionClaim');
+  assert.deepEqual(MissionClaim.schema.path('rewardCurrency').enumValues, ['gold', 'purple', 'diamond']);
 });

@@ -12,6 +12,7 @@ const jwt = require('jsonwebtoken');
 const { rateLimit } = require('express-rate-limit');
 const User = require('./models/User');
 const Room = require('./models/Room');
+const GameServerListing = require('./models/GameServerListing');
 const Club = require('./models/Club');
 const RoomMessage = require('./models/RoomMessage');
 const Post = require('./models/Post');
@@ -973,8 +974,9 @@ app.put('/api/me/app-preferences', requireAuth, profileLimiter, async (req, res,
 app.get('/api/store/catalog', requireAuth, (req, res) => {
   return res.json({
     success: true,
-    items: STORE_CATALOG.map(({ id, name, category, description, priceTokens, rarity, animation, assetKey }) => ({
-      id, name, category, description, priceTokens, rarity, animation, assetKey
+    currencies: Object.entries(CURRENCY_CONFIG).map(([id, currency]) => ({ id, label: currency.label, icon: currency.icon, symbol: currency.symbol })),
+    items: STORE_CATALOG.map(({ id, name, category, description, priceTokens, priceCurrency, rarity, animation, assetKey }) => ({
+      id, name, category, description, priceTokens, priceCurrency: priceCurrency || 'gold', currencyLabel: getCurrencyLabel(priceCurrency || 'gold'), rarity, animation, assetKey
     }))
   });
 });
@@ -982,7 +984,7 @@ app.get('/api/store/catalog', requireAuth, (req, res) => {
 app.get('/api/me/inventory', requireAuth, async (req, res, next) => {
   try {
     const [user, records] = await Promise.all([
-      User.findById(req.auth.sub).select('walletTokens activeAvatarFrame activeStreamOverlay').lean(),
+      User.findById(req.auth.sub).select('walletTokens walletPurpleTokens walletDiamondTokens activeAvatarFrame activeStreamOverlay').lean(),
       Inventory.find({ user: req.auth.sub }).sort({ acquiredAt: -1 }).lean()
     ]);
     if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
@@ -992,7 +994,7 @@ app.get('/api/me/inventory', requireAuth, async (req, res, next) => {
     }).filter(Boolean);
     return res.json({
       success: true,
-      wallet: { tokens: user.walletTokens || 0 },
+      wallet: { tokens: user.walletTokens || 0, balances: getWalletBalances(user) },
       equipped: { avatarFrame: user.activeAvatarFrame || null, streamOverlay: user.activeStreamOverlay || null },
       items
     });
@@ -1016,7 +1018,9 @@ app.get('/api/me/wallet/transactions', requireAuth, async (req, res, next) => {
         id: String(record._id),
         type: record.type,
         amount: record.amount,
-        itemName: mission ? 'Misión: ' + mission.title : (item ? item.name : null),
+        currency: record.currency || 'gold',
+        counterpartyUsername: record.counterpartyUsername || null,
+        itemName: mission ? 'Misión: ' + mission.title : (item ? item.name : (record.type === 'transfer_in' ? 'Regalo recibido de ' + (record.counterpartyUsername || 'un jugador') : record.type === 'transfer_out' ? 'Regalo enviado a ' + (record.counterpartyUsername || 'un jugador') : null)),
         balanceAfter: record.balanceAfter,
         createdAt: record.createdAt
       };
@@ -1027,31 +1031,80 @@ app.get('/api/me/wallet/transactions', requireAuth, async (req, res, next) => {
   }
 });
 
+app.post('/api/wallet/transfers', requireAuth, storeLimiter, async (req, res, next) => {
+  const recipientUsername = typeof req.body.recipientUsername === 'string' ? req.body.recipientUsername.trim() : '';
+  const currency = ['gold', 'purple', 'diamond'].includes(req.body.currency) ? req.body.currency : '';
+  const amount = Number(req.body.amount);
+  if (!recipientUsername || recipientUsername.length < 3 || recipientUsername.length > 24 ||
+      !/^[a-zA-Z0-9_]+$/.test(recipientUsername) || !currency ||
+      !Number.isSafeInteger(amount) || amount < 1 || amount > 100000) {
+    return res.status(400).json({ success: false, message: 'Revisá destinatario, moneda y cantidad.' });
+  }
+  const walletField = getCurrencyField(currency);
+  const session = await mongoose.startSession();
+  let result;
+  try {
+    await session.withTransaction(async () => {
+      const recipient = await User.findOne({ username: recipientUsername }).select('_id username').session(session);
+      if (!recipient) { result = { error: 'RECIPIENT_NOT_FOUND' }; return; }
+      if (String(recipient._id) === String(req.auth.sub)) { result = { error: 'SELF_TRANSFER' }; return; }
+      const blocked = await Block.findOne({ $or: [
+        { blocker: req.auth.sub, blocked: recipient._id },
+        { blocker: recipient._id, blocked: req.auth.sub }
+      ] }).session(session);
+      if (blocked) { result = { error: 'BLOCKED' }; return; }
+      const sender = await User.findOneAndUpdate(
+        { _id: req.auth.sub, [walletField]: { $gte: amount } },
+        { $inc: { [walletField]: -amount } },
+        { new: true, session }
+      ).select('walletTokens walletPurpleTokens walletDiamondTokens username');
+      if (!sender) { result = { error: 'INSUFFICIENT_FUNDS' }; return; }
+      const updatedRecipient = await User.findByIdAndUpdate(
+        recipient._id, { $inc: { [walletField]: amount } }, { new: true, session }
+      ).select('walletTokens walletPurpleTokens walletDiamondTokens');
+      if (!updatedRecipient) throw new Error('Transfer recipient disappeared during transaction.');
+      await TokenTransaction.create([
+        { user: req.auth.sub, type: 'transfer_out', currency, amount: -amount, itemId: 'gift:' + String(recipient._id), counterparty: recipient._id, counterpartyUsername: recipient.username, balanceAfter: getWalletBalances(sender)[currency] },
+        { user: recipient._id, type: 'transfer_in', currency, amount, itemId: 'gift:' + String(req.auth.sub), counterparty: req.auth.sub, counterpartyUsername: sender.username, balanceAfter: getWalletBalances(updatedRecipient)[currency] }
+      ], { session, ordered: true });
+      const notifications = await Notification.create([{
+        recipient: recipient._id, actor: req.auth.sub, type: 'token_gift',
+        title: 'Recibiste un regalo', body: sender.username + ' te envió ' + amount + ' ' + getCurrencyLabel(currency) + '.'
+      }], { session });
+      result = { recipientUsername: recipient.username, balances: getWalletBalances(sender), notification: notifications[0] };
+    });
+    if (result?.error === 'RECIPIENT_NOT_FOUND') return res.status(404).json({ success: false, message: 'No encontramos esa cuenta.' });
+    if (result?.error === 'SELF_TRANSFER') return res.status(400).json({ success: false, message: 'No podés enviarte monedas a vos mismo.' });
+    if (result?.error === 'BLOCKED') return res.status(403).json({ success: false, message: 'No se pueden transferir monedas entre cuentas con un bloqueo activo.' });
+    if (result?.error === 'INSUFFICIENT_FUNDS') return res.status(409).json({ success: false, message: 'No tenés saldo suficiente de ' + getCurrencyLabel(currency) + '.' });
+    if (httpServer.io && result.notification) httpServer.io.to('user:' + String(result.notification.recipient)).emit('new_notification', { id: String(result.notification._id), type: result.notification.type, title: result.notification.title, body: result.notification.body, createdAt: result.notification.createdAt });
+    return res.status(201).json({ success: true, message: 'Regalo enviado a ' + result.recipientUsername + '.', recipientUsername: result.recipientUsername, currency, amount, wallet: { balances: result.balances } });
+  } catch (error) {
+    return next(error);
+  } finally {
+    await session.endSession();
+  }
+});
+
 app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next) => {
   const itemId = typeof req.body.itemId === 'string' ? req.body.itemId : '';
   const product = STORE_CATALOG.find((entry) => entry.id === itemId);
   if (!product) return res.status(404).json({ success: false, message: 'Artículo no encontrado.' });
-
+  const currency = product.priceCurrency || 'gold';
+  const walletField = getCurrencyField(currency);
+  if (!walletField) return res.status(500).json({ success: false, message: 'Moneda de artículo inválida.' });
   const session = await mongoose.startSession();
   let result;
   try {
     await session.withTransaction(async () => {
       const existing = await Inventory.findOne({ user: req.auth.sub, itemId }).session(session);
-      if (existing && product.category !== 'stream-gift') {
-        result = { error: 'ALREADY_OWNED' };
-        return;
-      }
-
+      if (existing && product.category !== 'stream-gift') { result = { error: 'ALREADY_OWNED' }; return; }
       const user = await User.findOneAndUpdate(
-        { _id: req.auth.sub, walletTokens: { $gte: product.priceTokens } },
-        { $inc: { walletTokens: -product.priceTokens } },
+        { _id: req.auth.sub, [walletField]: { $gte: product.priceTokens } },
+        { $inc: { [walletField]: -product.priceTokens } },
         { new: true, session }
-      ).select('walletTokens');
-      if (!user) {
-        result = { error: 'INSUFFICIENT_TOKENS' };
-        return;
-      }
-
+      ).select('walletTokens walletPurpleTokens walletDiamondTokens');
+      if (!user) { result = { error: 'INSUFFICIENT_TOKENS' }; return; }
       if (product.category === 'stream-gift') {
         await Inventory.findOneAndUpdate(
           { user: req.auth.sub, itemId },
@@ -1062,21 +1115,14 @@ app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next
         await Inventory.create([{ user: req.auth.sub, itemId, quantity: 1 }], { session });
       }
       await TokenTransaction.create([{
-        user: req.auth.sub,
-        type: 'purchase',
-        amount: -product.priceTokens,
-        itemId,
-        balanceAfter: user.walletTokens
+        user: req.auth.sub, type: 'purchase', currency, amount: -product.priceTokens, itemId,
+        balanceAfter: getWalletBalances(user)[currency]
       }], { session });
-      result = { walletTokens: user.walletTokens };
+      result = { balances: getWalletBalances(user) };
     });
-    if (result && result.error === 'ALREADY_OWNED') {
-      return res.status(409).json({ success: false, message: 'Ya tenés este artículo en tu inventario.' });
-    }
-    if (result && result.error === 'INSUFFICIENT_TOKENS') {
-      return res.status(409).json({ success: false, message: 'No tenés Tokens suficientes. Tu saldo no fue modificado.' });
-    }
-    return res.status(201).json({ success: true, message: 'Compra registrada.', wallet: { tokens: result.walletTokens } });
+    if (result?.error === 'ALREADY_OWNED') return res.status(409).json({ success: false, message: 'Ya tenés este artículo en tu inventario.' });
+    if (result?.error === 'INSUFFICIENT_TOKENS') return res.status(409).json({ success: false, code: result.error, message: 'No tenés saldo suficiente de ' + getCurrencyLabel(currency) + '.' });
+    return res.status(201).json({ success: true, message: 'Compra registrada.', wallet: { tokens: result.balances.gold, balances: result.balances } });
   } catch (error) {
     return next(error);
   } finally {
@@ -1538,33 +1584,53 @@ app.delete('/api/stories/:storyId', requireAuth, async (req, res, next) => {
   } catch (error) { return next(error); }
 });
 
+const CURRENCY_CONFIG = {
+  gold: { label: 'Oro PLAYVERSE', shortLabel: 'Oro', field: 'walletTokens', symbol: 'PV', icon: '🟡' },
+  purple: { label: 'Violeta PLAYVERSE', shortLabel: 'Violeta', field: 'walletPurpleTokens', symbol: 'PV', icon: '🟣' },
+  diamond: { label: 'Diamante PLAYVERSE', shortLabel: 'Diamante', field: 'walletDiamondTokens', symbol: 'PV', icon: '💎' }
+};
+function getCurrencyField(currency) {
+  return CURRENCY_CONFIG[currency]?.field || null;
+}
+function getWalletBalances(user) {
+  return {
+    gold: Number(user.walletTokens) || 0,
+    purple: Number(user.walletPurpleTokens) || 0,
+    diamond: Number(user.walletDiamondTokens) || 0
+  };
+}
+function getCurrencyLabel(currency) {
+  return CURRENCY_CONFIG[currency]?.label || CURRENCY_CONFIG.gold.label;
+}
+
 const MISSION_CATALOG = [
-  { id: 'welcome-post-1', chapter: 'Primeros pasos', title: 'Tu voz en PLAYVERSE', description: 'Publicá tu primera idea, captura o presentación para que la comunidad te conozca.', metric: 'posts', target: 1, rewardTokens: 10 },
-  { id: 'welcome-post-3', chapter: 'Primeros pasos', title: 'Creador en movimiento', description: 'Compartí tres publicaciones diferentes y empezá a construir tu perfil.', metric: 'posts', target: 3, rewardTokens: 15 },
-  { id: 'welcome-friend-1', chapter: 'Primeros pasos', title: 'Tu primera conexión', description: 'Aceptá o conseguí tu primera amistad dentro de PLAYVERSE.', metric: 'friends', target: 1, rewardTokens: 10 },
-  { id: 'welcome-message-1', chapter: 'Primeros pasos', title: 'Romper el hielo', description: 'Mandá tu primer mensaje privado a una amistad.', metric: 'directMessages', target: 1, rewardTokens: 10 },
+  { id: 'welcome-post-1', chapter: 'Primeros pasos', title: 'Tu voz en PLAYVERSE', description: 'Publicá tu primera idea, captura o presentación para que la comunidad te conozca.', metric: 'posts', target: 1, rewardTokens: 500 },
+  { id: 'welcome-post-3', chapter: 'Primeros pasos', title: 'Creador en movimiento', description: 'Compartí tres publicaciones diferentes y empezá a construir tu perfil.', metric: 'posts', target: 3, rewardTokens: 750 },
+  { id: 'welcome-friend-1', chapter: 'Primeros pasos', title: 'Tu primera conexión', description: 'Aceptá o conseguí tu primera amistad dentro de PLAYVERSE.', metric: 'friends', target: 1, rewardTokens: 300 },
+  { id: 'welcome-message-1', chapter: 'Primeros pasos', title: 'Romper el hielo', description: 'Mandá tu primer mensaje privado a una amistad.', metric: 'directMessages', target: 1, rewardTokens: 250 },
 
-  { id: 'creator-post-10', chapter: 'Camino del creador', title: 'Voz reconocible', description: 'Llegá a diez publicaciones y mantené activa tu presencia en la comunidad.', metric: 'posts', target: 10, rewardTokens: 20 },
-  { id: 'creator-comment-1', chapter: 'Camino del creador', title: 'Conversación iniciada', description: 'Comentá una publicación de la comunidad y sumate al intercambio.', metric: 'comments', target: 1, rewardTokens: 10 },
-  { id: 'creator-comment-5', chapter: 'Camino del creador', title: 'Siempre hay algo para aportar', description: 'Escribí cinco comentarios útiles en publicaciones de la comunidad.', metric: 'comments', target: 5, rewardTokens: 20 },
-  { id: 'creator-like-1', chapter: 'Camino del creador', title: 'Buena onda', description: 'Dale tu primer me gusta a una publicación que te interese.', metric: 'likes', target: 1, rewardTokens: 10 },
+  { id: 'creator-post-10', chapter: 'Camino del creador', title: 'Voz reconocible', description: 'Llegá a diez publicaciones y mantené activa tu presencia en la comunidad.', metric: 'posts', target: 10, rewardTokens: 1000 },
+  { id: 'creator-comment-1', chapter: 'Camino del creador', title: 'Conversación iniciada', description: 'Comentá una publicación de la comunidad y sumate al intercambio.', metric: 'comments', target: 1, rewardTokens: 250 },
+  { id: 'creator-comment-5', chapter: 'Camino del creador', title: 'Siempre hay algo para aportar', description: 'Escribí cinco comentarios útiles en publicaciones de la comunidad.', metric: 'comments', target: 5, rewardTokens: 500 },
+  { id: 'creator-like-1', chapter: 'Camino del creador', title: 'Buena onda', description: 'Dale tu primer me gusta a una publicación que te interese.', metric: 'likes', target: 1, rewardTokens: 250 },
 
-  { id: 'party-room-1', chapter: 'Líder de escuadra', title: 'Armá la escuadra', description: 'Creá tu primera sala pública para reunir jugadores.', metric: 'rooms', target: 1, rewardTokens: 15 },
-  { id: 'party-room-3', chapter: 'Líder de escuadra', title: 'Organizador habitual', description: 'Creá tres salas para organizar distintas sesiones de juego.', metric: 'rooms', target: 3, rewardTokens: 30 },
-  { id: 'party-chat-1', chapter: 'Líder de escuadra', title: 'Primera llamada al equipo', description: 'Mandá un mensaje en el chat de una sala.', metric: 'roomMessages', target: 1, rewardTokens: 10 },
-  { id: 'party-chat-10', chapter: 'Líder de escuadra', title: 'Capitán comunicador', description: 'Participá con diez mensajes en chats de salas.', metric: 'roomMessages', target: 10, rewardTokens: 20 },
-  { id: 'party-chat-30', chapter: 'Líder de escuadra', title: 'La voz de la sala', description: 'Alcanzá treinta mensajes en chats de salas y mantené viva la coordinación.', metric: 'roomMessages', target: 30, rewardTokens: 30 },
+  { id: 'party-room-1', chapter: 'Líder de escuadra', title: 'Armá la escuadra', description: 'Creá tu primera sala pública para reunir jugadores.', metric: 'rooms', target: 1, rewardTokens: 500 },
+  { id: 'party-room-3', rewardCurrency: 'purple', chapter: 'Líder de escuadra', title: 'Organizador habitual', description: 'Creá tres salas para organizar distintas sesiones de juego.', metric: 'rooms', target: 3, rewardTokens: 15 },
+  { id: 'party-chat-1', chapter: 'Líder de escuadra', title: 'Primera llamada al equipo', description: 'Mandá un mensaje en el chat de una sala.', metric: 'roomMessages', target: 1, rewardTokens: 250 },
+  { id: 'party-chat-10', chapter: 'Líder de escuadra', title: 'Capitán comunicador', description: 'Participá con diez mensajes en chats de salas.', metric: 'roomMessages', target: 10, rewardTokens: 500 },
+  { id: 'party-chat-30', chapter: 'Líder de escuadra', title: 'La voz de la sala', description: 'Alcanzá treinta mensajes en chats de salas y mantené viva la coordinación.', metric: 'roomMessages', target: 30, rewardTokens: 1000 },
 
-  { id: 'social-friends-3', chapter: 'Leyenda de comunidad', title: 'Círculo cercano', description: 'Formá un grupo de tres amistades aceptadas.', metric: 'friends', target: 3, rewardTokens: 20 },
-  { id: 'social-friends-5', chapter: 'Leyenda de comunidad', title: 'Punto de encuentro', description: 'Llegá a cinco amistades aceptadas en PLAYVERSE.', metric: 'friends', target: 5, rewardTokens: 35 },
-  { id: 'social-follow-1', chapter: 'Leyenda de comunidad', title: 'Seguí a un creador', description: 'Empezá a seguir a otro jugador para no perderte sus novedades.', metric: 'follows', target: 1, rewardTokens: 10 },
-  { id: 'social-follow-5', chapter: 'Leyenda de comunidad', title: 'Radar de comunidad', description: 'Seguí a cinco jugadores cuyos contenidos te interesen.', metric: 'follows', target: 5, rewardTokens: 20 },
+  { id: 'social-friends-3', chapter: 'Leyenda de comunidad', title: 'Círculo cercano', description: 'Formá un grupo de tres amistades aceptadas.', metric: 'friends', target: 3, rewardTokens: 500 },
+  { id: 'social-friends-5', rewardCurrency: 'purple', chapter: 'Leyenda de comunidad', title: 'Punto de encuentro', description: 'Llegá a cinco amistades aceptadas en PLAYVERSE.', metric: 'friends', target: 5, rewardTokens: 15 },
+  { id: 'social-follow-1', chapter: 'Leyenda de comunidad', title: 'Seguí a un creador', description: 'Empezá a seguir a otro jugador para no perderte sus novedades.', metric: 'follows', target: 1, rewardTokens: 250 },
+  { id: 'social-follow-5', chapter: 'Leyenda de comunidad', title: 'Radar de comunidad', description: 'Seguí a cinco jugadores cuyos contenidos te interesen.', metric: 'follows', target: 5, rewardTokens: 500 },
 
-  { id: 'social-like-10', chapter: 'Coleccionista y comunicador', title: 'Apoyo constante', description: 'Reaccioná a diez publicaciones de otros jugadores.', metric: 'likes', target: 10, rewardTokens: 15 },
-  { id: 'social-save-1', chapter: 'Coleccionista y comunicador', title: 'Para después', description: 'Guardá tu primera publicación para volver a encontrarla.', metric: 'saved', target: 1, rewardTokens: 10 },
-  { id: 'social-save-5', chapter: 'Coleccionista y comunicador', title: 'Coleccionista de ideas', description: 'Guardá cinco publicaciones que quieras consultar más tarde.', metric: 'saved', target: 5, rewardTokens: 20 },
-  { id: 'social-dm-10', chapter: 'Coleccionista y comunicador', title: 'Compañero de equipo', description: 'Enviá diez mensajes privados a tus amistades.', metric: 'directMessages', target: 10, rewardTokens: 15 },
-  { id: 'social-dm-30', chapter: 'Coleccionista y comunicador', title: 'Conexiones duraderas', description: 'Alcanzá treinta mensajes privados enviados.', metric: 'directMessages', target: 30, rewardTokens: 25 }
+  { id: 'social-like-10', chapter: 'Coleccionista y comunicador', title: 'Apoyo constante', description: 'Reaccioná a diez publicaciones de otros jugadores.', metric: 'likes', target: 10, rewardTokens: 500 },
+  { id: 'social-save-1', chapter: 'Coleccionista y comunicador', title: 'Para después', description: 'Guardá tu primera publicación para volver a encontrarla.', metric: 'saved', target: 1, rewardTokens: 250 },
+  { id: 'social-save-5', rewardCurrency: 'diamond', chapter: 'Coleccionista y comunicador', title: 'Coleccionista de ideas', description: 'Guardá cinco publicaciones que quieras consultar más tarde.', metric: 'saved', target: 5, rewardTokens: 5 },
+  { id: 'social-dm-10', chapter: 'Coleccionista y comunicador', title: 'Compañero de equipo', description: 'Enviá diez mensajes privados a tus amistades.', metric: 'directMessages', target: 10, rewardTokens: 500 },
+  { id: 'social-dm-30', rewardCurrency: 'diamond', chapter: 'Coleccionista y comunicador', title: 'Conexiones duraderas', description: 'Alcanzá treinta mensajes privados enviados.', metric: 'directMessages', target: 30, rewardTokens: 5 }
+  ,{ id: 'community-new-creators-3', rewardCurrency: 'purple', chapter: 'Comunidad que impulsa', title: 'Dale la bienvenida a los nuevos', description: 'Seguí a tres creadores que se hayan unido durante los últimos 30 días. El progreso se calcula con seguimientos reales y cuentas distintas.', metric: 'newCreatorFollows', target: 3, rewardTokens: 15 }
 ];
 
 async function buildMissionProgress(userId, session = null) {
@@ -1583,12 +1649,23 @@ async function buildMissionProgress(userId, session = null) {
     count(Post, { likes: userId, author: { $ne: userId } }),
     count(DirectMessage, { sender: userId })
   ];
+  const newCreatorFollowsQuery = Follow.aggregate([
+    { $match: { follower: new mongoose.Types.ObjectId(userId) } },
+    { $lookup: { from: User.collection.name, localField: 'following', foreignField: '_id', as: 'creator' } },
+    { $unwind: '$creator' },
+    { $match: { 'creator.createdAt': { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } },
+    { $count: 'total' }
+  ]);
+  if (session) newCreatorFollowsQuery.session(session);
   const claimsQuery = MissionClaim.find({ user: userId }).select('missionId rewardTokens claimedAt').lean();
   if (session) claimsQuery.session(session);
-  const [values, claims] = await Promise.all([Promise.all(countQueries), claimsQuery]);
+  const [values, claims, newCreatorFollowResult] = await Promise.all([
+    Promise.all(countQueries), claimsQuery, newCreatorFollowsQuery
+  ]);
   const metricCounts = {
     posts: values[0], rooms: values[1], roomMessages: values[2], saved: values[3],
-    comments: values[4], friends: values[5], follows: values[6], likes: values[7], directMessages: values[8]
+    comments: values[4], friends: values[5], follows: values[6], likes: values[7], directMessages: values[8],
+    newCreatorFollows: newCreatorFollowResult[0]?.total || 0
   };
   const claimedById = new Map(claims.map((claim) => [claim.missionId, claim]));
   return MISSION_CATALOG.map((definition) => {
@@ -1603,6 +1680,7 @@ async function buildMissionProgress(userId, session = null) {
       target: definition.target,
       completed: current >= definition.target,
       rewardTokens: definition.rewardTokens,
+      rewardCurrency: definition.rewardCurrency || 'gold',
       claimed: Boolean(claim),
       claimable: current >= definition.target && !claim,
       claimedAt: claim ? claim.claimedAt : null
@@ -1636,73 +1714,40 @@ app.get('/api/me/missions', requireAuth, async (req, res, next) => {
 app.post('/api/me/missions/:missionId/claim', requireAuth, storeLimiter, async (req, res, next) => {
   const definition = MISSION_CATALOG.find((mission) => mission.id === req.params.missionId);
   if (!definition) return res.status(404).json({ success: false, message: 'Misión no encontrada.' });
-  try {
-    // Ensure the collection and unique user/mission index exist before opening a transaction.
-    await MissionClaim.init();
-  } catch (error) {
-    return next(error);
-  }
+  const currency = definition.rewardCurrency || 'gold';
+  const walletField = getCurrencyField(currency);
+  try { await MissionClaim.init(); } catch (error) { return next(error); }
   const session = await mongoose.startSession();
   let result;
   try {
     await session.withTransaction(async () => {
       const missions = await buildMissionProgress(req.auth.sub, session);
       const mission = missions.find((item) => item.id === definition.id);
-      if (!mission || !mission.completed) {
-        result = { error: 'NOT_COMPLETED' };
-        return;
-      }
-      if (mission.claimed) {
-        result = { error: 'ALREADY_CLAIMED' };
-        return;
-      }
+      if (!mission || !mission.completed) { result = { error: 'NOT_COMPLETED' }; return; }
+      if (mission.claimed) { result = { error: 'ALREADY_CLAIMED' }; return; }
       const user = await User.findByIdAndUpdate(
-        req.auth.sub,
-        { $inc: { walletTokens: definition.rewardTokens } },
+        req.auth.sub, { $inc: { [walletField]: definition.rewardTokens } },
         { new: true, session }
-      ).select('walletTokens');
-      if (!user) {
-        result = { error: 'USER_NOT_FOUND' };
-        return;
-      }
-      await MissionClaim.create([{
-        user: req.auth.sub,
-        missionId: definition.id,
-        rewardTokens: definition.rewardTokens
-      }], { session });
+      ).select('walletTokens walletPurpleTokens walletDiamondTokens');
+      if (!user) { result = { error: 'USER_NOT_FOUND' }; return; }
+      await MissionClaim.create([{ user: req.auth.sub, missionId: definition.id, rewardTokens: definition.rewardTokens, rewardCurrency: currency }], { session });
       await TokenTransaction.create([{
-        user: req.auth.sub,
-        type: 'credit',
-        amount: definition.rewardTokens,
-        itemId: 'mission:' + definition.id,
-        balanceAfter: user.walletTokens
+        user: req.auth.sub, type: 'credit', currency, amount: definition.rewardTokens,
+        itemId: 'mission:' + definition.id, balanceAfter: getWalletBalances(user)[currency]
       }], { session });
-      result = { walletTokens: user.walletTokens, rewardTokens: definition.rewardTokens };
+      result = { balances: getWalletBalances(user), rewardTokens: definition.rewardTokens };
     });
-    if (result && result.error === 'NOT_COMPLETED') {
-      return res.status(409).json({ success: false, code: result.error, message: 'Completá los objetivos de la misión antes de reclamar la recompensa.' });
-    }
-    if (result && result.error === 'ALREADY_CLAIMED') {
-      return res.status(409).json({ success: false, code: result.error, message: 'Esta recompensa ya fue reclamada.' });
-    }
-    if (result && result.error === 'USER_NOT_FOUND') {
-      return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
-    }
+    if (result?.error === 'NOT_COMPLETED') return res.status(409).json({ success: false, code: result.error, message: 'Completá los objetivos de la misión antes de reclamar la recompensa.' });
+    if (result?.error === 'ALREADY_CLAIMED') return res.status(409).json({ success: false, code: result.error, message: 'Esta recompensa ya fue reclamada.' });
+    if (result?.error === 'USER_NOT_FOUND') return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
     return res.status(201).json({
-      success: true,
-      message: 'Recompensa acreditada.',
-      missionId: definition.id,
-      rewardTokens: result.rewardTokens,
-      wallet: { tokens: result.walletTokens }
+      success: true, message: 'Recompensa acreditada.', missionId: definition.id,
+      rewardTokens: result.rewardTokens, currency, wallet: { tokens: result.balances.gold, balances: result.balances }
     });
   } catch (error) {
-    if (error && error.code === 11000) {
-      return res.status(409).json({ success: false, code: 'ALREADY_CLAIMED', message: 'Esta recompensa ya fue reclamada.' });
-    }
+    if (error?.code === 11000) return res.status(409).json({ success: false, code: 'ALREADY_CLAIMED', message: 'Esta recompensa ya fue reclamada.' });
     return next(error);
-  } finally {
-    await session.endSession();
-  }
+  } finally { await session.endSession(); }
 });
 
 app.get('/api/me/saved-posts', requireAuth, async (req, res, next) => {
@@ -2215,6 +2260,121 @@ app.post('/api/clubs/:clubId/leave', requireAuth, friendshipLimiter, async (req,
     ).select('memberCount').lean();
     if (!updated) return res.status(409).json({ success: false, message: 'No se pudo actualizar tu membresía. Actualizá la lista e intentá de nuevo.' });
     return res.json({ success: true, memberCount: updated.memberCount, message: 'Saliste del club.' });
+  } catch (error) { return next(error); }
+});
+
+
+const GAME_SERVER_HEARTBEAT_MAX_AGE_MS = 90 * 1000;
+const GAME_SERVER_TOKEN_PATTERN = /^[A-Za-z0-9_-]{40,60}$/;
+
+function normalizePublicServerAddress(value) {
+  const address = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (!address || address.length > 253 || address.includes(' ') ||
+      address.includes('/') || address.includes('@') || address.includes('?') ||
+      address.includes('#') || address.includes('\\\\')) return null;
+  if (address === 'localhost' || address.endsWith('.localhost') || address.endsWith('.local')) return null;
+  const labels = address.split('.');
+  if (labels.length < 2 || labels.some((label) =>
+    !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)
+  )) return null;
+  const octets = address.split('.');
+  if (['10', '127', '0', '192'].includes(octets[0]) &&
+      (octets[0] !== '192' || octets[1] === '168')) return null;
+  if (octets[0] === '172' && Number(octets[1]) >= 16 && Number(octets[1]) <= 31) return null;
+  return address;
+}
+
+function serializeGameServer(server, viewerId) {
+  const heartbeatFresh = server.lastHeartbeatAt &&
+    Date.now() - new Date(server.lastHeartbeatAt).getTime() <= GAME_SERVER_HEARTBEAT_MAX_AGE_MS;
+  const online = Boolean(server.isOnline && heartbeatFresh);
+  return {
+    id: String(server._id), name: server.name, game: server.game, edition: server.edition,
+    address: server.address, port: server.port, description: server.description,
+    region: server.region, version: server.version, ownerUsername: server.ownerUsername,
+    playerCount: online ? server.playerCount : null, maxPlayers: server.maxPlayers,
+    status: online ? 'online' : 'offline', lastSeenAt: server.lastHeartbeatAt,
+    isOwner: String(server.owner) === String(viewerId)
+  };
+}
+
+app.get('/api/game-servers', requireAuth, async (req, res, next) => {
+  try {
+    const filter = {};
+    if (typeof req.query.game === 'string' && req.query.game.trim()) {
+      filter.game = req.query.game.trim().slice(0, 40);
+    }
+    const servers = await GameServerListing.find(filter).select('-heartbeatTokenHash')
+      .sort({ isOnline: -1, updatedAt: -1 }).limit(100).lean();
+    return res.json({ success: true, servers: servers.map((server) => serializeGameServer(server, req.auth.sub)) });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/game-servers', requireAuth, postLimiter, async (req, res, next) => {
+  try {
+    const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+    const game = typeof req.body.game === 'string' ? req.body.game.trim() : '';
+    const edition = ['java', 'bedrock', 'crossplay', 'other'].includes(req.body.edition) ? req.body.edition : 'other';
+    const address = normalizePublicServerAddress(req.body.address);
+    const port = Number(req.body.port);
+    const maxPlayers = req.body.maxPlayers === undefined ? 20 : Number(req.body.maxPlayers);
+    const description = typeof req.body.description === 'string' ? req.body.description.trim() : '';
+    const region = typeof req.body.region === 'string' ? req.body.region.trim() : '';
+    const version = typeof req.body.version === 'string' ? req.body.version.trim() : '';
+    if (name.length < 3 || name.length > 60 || game.length < 2 || game.length > 40 ||
+        !address || !Number.isInteger(port) || port < 1 || port > 65535 ||
+        !Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 1000000 ||
+        description.length > 500 || region.length > 40 || version.length > 40) {
+      return res.status(400).json({ success: false, message: 'Revisá nombre, juego, dirección pública, puerto y capacidad del servidor.' });
+    }
+    if (await GameServerListing.countDocuments({ owner: req.auth.sub }) >= 5) {
+      return res.status(429).json({ success: false, message: 'Cada cuenta puede publicar hasta 5 servidores.' });
+    }
+    const heartbeatToken = crypto.randomBytes(32).toString('base64url');
+    const server = await GameServerListing.create({
+      owner: req.auth.sub, ownerUsername: req.auth.username, name, game, edition, address, port,
+      maxPlayers, description, region, version,
+      heartbeatTokenHash: crypto.createHash('sha256').update(heartbeatToken).digest('hex')
+    });
+    return res.status(201).json({
+      success: true, server: serializeGameServer(server.toObject(), req.auth.sub),
+      heartbeatToken, heartbeatEndpoint: '/api/game-servers/' + String(server._id) + '/heartbeat',
+      heartbeatIntervalSeconds: 30
+    });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/game-servers/:serverId/heartbeat', async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.serverId)) return res.status(400).json({ success: false, message: 'Identificador de servidor inválido.' });
+    const token = req.get('X-Server-Token') || '';
+    if (!GAME_SERVER_TOKEN_PATTERN.test(token)) return res.status(401).json({ success: false, message: 'Token de servidor inválido.' });
+    const playerCount = Number(req.body.playerCount);
+    const maxPlayers = Number(req.body.maxPlayers);
+    const isOnline = req.body.isOnline !== false;
+    if (!Number.isInteger(playerCount) || playerCount < 0 || playerCount > 1000000 ||
+        !Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 1000000 || playerCount > maxPlayers) {
+      return res.status(400).json({ success: false, message: 'Cantidad de jugadores o capacidad inválida.' });
+    }
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const server = await GameServerListing.findOneAndUpdate(
+      { _id: req.params.serverId, heartbeatTokenHash: tokenHash },
+      { $set: { playerCount, maxPlayers, isOnline, lastHeartbeatAt: new Date(), updatedAt: new Date() } },
+      { new: true }
+    ).select('-heartbeatTokenHash').lean();
+    if (!server) return res.status(404).json({ success: false, message: 'Servidor no encontrado o token revocado.' });
+    const payload = serializeGameServer(server, server.owner);
+    if (httpServer.io) httpServer.io.emit('game_server_updated', payload);
+    return res.json({ success: true, server: payload });
+  } catch (error) { return next(error); }
+});
+
+app.delete('/api/game-servers/:serverId', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.serverId)) return res.status(400).json({ success: false, message: 'Identificador de servidor inválido.' });
+    const removed = await GameServerListing.findOneAndDelete({ _id: req.params.serverId, owner: req.auth.sub });
+    if (!removed) return res.status(404).json({ success: false, message: 'Servidor no encontrado o no sos su propietario.' });
+    return res.json({ success: true });
   } catch (error) { return next(error); }
 });
 

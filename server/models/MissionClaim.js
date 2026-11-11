@@ -3,7 +3,8 @@ const mongoose = require('mongoose');
 const missionClaimSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   missionId: { type: String, required: true, trim: true, maxlength: 64 },
-  rewardTokens: { type: Number, required: true, min: 1, max: 1000 },
+  rewardTokens: { type: Number, required: true, min: 1, max: 100000 },
+  rewardCurrency: { type: String, enum: ['gold', 'purple', 'diamond'], default: 'gold' },
   claimedAt: { type: Date, default: Date.now }
 }, { versionKey: false });
 
