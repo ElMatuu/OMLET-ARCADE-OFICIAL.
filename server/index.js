@@ -1122,7 +1122,7 @@ app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next
     });
     if (result?.error === 'ALREADY_OWNED') return res.status(409).json({ success: false, message: 'Ya tenés este artículo en tu inventario.' });
     if (result?.error === 'INSUFFICIENT_TOKENS') return res.status(409).json({ success: false, code: result.error, message: 'No tenés saldo suficiente de ' + getCurrencyLabel(currency) + '.' });
-    return res.status(201).json({ success: true, message: 'Compra registrada.', wallet: { balances: result.balances } });
+    return res.status(201).json({ success: true, message: 'Compra registrada.', wallet: { tokens: result.balances.gold, balances: result.balances } });
   } catch (error) {
     return next(error);
   } finally {
@@ -1742,7 +1742,7 @@ app.post('/api/me/missions/:missionId/claim', requireAuth, storeLimiter, async (
     if (result?.error === 'USER_NOT_FOUND') return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
     return res.status(201).json({
       success: true, message: 'Recompensa acreditada.', missionId: definition.id,
-      rewardTokens: result.rewardTokens, currency, wallet: { balances: result.balances }
+      rewardTokens: result.rewardTokens, currency, wallet: { tokens: result.balances.gold, balances: result.balances }
     });
   } catch (error) {
     if (error?.code === 11000) return res.status(409).json({ success: false, code: 'ALREADY_CLAIMED', message: 'Esta recompensa ya fue reclamada.' });
