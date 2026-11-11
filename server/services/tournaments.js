@@ -30,30 +30,70 @@ function buildSingleEliminationBracket(entries) {
 
   const bracketSize = 2 ** Math.ceil(Math.log2(active.length));
   const byeCount = bracketSize - active.length;
-  const current = [];
+  const fullMatchCount = (active.length - byeCount) / 2;
+  const firstRound = [];
+  let entrantIndex = 0;
+  let fullMatchesCreated = 0;
+  let byeMatchesCreated = 0;
 
-  // Distribute byes across distinct first-round matches. Appending every bye
-  // at the end can create empty-vs-empty matches and strand later rounds.
-  for (let index = 0; index < byeCount; index += 1) {
-    current.push(String(active[index]._id), null);
-  }
-  for (let index = byeCount; index < active.length; index += 2) {
-    current.push(String(active[index]._id));
-    current.push(index + 1 < active.length ? String(active[index + 1]._id) : null);
+  // Interleave unresolved matches and byes. This keeps later-round slots
+  // attached to their actual feeder match instead of creating empty-vs-empty
+  // first-round games or prematurely awarding the championship.
+  while (fullMatchesCreated < fullMatchCount || byeMatchesCreated < byeCount) {
+    if (fullMatchesCreated < fullMatchCount) {
+      firstRound.push({
+        entryA: String(active[entrantIndex++]._id),
+        entryB: String(active[entrantIndex++]._id),
+        winner: null,
+        status: 'pending'
+      });
+      fullMatchesCreated += 1;
+    }
+    if (byeMatchesCreated < byeCount) {
+      firstRound.push({
+        entryA: String(active[entrantIndex++]._id),
+        entryB: null,
+        winner: String(active[entrantIndex - 1]._id),
+        status: 'completed'
+      });
+      byeMatchesCreated += 1;
+    }
   }
 
   const matches = [];
+  let feeders = firstRound.map((match) => ({
+    entryA: match.entryA,
+    entryB: match.entryB,
+    winner: match.winner,
+    resolved: match.status === 'completed'
+  }));
   let round = 1;
-  while (current.length > 1) {
-    const winners = [];
-    for (let index = 0; index < current.length; index += 2) {
-      const entryA = current[index];
-      const entryB = current[index + 1];
-      const winner = entryA && !entryB ? entryA : null;
-      matches.push({ round, matchNumber: index / 2 + 1, entryA, entryB, winner, status: winner ? 'completed' : 'pending' });
-      winners.push(winner);
+
+  while (feeders.length > 1) {
+    const nextFeeders = [];
+    for (let index = 0; index < feeders.length; index += 2) {
+      const left = feeders[index];
+      const right = feeders[index + 1];
+      const entryA = left.resolved ? left.winner : null;
+      const entryB = right.resolved ? right.winner : null;
+      const bothResolved = left.resolved && right.resolved;
+      const soleEntrant = bothResolved && Boolean(entryA) !== Boolean(entryB);
+      const winner = soleEntrant ? (entryA || entryB) : null;
+      const status = soleEntrant ? 'completed' : 'pending';
+      matches.push({
+        round,
+        matchNumber: index / 2 + 1,
+        entryA: round === 1 ? left.entryA : entryA,
+        entryB: round === 1 ? left.entryB : entryB,
+        winner: round === 1 ? left.winner : winner,
+        status: round === 1 ? (left.resolved ? 'completed' : 'pending') : status
+      });
+      nextFeeders.push({
+        winner: round === 1 ? left.winner : winner,
+        resolved: round === 1 ? left.resolved : soleEntrant
+      });
     }
-    current.splice(0, current.length, ...winners);
+    feeders = nextFeeders;
     round += 1;
   }
   return matches;
