@@ -20,7 +20,17 @@ const streamingPreferencesSchema = new mongoose.Schema({
   socialTwitch: { type: String, trim: true, maxlength: 60, default: '' },
   socialTikTok: { type: String, trim: true, maxlength: 60, default: '' },
   welcomeMessage: { type: String, trim: true, maxlength: 200, default: '' },
-  farewellMessage: { type: String, trim: true, maxlength: 200, default: '' }
+  farewellMessage: { type: String, trim: true, maxlength: 200, default: '' },
+  streamDelay: { type: String, enum: ['none', '5', '10', '15', '30', '60'], default: 'none' },
+  streamNotificationsEnabled: { type: Boolean, default: true },
+  chatRules: { type: String, trim: true, maxlength: 1000, default: '' },
+  whoCanChat: { type: String, enum: ['everyone', 'followers', 'friends', 'nobody'], default: 'everyone' },
+  textToSpeechEnabled: { type: Boolean, default: false },
+  welcomeMessageEnabled: { type: Boolean, default: true },
+  farewellMessageEnabled: { type: Boolean, default: true },
+  customThumbnailUrl: { type: String, trim: true, maxlength: 500, default: '' },
+  shieldModeEnabled: { type: Boolean, default: false },
+  shieldModeImageUrl: { type: String, trim: true, maxlength: 500, default: '' }
 }, { _id: false });
 
 const appPreferencesSchema = new mongoose.Schema({
