@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
 const { io: createSocketClient } = require('socket.io-client');
 const { attachSocketServer } = require('../server/socket');
+const Club = require('../server/models/Club');
 
 const mongoUri = process.env.PLAYVERSE_TEST_MONGODB_URI;
 const integrationTest = mongoUri ? test : test.skip;
@@ -96,6 +97,89 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.equal(aliceIdentity.body.user.username, 'alice_test');
     assert.equal(bobIdentity.body.user.username, 'bob_test');
     assert.notEqual(aliceIdentity.body.user.id, bobIdentity.body.user.id);
+
+    const clubCreated = await request(baseUrl, '/api/clubs', {
+      method: 'POST',
+      body: { name: 'Comunidad PlayVerse', game: 'Minecraft', description: 'Club de integración' }
+    }, alice.body.token);
+    assert.equal(clubCreated.status, 201);
+    const clubId = clubCreated.body.club.id;
+    const clubJoined = await request(baseUrl, '/api/clubs/' + clubId + '/join', { method: 'POST' }, bob.body.token);
+    assert.equal(clubJoined.status, 200);
+    const unauthorizedTransfer = await request(baseUrl, '/api/clubs/' + clubId + '/transfer', {
+      method: 'POST', body: { username: 'bob_test' }
+    }, charlie.body.token);
+    assert.equal(unauthorizedTransfer.status, 403, JSON.stringify(unauthorizedTransfer.body));
+    const transfer = await request(baseUrl, '/api/clubs/' + clubId + '/transfer', {
+      method: 'POST', body: { username: 'bob_test' }
+    }, alice.body.token);
+    assert.equal(transfer.status, 200);
+    assert.equal(transfer.body.club.ownerUsername, 'bob_test');
+    const transferredClub = await Club.findById(clubId).lean();
+    assert.equal(String(transferredClub.owner), bob.body.user.id);
+    assert.equal(transferredClub.members.find((member) => String(member.user) === alice.body.user.id).role, 'moderator');
+    assert.equal(transferredClub.members.find((member) => String(member.user) === bob.body.user.id).role, 'owner');
+    const oldOwnerCannotArchive = await request(baseUrl, '/api/clubs/' + clubId + '/archive', { method: 'POST' }, alice.body.token);
+    assert.equal(oldOwnerCannotArchive.status, 403);
+    const archivedClub = await request(baseUrl, '/api/clubs/' + clubId + '/archive', { method: 'POST' }, bob.body.token);
+    assert.equal(archivedClub.status, 200);
+    assert.equal(archivedClub.body.club.status, 'archived');
+    const archivedNotListed = await request(baseUrl, '/api/clubs', {}, bob.body.token);
+    assert.equal(archivedNotListed.body.clubs.some((club) => club.id === clubId), false);
+    const archivedCannotBeJoined = await request(baseUrl, '/api/clubs/' + clubId + '/join', { method: 'POST' }, charlie.body.token);
+    assert.equal(archivedCannotBeJoined.status, 404);
+
+    const dailyMissionsResponse = await request(baseUrl, '/api/me/missions', {}, charlie.body.token);
+    assert.equal(dailyMissionsResponse.status, 200);
+    assert.equal(dailyMissionsResponse.body.dailyMissions.length, 4);
+    assert.ok(dailyMissionsResponse.body.dailySummary.resetsAt);
+    assert.ok(dailyMissionsResponse.body.dailyMissions.every((mission) => mission.daily === true && mission.id.startsWith('daily:')));
+    const dailyPostMission = dailyMissionsResponse.body.dailyMissions.find((mission) => mission.metric === 'posts');
+    assert.ok(dailyPostMission);
+    const dailyPost = await request(baseUrl, '/api/posts', { method: 'POST', body: { content: 'Progreso diario de integración' } }, charlie.body.token);
+    assert.equal(dailyPost.status, 201);
+    const refreshedDaily = await request(baseUrl, '/api/me/missions', {}, charlie.body.token);
+    const claimableDaily = refreshedDaily.body.dailyMissions.find((mission) => mission.id === dailyPostMission.id);
+    assert.equal(claimableDaily.claimable, true);
+    const dailyReward = await request(baseUrl, '/api/me/missions/' + encodeURIComponent(dailyPostMission.id) + '/claim', { method: 'POST' }, charlie.body.token);
+    assert.equal(dailyReward.status, 201);
+    const duplicateDailyReward = await request(baseUrl, '/api/me/missions/' + encodeURIComponent(dailyPostMission.id) + '/claim', { method: 'POST' }, charlie.body.token);
+    assert.equal(duplicateDailyReward.status, 409);
+
+    const tournamentStart = new Date(Date.now() + 12000);
+    const tournamentCreated = await request(baseUrl, '/api/tournaments', {
+      method: 'POST',
+      body: {
+        title: 'Copa de integración',
+        game: 'Minecraft',
+        format: 'single-elimination',
+        mode: 'quick',
+        teamSize: 1,
+        maxEntries: 8,
+        startsAt: tournamentStart.toISOString(),
+        registrationClosesAt: new Date(tournamentStart.getTime() - 6000).toISOString(),
+        checkInMinutes: 0,
+        approvalMode: 'automatic'
+      }
+    }, alice.body.token);
+    assert.equal(tournamentCreated.status, 201);
+    const tournamentId = tournamentCreated.body.tournament.id;
+    const bobTournamentEntry = await request(baseUrl, '/api/tournaments/' + tournamentId + '/register', { method: 'POST' }, bob.body.token);
+    const charlieTournamentEntry = await request(baseUrl, '/api/tournaments/' + tournamentId + '/register', { method: 'POST' }, charlie.body.token);
+    assert.equal(bobTournamentEntry.status, 201);
+    assert.equal(charlieTournamentEntry.status, 201);
+    await new Promise((resolve) => setTimeout(resolve, 12100));
+    const startedTournament = await request(baseUrl, '/api/tournaments/' + tournamentId + '/start', { method: 'POST' }, alice.body.token);
+    assert.equal(startedTournament.status, 200);
+    assert.equal(startedTournament.body.matches, 1);
+    const tournamentDetails = await request(baseUrl, '/api/tournaments/' + tournamentId, {}, alice.body.token);
+    assert.equal(tournamentDetails.status, 200);
+    const finalMatch = tournamentDetails.body.tournament.matches[0];
+    const matchWinner = await request(baseUrl, '/api/tournaments/' + tournamentId + '/matches/1/1/result', {
+      method: 'POST', body: { winnerEntryId: finalMatch.entryA }
+    }, alice.body.token);
+    assert.equal(matchWinner.status, 200);
+    assert.equal(matchWinner.body.status, 'completed');
 
     const liveCatalog = await request(baseUrl, '/api/streams');
     assert.equal(liveCatalog.status, 200);

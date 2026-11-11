@@ -19,8 +19,8 @@ const streamingPreferencesSchema = new mongoose.Schema({
   socialYouTube: { type: String, trim: true, maxlength: 60, default: '' },
   socialTwitch: { type: String, trim: true, maxlength: 60, default: '' },
   socialTikTok: { type: String, trim: true, maxlength: 60, default: '' },
-  welcomeMessage: { type: String, trim: true, maxlength: 120, default: '' },
-  farewellMessage: { type: String, trim: true, maxlength: 120, default: '' }
+  welcomeMessage: { type: String, trim: true, maxlength: 200, default: '' },
+  farewellMessage: { type: String, trim: true, maxlength: 200, default: '' }
 }, { _id: false });
 
 const appPreferencesSchema = new mongoose.Schema({

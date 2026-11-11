@@ -11,9 +11,18 @@ function getLiveKitConfig(env = process.env) {
   if (!['ws:', 'wss:', 'http:', 'https:'].includes(parsed.protocol) || !parsed.host ||
       (parsed.pathname && parsed.pathname !== '/') || parsed.search || parsed.hash) return null;
   const clientProtocol = parsed.protocol === 'http:' || parsed.protocol === 'ws:' ? 'ws:' : 'wss:';
-  const apiProtocol = parsed.protocol === 'ws:' || parsed.protocol === 'http:' ? 'http:' : 'https:';
+  const defaultApiProtocol = parsed.protocol === 'ws:' || parsed.protocol === 'http:' ? 'http:' : 'https:';
   const clientUrl = clientProtocol + '//' + parsed.host;
-  const apiHost = apiProtocol + '//' + parsed.host;
+  let apiHost = defaultApiProtocol + '//' + parsed.host;
+  const internalUrl = typeof env.LIVEKIT_INTERNAL_URL === 'string' ? env.LIVEKIT_INTERNAL_URL.trim() : '';
+  if (internalUrl) {
+    let internal;
+    try { internal = new URL(internalUrl); } catch { return null; }
+    if (!['http:', 'https:', 'ws:', 'wss:'].includes(internal.protocol) || !internal.host ||
+      (internal.pathname && internal.pathname !== '/') || internal.search || internal.hash) return null;
+    const internalProtocol = internal.protocol === 'ws:' ? 'http:' : (internal.protocol === 'wss:' ? 'https:' : internal.protocol);
+    apiHost = internalProtocol + '//' + internal.host;
+  }
   return { clientUrl, apiHost, apiKey, apiSecret };
 }
 

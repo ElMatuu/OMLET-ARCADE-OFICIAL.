@@ -29,6 +29,13 @@ test('LiveKit configuration normalizes websocket URLs for server API calls', () 
   assert.equal(config.apiHost, 'https://playverse-test.livekit.cloud');
 });
 
+test('LiveKit can use a private Docker-network API address while clients use the public WSS domain', () => {
+  const config = getLiveKitConfig({ ...validEnv, LIVEKIT_URL: 'wss://live.playverse.example', LIVEKIT_INTERNAL_URL: 'http://livekit:7880' });
+  assert.equal(config.clientUrl, 'wss://live.playverse.example');
+  assert.equal(config.apiHost, 'http://livekit:7880');
+  assert.equal(getLiveKitConfig({ ...validEnv, LIVEKIT_INTERNAL_URL: 'file:///etc/passwd' }), null);
+});
+
 test('LiveKit room names are unique, opaque and URL-safe', () => {
   const first = createRoomName();
   const second = createRoomName();

@@ -14,6 +14,8 @@ const User = require('./models/User');
 const Room = require('./models/Room');
 const GameServerListing = require('./models/GameServerListing');
 const Club = require('./models/Club');
+const Tournament = require('./models/Tournament');
+const { groupSoloEntries, buildSingleEliminationBracket } = require('./services/tournaments');
 const RoomMessage = require('./models/RoomMessage');
 const Post = require('./models/Post');
 const Story = require('./models/Story');
@@ -49,6 +51,14 @@ const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
   .map((origin) => origin.trim())
   .filter(Boolean);
 const liveKitConfigForCsp = getLiveKitConfig();
+const allowedWebSocketOrigins = allowedOrigins.map((origin) => {
+  try {
+    const parsed = new URL(origin);
+    const protocol = parsed.protocol === 'https:' ? 'wss:' : (parsed.protocol === 'http:' ? 'ws:' : null);
+    return protocol ? protocol + '//' + parsed.host : null;
+  } catch { return null; }
+}).filter(Boolean);
+
 
 if (!process.env.MONGODB_URI) {
   throw new Error('MONGODB_URI is required. Copy .env.example to .env and configure it.');
@@ -67,7 +77,7 @@ app.use(helmet({
       styleSrcAttr: ["'unsafe-inline'"],
       fontSrc: ["'self'", 'https://cdnjs.cloudflare.com', 'https://fonts.gstatic.com', 'data:'],
       imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'", 'https://playverse-api-bgyg.onrender.com', 'wss://playverse-api-bgyg.onrender.com', ...(liveKitConfigForCsp ? [liveKitConfigForCsp.clientUrl] : [])]
+      connectSrc: ["'self'", ...allowedWebSocketOrigins, ...(liveKitConfigForCsp ? [liveKitConfigForCsp.clientUrl] : [])]
     }
   }
 }));
@@ -918,8 +928,8 @@ const STREAMING_PREFERENCE_RULES = {
   socialYouTube: (value) => typeof value === 'string' && value.trim().length <= 60,
   socialTwitch: (value) => typeof value === 'string' && value.trim().length <= 60,
   socialTikTok: (value) => typeof value === 'string' && value.trim().length <= 60,
-  welcomeMessage: (value) => typeof value === 'string' && value.trim().length <= 120,
-  farewellMessage: (value) => typeof value === 'string' && value.trim().length <= 120
+  welcomeMessage: (value) => typeof value === 'string' && value.trim().length <= 200,
+  farewellMessage: (value) => typeof value === 'string' && value.trim().length <= 200
 };
 
 app.get('/api/me/streaming-preferences', requireAuth, async (req, res, next) => {
@@ -1646,7 +1656,7 @@ app.delete('/api/stories/:storyId', requireAuth, async (req, res, next) => {
 
 const CURRENCY_CONFIG = {
   gold: { label: 'Oro PLAYVERSE', shortLabel: 'Oro', field: 'walletTokens', symbol: 'PV', icon: '🟡' },
-  purple: { label: 'Violeta PLAYVERSE', shortLabel: 'Violeta', field: 'walletPurpleTokens', symbol: 'PV', icon: '🟣' },
+  purple: { label: 'Plata PLAYVERSE', shortLabel: 'Plata', field: 'walletPurpleTokens', symbol: 'PV', icon: '🥈' },
   diamond: { label: 'Diamante PLAYVERSE', shortLabel: 'Diamante', field: 'walletDiamondTokens', symbol: 'PV', icon: '💎' }
 };
 function getCurrencyField(currency) {
@@ -1692,6 +1702,62 @@ const MISSION_CATALOG = [
   { id: 'social-dm-30', rewardCurrency: 'diamond', chapter: 'Coleccionista y comunicador', title: 'Conexiones duraderas', description: 'Alcanzá treinta mensajes privados enviados.', metric: 'directMessages', target: 30, rewardTokens: 5 }
   ,{ id: 'community-new-creators-3', rewardCurrency: 'purple', chapter: 'Comunidad que impulsa', title: 'Dale la bienvenida a los nuevos', description: 'Seguí a tres creadores que se hayan unido durante los últimos 30 días. El progreso se calcula con seguimientos reales y cuentas distintas.', metric: 'newCreatorFollows', target: 3, rewardTokens: 15 }
 ];
+
+const DAILY_MISSION_POOL = [
+  { key: 'post', title: 'Compartí algo hoy', description: 'Publicá una actualización para tu comunidad.', metric: 'posts', target: 1, rewardTokens: 45, rewardCurrency: 'gold' },
+  { key: 'room-chat', title: 'Activá una sala', description: 'Enviá cinco mensajes en salas de la comunidad.', metric: 'roomMessages', target: 5, rewardTokens: 18, rewardCurrency: 'purple' },
+  { key: 'private-chat', title: 'Conectá por privado', description: 'Enviá tres mensajes privados.', metric: 'directMessages', target: 3, rewardTokens: 35, rewardCurrency: 'gold' },
+  { key: 'comments', title: 'Sumá conversación', description: 'Comentá dos publicaciones.', metric: 'comments', target: 2, rewardTokens: 12, rewardCurrency: 'purple' },
+  { key: 'follow', title: 'Descubrí un creador', description: 'Seguí a una cuenta nueva.', metric: 'follows', target: 1, rewardTokens: 15, rewardCurrency: 'purple' },
+  { key: 'room', title: 'Abrí una sala', description: 'Creá una sala para jugar con la comunidad.', metric: 'rooms', target: 1, rewardTokens: 50, rewardCurrency: 'gold' },
+  { key: 'friend', title: 'Hacé una conexión', description: 'Aceptá o completá una amistad nueva.', metric: 'friends', target: 1, rewardTokens: 1, rewardCurrency: 'diamond' },
+  { key: 'posts-two', title: 'Doble publicación', description: 'Compartí dos publicaciones durante el día.', metric: 'posts', target: 2, rewardTokens: 70, rewardCurrency: 'gold' }
+];
+
+function getDailyMissionDefinitions(now = new Date()) {
+  const dateKey = now.toISOString().slice(0, 10);
+  const dayNumber = Math.floor(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) / 86400000);
+  const rotatingPool = DAILY_MISSION_POOL.slice(1);
+  const selected = [DAILY_MISSION_POOL[0], ...Array.from({ length: 3 }, (_, index) => rotatingPool[(dayNumber + index) % rotatingPool.length])];
+  return selected.map((definition) => ({
+    ...definition, id: 'daily:' + dateKey + ':' + definition.key,
+    chapter: 'Misiones diarias', daily: true, dateKey
+  }));
+}
+
+async function buildDailyMissionProgress(userId, session = null, now = new Date()) {
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const end = new Date(start.getTime() + 86400000);
+  const count = (Model, filter) => {
+    const query = Model.countDocuments(filter);
+    return session ? query.session(session) : query;
+  };
+  const range = { $gte: start, $lt: end };
+  const [posts, roomMessages, directMessages, comments, follows, rooms, friends] = await Promise.all([
+    count(Post, { author: userId, createdAt: range }),
+    count(RoomMessage, { author: userId, sentAt: range }),
+    count(DirectMessage, { sender: userId, createdAt: range }),
+    count(Comment, { author: userId, createdAt: range }),
+    count(Follow, { follower: userId, createdAt: range }),
+    count(Room, { owner: userId, createdAt: range }),
+    count(Friendship, { status: 'accepted', createdAt: range, $or: [{ requester: userId }, { recipient: userId }] })
+  ]);
+  const definitions = getDailyMissionDefinitions(now);
+  const claimsQuery = MissionClaim.find({ user: userId, missionId: { $in: definitions.map((item) => item.id) } }).select('missionId claimedAt').lean();
+  if (session) claimsQuery.session(session);
+  const claims = await claimsQuery;
+  const claimedById = new Map(claims.map((claim) => [claim.missionId, claim]));
+  const metrics = { posts, roomMessages, directMessages, comments, follows, rooms, friends };
+  return definitions.map((definition) => {
+    const claim = claimedById.get(definition.id);
+    const current = Math.min(metrics[definition.metric] || 0, definition.target);
+    return {
+      ...definition, current, completed: current >= definition.target,
+      claimed: Boolean(claim), claimable: current >= definition.target && !claim,
+      claimedAt: claim ? claim.claimedAt : null
+    };
+  });
+}
 
 async function buildMissionProgress(userId, session = null) {
   const count = (Model, filter) => {
@@ -1750,12 +1816,17 @@ async function buildMissionProgress(userId, session = null) {
 
 app.get('/api/me/missions', requireAuth, async (req, res, next) => {
   try {
-    const missions = await buildMissionProgress(req.auth.sub);
+    const [missions, dailyMissions] = await Promise.all([
+      buildMissionProgress(req.auth.sub),
+      buildDailyMissionProgress(req.auth.sub)
+    ]);
     const completed = missions.filter((mission) => mission.completed).length;
     const claimed = missions.filter((mission) => mission.claimed).length;
+    const dailyCompleted = dailyMissions.filter((mission) => mission.completed).length;
     return res.json({
       success: true,
       missions,
+      dailyMissions,
       summary: {
         completed,
         claimed,
@@ -1763,8 +1834,15 @@ app.get('/api/me/missions', requireAuth, async (req, res, next) => {
         total: missions.length,
         percentage: Math.round((completed / missions.length) * 100)
       },
+      dailySummary: {
+        completed: dailyCompleted,
+        claimed: dailyMissions.filter((mission) => mission.claimed).length,
+        claimable: dailyMissions.filter((mission) => mission.claimable).length,
+        total: dailyMissions.length,
+        resetsAt: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() + 1)).toISOString()
+      },
       rewardsEnabled: true,
-      note: 'El progreso se calcula en el servidor con actividad real. Cada misión completada puede reclamarse una sola vez; los Tokens se acreditan en una transacción protegida.'
+      note: 'Las misiones diarias rotan por fecha UTC y el progreso se calcula con actividad real del servidor. Cada recompensa se acredita una sola vez por día.'
     });
   } catch (error) {
     return next(error);
@@ -1772,8 +1850,9 @@ app.get('/api/me/missions', requireAuth, async (req, res, next) => {
 });
 
 app.post('/api/me/missions/:missionId/claim', requireAuth, storeLimiter, async (req, res, next) => {
-  const definition = MISSION_CATALOG.find((mission) => mission.id === req.params.missionId);
-  if (!definition) return res.status(404).json({ success: false, message: 'Misión no encontrada.' });
+  const dailyDefinition = getDailyMissionDefinitions().find((mission) => mission.id === req.params.missionId);
+  const definition = dailyDefinition || MISSION_CATALOG.find((mission) => mission.id === req.params.missionId);
+  if (!definition) return res.status(404).json({ success: false, message: 'Misión no encontrada o ya venció.' });
   const currency = definition.rewardCurrency || 'gold';
   const walletField = getCurrencyField(currency);
   try { await MissionClaim.init(); } catch (error) { return next(error); }
@@ -1781,7 +1860,9 @@ app.post('/api/me/missions/:missionId/claim', requireAuth, storeLimiter, async (
   let result;
   try {
     await session.withTransaction(async () => {
-      const missions = await buildMissionProgress(req.auth.sub, session);
+      const missions = dailyDefinition
+        ? await buildDailyMissionProgress(req.auth.sub, session)
+        : await buildMissionProgress(req.auth.sub, session);
       const mission = missions.find((item) => item.id === definition.id);
       if (!mission || !mission.completed) { result = { error: 'NOT_COMPLETED' }; return; }
       if (mission.claimed) { result = { error: 'ALREADY_CLAIMED' }; return; }
@@ -2323,6 +2404,306 @@ app.post('/api/clubs/:clubId/leave', requireAuth, friendshipLimiter, async (req,
   } catch (error) { return next(error); }
 });
 
+
+app.post('/api/clubs/:clubId/transfer', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.clubId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de club inválido.' });
+    }
+    const username = typeof req.body.username === 'string' ? req.body.username.trim().replace(/^@/, '') : '';
+    if (!/^[a-zA-Z0-9_]{3,24}$/.test(username)) {
+      return res.status(400).json({ success: false, message: 'Ingresá un nombre de usuario válido.' });
+    }
+    const target = await User.findOne({ username }).select('_id username').lean();
+    if (!target) return res.status(404).json({ success: false, message: 'No existe esa cuenta.' });
+    if (String(target._id) === String(req.auth.sub)) {
+      return res.status(400).json({ success: false, message: 'Ya sos el propietario del club.' });
+    }
+    const updated = await Club.findOneAndUpdate(
+      {
+        _id: req.params.clubId,
+        owner: req.auth.sub,
+        status: 'active',
+        members: { $elemMatch: { user: target._id, role: { $ne: 'owner' } } }
+      },
+      {
+        $set: {
+          owner: target._id,
+          ownerUsername: target.username,
+          'members.$[previousOwner].role': 'moderator',
+          'members.$[newOwner].role': 'owner',
+          updatedAt: new Date()
+        }
+      },
+      {
+        new: true,
+        runValidators: true,
+        arrayFilters: [
+          { 'previousOwner.user': req.auth.sub },
+          { 'newOwner.user': target._id }
+        ]
+      }
+    ).select('name ownerUsername memberCount').lean();
+    if (!updated) {
+      const club = await Club.findById(req.params.clubId).select('owner members.user status').lean();
+      if (!club || club.status !== 'active') return res.status(404).json({ success: false, message: 'Club no encontrado o archivado.' });
+      if (String(club.owner) !== String(req.auth.sub)) return res.status(403).json({ success: false, message: 'Solo el propietario puede transferir el club.' });
+      return res.status(400).json({ success: false, message: 'La nueva persona propietaria debe ser miembro activo del club.' });
+    }
+    return res.json({ success: true, club: updated, message: 'Propiedad transferida. Ahora sos moderador del club.' });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/clubs/:clubId/archive', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.clubId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de club inválido.' });
+    }
+    const archived = await Club.findOneAndUpdate(
+      { _id: req.params.clubId, owner: req.auth.sub, status: 'active' },
+      { $set: { status: 'archived', visibility: 'private', updatedAt: new Date() } },
+      { new: true, runValidators: true }
+    ).select('_id name status').lean();
+    if (!archived) {
+      const exists = await Club.exists({ _id: req.params.clubId });
+      if (!exists) return res.status(404).json({ success: false, message: 'Club no encontrado.' });
+      return res.status(403).json({ success: false, message: 'Solo el propietario puede archivar este club.' });
+    }
+    return res.json({ success: true, club: archived, message: 'Club archivado. Ya no aparece en el directorio público.' });
+  } catch (error) { return next(error); }
+});
+
+
+
+app.get('/api/tournaments', async (req, res, next) => {
+  try {
+    const tournaments = await Tournament.find({ status: { $in: ['open', 'check-in', 'in-progress'] } })
+      .sort({ startsAt: 1 }).limit(100)
+      .select('title description game format mode teamSize maxEntries startsAt registrationClosesAt status creatorUsername entries')
+      .lean();
+    return res.json({ success: true, tournaments: tournaments.map((item) => ({
+      id: String(item._id), title: item.title, description: item.description, game: item.game,
+      format: item.format, mode: item.mode, teamSize: item.teamSize, maxEntries: item.maxEntries,
+      startsAt: item.startsAt, registrationClosesAt: item.registrationClosesAt, status: item.status,
+      creatorUsername: item.creatorUsername, entriesCount: item.entries.filter((entry) => entry.status !== 'withdrawn').length
+    })) });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/tournaments', requireAuth, profileLimiter, async (req, res, next) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const title = typeof body.title === 'string' ? body.title.trim() : '';
+    const game = typeof body.game === 'string' ? body.game.trim() : '';
+    const description = typeof body.description === 'string' ? body.description.trim() : '';
+    const format = body.format;
+    const mode = body.mode;
+    const teamSize = Number(body.teamSize || 1);
+    const maxEntries = Number(body.maxEntries || 32);
+    const startsAt = body.startsAt ? new Date(body.startsAt) : new Date(Date.now() + 30 * 60 * 1000);
+    const registrationClosesAt = body.registrationClosesAt ? new Date(body.registrationClosesAt) : new Date(startsAt.getTime() - 5 * 60 * 1000);
+    const checkInMinutes = Number(body.checkInMinutes ?? 15);
+    if (title.length < 3 || title.length > 80 || game.length < 2 || game.length > 40 || description.length > 500 ||
+      !['single-lobby', 'single-elimination'].includes(format) || !['quick', 'regular'].includes(mode) ||
+      !Number.isInteger(teamSize) || teamSize < 1 || teamSize > 10 || !Number.isInteger(maxEntries) || maxEntries < 2 || maxEntries > 256 ||
+      !Number.isFinite(startsAt.getTime()) || !Number.isFinite(registrationClosesAt.getTime()) ||
+      registrationClosesAt >= startsAt || startsAt <= new Date() ||
+      !Number.isInteger(checkInMinutes) || checkInMinutes < 0 || checkInMinutes > 180) {
+      return res.status(400).json({ success: false, message: 'Configuración del torneo inválida.' });
+    }
+    const user = await User.findById(req.auth.sub).select('username').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    const tournament = await Tournament.create({
+      title, game, description, format, mode, teamSize, maxEntries, startsAt, registrationClosesAt,
+      checkInMinutes, approvalMode: body.approvalMode === 'manual' ? 'manual' : 'automatic',
+      creator: req.auth.sub, creatorUsername: user.username
+    });
+    return res.status(201).json({ success: true, tournament: { id: String(tournament._id), title: tournament.title, status: tournament.status, startsAt: tournament.startsAt } });
+  } catch (error) { return next(error); }
+});
+
+app.get('/api/tournaments/:tournamentId', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.tournamentId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    const tournament = await Tournament.findById(req.params.tournamentId).lean();
+    if (!tournament) return res.status(404).json({ success: false, message: 'Torneo no encontrado.' });
+    const entries = tournament.entries.filter((entry) => entry.status !== 'withdrawn').map((entry) => ({
+      id: String(entry._id), teamName: entry.teamName, captainUsername: entry.captainUsername,
+      members: entry.members.map((member) => member.username), registrationType: entry.registrationType,
+      status: entry.status, score: entry.score, placement: entry.placement, isCaptain: String(entry.captain) === req.auth.sub
+    }));
+    return res.json({ success: true, tournament: {
+      id: String(tournament._id), title: tournament.title, description: tournament.description, game: tournament.game,
+      format: tournament.format, mode: tournament.mode, teamSize: tournament.teamSize, maxEntries: tournament.maxEntries,
+      startsAt: tournament.startsAt, registrationClosesAt: tournament.registrationClosesAt, status: tournament.status,
+      creatorUsername: tournament.creatorUsername, entries,
+      matches: tournament.matches.map((match) => ({ round: match.round, matchNumber: match.matchNumber, entryA: match.entryA, entryB: match.entryB, winner: match.winner, status: match.status }))
+    } });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/tournaments/:tournamentId/register', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.tournamentId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    const tournament = await Tournament.findOne({ _id: req.params.tournamentId, status: 'open', registrationClosesAt: { $gt: new Date() } });
+    if (!tournament) return res.status(404).json({ success: false, message: 'Inscripciones cerradas o torneo no disponible.' });
+    if (tournament.entries.some((entry) => String(entry.captain) === req.auth.sub || entry.members.some((member) => String(member.user) === req.auth.sub))) {
+      return res.status(409).json({ success: false, message: 'Ya estás inscripto en este torneo.' });
+    }
+    if (tournament.entries.filter((entry) => entry.status !== 'withdrawn').length >= tournament.maxEntries) {
+      return res.status(409).json({ success: false, message: 'El torneo alcanzó el máximo de inscripciones.' });
+    }
+    const user = await User.findById(req.auth.sub).select('username').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    const status = tournament.approvalMode === 'manual' ? 'pending' : 'approved';
+    tournament.entries.push({
+      teamName: '', captain: req.auth.sub, captainUsername: user.username,
+      members: [{ user: req.auth.sub, username: user.username }], registrationType: 'solo', status
+    });
+    tournament.updatedAt = new Date();
+    await tournament.save();
+    return res.status(201).json({ success: true, entryStatus: status, message: status === 'pending' ? 'Solicitud enviada al organizador.' : 'Inscripción confirmada.' });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/tournaments/:tournamentId/register-team', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.tournamentId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    const tournament = await Tournament.findOne({ _id: req.params.tournamentId, status: 'open', registrationClosesAt: { $gt: new Date() } });
+    if (!tournament) return res.status(404).json({ success: false, message: 'Inscripciones cerradas o torneo no disponible.' });
+    if (tournament.teamSize < 2) return res.status(400).json({ success: false, message: 'Este torneo es individual.' });
+    const teamName = typeof req.body.teamName === 'string' ? req.body.teamName.trim() : '';
+    const requested = Array.isArray(req.body.members) ? req.body.members : [];
+    const usernames = [req.auth.username, ...requested.map((name) => typeof name === 'string' ? name.trim().replace(/^@/, '') : '')];
+    if (teamName.length < 2 || teamName.length > 40 || usernames.length !== tournament.teamSize ||
+      usernames.some((name) => !/^[a-zA-Z0-9_]{3,24}$/.test(name)) || new Set(usernames.map((name) => name.toLowerCase())).size !== usernames.length) {
+      return res.status(400).json({ success: false, message: 'El nombre del equipo y la lista de jugadores no son válidos. Incluí exactamente ' + (tournament.teamSize - 1) + ' compañeros.' });
+    }
+    if (tournament.entries.filter((entry) => entry.status !== 'withdrawn').length >= tournament.maxEntries) {
+      return res.status(409).json({ success: false, message: 'El torneo alcanzó el máximo de inscripciones.' });
+    }
+    const users = await User.find({ username: { $in: usernames } }).select('_id username').lean();
+    if (users.length !== usernames.length) return res.status(404).json({ success: false, message: 'No se encontraron todas las cuentas del equipo.' });
+    const ids = new Set(users.map((user) => String(user._id)));
+    const alreadyRegistered = tournament.entries.some((entry) =>
+      entry.status !== 'withdrawn' && entry.members.some((member) => ids.has(String(member.user)))
+    );
+    if (alreadyRegistered) return res.status(409).json({ success: false, message: 'Uno o más jugadores ya están inscriptos en este torneo.' });
+    const captain = users.find((user) => String(user._id) === req.auth.sub);
+    if (!captain) return res.status(404).json({ success: false, message: 'No se pudo validar al capitán del equipo.' });
+    const status = tournament.approvalMode === 'manual' ? 'pending' : 'approved';
+    tournament.entries.push({
+      teamName, captain: captain._id, captainUsername: captain.username,
+      members: users.map((user) => ({ user: user._id, username: user.username })),
+      registrationType: 'team', status
+    });
+    tournament.updatedAt = new Date();
+    await tournament.save();
+    return res.status(201).json({ success: true, entryStatus: status, message: status === 'pending' ? 'Equipo enviado para aprobación.' : 'Equipo inscripto correctamente.' });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/tournaments/:tournamentId/entries/:entryId/check-in', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.tournamentId) || !mongoose.isValidObjectId(req.params.entryId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    const tournament = await Tournament.findOne({ _id: req.params.tournamentId, status: 'open' });
+    if (!tournament) return res.status(404).json({ success: false, message: 'Torneo no disponible para check-in.' });
+    const opensAt = new Date(tournament.startsAt.getTime() - tournament.checkInMinutes * 60000);
+    if (new Date() < opensAt || new Date() >= tournament.startsAt) return res.status(409).json({ success: false, message: 'El check-in todavía no está abierto o ya cerró.' });
+    const entry = tournament.entries.id(req.params.entryId);
+    if (!entry || String(entry.captain) !== req.auth.sub) return res.status(403).json({ success: false, message: 'Solo el capitán puede confirmar el check-in.' });
+    if (entry.status !== 'approved') return res.status(409).json({ success: false, message: 'La inscripción no está aprobada.' });
+    entry.status = 'checked-in';
+    await tournament.save();
+    return res.json({ success: true, status: entry.status });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/tournaments/:tournamentId/entries/:entryId/approve', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.tournamentId) || !mongoose.isValidObjectId(req.params.entryId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    const tournament = await Tournament.findOne({ _id: req.params.tournamentId, creator: req.auth.sub, status: 'open' });
+    if (!tournament) return res.status(404).json({ success: false, message: 'Torneo no encontrado o no sos su organizador.' });
+    const entry = tournament.entries.id(req.params.entryId);
+    if (!entry || entry.status !== 'pending') return res.status(404).json({ success: false, message: 'Inscripción pendiente no encontrada.' });
+    entry.status = req.body.approved === false ? 'withdrawn' : 'approved';
+    await tournament.save();
+    return res.json({ success: true, status: entry.status });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/tournaments/:tournamentId/start', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.tournamentId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    const tournament = await Tournament.findOne({ _id: req.params.tournamentId, creator: req.auth.sub, status: 'open' });
+    if (!tournament) return res.status(404).json({ success: false, message: 'Torneo no encontrado o ya iniciado.' });
+    if (new Date() < tournament.startsAt) return res.status(409).json({ success: false, message: 'Todavía no llegó la hora de inicio.' });
+    let eligible = tournament.entries.filter((entry) => entry.status === 'approved' || entry.status === 'checked-in');
+    if (tournament.teamSize > 1) {
+      const grouped = groupSoloEntries(eligible, tournament.teamSize);
+      tournament.entries = grouped;
+      eligible = grouped.filter((entry) => entry.registrationType === 'team');
+    }
+    if (eligible.length < 2) return res.status(409).json({ success: false, message: 'Se necesitan al menos dos equipos o jugadores aptos.' });
+    if (tournament.format === 'single-elimination') tournament.matches = buildSingleEliminationBracket(eligible);
+    tournament.status = 'in-progress';
+    tournament.updatedAt = new Date();
+    await tournament.save();
+    return res.json({ success: true, status: tournament.status, entries: eligible.length, matches: tournament.matches.length });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/tournaments/:tournamentId/matches/:round/:matchNumber/result', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.tournamentId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    const round = Number(req.params.round);
+    const matchNumber = Number(req.params.matchNumber);
+    if (!Number.isInteger(round) || round < 1 || !Number.isInteger(matchNumber) || matchNumber < 1) return res.status(400).json({ success: false, message: 'Partida inválida.' });
+    const tournament = await Tournament.findOne({ _id: req.params.tournamentId, creator: req.auth.sub, format: 'single-elimination', status: 'in-progress' });
+    if (!tournament) return res.status(404).json({ success: false, message: 'Torneo no encontrado o no sos el organizador.' });
+    const match = tournament.matches.find((item) => item.round === round && item.matchNumber === matchNumber);
+    const winnerId = String(req.body.winnerEntryId || '');
+    if (!match || match.status === 'completed' || ![String(match.entryA || ''), String(match.entryB || '')].includes(winnerId) || !winnerId) {
+      return res.status(409).json({ success: false, message: 'La partida no está disponible o el ganador no pertenece a ella.' });
+    }
+    match.winner = winnerId;
+    match.status = 'completed';
+    const nextMatch = tournament.matches.find((item) => item.round === round + 1 && item.matchNumber === Math.ceil(matchNumber / 2));
+    if (nextMatch) {
+      if (matchNumber % 2 === 1) nextMatch.entryA = winnerId;
+      else nextMatch.entryB = winnerId;
+      if (nextMatch.entryA && !nextMatch.entryB) {
+        nextMatch.winner = nextMatch.entryA;
+        nextMatch.status = 'completed';
+      } else if (nextMatch.entryB && !nextMatch.entryA) {
+        nextMatch.winner = nextMatch.entryB;
+        nextMatch.status = 'completed';
+      }
+    } else {
+      tournament.status = 'completed';
+    }
+    tournament.updatedAt = new Date();
+    await tournament.save();
+    return res.json({ success: true, status: tournament.status, winnerEntryId: winnerId });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/tournaments/:tournamentId/entries/:entryId/score', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.tournamentId) || !mongoose.isValidObjectId(req.params.entryId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    const tournament = await Tournament.findOne({ _id: req.params.tournamentId, creator: req.auth.sub, format: 'single-lobby', status: 'in-progress' });
+    if (!tournament) return res.status(404).json({ success: false, message: 'Torneo no encontrado o no sos el organizador.' });
+    const score = Number(req.body.score);
+    if (!Number.isFinite(score) || score < 0 || score > 1000000) return res.status(400).json({ success: false, message: 'Puntuación inválida.' });
+    const entry = tournament.entries.id(req.params.entryId);
+    if (!entry || entry.status === 'withdrawn') return res.status(404).json({ success: false, message: 'Participante no encontrado.' });
+    entry.score = score;
+    tournament.entries.sort((a, b) => b.score - a.score);
+    tournament.entries.forEach((item, index) => { item.placement = index + 1; });
+    await tournament.save();
+    return res.json({ success: true, leaderboard: tournament.entries.filter((item) => item.status !== 'withdrawn').map((item) => ({ entryId: String(item._id), username: item.captainUsername, score: item.score, placement: item.placement })) });
+  } catch (error) { return next(error); }
+});
 
 const GAME_SERVER_HEARTBEAT_MAX_AGE_MS = 90 * 1000;
 const GAME_SERVER_TOKEN_PATTERN = /^[A-Za-z0-9_-]{40,60}$/;

@@ -13,6 +13,10 @@ if (!fs.existsSync(source)) {
 
 fs.mkdirSync(outputDir, { recursive: true });
 fs.copyFileSync(source, output);
+const configuredApiUrl = typeof process.env.PLAYVERSE_API_URL === 'string' ? process.env.PLAYVERSE_API_URL.trim() : '';
+const runtimeConfig = 'window.PLAYVERSE_API_URL = window.PLAYVERSE_API_URL || ' + JSON.stringify(configuredApiUrl) + ';\n';
+fs.writeFileSync(path.join(outputDir, 'config.js'), runtimeConfig);
+
 for (const asset of ['service-worker.js', 'app-update.js', 'manifest.webmanifest']) {
   const assetSource = path.join(root, asset);
   if (!fs.existsSync(assetSource)) {
