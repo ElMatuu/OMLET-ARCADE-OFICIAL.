@@ -8,10 +8,13 @@ test('store catalogue has unique identifiers and valid prices', () => {
   const ids = STORE_CATALOG.map((item) => item.id);
   assert.equal(new Set(ids).size, ids.length, 'catalogue item IDs must be unique');
   assert.ok(STORE_CATALOG.length >= 35, 'the arcade store should expose a broad cosmetic and gifting catalogue');
+  assert.ok(STORE_CATALOG.some((item) => item.priceCurrency === 'gold'));
+  assert.ok(STORE_CATALOG.some((item) => item.priceCurrency === 'purple'));
+  assert.ok(STORE_CATALOG.some((item) => item.priceCurrency === 'diamond'));
   for (const item of STORE_CATALOG) {
     assert.ok(item.id && item.name && item.description && item.assetKey);
     assert.ok(Number.isInteger(item.priceTokens) && item.priceTokens > 0);
-    assert.ok(['gold', 'purple', 'diamond'].includes(item.priceCurrency || 'gold'));
+    assert.ok(['gold', 'purple', 'diamond'].includes(item.priceCurrency), 'every item must declare its currency explicitly');
     assert.ok(['static', 'css'].includes(item.animation));
     assert.ok(['avatar-frame', 'stream-overlay', 'chat-effect', 'entrance-effect', 'stream-gift'].includes(item.category));
   }
@@ -47,4 +50,9 @@ test('wallet ledger supports currency-aware transfers', () => {
   assert.ok(TokenTransaction.schema.path('currency').enumValues.includes('diamond'));
   assert.ok(TokenTransaction.schema.path('type').enumValues.includes('transfer_in'));
   assert.ok(TokenTransaction.schema.path('type').enumValues.includes('transfer_out'));
+});
+
+test('mission claims store the reward currency separately', () => {
+  const MissionClaim = require('../server/models/MissionClaim');
+  assert.deepEqual(MissionClaim.schema.path('rewardCurrency').enumValues, ['gold', 'purple', 'diamond']);
 });
