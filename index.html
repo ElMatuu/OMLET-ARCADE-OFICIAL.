@@ -1100,21 +1100,18 @@
 
         async function openPlayverseOverlayPermission() {
             const status = document.getElementById('overlay-permission-status');
+            const screen = document.getElementById('overlay-permission-screen');
             const plugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.OverlayPermission;
-            if (!plugin || typeof plugin.request !== 'function') {
-                status.textContent = 'Este permiso solo se puede solicitar desde la aplicación Android instalada.';
-                return;
-            }
+            if (!plugin) { status.textContent = 'Los controles flotantes requieren la aplicación Android instalada.'; return; }
             try {
-                const result = await plugin.request();
-                status.textContent = result.granted
-                    ? 'Permiso concedido por Android.'
-                    : 'Terminá de habilitar “Mostrar sobre otras apps” y volvé a PLAYVERSE.';
-            } catch (error) {
-                status.textContent = 'Android no pudo abrir los ajustes: ' + error.message;
-            }
+                const permission = await plugin.check();
+                if (!permission.granted) { await plugin.request(); status.textContent = 'Android abrió el permiso. Activá Mostrar sobre otras apps y volvé a PLAYVERSE.'; return; }
+                await plugin.startBubble();
+                status.textContent = 'Controles flotantes activados. La burbuja se acopla al borde para no tapar el juego.';
+                screen.classList.add('hidden'); screen.classList.remove('flex');
+                localStorage.setItem('pv-overlay-permission-dismissed', '1');
+            } catch (error) { status.textContent = 'No se pudieron activar los controles: ' + error.message; }
         }
-
         function setupOverlayPermissionPrompt() {
             if (!window.Capacitor || window.Capacitor.getPlatform() !== 'android') return;
             const screen = document.getElementById('overlay-permission-screen');
@@ -1123,7 +1120,8 @@
             const status = document.getElementById('overlay-permission-status');
             if (!screen || localStorage.getItem('pv-overlay-permission-dismissed') === '1') return;
             checkPlayverseOverlayPermission().then((permission) => {
-                if (permission.granted) return;
+                status.textContent = permission.granted ? 'Permiso concedido. Activá los controles cuando quieras.' : 'Android te pedirá autorización para mostrar la burbuja sobre los juegos.';
+                enable.textContent = permission.granted ? 'Activar burbuja flotante' : 'Habilitar permiso';
                 screen.classList.remove('hidden');
                 screen.classList.add('flex');
             });
@@ -1136,9 +1134,8 @@
             const verifyOnReturn = async () => {
                 const permission = await checkPlayverseOverlayPermission();
                 if (permission.granted) {
-                    status.textContent = '¡Permiso habilitado! PLAYVERSE ya tiene autorización de Android.';
-                    localStorage.setItem('pv-overlay-permission-dismissed', '1');
-                    setTimeout(() => { screen.classList.add('hidden'); screen.classList.remove('flex'); }, 900);
+                    status.textContent = 'Permiso habilitado. Tocá Activar burbuja flotante para iniciar los controles.';
+                    enable.textContent = 'Activar burbuja flotante';
                 }
             };
             window.addEventListener('focus', verifyOnReturn);
@@ -1176,6 +1173,13 @@
                 setTimeout(() => splash.remove(), 460);
             }
             setupOverlayPermissionPrompt();
+            const overlayPlugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.OverlayPermission;
+            if (overlayPlugin && typeof overlayPlugin.consumePendingAction === 'function') {
+                overlayPlugin.consumePendingAction().then((result) => {
+                    if (result && result.action === 'chat') switchTab('chat');
+                    else if (result && result.action === 'live') switchTab('live');
+                }).catch(() => {});
+            }
         });
 
         let isRegisterMode = false;
