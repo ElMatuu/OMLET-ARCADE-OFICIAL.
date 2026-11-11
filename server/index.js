@@ -711,6 +711,21 @@ app.get('/api/me/profile-summary', requireAuth, async (req, res, next) => {
   }
 });
 
+app.get('/api/me/posts', requireAuth, async (req, res, next) => {
+  try {
+    const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50) return res.status(400).json({ success: false, message: 'El límite debe ser un número entero entre 1 y 50.' });
+    const posts = await Post.find({ author: req.auth.sub }).sort({ createdAt: -1, _id: -1 }).limit(limit)
+      .select('authorUsername content likes commentCount createdAt').lean();
+    return res.json({ success: true, posts: posts.map((post) => ({
+      id: String(post._id), authorUsername: post.authorUsername, content: post.content,
+      likeCount: Array.isArray(post.likes) ? post.likes.length : 0,
+      likedByMe: Array.isArray(post.likes) && post.likes.some((id) => String(id) === req.auth.sub),
+      commentCount: Number(post.commentCount) || 0, createdAt: post.createdAt
+    })) });
+  } catch (error) { return next(error); }
+});
+
 app.get('/api/me/achievements', requireAuth, async (req, res, next) => {
   try {
     const userId = req.auth.sub;
@@ -723,7 +738,7 @@ app.get('/api/me/achievements', requireAuth, async (req, res, next) => {
       Follow.countDocuments({ following: userId }),
       SavedPost.countDocuments({ user: userId }),
       Tournament.countDocuments({ entries: { $elemMatch: { $or: [{ captain: userId }, { 'members.user': userId }], status: { $in: ['approved', 'checked-in'] } } } }),
-      Tournament.countDocuments({ entries: { $elemMatch: { captain: userId, placement: 1 } } }),
+      Tournament.countDocuments({ entries: { $elemMatch: { $or: [{ captain: userId }, { 'members.user': userId }], placement: 1 } } }),
       LiveStream.countDocuments({ owner: userId, status: 'ended' })
     ]);
     const metrics = { posts, comments, rooms, roomMessages, friends, followers, savedPosts, tournaments, tournamentWins, streams };
