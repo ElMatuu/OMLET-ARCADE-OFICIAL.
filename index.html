@@ -2890,6 +2890,7 @@
             try {
                 const data = await apiRequest('/api/me/streaming-preferences');
                 const preferences = data.preferences || {};
+                activeStreamingPreferences = { cameraEnabled: preferences.cameraEnabled === true, microphoneEnabled: preferences.microphoneEnabled !== false, systemAudioEnabled: preferences.systemAudioEnabled === true, orientation: preferences.orientation || 'auto', cameraPosition: preferences.cameraPosition || 'bottom-right', cameraFrame: preferences.cameraFrame || 'none' };
                 document.getElementById('stream-resolution').value = preferences.resolution || 'auto';
                 document.getElementById('stream-fps').value = String(preferences.fps || 30);
                 document.getElementById('stream-bitrate').value = String(preferences.bitrateMbps || 6);
@@ -3015,6 +3016,7 @@
         let liveKitRoom = null;
         let activeLiveStream = null;
         let activeLiveStreamRole = null;
+        let activeStreamingPreferences = { cameraEnabled: false, microphoneEnabled: true };
 
         function setLiveStatus(message) {
             const status = document.getElementById('live-stream-status');
@@ -3076,7 +3078,7 @@
             if (role === 'publisher') {
                 const preview = document.getElementById('live-local-preview');
                 try {
-                    await room.localParticipant.setCameraEnabled(true);
+                    await room.localParticipant.setCameraEnabled(activeStreamingPreferences.cameraEnabled === true);
                     const publication = room.localParticipant.getTrackPublication(LivekitClient.Track.Source.Camera);
                     if (publication && publication.videoTrack) {
                         preview.classList.remove('hidden');
@@ -3085,7 +3087,7 @@
                 } catch (error) {
                     document.getElementById('live-player-status').textContent = 'La sala está activa, pero la cámara no está disponible: ' + error.message + '. Podés probar Compartir pantalla.';
                 }
-                try { await room.localParticipant.setMicrophoneEnabled(true); }
+                try { await room.localParticipant.setMicrophoneEnabled(activeStreamingPreferences.microphoneEnabled !== false); }
                 catch (error) { document.getElementById('live-player-status').textContent += ' Micrófono no disponible: ' + error.message; }
             }
         }
@@ -3140,8 +3142,16 @@
             const description = document.getElementById('live-stream-description').value.trim();
             let createdStreamId = null;
             button.disabled = true;
-            setLiveStatus('Creando sala segura y solicitando acceso de emisión…');
+            setLiveStatus('Cargando tus ajustes de cámara y micrófono…');
             try {
+                try {
+                    const saved = await apiRequest('/api/me/streaming-preferences');
+                    const preferences = saved.preferences || {};
+                    activeStreamingPreferences = { cameraEnabled: preferences.cameraEnabled === true, microphoneEnabled: preferences.microphoneEnabled !== false, systemAudioEnabled: preferences.systemAudioEnabled === true, orientation: preferences.orientation || 'auto', cameraPosition: preferences.cameraPosition || 'bottom-right', cameraFrame: preferences.cameraFrame || 'none' };
+                } catch (preferencesError) {
+                    activeStreamingPreferences = { cameraEnabled: false, microphoneEnabled: true };
+                }
+                setLiveStatus('Creando sala segura y solicitando acceso de emisión…');
                 const data = await apiRequest('/api/me/streams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description }) });
                 createdStreamId = data.stream.id;
                 await connectLiveKitSession(data.liveKit, data.stream, 'publisher');
