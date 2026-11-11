@@ -11,10 +11,10 @@ test('startup uses an original local Web Audio theme with a user sound control',
   assert.match(html, /id="splash-sound-toggle"/);
   assert.match(html, /pv-boot-sound/);
   assert.match(html, /stopPlayverseBootMusic/);
-  assert.match(html, /distance\\.frequency\\.exponentialRampToValueAtTime\\(520/);
-  assert.match(html, /const bassNotes = \\[65\\.41, 98, 130\\.81/);
-  assert.match(html, /const kick = context\\.createOscillator\\(\\)/);
-  assert.match(html, /pv-emblem-life 1\\.28s/);
+  assert.ok(html.includes('distance.frequency.exponentialRampToValueAtTime(520'));
+  assert.ok(html.includes('const bassNotes = [65.41, 98, 130.81'));
+  assert.ok(html.includes('const kick = context.createOscillator()'));
+  assert.ok(html.includes('pv-emblem-life 1.28s'));
   assert.doesNotMatch(html, /<audio[^>]+autoplay/i);
 });
 
