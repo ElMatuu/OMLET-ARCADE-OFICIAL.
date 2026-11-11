@@ -23,7 +23,6 @@ const Friendship = require('./models/Friendship');
 const Follow = require('./models/Follow');
 const Block = require('./models/Block');
 const Notification = require('./models/Notification');
-const Notification = require('./models/Notification');
 const UserPresence = require('./models/UserPresence');
 const LiveStream = require('./models/LiveStream');
 const Conversation = require('./models/Conversation');
