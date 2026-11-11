@@ -238,6 +238,16 @@
                         <button id="live-stream-start" type="submit" class="PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white w-full">Iniciar transmisión</button>
                     </form>
                     <p id="live-stream-status" class="text-xs text-slate-400" role="status" aria-live="polite">Comprobando disponibilidad del servicio de video…</p>
+                    <div id="live-stream-overlay-share" class="hidden rounded-xl border border-cyan-400/30 bg-slate-950/70 p-3 space-y-2">
+                        <div class="text-xs font-bold text-cyan-200">Overlay para OBS / software de emisión</div>
+                        <p class="text-[11px] text-slate-400">Enlace privado de tu transmisión. No lo publiques ni lo compartas con espectadores.</p>
+                        <input id="live-stream-overlay-url" type="password" readonly autocomplete="off" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
+                        <div class="flex gap-2">
+                            <button type="button" onclick="toggleStreamOverlayVisibility()" class="rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold">Mostrar / ocultar</button>
+                            <button type="button" onclick="copyStreamOverlayUrl()" class="rounded-lg bg-cyan-500/20 text-cyan-100 px-3 py-2 text-xs font-bold">Copiar enlace</button>
+                        </div>
+                        <p id="live-stream-overlay-help" class="text-[10px] text-slate-500">El enlace deja de funcionar cuando termina el directo.</p>
+                    </div>
                 </section>
                 <section class="space-y-3">
                     <div class="flex items-center justify-between"><h4 class="font-bold text-sm">Transmisiones activas</h4><button type="button" onclick="loadLiveStreams()" class="text-xs text-orange-300">Actualizar</button></div>
@@ -3135,6 +3145,15 @@
                 const data = await apiRequest('/api/me/streams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description }) });
                 createdStreamId = data.stream.id;
                 await connectLiveKitSession(data.liveKit, data.stream, 'publisher');
+                const overlayPanel = document.getElementById('live-stream-overlay-share');
+                const overlayInput = document.getElementById('live-stream-overlay-url');
+                if (data.overlay && data.overlay.url) {
+                    overlayInput.value = data.overlay.url;
+                    overlayPanel.classList.remove('hidden');
+                } else {
+                    overlayInput.value = '';
+                    overlayPanel.classList.add('hidden');
+                }
                 document.getElementById('live-stream-create-form').reset();
                 setLiveStatus('Transmisión iniciada. Compartí tu emisión desde esta sala.');
                 await loadLiveStreams();
@@ -3145,6 +3164,26 @@
                     await closeLivePlayer();
                 }
             } finally { button.disabled = false; }
+        }
+
+        function toggleStreamOverlayVisibility() {
+            const input = document.getElementById('live-stream-overlay-url');
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        async function copyStreamOverlayUrl() {
+            const input = document.getElementById('live-stream-overlay-url');
+            const help = document.getElementById('live-stream-overlay-help');
+            if (!input.value) return;
+            try {
+                await navigator.clipboard.writeText(input.value);
+                help.textContent = 'Enlace copiado. Mantenelo privado; se invalida al finalizar el directo.';
+            } catch {
+                input.type = 'text';
+                input.focus();
+                input.select();
+                help.textContent = 'No se pudo copiar automáticamente. Seleccioná y copiá el enlace manualmente.';
+            }
         }
 
         async function joinLiveStream(streamId) {
@@ -3211,6 +3250,8 @@
             try {
                 await apiRequest('/api/me/streams/' + encodeURIComponent(streamId), { method: 'DELETE' });
                 await closeLivePlayer();
+                document.getElementById('live-stream-overlay-share').classList.add('hidden');
+                document.getElementById('live-stream-overlay-url').value = '';
                 setLiveStatus('Transmisión finalizada y sala cerrada.');
                 await loadLiveStreams();
             } catch (error) { document.getElementById('live-player-status').textContent = 'No se pudo cerrar la transmisión en el servidor: ' + error.message; }
