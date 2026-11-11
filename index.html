@@ -2068,6 +2068,17 @@
             }
         }
 
+        function setQuickTournamentStart() {
+            const mode = document.getElementById('tournament-mode');
+            const start = document.getElementById('tournament-starts-at');
+            if (!mode || !start || mode.value !== 'quick') return;
+            const suggested = new Date(Date.now() + 30 * 60000);
+            suggested.setMinutes(suggested.getMinutes() - suggested.getTimezoneOffset());
+            start.value = suggested.toISOString().slice(0, 16);
+        }
+        document.getElementById('tournament-mode')?.addEventListener('change', setQuickTournamentStart);
+        setQuickTournamentStart();
+
         async function createTournament(event) {
             event.preventDefault();
             const status = document.getElementById('tournaments-status');
