@@ -21,18 +21,14 @@ for (const density of ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
   fs.copyFileSync(path.join(generated, density, 'ic_launcher.png'), path.join(destination, 'ic_launcher.png'));
 }
 fs.mkdirSync(path.join(resources, 'mipmap-anydpi-v26'), { recursive: true });
-fs.writeFileSync(path.join(resources, 'mipmap-anydpi-v26', 'ic_launcher.xml'), `<?xml version="1.0" encoding="utf-8"?>
+for (const name of ['ic_launcher.xml', 'ic_launcher_round.xml']) {
+  fs.writeFileSync(path.join(resources, 'mipmap-anydpi-v26', name), `<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/playverse_icon_background" />
     <foreground android:drawable="@mipmap/playverse_foreground" />
 </adaptive-icon>
 `);
-fs.writeFileSync(path.join(resources, 'mipmap-anydpi-v26', 'ic_launcher_round.xml'), `<?xml version="1.0" encoding="utf-8"?>
-<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/playverse_icon_background" />
-    <foreground android:drawable="@mipmap/playverse_foreground" />
-</adaptive-icon>
-`);
+}
 fs.mkdirSync(path.join(resources, 'mipmap-xxxhdpi'), { recursive: true });
 fs.copyFileSync(path.join(generated, 'playverse_foreground.png'), path.join(resources, 'mipmap-xxxhdpi', 'playverse_foreground.png'));
 fs.mkdirSync(path.join(resources, 'values'), { recursive: true });
@@ -40,14 +36,26 @@ fs.writeFileSync(path.join(resources, 'values', 'playverse_brand.xml'), `<?xml v
 <resources><color name="playverse_icon_background">#08090D</color></resources>
 `);
 
+const drawable = path.join(resources, 'drawable-nodpi');
+fs.mkdirSync(drawable, { recursive: true });
+fs.copyFileSync(path.join(generated, 'playverse_splash.png'), path.join(drawable, 'playverse_splash.png'));
+fs.writeFileSync(path.join(resources, 'drawable', 'playverse_splash_background.xml'), `<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/playverse_icon_background" />
+    <item>
+        <bitmap android:src="@drawable/playverse_splash" android:gravity="center" />
+    </item>
+</layer-list>
+`);
+
 const manifestPath = path.join(androidRoot, 'AndroidManifest.xml');
 if (!fs.existsSync(manifestPath)) throw new Error('AndroidManifest.xml was not found.');
 let manifest = fs.readFileSync(manifestPath, 'utf8');
-const application = manifest.match(/<application\\b[^>]*>/);
+const application = manifest.match(/<application\b[^>]*>/);
 if (!application) throw new Error('AndroidManifest.xml does not contain an application element.');
 let appTag = application[0];
 for (const [attribute, value] of [['android:icon', '@mipmap/ic_launcher'], ['android:roundIcon', '@mipmap/ic_launcher_round'], ['android:label', 'PLAYVERSE']]) {
-  const pattern = new RegExp('\\\\s' + attribute.replace(':', ':') + '="[^"]*"');
+  const pattern = new RegExp('\\s' + attribute + '="[^"]*"');
   if (pattern.test(appTag)) appTag = appTag.replace(pattern, ' ' + attribute + '="' + value + '"');
   else appTag = appTag.slice(0, -1) + ' ' + attribute + '="' + value + '">';
 }
@@ -66,9 +74,20 @@ const missing = permissions.filter((entry) => {
 });
 if (missing.length) {
   const at = manifest.indexOf('<application');
-  manifest = manifest.slice(0, at) + missing.join('\\n') + '\\n    ' + manifest.slice(at);
+  manifest = manifest.slice(0, at) + missing.join('\n') + '\n    ' + manifest.slice(at);
 }
 fs.writeFileSync(manifestPath, manifest);
+
+const baseStyles = path.join(resources, 'values', 'styles.xml');
+if (!fs.existsSync(baseStyles)) throw new Error('Capacitor styles.xml not found; cannot safely configure legacy splash.');
+let styles = fs.readFileSync(baseStyles, 'utf8');
+const stylePattern = /(<style\s+name="AppTheme\.NoActionBar"[^>]*>)([\s\S]*?)(<\/style>)/;
+if (!stylePattern.test(styles)) throw new Error('AppTheme.NoActionBar style not found in Capacitor resources.');
+styles = styles.replace(stylePattern, (match, open, body, close) => {
+  if (body.includes('android:windowBackground')) return match;
+  return open + body + '\n        <item name="android:windowBackground">@drawable/playverse_splash_background</item>\n    ' + close;
+});
+fs.writeFileSync(baseStyles, styles);
 
 const v31 = path.join(resources, 'values-v31');
 fs.mkdirSync(v31, { recursive: true });
@@ -79,7 +98,8 @@ fs.writeFileSync(path.join(v31, 'styles.xml'), `<?xml version="1.0" encoding="ut
         <item name="android:windowSplashScreenAnimatedIcon">@mipmap/playverse_foreground</item>
         <item name="android:windowSplashScreenIconBackgroundColor">#08090D</item>
         <item name="android:postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+        <item name="android:windowBackground">@drawable/playverse_splash_background</item>
     </style>
 </resources>
 `);
-console.log('PLAYVERSE: same official brand applied to Android launcher, adaptive icon, and Android 12+ startup screen.');
+console.log('PLAYVERSE: official icon installed for Android launcher; branded splash configured for legacy Android and Android 12+.');
