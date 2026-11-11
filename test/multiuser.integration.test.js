@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const { io: createSocketClient } = require('socket.io-client');
 const { attachSocketServer } = require('../server/socket');
 const Club = require('../server/models/Club');
+const LiveStream = require('../server/models/LiveStream');
+const LiveStreamMessage = require('../server/models/LiveStreamMessage');
 
 const mongoUri = process.env.PLAYVERSE_TEST_MONGODB_URI;
 const integrationTest = mongoUri ? test : test.skip;
@@ -190,6 +192,48 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     }, alice.body.token);
     assert.equal(liveStreamWithoutProvider.status, 503);
     assert.equal(liveStreamWithoutProvider.body.code, 'LIVE_STREAMING_NOT_CONFIGURED');
+
+    const liveChatStream = await LiveStream.create({
+      owner: alice.body.user.id,
+      ownerUsername: 'alice_test',
+      title: 'Directo de integración',
+      roomName: 'integration-live-chat-' + Date.now()
+    });
+    const ownerLiveSocket = await connectSocket(baseUrl, alice.body.token);
+    const viewerLiveSocket = await connectSocket(baseUrl, bob.body.token);
+    liveSockets.push(ownerLiveSocket, viewerLiveSocket);
+    const ownerJoin = await emitSocketAck(ownerLiveSocket, 'join_stream_chat', { streamId: String(liveChatStream._id) });
+    const viewerJoin = await emitSocketAck(viewerLiveSocket, 'join_stream_chat', { streamId: String(liveChatStream._id) });
+    assert.equal(ownerJoin.success, true);
+    assert.equal(ownerJoin.isOwner, true);
+    assert.equal(viewerJoin.success, true);
+    assert.equal(viewerJoin.canChat, true);
+    const sentLiveMessage = await emitSocketAck(viewerLiveSocket, 'send_stream_chat_message', {
+      streamId: String(liveChatStream._id), message: 'Hola desde la prueba multiusuario'
+    });
+    assert.equal(sentLiveMessage.success, true);
+    assert.equal(sentLiveMessage.message.username, 'bob_test');
+    const persistedLiveMessage = await LiveStreamMessage.findById(sentLiveMessage.message.id).lean();
+    assert.equal(persistedLiveMessage.message, 'Hola desde la prueba multiusuario');
+    const liveChatHistory = await request(baseUrl, '/api/streams/' + liveChatStream._id + '/messages', {}, bob.body.token);
+    assert.equal(liveChatHistory.status, 200);
+    assert.equal(liveChatHistory.body.messages.length, 1);
+    assert.equal(liveChatHistory.body.messages[0].message, 'Hola desde la prueba multiusuario');
+    const invalidLiveChatLimit = await request(baseUrl, '/api/streams/' + liveChatStream._id + '/messages?limit=101', {}, bob.body.token);
+    assert.equal(invalidLiveChatLimit.status, 400);
+    const viewerCannotModerateLiveChat = await emitSocketAck(viewerLiveSocket, 'moderate_stream_chat_message', {
+      streamId: String(liveChatStream._id), messageId: sentLiveMessage.message.id
+    });
+    assert.equal(viewerCannotModerateLiveChat.success, false);
+    const ownerModeratedMessage = await emitSocketAck(ownerLiveSocket, 'moderate_stream_chat_message', {
+      streamId: String(liveChatStream._id), messageId: sentLiveMessage.message.id
+    });
+    assert.equal(ownerModeratedMessage.success, true);
+    const moderatedHistory = await request(baseUrl, '/api/streams/' + liveChatStream._id + '/messages', {}, bob.body.token);
+    assert.equal(moderatedHistory.status, 200);
+    assert.equal(moderatedHistory.body.messages.length, 0);
+    const persistedModeration = await LiveStreamMessage.findById(sentLiveMessage.message.id).lean();
+    assert.equal(persistedModeration.status, 'deleted');
 
     const aliceStreamingPreferences = await request(baseUrl, '/api/me/streaming-preferences', {
       method: 'PUT',
