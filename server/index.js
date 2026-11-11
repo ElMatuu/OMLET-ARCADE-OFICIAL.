@@ -1336,7 +1336,7 @@ app.get('/api/users/:username', requireAuth, async (req, res, next) => {
   try {
     const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
     const user = await User.findOne({ username })
-      .select('username displayName bio avatarUrl createdAt')
+      .select('username displayName bio profileBannerUrl profileTheme favoriteGames socialYouTubeUrl socialTwitchUrl socialTikTokUrl avatarUrl createdAt')
       .lean();
     if (!user) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
     const [postCount, friendship, followersCount, followingCount, followRecord, blockedRecord] = await Promise.all([
@@ -1364,6 +1364,12 @@ app.get('/api/users/:username', requireAuth, async (req, res, next) => {
       username: user.username,
       displayName: user.displayName || '',
       bio: user.bio || '',
+      profileBannerUrl: user.profileBannerUrl || '',
+      profileTheme: user.profileTheme || 'arcade',
+      favoriteGames: user.favoriteGames || [],
+      socialYouTubeUrl: user.socialYouTubeUrl || '',
+      socialTwitchUrl: user.socialTwitchUrl || '',
+      socialTikTokUrl: user.socialTikTokUrl || '',
       avatarUrl: user.avatarUrl || '',
       createdAt: user.createdAt,
       postCount,
