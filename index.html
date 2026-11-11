@@ -2815,7 +2815,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             const currency = item.priceCurrency || 'gold';
             const available = Number(appState.walletBalances[currency] || 0);
             if (available < item.priceTokens) {
-                document.getElementById('store-status').textContent = 'Saldo insuficiente de ' + (currency === 'diamond' ? 'Diamantes' : currency === 'purple' ? 'Violetas' : 'Oros') + '. Completá misiones para conseguir más.';
+                document.getElementById('store-status').textContent = 'Saldo insuficiente de ' + (currency === 'diamond' ? 'Diamantes' : currency === 'purple' ? 'Platas' : 'Oros') + '. Completá misiones para conseguir más.';
                 return;
             }
             try {
@@ -2857,7 +2857,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 detail.append(title, date);
                 const amount = document.createElement('strong');
                 amount.className = 'text-xs shrink-0 ' + (transaction.amount < 0 ? 'text-rose-300' : 'text-emerald-300');
-                amount.textContent = (transaction.amount > 0 ? '+' : '') + transaction.amount + ' ' + (transaction.currency === 'diamond' ? '💎' : transaction.currency === 'purple' ? '🟣' : '🟡');
+                amount.textContent = (transaction.amount > 0 ? '+' : '') + transaction.amount + ' ' + (transaction.currency === 'diamond' ? '💎' : transaction.currency === 'purple' ? '🥈' : '🟡');
                 row.append(detail, amount);
                 container.appendChild(row);
             });
