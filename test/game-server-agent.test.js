@@ -155,6 +155,7 @@ test('agent sends authenticated heartbeat with measured Minecraft player metrics
   assert.deepEqual(JSON.parse(captured.options.body), {
     playerCount: 8,
     maxPlayers: 40,
+    version: '1.21.1',
     isOnline: true
   });
   assert.deepEqual(result, { success: true });
