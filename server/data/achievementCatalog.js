@@ -1,4 +1,5 @@
 const ACHIEVEMENTS = [
+  { id: 'first-purchase-bonus', title: 'Primera compra', description: 'Reclamá el bonus de experiencia de tu primera compra con monedas PLAYVERSE.', category: 'Colección', tier: 'novato', icon: '🎁', metric: 'firstPurchaseBonusClaimed', target: 1, xp: 250 },
   { id: 'first-post', title: 'Primera señal', description: 'Publicá por primera vez en la comunidad.', category: 'Comunidad', tier: 'novato', icon: '📝', metric: 'posts', target: 1, xp: 20 },
   { id: 'posts-10', title: 'Voz conocida', description: 'Compartí 10 publicaciones originales.', category: 'Comunidad', tier: 'intermedio', icon: '📣', metric: 'posts', target: 10, xp: 80 },
   { id: 'posts-50', title: 'Creador constante', description: 'Alcanzá 50 publicaciones.', category: 'Comunidad', tier: 'avanzado', icon: '🎬', metric: 'posts', target: 50, xp: 250 },
