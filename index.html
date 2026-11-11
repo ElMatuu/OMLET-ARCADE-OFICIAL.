@@ -1361,7 +1361,7 @@
             const status = document.getElementById('overlay-permission-status');
             const screen = document.getElementById('overlay-permission-screen');
             const plugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.OverlayPermission;
-            if (!plugin) { status.textContent = 'Los controles flotantes requieren la aplicación Android instalada.'; return; }
+            if (!plugin) { status.textContent = 'El módulo nativo de burbuja todavía no está integrado en esta compilación. No vamos a simular una burbuja funcional.'; return; }
             try {
                 const permission = await plugin.check();
                 if (!permission.granted) { await plugin.request(); status.textContent = 'Android abrió el permiso. Activá Mostrar sobre otras apps y volvé a PLAYVERSE.'; return; }
@@ -1379,6 +1379,15 @@
             const status = document.getElementById('overlay-permission-status');
             if (!screen || localStorage.getItem('pv-overlay-permission-dismissed') === '1') return;
             checkPlayverseOverlayPermission().then((permission) => {
+                if (!permission.supported) {
+                    status.textContent = 'La burbuja nativa todavía no está incluida en esta compilación. No se solicitará un permiso hasta integrar el módulo Android real.';
+                    enable.disabled = true;
+                    enable.textContent = 'Pendiente de integración nativa';
+                    screen.classList.remove('hidden');
+                    screen.classList.add('flex');
+                    return;
+                }
+                enable.disabled = false;
                 status.textContent = permission.granted ? 'Permiso concedido. Activá los controles cuando quieras.' : 'Android te pedirá autorización para mostrar la burbuja sobre los juegos.';
                 enable.textContent = permission.granted ? 'Activar burbuja flotante' : 'Habilitar permiso';
                 screen.classList.remove('hidden');
