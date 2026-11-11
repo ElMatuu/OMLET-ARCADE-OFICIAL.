@@ -37,6 +37,14 @@
         body.pv-high-contrast .text-slate-400 { color: #e2e8f0 !important; }
         body.pv-high-contrast .text-slate-500 { color: #cbd5e1 !important; }
     </style>
+<style>
+.pv-coin{display:inline-flex;width:25px;height:25px;align-items:center;justify-content:center;border-radius:999px;font-size:8px;font-weight:1000;letter-spacing:-1px;border:2px solid rgba(255,255,255,.65);box-shadow:inset 0 0 0 2px rgba(0,0,0,.18),0 0 12px currentColor;animation:pv-coin-glow 2.8s ease-in-out infinite}
+.pv-coin-gold{color:#fbbf24;background:radial-gradient(circle at 30% 25%,#fff2a6,#e6a91d 48%,#80500b)}
+.pv-coin-purple{color:#e879f9;background:radial-gradient(circle at 30% 25%,#f5d0fe,#a855f7 48%,#581c87)}
+.pv-coin-diamond{color:#67e8f9;background:radial-gradient(circle at 30% 25%,#ecfeff,#67e8f9 48%,#155e75)}
+@keyframes pv-coin-glow{0%,100%{filter:brightness(1);transform:rotateY(0deg)}50%{filter:brightness(1.3);transform:rotateY(18deg)}}
+@media(prefers-reduced-motion:reduce){.pv-coin{animation:none}}
+</style>
 </head>
 <body class="h-screen w-screen flex flex-col justify-between relative">
 
@@ -380,10 +388,24 @@
                 <section class="PLAYVERSE-card rounded-2xl p-4 space-y-2">
                     <div class="flex items-center justify-between gap-3">
                         <div><p class="text-[10px] font-bold uppercase tracking-widest text-orange-300">PLAYVERSE STORE</p><h3 class="font-black text-xl">Tienda y personalización</h3></div>
-                        <div class="rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-right"><span class="block text-[10px] text-slate-400">Tu saldo</span><strong id="store-wallet-balance" class="text-amber-300">0 Tokens</strong></div>
+                        <div class="grid grid-cols-3 gap-2 w-full sm:w-auto">
+<div class="rounded-xl bg-slate-950 border border-amber-400/30 px-2 py-2 text-center"><span class="pv-coin pv-coin-gold">PV</span><strong id="wallet-gold-balance" class="block text-xs text-amber-300">0</strong><span class="text-[9px] text-slate-500">ORO</span></div>
+<div class="rounded-xl bg-slate-950 border border-fuchsia-400/30 px-2 py-2 text-center"><span class="pv-coin pv-coin-purple">PV</span><strong id="wallet-purple-balance" class="block text-xs text-fuchsia-300">0</strong><span class="text-[9px] text-slate-500">VIOLETA</span></div>
+<div class="rounded-xl bg-slate-950 border border-cyan-300/30 px-2 py-2 text-center"><span class="pv-coin pv-coin-diamond">PV</span><strong id="wallet-diamond-balance" class="block text-xs text-cyan-200">0</strong><span class="text-[9px] text-slate-500">DIAMANTE</span></div>
+</div>
                     </div>
-                    <p class="text-xs text-slate-400">Los artículos y las compras se validan en el servidor. Tu saldo inicial es cero; no hay recargas habilitadas todavía.</p>
+                    <p class="text-xs text-slate-400">Tres monedas virtuales independientes con identidad PLAYVERSE. Se consiguen jugando, completando misiones y participando en la comunidad; no se compran con dinero real.</p>
                 </section>
+                <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
+<div><h4 class="font-bold text-sm">Enviar monedas a otro jugador</h4><p class="text-[10px] text-slate-400">Transferencia entre billeteras PLAYVERSE. Se descuenta de tu saldo y se acredita al destinatario en una sola operación.</p></div>
+<form id="wallet-gift-form" class="grid grid-cols-2 gap-2">
+<input id="wallet-gift-recipient" maxlength="24" minlength="3" pattern="[A-Za-z0-9_]+" required class="col-span-2 min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-xs text-white" placeholder="Nombre de usuario destinatario">
+<select id="wallet-gift-currency" class="min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-xs text-white"><option value="gold">🟡 Oro</option><option value="purple">🟣 Violeta</option><option value="diamond">💎 Diamante</option></select>
+<input id="wallet-gift-amount" type="number" min="1" max="100000" step="1" required class="min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-xs text-white" placeholder="Cantidad">
+<button id="wallet-gift-submit" type="submit" class="col-span-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4 py-3 text-xs font-black">Enviar regalo</button>
+</form>
+<p id="wallet-gift-status" class="text-xs text-slate-400" role="status"></p>
+</section>
                 <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
                     <h4 class="font-bold text-sm">Vista previa</h4>
                     <div class="grid grid-cols-2 gap-3">
@@ -710,7 +732,7 @@
         const API_URL = window.PLAYVERSE_API_URL || 'https://playverse-api-bgyg.onrender.com';
         const SESSION_KEY = 'playverse_session_token';
         let authToken = sessionStorage.getItem(SESSION_KEY);
-        let appState = { username: '', walletTokens: 0, profile: null };
+        let appState = { username: '', walletTokens: 0, walletBalances: { gold: 0, purple: 0, diamond: 0 }, profile: null };
         let activeRoomId = null;
         let activeRoomName = '';
         let roomSocket = null;
@@ -2042,7 +2064,25 @@
         }
 
 
-        let storeItems = [];
+document.getElementById('wallet-gift-form')?.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const status = document.getElementById('wallet-gift-status');
+            const button = document.getElementById('wallet-gift-submit');
+            const recipientUsername = document.getElementById('wallet-gift-recipient').value.trim();
+            const currency = document.getElementById('wallet-gift-currency').value;
+            const amount = Number(document.getElementById('wallet-gift-amount').value);
+            if (!Number.isSafeInteger(amount) || amount < 1) { status.textContent = 'Ingresá una cantidad válida.'; return; }
+            button.disabled = true; button.textContent = 'Enviando…';
+            try {
+                const result = await apiRequest('/api/wallet/transfers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recipientUsername, currency, amount }) });
+                status.textContent = result.message + ' Se acreditaron ' + amount + ' ' + (currency === 'diamond' ? '💎 Diamantes' : currency === 'purple' ? '🟣 Violetas' : '🟡 Oros') + '.';
+                document.getElementById('wallet-gift-amount').value = '';
+                await loadStore();
+            } catch (error) { status.textContent = error.message; }
+            finally { button.disabled = false; button.textContent = 'Enviar regalo'; }
+        });
+
+                let storeItems = [];
         let inventoryItems = [];
         let selectedStoreCategory = 'avatar-frame';
         let selectedStoreItemId = null;
@@ -2066,9 +2106,11 @@
                 ]);
                 storeItems = catalog.items || [];
                 inventoryItems = inventory.items || [];
-                appState.walletTokens = Number(inventory.wallet?.tokens || 0);
-                const balance = appState.walletTokens.toLocaleString('es-AR') + ' Tokens';
-                document.getElementById('store-wallet-balance').textContent = balance;
+                appState.walletBalances = inventory.wallet?.balances || { gold: Number(inventory.wallet?.tokens || 0), purple: 0, diamond: 0 };
+                appState.walletTokens = Number(appState.walletBalances.gold || 0);
+                document.getElementById('wallet-gold-balance').textContent = Number(appState.walletBalances.gold || 0).toLocaleString('es-AR');
+                document.getElementById('wallet-purple-balance').textContent = Number(appState.walletBalances.purple || 0).toLocaleString('es-AR');
+                document.getElementById('wallet-diamond-balance').textContent = Number(appState.walletBalances.diamond || 0).toLocaleString('es-AR');
                 document.getElementById('header-créditos').textContent = appState.walletTokens.toLocaleString('es-AR');
                 renderStoreItems();
                 renderStoreInventory(inventory);
@@ -2107,10 +2149,10 @@
                 const icon = item.category === 'avatar-frame' ? '🖼️' : item.category === 'stream-overlay' ? '🎥' : item.category === 'stream-gift' ? '🎁' : '✨';
                 card.innerHTML = '<div class="h-20 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-3xl">' + icon + '</div>' +
                     '<div><h4 class="text-xs font-bold text-white">' + escapeHtml(item.name) + '</h4><p class="text-[10px] text-slate-400 mt-1">' + escapeHtml(item.description) + '</p><p class="text-[9px] uppercase tracking-wider text-orange-300 mt-1">' + escapeHtml(item.rarity || 'common') + ' · ' + escapeHtml(item.animation || 'static') + '</p></div>' +
-                    '<p class="text-[10px] text-amber-300 font-bold">' + Number(item.priceTokens).toLocaleString('es-AR') + ' Tokens</p>' +
+                    '<p class="text-[10px] font-bold ' + (item.priceCurrency === 'diamond' ? 'text-cyan-200' : item.priceCurrency === 'purple' ? 'text-fuchsia-300' : 'text-amber-300') + '">' + (item.priceCurrency === 'diamond' ? '💎 ' : item.priceCurrency === 'purple' ? '🟣 ' : '🟡 ') + Number(item.priceTokens).toLocaleString('es-AR') + ' ' + (item.priceCurrency === 'diamond' ? 'Diamantes' : item.priceCurrency === 'purple' ? 'Violetas' : 'Oros') + '</p>' +
                     '<button type="button" data-preview-id="' + escapeHtml(item.id) + '" class="w-full rounded-lg border border-slate-700 px-2 py-2 text-[10px] font-bold text-slate-200">Previsualizar</button>' +
                     '<button type="button" data-buy-id="' + escapeHtml(item.id) + '" class="w-full rounded-lg px-2 py-2 text-[10px] font-bold ' + (owned && item.category !== 'stream-gift' ? 'bg-emerald-900/50 text-emerald-300' : 'bg-orange-500 text-white') + '" ' + (owned && item.category !== 'stream-gift' ? 'disabled' : '') + '>' +
-                    (owned && item.category !== 'stream-gift' ? 'En inventario' : (appState.walletTokens >= item.priceTokens ? 'Comprar' : 'Sin Tokens')) + '</button>';
+                    (owned && item.category !== 'stream-gift' ? 'En inventario' : (Number(appState.walletBalances[item.priceCurrency || 'gold'] || 0) >= item.priceTokens ? 'Comprar' : 'Sin saldo')) + '</button>';
                 grid.appendChild(card);
             });
             grid.querySelectorAll('[data-preview-id]').forEach(button => button.addEventListener('click', () => selectStoreItem(button.dataset.previewId)));
@@ -2166,8 +2208,10 @@
         async function purchaseStoreItem(itemId) {
             const item = storeItems.find(entry => entry.id === itemId);
             if (!item) return;
-            if (appState.walletTokens < item.priceTokens) {
-                document.getElementById('store-status').textContent = 'Saldo insuficiente. Las recargas de Tokens todavía no están habilitadas.';
+            const currency = item.priceCurrency || 'gold';
+            const available = Number(appState.walletBalances[currency] || 0);
+            if (available < item.priceTokens) {
+                document.getElementById('store-status').textContent = 'Saldo insuficiente de ' + (currency === 'diamond' ? 'Diamantes' : currency === 'purple' ? 'Violetas' : 'Oros') + '. Completá misiones para conseguir más.';
                 return;
             }
             try {
@@ -2201,7 +2245,7 @@
                 detail.className = 'min-w-0';
                 const title = document.createElement('p');
                 title.className = 'text-xs font-semibold text-white';
-                title.textContent = transaction.itemName || (transaction.type === 'credit' ? 'Acreditación de Tokens' : 'Movimiento de Tokens');
+                title.textContent = transaction.itemName || (transaction.type === 'credit' ? 'Acreditación de monedas' : transaction.type === 'transfer_in' ? 'Regalo recibido' : transaction.type === 'transfer_out' ? 'Regalo enviado' : 'Movimiento de billetera');
                 const date = document.createElement('p');
                 date.className = 'text-[10px] text-slate-500';
                 const parsed = new Date(transaction.createdAt);
@@ -2209,7 +2253,7 @@
                 detail.append(title, date);
                 const amount = document.createElement('strong');
                 amount.className = 'text-xs shrink-0 ' + (transaction.amount < 0 ? 'text-rose-300' : 'text-emerald-300');
-                amount.textContent = (transaction.amount > 0 ? '+' : '') + transaction.amount + ' Tokens';
+                amount.textContent = (transaction.amount > 0 ? '+' : '') + transaction.amount + ' ' + (transaction.currency === 'diamond' ? '💎' : transaction.currency === 'purple' ? '🟣' : '🟡');
                 row.append(detail, amount);
                 container.appendChild(row);
             });
@@ -2596,7 +2640,7 @@
                     count.textContent = mission.current + ' / ' + mission.target;
                     const reward = document.createElement('p');
                     reward.className = 'text-xs font-semibold text-amber-300';
-                    reward.textContent = 'Recompensa: ' + Number(mission.rewardTokens || 0).toLocaleString('es-AR') + ' Tokens';
+                    reward.textContent = 'Recompensa: ' + Number(mission.rewardTokens || 0).toLocaleString('es-AR') + ' ' + (mission.rewardCurrency === 'diamond' ? '💎 Diamantes' : mission.rewardCurrency === 'purple' ? '🟣 Violetas' : '🟡 Oros');
                     card.append(top, description, progress, count, reward);
                     if (mission.claimed) {
                         const claimed = document.createElement('p');
@@ -2607,13 +2651,13 @@
                         const claim = document.createElement('button');
                         claim.type = 'button';
                         claim.className = 'w-full rounded-lg px-3 py-2 text-xs font-black bg-amber-400 text-slate-950 hover:bg-amber-300 disabled:opacity-50';
-                        claim.textContent = 'Reclamar ' + Number(mission.rewardTokens || 0).toLocaleString('es-AR') + ' Tokens';
+                        claim.textContent = 'Reclamar ' + Number(mission.rewardTokens || 0).toLocaleString('es-AR') + ' ' + (mission.rewardCurrency === 'diamond' ? '💎' : mission.rewardCurrency === 'purple' ? '🟣' : '🟡');
                         claim.addEventListener('click', async () => {
                             claim.disabled = true;
                             claim.textContent = 'Acreditando recompensa…';
                             try {
                                 const result = await apiRequest('/api/me/missions/' + encodeURIComponent(mission.id) + '/claim', { method: 'POST' });
-                                status.textContent = '¡Recompensa acreditada! Nuevo saldo: ' + result.wallet.tokens + ' Tokens.';
+                                status.textContent = '¡Recompensa acreditada en tu billetera! ' + result.rewardTokens + ' ' + (result.currency === 'diamond' ? '💎 Diamantes' : result.currency === 'purple' ? '🟣 Violetas' : '🟡 Oros') + '.';
                                 await Promise.all([loadMissions(), loadStore()]);
                             } catch (error) {
                                 status.textContent = 'No se pudo reclamar la recompensa: ' + error.message;
