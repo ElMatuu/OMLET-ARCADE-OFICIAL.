@@ -2,91 +2,84 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
-const androidRoot = path.join(root, 'android', 'app', 'src', 'main', 'res');
+const generated = path.join(root, 'assets', 'generated');
+const androidRoot = path.join(root, 'android', 'app', 'src', 'main');
+const resources = path.join(androidRoot, 'res');
 
 if (!fs.existsSync(androidRoot)) {
-  console.error('Android platform is not generated yet. Run npm run android:add first.');
+  console.error('Android platform is not generated yet. Run npx cap add android first.');
+  process.exit(1);
+}
+if (!fs.existsSync(path.join(generated, 'playverse_foreground.png'))) {
+  console.error('Generated brand assets are missing. Run node scripts/generate-icons.js first.');
   process.exit(1);
 }
 
-const resources = {
-  'drawable/playverse_icon_background.xml': `<?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="#080B16" />
-</shape>
-`,
-  'drawable/playverse_icon_foreground.xml': `<?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp" android:height="108dp"
-    android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#48D9EF"
-        android:pathData="M16,66 L21,42 C23,33 30,27 39,27 H69 C78,27 85,33 87,42 L92,66 C93,72 86,76 82,72 L72,62 H36 L26,72 C22,76 15,72 16,66 Z" />
-    <path android:fillColor="#071326"
-        android:pathData="M31,42 H48 V48 H43 V54 H37 V48 H31 Z" />
-    <path android:fillColor="#071326"
-        android:pathData="M69,41 A3.5,3.5 0,1 0,69,48 A3.5,3.5 0,1 0,69,41" />
-    <path android:fillColor="#071326"
-        android:pathData="M78,49 A3.5,3.5 0,1 0,78,56 A3.5,3.5 0,1 0,78,49" />
-    <path android:fillColor="#FFFFFF"
-        android:pathData="M49,34 V24 C49,21 51,19 54,19 H67 C77,19 83,25 83,33 C83,42 77,47 67,47 H57 V56 H49 V34 Z M57,27 V39 H67 C72,39 75,37 75,33 C75,29 72,27 67,27 Z" />
-</vector>
-`,
-  'mipmap-anydpi/ic_launcher.xml': `<?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@drawable/playverse_icon_background" />
-    <item android:drawable="@drawable/playverse_icon_foreground" />
-</layer-list>
-`,
-  'mipmap-anydpi/ic_launcher_round.xml': `<?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@drawable/playverse_icon_background" />
-    <item android:drawable="@drawable/playverse_icon_foreground" />
-</layer-list>
-`,
-  'mipmap-anydpi-v26/ic_launcher.xml': `<?xml version="1.0" encoding="utf-8"?>
+for (const density of ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
+  const destination = path.join(resources, 'mipmap-' + density);
+  fs.mkdirSync(destination, { recursive: true });
+  fs.copyFileSync(path.join(generated, density, 'ic_launcher.png'), path.join(destination, 'ic_launcher.png'));
+}
+fs.mkdirSync(path.join(resources, 'mipmap-anydpi-v26'), { recursive: true });
+fs.writeFileSync(path.join(resources, 'mipmap-anydpi-v26', 'ic_launcher.xml'), `<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@drawable/playverse_icon_background" />
-    <foreground android:drawable="@drawable/playverse_icon_foreground" />
+    <background android:drawable="@color/playverse_icon_background" />
+    <foreground android:drawable="@mipmap/playverse_foreground" />
 </adaptive-icon>
-`,
-  'mipmap-anydpi-v26/ic_launcher_round.xml': `<?xml version="1.0" encoding="utf-8"?>
+`);
+fs.writeFileSync(path.join(resources, 'mipmap-anydpi-v26', 'ic_launcher_round.xml'), `<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@drawable/playverse_icon_background" />
-    <foreground android:drawable="@drawable/playverse_icon_foreground" />
+    <background android:drawable="@color/playverse_icon_background" />
+    <foreground android:drawable="@mipmap/playverse_foreground" />
 </adaptive-icon>
-`
-};
+`);
+fs.mkdirSync(path.join(resources, 'mipmap-xxxhdpi'), { recursive: true });
+fs.copyFileSync(path.join(generated, 'playverse_foreground.png'), path.join(resources, 'mipmap-xxxhdpi', 'playverse_foreground.png'));
+fs.mkdirSync(path.join(resources, 'values'), { recursive: true });
+fs.writeFileSync(path.join(resources, 'values', 'playverse_brand.xml'), `<?xml version="1.0" encoding="utf-8"?>
+<resources><color name="playverse_icon_background">#08090D</color></resources>
+`);
 
-for (const [relativePath, content] of Object.entries(resources)) {
-  const destination = path.join(androidRoot, relativePath);
-  fs.mkdirSync(path.dirname(destination), { recursive: true });
-  fs.writeFileSync(destination, content);
-}
-const manifestPath = path.join(root, 'android', 'app', 'src', 'main', 'AndroidManifest.xml');
-if (!fs.existsSync(manifestPath)) {
-  console.error('AndroidManifest.xml was not found. Regenerate the Android platform with npm run android:add.');
-  process.exit(1);
-}
+const manifestPath = path.join(androidRoot, 'AndroidManifest.xml');
+if (!fs.existsSync(manifestPath)) throw new Error('AndroidManifest.xml was not found.');
 let manifest = fs.readFileSync(manifestPath, 'utf8');
-const permissionDeclarations = [
+const application = manifest.match(/<application\\b[^>]*>/);
+if (!application) throw new Error('AndroidManifest.xml does not contain an application element.');
+let appTag = application[0];
+for (const [attribute, value] of [['android:icon', '@mipmap/ic_launcher'], ['android:roundIcon', '@mipmap/ic_launcher_round'], ['android:label', 'PLAYVERSE']]) {
+  const pattern = new RegExp('\\\\s' + attribute.replace(':', ':') + '="[^"]*"');
+  if (pattern.test(appTag)) appTag = appTag.replace(pattern, ' ' + attribute + '="' + value + '"');
+  else appTag = appTag.slice(0, -1) + ' ' + attribute + '="' + value + '">';
+}
+manifest = manifest.replace(application[0], appTag);
+
+const permissions = [
   '    <uses-permission android:name="android.permission.CAMERA" />',
   '    <uses-permission android:name="android.permission.RECORD_AUDIO" />',
   '    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />',
   '    <uses-feature android:name="android.hardware.camera" android:required="false" />',
   '    <uses-feature android:name="android.hardware.microphone" android:required="false" />'
 ];
-const missingDeclarations = permissionDeclarations.filter((declaration) => {
-  const name = declaration.match(/android:name="([^"]+)"/)[1];
+const missing = permissions.filter((entry) => {
+  const name = entry.match(/android:name="([^"]+)"/)[1];
   return !manifest.includes('android:name="' + name + '"');
 });
-if (missingDeclarations.length) {
-  const applicationTag = manifest.indexOf('<application');
-  if (applicationTag < 0) {
-    console.error('AndroidManifest.xml does not contain an application element.');
-    process.exit(1);
-  }
-  manifest = manifest.slice(0, applicationTag) + missingDeclarations.join('\n') + '\n    ' + manifest.slice(applicationTag);
-  fs.writeFileSync(manifestPath, manifest);
+if (missing.length) {
+  const at = manifest.indexOf('<application');
+  manifest = manifest.slice(0, at) + missing.join('\\n') + '\\n    ' + manifest.slice(at);
 }
+fs.writeFileSync(manifestPath, manifest);
 
-console.log('PLAYVERSE adaptive launcher icons and camera/microphone permissions generated.');
+const v31 = path.join(resources, 'values-v31');
+fs.mkdirSync(v31, { recursive: true });
+fs.writeFileSync(path.join(v31, 'styles.xml'), `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme.NoActionBar">
+        <item name="android:windowSplashScreenBackground">#08090D</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/playverse_foreground</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">#08090D</item>
+        <item name="android:postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+    </style>
+</resources>
+`);
+console.log('PLAYVERSE: same official brand applied to Android launcher, adaptive icon, and Android 12+ startup screen.');
