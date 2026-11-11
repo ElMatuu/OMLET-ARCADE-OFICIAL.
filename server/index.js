@@ -2324,6 +2324,76 @@ app.post('/api/clubs/:clubId/leave', requireAuth, friendshipLimiter, async (req,
 });
 
 
+app.post('/api/clubs/:clubId/transfer', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.clubId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de club inválido.' });
+    }
+    const username = typeof req.body.username === 'string' ? req.body.username.trim().replace(/^@/, '') : '';
+    if (!/^[a-zA-Z0-9_]{3,24}$/.test(username)) {
+      return res.status(400).json({ success: false, message: 'Ingresá un nombre de usuario válido.' });
+    }
+    const target = await User.findOne({ username }).select('_id username').lean();
+    if (!target) return res.status(404).json({ success: false, message: 'No existe esa cuenta.' });
+    if (String(target._id) === String(req.auth.sub)) {
+      return res.status(400).json({ success: false, message: 'Ya sos el propietario del club.' });
+    }
+    const updated = await Club.findOneAndUpdate(
+      {
+        _id: req.params.clubId,
+        owner: req.auth.sub,
+        status: 'active',
+        'members.user': target._id,
+        'members.role': { $ne: 'owner' }
+      },
+      {
+        $set: {
+          owner: target._id,
+          ownerUsername: target.username,
+          'members.$[previousOwner].role': 'moderator',
+          'members.$[newOwner].role': 'owner',
+          updatedAt: new Date()
+        }
+      },
+      {
+        new: true,
+        runValidators: true,
+        arrayFilters: [
+          { 'previousOwner.user': req.auth.sub },
+          { 'newOwner.user': target._id }
+        ]
+      }
+    ).select('name ownerUsername memberCount').lean();
+    if (!updated) {
+      const club = await Club.findById(req.params.clubId).select('owner members.user status').lean();
+      if (!club || club.status !== 'active') return res.status(404).json({ success: false, message: 'Club no encontrado o archivado.' });
+      if (String(club.owner) !== String(req.auth.sub)) return res.status(403).json({ success: false, message: 'Solo el propietario puede transferir el club.' });
+      return res.status(400).json({ success: false, message: 'La nueva persona propietaria debe ser miembro activo del club.' });
+    }
+    return res.json({ success: true, club: updated, message: 'Propiedad transferida. Ahora sos moderador del club.' });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/clubs/:clubId/archive', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.clubId)) {
+      return res.status(400).json({ success: false, message: 'Identificador de club inválido.' });
+    }
+    const archived = await Club.findOneAndUpdate(
+      { _id: req.params.clubId, owner: req.auth.sub, status: 'active' },
+      { $set: { status: 'archived', visibility: 'private', updatedAt: new Date() } },
+      { new: true, runValidators: true }
+    ).select('_id name status').lean();
+    if (!archived) {
+      const exists = await Club.exists({ _id: req.params.clubId });
+      if (!exists) return res.status(404).json({ success: false, message: 'Club no encontrado.' });
+      return res.status(403).json({ success: false, message: 'Solo el propietario puede archivar este club.' });
+    }
+    return res.json({ success: true, club: archived, message: 'Club archivado. Ya no aparece en el directorio público.' });
+  } catch (error) { return next(error); }
+});
+
+
 const GAME_SERVER_HEARTBEAT_MAX_AGE_MS = 90 * 1000;
 const GAME_SERVER_TOKEN_PATTERN = /^[A-Za-z0-9_-]{40,60}$/;
 
