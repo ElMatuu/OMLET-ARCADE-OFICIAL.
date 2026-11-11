@@ -24,6 +24,7 @@ const Room = require('../server/models/Room');
 const RoomMessage = require('../server/models/RoomMessage');
 const LiveStream = require('../server/models/LiveStream');
 const Report = require('../server/models/Report');
+const SavedPost = require('../server/models/SavedPost');
 
 async function request(baseUrl, path, token, body) {
   const response = await fetch(baseUrl + path, {
@@ -61,6 +62,7 @@ moderationTest('moderators can remove reported content with dependent records an
     const baseUrl = 'http://127.0.0.1:' + server.address().port;
 
     const post = await Post.create({ author: author._id, authorUsername: author.username, content: 'Contenido denunciado' });
+    const savedPost = await SavedPost.create({ user: reporter._id, post: post._id });
     const postComment = await Comment.create({
       post: post._id, author: reporter._id, authorUsername: reporter.username, content: 'Comentario dependiente'
     });
@@ -75,6 +77,7 @@ moderationTest('moderators can remove reported content with dependent records an
     assert.equal(removedPost.body.report.actionTaken, 'content_removed');
     assert.equal(await Post.exists({ _id: post._id }), null);
     assert.equal(await Comment.exists({ _id: postComment._id }), null);
+    assert.equal(await SavedPost.exists({ _id: savedPost._id }), null);
 
     const secondPost = await Post.create({ author: author._id, authorUsername: author.username, content: 'Publicación con comentario reportado', commentCount: 1 });
     const comment = await Comment.create({
