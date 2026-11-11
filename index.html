@@ -24,6 +24,10 @@
         ::-webkit-scrollbar-thumb:hover { background: #FF5232; }
         .PLAYVERSE-gradient { background: linear-gradient(135deg, #FF5232 0%, #ff7a18 52%, #FFC107 100%); }
         .PLAYVERSE-card { background: #0f172a; border: 1px solid #1e293b; }
+        #profile-card[data-profile-theme="neon"] { border-color: rgba(34,211,238,.55); box-shadow: 0 0 28px rgba(34,211,238,.12); }
+        #profile-card[data-profile-theme="minimal"] { border-color: #475569; box-shadow: none; }
+        #profile-card[data-profile-theme="esports"] { border-color: rgba(249,115,22,.7); box-shadow: inset 0 3px 0 rgba(249,115,22,.7); }
+        #profile-card[data-profile-theme="arcade"] { border-color: rgba(249,115,22,.35); }
         .neon-border { box-shadow: 0 0 15px rgba(249, 115, 22, 0.3); }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
         .gpu-layer { transform: translate3d(0,0,0); backface-visibility: hidden; }
@@ -607,7 +611,12 @@
 
             <!-- TAB PROFILE -->
             <div id="tab-profile" class="space-y-6 hidden max-w-xl mx-auto">
-                <div class="PLAYVERSE-card rounded-3xl p-6 text-center space-y-4">
+                <div id="profile-card" class="PLAYVERSE-card rounded-3xl p-6 text-center space-y-4" data-profile-theme="arcade">
+                    <div class="relative -mx-6 -mt-6 mb-2 h-32 overflow-hidden rounded-t-3xl bg-gradient-to-r from-orange-600 via-fuchsia-700 to-indigo-700">
+                        <img id="profile-banner-image" class="hidden h-full w-full object-cover" alt="Portada del perfil">
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent"></div>
+                        <span class="absolute bottom-3 left-4 text-[10px] font-black uppercase tracking-[.2em] text-white/80">PLAYVERSE PLAYER CARD</span>
+                    </div>
                     <div class="w-24 h-24 mx-auto rounded-full PLAYVERSE-gradient p-1 shadow-2xl flex items-center justify-center text-4xl overflow-hidden">
                         <span id="profile-avatar-placeholder">🎮</span>
                         <img id="profile-avatar" class="hidden w-full h-full object-cover rounded-full" alt="Avatar del perfil">
@@ -617,6 +626,8 @@
                         <p id="profile-username" class="text-xs text-orange-400 font-mono mt-0.5">@usuario</p>
                         <p id="profile-bio" class="text-sm text-slate-300 mt-3 whitespace-pre-wrap break-words">Todavía no agregaste una biografía.</p>
                     </div>
+                    <div id="profile-favorite-games" class="flex flex-wrap justify-center gap-2" aria-label="Juegos favoritos"></div>
+                    <div id="profile-social-links" class="flex flex-wrap justify-center gap-2"></div>
                     <div class="grid grid-cols-3 gap-3">
                         <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800"><span class="block text-[10px] text-slate-400 font-bold">ROL</span><span id="profile-role" class="font-black text-sm text-white">Jugador</span></div>
                         <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800"><span class="block text-[10px] text-slate-400 font-bold">CUENTA</span><span class="font-black text-sm text-emerald-400">Activa</span></div>
@@ -769,6 +780,17 @@
             </div>
             <div><label for="profile-display-name-input" class="text-xs font-bold text-slate-400 block mb-1">Nombre visible</label><input id="profile-display-name-input" maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="Cómo querés que te vean"></div>
             <div><label for="profile-bio-input" class="text-xs font-bold text-slate-400 block mb-1">Biografía (máximo 160 caracteres)</label><textarea id="profile-bio-input" maxlength="160" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white resize-y" placeholder="Contá algo sobre vos y tus juegos"></textarea></div>
+            <div><label for="profile-banner-url-input" class="text-xs font-bold text-slate-400 block mb-1">Portada del perfil (URL HTTPS)</label><input id="profile-banner-url-input" type="url" maxlength="500" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="https://..."></div>
+            <div class="grid grid-cols-2 gap-3">
+                <label class="text-xs font-bold text-slate-400">Estilo visual<select id="profile-theme-input" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="arcade">Arcade</option><option value="neon">Neón</option><option value="minimal">Minimal</option><option value="esports">Esports</option></select></label>
+                <label class="text-xs font-bold text-slate-400">Juegos favoritos (separados por coma)<input id="profile-favorite-games-input" maxlength="260" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="Minecraft, Roblox, Free Fire"></label>
+            </div>
+            <section class="space-y-2">
+                <h4 class="text-xs font-bold text-slate-300">Tus redes sociales</h4>
+                <input id="profile-youtube-input" type="url" maxlength="200" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="Enlace de YouTube (HTTPS)">
+                <input id="profile-twitch-input" type="url" maxlength="200" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="Enlace de Twitch (HTTPS)">
+                <input id="profile-tiktok-input" type="url" maxlength="200" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="Enlace de TikTok (HTTPS)">
+            </section>
             <section class="space-y-2">
                 <div class="flex items-center justify-between"><label class="text-xs font-bold text-slate-300">Elegí tu avatar gamer</label><span class="text-[10px] text-slate-500">32 diseños incluidos</span></div>
                 <p class="text-[10px] text-slate-500">Elegí un personaje para tu identidad. Se guarda en tu cuenta y aparece en tu perfil.</p>
@@ -867,6 +889,15 @@
             document.getElementById('profile-display-name').textContent = displayName;
             document.getElementById('profile-username').textContent = '@' + user.username;
             document.getElementById('profile-bio').textContent = user.bio || 'Todavía no agregaste una biografía.';
+            const banner = document.getElementById('profile-banner-image');
+            if (user.profileBannerUrl) { banner.onerror = () => banner.classList.add('hidden'); banner.src = user.profileBannerUrl; banner.classList.remove('hidden'); }
+            else { banner.removeAttribute('src'); banner.classList.add('hidden'); }
+            const profileCard = document.getElementById('profile-card');
+            if (profileCard) profileCard.dataset.profileTheme = user.profileTheme || 'arcade';
+            const games = document.getElementById('profile-favorite-games'); games.replaceChildren();
+            (Array.isArray(user.favoriteGames) ? user.favoriteGames : []).forEach((game) => { const chip = document.createElement('span'); chip.className = 'rounded-full border border-orange-400/30 bg-orange-500/10 px-3 py-1 text-[10px] font-bold text-orange-200'; chip.textContent = game; games.appendChild(chip); });
+            const socials = document.getElementById('profile-social-links'); socials.replaceChildren();
+            [['YouTube', user.socialYouTubeUrl], ['Twitch', user.socialTwitchUrl], ['TikTok', user.socialTikTokUrl]].forEach(([name, url]) => { if (!url) return; const link = document.createElement('a'); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.className = 'rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-[10px] font-bold text-slate-200'; link.textContent = name; socials.appendChild(link); });
             const roleLabels = { user: 'Jugador', moderator: 'Moderador', admin: 'Administrador' };
             document.getElementById('profile-role').textContent = roleLabels[user.role] || 'Jugador';
             document.getElementById('drawer-profile-subtitle').textContent = roleLabels[user.role] || 'Comunidad gamer';
@@ -3569,6 +3600,12 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             const profile = appState.profile || {};
             document.getElementById('profile-display-name-input').value = profile.displayName || '';
             document.getElementById('profile-bio-input').value = profile.bio || '';
+            document.getElementById('profile-banner-url-input').value = profile.profileBannerUrl || '';
+            document.getElementById('profile-theme-input').value = profile.profileTheme || 'arcade';
+            document.getElementById('profile-favorite-games-input').value = (profile.favoriteGames || []).join(', ');
+            document.getElementById('profile-youtube-input').value = profile.socialYouTubeUrl || '';
+            document.getElementById('profile-twitch-input').value = profile.socialTwitchUrl || '';
+            document.getElementById('profile-tiktok-input').value = profile.socialTikTokUrl || '';
             document.getElementById('profile-avatar-url-input').value = profile.avatarUrl || '';
             selectedAvatarPreset = profile.avatarPreset || 'arcade-hero';
             document.getElementById('profile-editor-status').textContent = '';
@@ -3594,6 +3631,12 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                     body: JSON.stringify({
                         displayName: document.getElementById('profile-display-name-input').value,
                         bio: document.getElementById('profile-bio-input').value,
+                        profileBannerUrl: document.getElementById('profile-banner-url-input').value,
+                        profileTheme: document.getElementById('profile-theme-input').value,
+                        favoriteGames: document.getElementById('profile-favorite-games-input').value.split(',').map((game) => game.trim()).filter(Boolean),
+                        socialYouTubeUrl: document.getElementById('profile-youtube-input').value,
+                        socialTwitchUrl: document.getElementById('profile-twitch-input').value,
+                        socialTikTokUrl: document.getElementById('profile-tiktok-input').value,
                         avatarUrl: document.getElementById('profile-avatar-url-input').value,
                         avatarPreset: document.getElementById('profile-avatar-url-input').value.trim() ? undefined : selectedAvatarPreset
                     })
