@@ -2781,7 +2781,7 @@
             if (nextDefault !== null && (!port.value || Number(port.value) === previousDefault)) {
                 port.value = String(nextDefault);
             }
-            edition.dataset.previousDefaultPort = nextDefault === null ? '' : String(nextDefault);
+            edition.dataset.previousDefaultPort = String(nextDefault === null ? previousDefault : nextDefault);
         }
 
         function closeGameServerModal() {
