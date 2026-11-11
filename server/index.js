@@ -1979,32 +1979,46 @@ app.post('/api/clubs', requireAuth, profileLimiter, async (req, res, next) => {
 app.post('/api/clubs/:clubId/join', requireAuth, friendshipLimiter, async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.clubId)) return res.status(400).json({ success: false, message: 'Identificador de club inválido.' });
-    const club = await Club.findOne({ _id: req.params.clubId, visibility: 'public', status: 'active' });
-    if (!club) return res.status(404).json({ success: false, message: 'Club no encontrado.' });
-    if (club.members.some((member) => String(member.user) === req.auth.sub)) {
-      return res.status(409).json({ success: false, message: 'Ya pertenecés a este club.' });
+    const updated = await Club.findOneAndUpdate(
+      { _id: req.params.clubId, visibility: 'public', status: 'active', 'members.user': { $ne: req.auth.sub } },
+      {
+        $push: { members: { user: req.auth.sub, username: req.auth.username, role: 'member' } },
+        $inc: { memberCount: 1 },
+        $set: { updatedAt: new Date() }
+      },
+      { new: true, runValidators: true }
+    ).select('memberCount').lean();
+    if (!updated) {
+      const existing = await Club.findById(req.params.clubId).select('members.user').lean();
+      if (!existing) return res.status(404).json({ success: false, message: 'Club no encontrado.' });
+      if (existing.members.some((member) => String(member.user) === req.auth.sub)) {
+        return res.status(409).json({ success: false, message: 'Ya pertenecés a este club.' });
+      }
+      return res.status(404).json({ success: false, message: 'Club no disponible.' });
     }
-    club.members.push({ user: req.auth.sub, username: req.auth.username, role: 'member' });
-    club.memberCount = club.members.length;
-    club.updatedAt = new Date();
-    await club.save();
-    return res.json({ success: true, memberCount: club.memberCount, message: 'Te uniste al club.' });
+    return res.json({ success: true, memberCount: updated.memberCount, message: 'Te uniste al club.' });
   } catch (error) { return next(error); }
 });
 
 app.post('/api/clubs/:clubId/leave', requireAuth, friendshipLimiter, async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.clubId)) return res.status(400).json({ success: false, message: 'Identificador de club inválido.' });
-    const club = await Club.findOne({ _id: req.params.clubId, status: 'active' });
+    const club = await Club.findById(req.params.clubId).select('members.user members.role').lean();
     if (!club) return res.status(404).json({ success: false, message: 'Club no encontrado.' });
     const member = club.members.find((entry) => String(entry.user) === req.auth.sub);
     if (!member) return res.status(409).json({ success: false, message: 'No pertenecés a este club.' });
     if (member.role === 'owner') return res.status(400).json({ success: false, message: 'El propietario no puede abandonar su club. Transferí la propiedad o archivá el club.' });
-    club.members = club.members.filter((entry) => String(entry.user) !== req.auth.sub);
-    club.memberCount = club.members.length;
-    club.updatedAt = new Date();
-    await club.save();
-    return res.json({ success: true, memberCount: club.memberCount, message: 'Saliste del club.' });
+    const updated = await Club.findOneAndUpdate(
+      { _id: req.params.clubId, status: 'active', 'members.user': req.auth.sub, 'members.role': { $ne: 'owner' } },
+      {
+        $pull: { members: { user: req.auth.sub } },
+        $inc: { memberCount: -1 },
+        $set: { updatedAt: new Date() }
+      },
+      { new: true, runValidators: true }
+    ).select('memberCount').lean();
+    if (!updated) return res.status(409).json({ success: false, message: 'No se pudo actualizar tu membresía. Actualizá la lista e intentá de nuevo.' });
+    return res.json({ success: true, memberCount: updated.memberCount, message: 'Saliste del club.' });
   } catch (error) { return next(error); }
 });
 
