@@ -1,7 +1,7 @@
 const { app, BrowserWindow, shell, dialog, session, desktopCapturer } = require('electron');
 const path = require('node:path');
 
-let mainWindow = null;
+let mainWindow = null;\nlet splashWindow = null;
 
 function isTrustedAppContent(webContents) {
   const url = webContents && webContents.getURL();
@@ -75,7 +75,7 @@ function createWindow() {
     minWidth: 640,
     minHeight: 480,
     show: false,
-    backgroundColor: '#050509',
+    backgroundColor: '#08090D',\n    icon: path.join(__dirname, '..', 'assets', 'playverse-icon.png'),
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
@@ -86,7 +86,7 @@ function createWindow() {
   });
 
   mainWindow = window;
-  window.once('ready-to-show', () => window.show());
+  window.once('ready-to-show', () => {\n    if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();\n    splashWindow = null;\n    window.show();\n  });
 
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://')) shell.openExternal(url);
