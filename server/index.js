@@ -1814,12 +1814,17 @@ async function buildMissionProgress(userId, session = null) {
 
 app.get('/api/me/missions', requireAuth, async (req, res, next) => {
   try {
-    const missions = await buildMissionProgress(req.auth.sub);
+    const [missions, dailyMissions] = await Promise.all([
+      buildMissionProgress(req.auth.sub),
+      buildDailyMissionProgress(req.auth.sub)
+    ]);
     const completed = missions.filter((mission) => mission.completed).length;
     const claimed = missions.filter((mission) => mission.claimed).length;
+    const dailyCompleted = dailyMissions.filter((mission) => mission.completed).length;
     return res.json({
       success: true,
       missions,
+      dailyMissions,
       summary: {
         completed,
         claimed,
@@ -1827,8 +1832,15 @@ app.get('/api/me/missions', requireAuth, async (req, res, next) => {
         total: missions.length,
         percentage: Math.round((completed / missions.length) * 100)
       },
+      dailySummary: {
+        completed: dailyCompleted,
+        claimed: dailyMissions.filter((mission) => mission.claimed).length,
+        claimable: dailyMissions.filter((mission) => mission.claimable).length,
+        total: dailyMissions.length,
+        resetsAt: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() + 1)).toISOString()
+      },
       rewardsEnabled: true,
-      note: 'El progreso se calcula en el servidor con actividad real. Cada misión completada puede reclamarse una sola vez; los Tokens se acreditan en una transacción protegida.'
+      note: 'Las misiones diarias rotan por fecha UTC y el progreso se calcula con actividad real del servidor. Cada recompensa se acredita una sola vez por día.'
     });
   } catch (error) {
     return next(error);
@@ -1836,8 +1848,9 @@ app.get('/api/me/missions', requireAuth, async (req, res, next) => {
 });
 
 app.post('/api/me/missions/:missionId/claim', requireAuth, storeLimiter, async (req, res, next) => {
-  const definition = MISSION_CATALOG.find((mission) => mission.id === req.params.missionId);
-  if (!definition) return res.status(404).json({ success: false, message: 'Misión no encontrada.' });
+  const dailyDefinition = getDailyMissionDefinitions().find((mission) => mission.id === req.params.missionId);
+  const definition = dailyDefinition || MISSION_CATALOG.find((mission) => mission.id === req.params.missionId);
+  if (!definition) return res.status(404).json({ success: false, message: 'Misión no encontrada o ya venció.' });
   const currency = definition.rewardCurrency || 'gold';
   const walletField = getCurrencyField(currency);
   try { await MissionClaim.init(); } catch (error) { return next(error); }
@@ -1845,7 +1858,9 @@ app.post('/api/me/missions/:missionId/claim', requireAuth, storeLimiter, async (
   let result;
   try {
     await session.withTransaction(async () => {
-      const missions = await buildMissionProgress(req.auth.sub, session);
+      const missions = dailyDefinition
+        ? await buildDailyMissionProgress(req.auth.sub, session)
+        : await buildMissionProgress(req.auth.sub, session);
       const mission = missions.find((item) => item.id === definition.id);
       if (!mission || !mission.completed) { result = { error: 'NOT_COMPLETED' }; return; }
       if (mission.claimed) { result = { error: 'ALREADY_CLAIMED' }; return; }
