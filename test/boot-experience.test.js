@@ -33,6 +33,7 @@ test('startup progress begins visibly and cannot report 100 percent before sessi
 test('startup has a bounded cinematic hold and respects reduced motion', () => {
   assert.match(html, /5200 - \(Date\.now\(\) - startedAt\)/);
   assert.match(html, /prefers-reduced-motion:reduce/);
+  assert.ok(html.includes('pv-shooting-star 7.4s'));
 });
 
 test('earned mission rewards use an audible claim dialog with an orange claim action', () => {
