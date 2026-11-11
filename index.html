@@ -832,7 +832,8 @@
                 <div class="space-y-2 rounded-xl border border-slate-800 bg-slate-950/50 p-3">
                     <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Mostrar chat en overlay<input id="stream-overlay-show-chat" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
                     <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Mostrar espectadores<input id="stream-overlay-show-viewers" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
-                    <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Mostrar panel de donaciones/regalos<input id="stream-overlay-show-donations" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
+                    <label class="flex items-center justify-between gap-3 text-sm text-slate-500 opacity-70">Panel de donaciones/regalos <span class="text-[10px] text-amber-300">Aún no disponible</span><input id="stream-overlay-show-donations" type="checkbox" disabled class="accent-orange-400 w-5 h-5"></label>
+                    <p class="text-[10px] text-slate-500">El chat sí se mostrará en el overlay cuando esté habilitado. Las donaciones requieren integrar primero un sistema de pagos/regalos.</p>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <label class="block text-xs text-slate-400">Demora de transmisión<select id="stream-delay" disabled class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-500 opacity-70"><option value="none">No disponible · sin demora</option></select><span class="block mt-1 text-[10px] text-amber-300">La demora real requiere un pipeline de retransmisión dedicado; no se simula ni se aplica en esta versión.</span></label>
@@ -4559,7 +4560,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 document.getElementById('stream-social-tiktok').value = preferences.socialTikTok || '';
                 document.getElementById('stream-overlay-show-chat').checked = preferences.overlayShowChat !== false;
                 document.getElementById('stream-overlay-show-viewers').checked = preferences.overlayShowViewerCount !== false;
-                document.getElementById('stream-overlay-show-donations').checked = preferences.overlayShowDonations !== false;
+                document.getElementById('stream-overlay-show-donations').checked = false;
                 document.getElementById('stream-welcome-message').value = preferences.welcomeMessage || '';
                 document.getElementById('stream-farewell-message').value = preferences.farewellMessage || '';
                 document.getElementById('stream-delay').value = 'none';
@@ -4606,7 +4607,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 socialTikTok: document.getElementById('stream-social-tiktok').value.trim(),
                 overlayShowChat: document.getElementById('stream-overlay-show-chat').checked,
                 overlayShowViewerCount: document.getElementById('stream-overlay-show-viewers').checked,
-                overlayShowDonations: document.getElementById('stream-overlay-show-donations').checked,
+                overlayShowDonations: false,
                 welcomeMessage: document.getElementById('stream-welcome-message').value.trim(),
                 farewellMessage: document.getElementById('stream-farewell-message').value.trim(),
                 streamDelay: 'none',
