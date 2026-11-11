@@ -8,9 +8,9 @@ Feature inspiration does not authorize copying another product's proprietary cod
 
 ## Current architecture
 
-- **API:** Express over HTTPS in deployment, JWT-authenticated endpoints, rate limits and server-side authorization.
+- **API:** Express over HTTPS in deployment, JWT-authenticated endpoints, rate limits and server-side authorization. Liveness and database-readiness probes are available; graceful shutdown marks the instance unready, closes Socket.IO connections and then disconnects MongoDB.
 - **Database:** MongoDB/Mongoose for accounts, friendships, posts, comments, rooms and room messages.
-- **Realtime:** Socket.IO for authenticated multiplayer-room chat; authorization checks membership before joining.
+- **Realtime:** Socket.IO for authenticated room and private chat, with database-backed presence records. The current deployment is a single API instance; multi-instance fan-out requires a shared Socket.IO adapter and coordinated deployment.
 - **Web client:** current `index.html` interface, local Tailwind build and service-worker update foundation.
 - **Android shell:** Capacitor configuration and generated adaptive launcher resources. Native build and install still require verification.
 - **Windows shell:** Electron with hardened renderer settings. Installer build and real-machine verification remain pending.
@@ -60,3 +60,14 @@ A real streaming feature needs a separate media plane; ordinary REST or room-cha
 ## Completion standard
 
 A feature is not complete because a button, screen, model or API route exists. It is complete only after its user flow is connected, authorization and persistence work, tests pass, errors are handled, privacy and safety are reviewed, telemetry exists where operationally necessary, and the feature is verified on supported real devices. Production readiness and user capacity must be demonstrated by measured tests, not estimated from source code.
+
+
+## Cost-conscious deployment and global availability
+
+- Keep the current single-region API and one authoritative MongoDB deployment while the project is small. A single writer avoids cross-region write conflicts and keeps the free footprint simple.
+- The current Render API service is on the Free plan. Free web services can sleep after 15 minutes without inbound traffic, have ephemeral local storage, run only one instance and do not support horizontal scaling or edge caching. Expect cold starts and temporary Socket.IO disconnects after idle periods; clients must reconnect and reload persisted state.
+- Do not add extra Render services, Redis/Key Value, regional database replicas, media transcoders or CDN storage until measured usage requires them and a sustainable no-cost provider/allowance has been confirmed. Free quotas can be limited or suspended when exhausted; never attach a payment method or enable paid resources without explicit owner approval.
+- Static assets can be distributed through a free static-site CDN. Keep authenticated API writes routed to the primary API/database region. Global delivery of static files is not the same as a globally synchronized multiplayer backend.
+- When growth justifies multiple API instances, first add a shared Socket.IO adapter (for example, Redis-compatible pub/sub), durable rate-limit coordination, idempotent jobs and connection draining. Only then scale API instances. For multi-region writes, design data ownership, conflict resolution, replication lag handling and disaster recovery before deploying regional writers.
+- For live video, use a dedicated SFU/media provider rather than sending video through the API. A free development allowance may be useful for tests, but do not promise unlimited free live streaming, recording, transcoding or global CDN delivery.
+- Before launch, verify the actual MongoDB provider, region, backup policy, storage/transfer limits and billing settings. Never assume the currently connected database is free or production-ready without checking its owner dashboard.
