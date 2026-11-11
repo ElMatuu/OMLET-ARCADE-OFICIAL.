@@ -687,6 +687,7 @@
                     <section class="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-left">
                         <div class="flex items-center justify-between"><h4 class="text-xs font-black uppercase tracking-wider text-slate-200">Mis publicaciones</h4><span id="profile-post-count" class="text-[10px] text-slate-500">—</span></div>
                         <div id="profile-post-list" class="space-y-2" aria-live="polite"><p class="text-xs text-slate-500">Cargando publicaciones…</p></div>
+                        <button id="profile-post-more" type="button" onclick="loadProfilePosts(false)" class="hidden w-full rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800">Cargar más publicaciones</button>
                         <p id="profile-post-status" class="text-[10px] text-slate-500" role="status"></p>
                     </section>
                     <div id="profile-social-links" class="flex flex-wrap justify-center gap-2"></div>
@@ -1075,25 +1076,48 @@
 
         function toggleAllAchievements() { showAllAchievements = !showAllAchievements; renderProfileAchievements(); }
 
-        async function loadProfilePosts() {
+        let profilePostsCursor = null;
+        let profilePostsLoading = false;
+
+        async function loadProfilePosts(reset = true) {
+            if (profilePostsLoading) return;
             const list = document.getElementById('profile-post-list');
             const status = document.getElementById('profile-post-status');
-            if (!list || !status || !authToken) return;
-            list.textContent = 'Cargando tus publicaciones…';
-            try {
-                const data = await apiRequest('/api/me/posts?limit=20');
+            const more = document.getElementById('profile-post-more');
+            if (!list || !status || !more || !authToken) return;
+            profilePostsLoading = true;
+            if (reset) {
+                profilePostsCursor = null;
                 list.replaceChildren();
-                document.getElementById('profile-post-count').textContent = (data.posts || []).length + ' recientes';
+                list.textContent = 'Cargando tus publicaciones…';
+            }
+            more.disabled = true;
+            status.textContent = 'Sincronizando…';
+            try {
+                const query = new URLSearchParams({ limit: '20' });
+                if (profilePostsCursor) query.set('cursor', profilePostsCursor);
+                const data = await apiRequest('/api/me/posts?' + query.toString());
+                if (reset) list.replaceChildren();
                 (data.posts || []).forEach((post) => {
                     const article = document.createElement('article'); article.className = 'rounded-xl border border-slate-800 bg-slate-900/70 p-3';
                     const body = document.createElement('p'); body.className = 'whitespace-pre-wrap break-words text-xs text-slate-200'; body.textContent = post.content;
                     const meta = document.createElement('p'); meta.className = 'mt-2 text-[10px] text-slate-500'; meta.textContent = '♥ ' + post.likeCount + ' · Comentarios ' + post.commentCount + ' · ' + new Date(post.createdAt).toLocaleDateString('es-AR');
                     article.append(body, meta); list.append(article);
                 });
-                if (!(data.posts || []).length) list.textContent = 'Todavía no publicaste nada. Compartí tu primera jugada desde Inicio.';
-                status.textContent = 'Publicaciones cargadas desde tu cuenta.';
-            } catch (error) { status.textContent = error.message || 'No se pudieron cargar tus publicaciones.'; list.textContent = 'No pudimos cargar tus publicaciones.'; }
+                profilePostsCursor = data.page?.nextCursor || null;
+                more.classList.toggle('hidden', !data.page?.hasMore);
+                document.getElementById('profile-post-count').textContent = (list.querySelectorAll('article').length).toLocaleString('es-AR') + ' publicaciones cargadas';
+                if (!(data.posts || []).length && reset) list.textContent = 'Todavía no publicaste nada. Compartí tu primera jugada desde Inicio.';
+                status.textContent = 'Publicaciones sincronizadas desde tu cuenta.';
+            } catch (error) {
+                status.textContent = error.message || 'No se pudieron cargar tus publicaciones.';
+                if (reset) list.textContent = 'No pudimos cargar tus publicaciones.';
+            } finally {
+                profilePostsLoading = false;
+                more.disabled = false;
+            }
         }
+
 
         async function loadProfileSummary() {
             const status = document.getElementById('profile-stats-status');
