@@ -744,13 +744,18 @@ app.get('/api/me/achievements', requireAuth, async (req, res, next) => {
     const metrics = { posts, comments, rooms, roomMessages, friends, followers, savedPosts, tournaments, tournamentWins, streams };
     const unlocked = ACHIEVEMENTS.filter((item) => metrics[item.metric] >= item.target);
     if (unlocked.length) {
-      await UserAchievement.bulkWrite(unlocked.map((item) => ({
-        updateOne: {
-          filter: { user: userId, achievementId: item.id },
-          update: { $setOnInsert: { user: userId, achievementId: item.id, earnedXP: item.xp, unlockedAt: new Date() } },
-          upsert: true
+      await Promise.all(unlocked.map(async (item) => {
+        try {
+          await UserAchievement.updateOne(
+            { user: userId, achievementId: item.id },
+            { $setOnInsert: { user: userId, achievementId: item.id, earnedXP: item.xp, unlockedAt: new Date() } },
+            { upsert: true }
+          );
+        } catch (error) {
+          // A simultaneous profile refresh may win the unique insert; that is an already-earned trophy.
+          if (!error || error.code !== 11000) throw error;
         }
-      })), { ordered: false });
+      }));
     }
     const earned = await UserAchievement.find({ user: userId }).select('achievementId earnedXP unlockedAt').lean();
     const earnedById = new Map(earned.map((item) => [item.achievementId, item]));
