@@ -1,0 +1,85 @@
+services:
+  mongo:
+    image: mongo:7.0
+    restart: unless-stopped
+    command: ["mongod", "--bind_ip_all"]
+    volumes:
+      - playverse_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [playverse]
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      MONGODB_URI: mongodb://mongo:27017/playverse
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.selfhost}
+      CORS_ORIGIN: ${CORS_ORIGIN:?Set CORS_ORIGIN in .env.selfhost}
+      LIVEKIT_URL: ${LIVEKIT_URL:?Set LIVEKIT_URL in .env.selfhost}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:?Set LIVEKIT_API_KEY in .env.selfhost}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?Set LIVEKIT_API_SECRET in .env.selfhost}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks: [playverse]
+
+  livekit:
+    image: livekit/livekit-server:v1.9.0
+    restart: unless-stopped
+    command: ["--config", "/etc/livekit.yaml"]
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY:?Set LIVEKIT_API_KEY in .env.selfhost}: ${LIVEKIT_API_SECRET:?Set LIVEKIT_API_SECRET in .env.selfhost}"
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      - "7881:7881/tcp"
+      - "50000-50100:50000-50100/udp"
+    expose:
+      - "7880"
+    networks: [playverse]
+
+  caddy:
+    image: caddy:2.8
+    restart: unless-stopped
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?Set API_DOMAIN in .env.selfhost}
+      LIVE_DOMAIN: ${LIVE_DOMAIN:?Set LIVE_DOMAIN in .env.selfhost}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - playverse_caddy_data:/data
+      - playverse_caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+    networks: [playverse]
+
+volumes:
+  playverse_mongo_data:
+  playverse_caddy_data:
+  playverse_caddy_config:
+
+networks:
+  playverse:
+    driver: bridge
