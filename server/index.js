@@ -928,8 +928,8 @@ const STREAMING_PREFERENCE_RULES = {
   socialYouTube: (value) => typeof value === 'string' && value.trim().length <= 60,
   socialTwitch: (value) => typeof value === 'string' && value.trim().length <= 60,
   socialTikTok: (value) => typeof value === 'string' && value.trim().length <= 60,
-  welcomeMessage: (value) => typeof value === 'string' && value.trim().length <= 120,
-  farewellMessage: (value) => typeof value === 'string' && value.trim().length <= 120
+  welcomeMessage: (value) => typeof value === 'string' && value.trim().length <= 200,
+  farewellMessage: (value) => typeof value === 'string' && value.trim().length <= 200
 };
 
 app.get('/api/me/streaming-preferences', requireAuth, async (req, res, next) => {
