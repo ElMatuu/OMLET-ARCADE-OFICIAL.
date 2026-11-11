@@ -753,7 +753,7 @@ app.get('/api/me/posts', requireAuth, async (req, res, next) => {
 
 async function buildAchievementSnapshot(userId) {
   const [user, posts, comments, rooms, roomMessages, friends, followers, savedPosts, tournaments, tournamentWins, streams] = await Promise.all([
-    User.findById(userId).select('firstStorePurchaseBonusClaimedAt').lean(),
+    User.findById(userId).select('firstStorePurchaseBonusAvailableAt firstStorePurchaseBonusClaimedAt').lean(),
     Post.countDocuments({ author: userId }),
     Comment.countDocuments({ author: userId }),
     Room.countDocuments({ owner: userId }),
