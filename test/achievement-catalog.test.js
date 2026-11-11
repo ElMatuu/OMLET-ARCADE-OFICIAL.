@@ -6,7 +6,7 @@ test('achievement catalog has unique IDs, meaningful progression and valid rewar
   assert.ok(ACHIEVEMENTS.length >= 40);
   const firstPurchaseBonus = ACHIEVEMENTS.find((item) => item.id === 'first-purchase-bonus');
   assert.ok(firstPurchaseBonus);
-  assert.equal(firstPurchaseBonus.metric, 'firstPurchaseBonusClaimed');
+  assert.equal(firstPurchaseBonus.metric, 'firstPurchaseBonusAvailable');
   assert.equal(firstPurchaseBonus.xp, 250);
   const ids = ACHIEVEMENTS.map((item) => item.id);
   assert.equal(new Set(ids).size, ids.length);
