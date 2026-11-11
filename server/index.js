@@ -14,6 +14,8 @@ const User = require('./models/User');
 const Room = require('./models/Room');
 const GameServerListing = require('./models/GameServerListing');
 const Club = require('./models/Club');
+const Tournament = require('./models/Tournament');
+const { groupSoloEntries, buildSingleEliminationBracket } = require('./services/tournaments');
 const RoomMessage = require('./models/RoomMessage');
 const Post = require('./models/Post');
 const Story = require('./models/Story');
@@ -2393,6 +2395,165 @@ app.post('/api/clubs/:clubId/archive', requireAuth, friendshipLimiter, async (re
   } catch (error) { return next(error); }
 });
 
+
+
+app.get('/api/tournaments', async (req, res, next) => {
+  try {
+    const tournaments = await Tournament.find({ status: { $in: ['open', 'check-in', 'in-progress'] } })
+      .sort({ startsAt: 1 }).limit(100)
+      .select('title description game format mode teamSize maxEntries startsAt registrationClosesAt status creatorUsername entries')
+      .lean();
+    return res.json({ success: true, tournaments: tournaments.map((item) => ({
+      id: String(item._id), title: item.title, description: item.description, game: item.game,
+      format: item.format, mode: item.mode, teamSize: item.teamSize, maxEntries: item.maxEntries,
+      startsAt: item.startsAt, registrationClosesAt: item.registrationClosesAt, status: item.status,
+      creatorUsername: item.creatorUsername, entriesCount: item.entries.filter((entry) => entry.status !== 'withdrawn').length
+    })) });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/tournaments', requireAuth, profileLimiter, async (req, res, next) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const title = typeof body.title === 'string' ? body.title.trim() : '';
+    const game = typeof body.game === 'string' ? body.game.trim() : '';
+    const description = typeof body.description === 'string' ? body.description.trim() : '';
+    const format = body.format;
+    const mode = body.mode;
+    const teamSize = Number(body.teamSize || 1);
+    const maxEntries = Number(body.maxEntries || 32);
+    const startsAt = body.startsAt ? new Date(body.startsAt) : new Date(Date.now() + 30 * 60 * 1000);
+    const registrationClosesAt = body.registrationClosesAt ? new Date(body.registrationClosesAt) : new Date(startsAt.getTime() - 5 * 60 * 1000);
+    const checkInMinutes = Number(body.checkInMinutes ?? 15);
+    if (title.length < 3 || title.length > 80 || game.length < 2 || game.length > 40 || description.length > 500 ||
+      !['single-lobby', 'single-elimination'].includes(format) || !['quick', 'regular'].includes(mode) ||
+      !Number.isInteger(teamSize) || teamSize < 1 || teamSize > 10 || !Number.isInteger(maxEntries) || maxEntries < 2 || maxEntries > 256 ||
+      !Number.isFinite(startsAt.getTime()) || !Number.isFinite(registrationClosesAt.getTime()) ||
+      registrationClosesAt >= startsAt || startsAt <= new Date() ||
+      !Number.isInteger(checkInMinutes) || checkInMinutes < 0 || checkInMinutes > 180) {
+      return res.status(400).json({ success: false, message: 'Configuración del torneo inválida.' });
+    }
+    const user = await User.findById(req.auth.sub).select('username').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    const tournament = await Tournament.create({
+      title, game, description, format, mode, teamSize, maxEntries, startsAt, registrationClosesAt,
+      checkInMinutes, approvalMode: body.approvalMode === 'manual' ? 'manual' : 'automatic',
+      creator: req.auth.sub, creatorUsername: user.username
+    });
+    return res.status(201).json({ success: true, tournament: { id: String(tournament._id), title: tournament.title, status: tournament.status, startsAt: tournament.startsAt } });
+  } catch (error) { return next(error); }
+});
+
+app.get('/api/tournaments/:tournamentId', async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.tournamentId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    const tournament = await Tournament.findById(req.params.tournamentId).lean();
+    if (!tournament) return res.status(404).json({ success: false, message: 'Torneo no encontrado.' });
+    const entries = tournament.entries.filter((entry) => entry.status !== 'withdrawn').map((entry) => ({
+      id: String(entry._id), teamName: entry.teamName, captainUsername: entry.captainUsername,
+      members: entry.members.map((member) => member.username), registrationType: entry.registrationType,
+      status: entry.status, score: entry.score, placement: entry.placement
+    }));
+    return res.json({ success: true, tournament: {
+      id: String(tournament._id), title: tournament.title, description: tournament.description, game: tournament.game,
+      format: tournament.format, mode: tournament.mode, teamSize: tournament.teamSize, maxEntries: tournament.maxEntries,
+      startsAt: tournament.startsAt, registrationClosesAt: tournament.registrationClosesAt, status: tournament.status,
+      creatorUsername: tournament.creatorUsername, entries,
+      matches: tournament.matches.map((match) => ({ round: match.round, matchNumber: match.matchNumber, entryA: match.entryA, entryB: match.entryB, winner: match.winner, status: match.status }))
+    } });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/tournaments/:tournamentId/register', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.tournamentId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    const tournament = await Tournament.findOne({ _id: req.params.tournamentId, status: 'open', registrationClosesAt: { $gt: new Date() } });
+    if (!tournament) return res.status(404).json({ success: false, message: 'Inscripciones cerradas o torneo no disponible.' });
+    if (tournament.entries.some((entry) => String(entry.captain) === req.auth.sub || entry.members.some((member) => String(member.user) === req.auth.sub))) {
+      return res.status(409).json({ success: false, message: 'Ya estás inscripto en este torneo.' });
+    }
+    if (tournament.entries.filter((entry) => entry.status !== 'withdrawn').length >= tournament.maxEntries) {
+      return res.status(409).json({ success: false, message: 'El torneo alcanzó el máximo de inscripciones.' });
+    }
+    const user = await User.findById(req.auth.sub).select('username').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    const status = tournament.approvalMode === 'manual' ? 'pending' : 'approved';
+    tournament.entries.push({
+      teamName: '', captain: req.auth.sub, captainUsername: user.username,
+      members: [{ user: req.auth.sub, username: user.username }], registrationType: 'solo', status
+    });
+    tournament.updatedAt = new Date();
+    await tournament.save();
+    return res.status(201).json({ success: true, entryStatus: status, message: status === 'pending' ? 'Solicitud enviada al organizador.' : 'Inscripción confirmada.' });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/tournaments/:tournamentId/entries/:entryId/check-in', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.tournamentId) || !mongoose.isValidObjectId(req.params.entryId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    const tournament = await Tournament.findOne({ _id: req.params.tournamentId, status: 'open' });
+    if (!tournament) return res.status(404).json({ success: false, message: 'Torneo no disponible para check-in.' });
+    const opensAt = new Date(tournament.startsAt.getTime() - tournament.checkInMinutes * 60000);
+    if (new Date() < opensAt || new Date() >= tournament.startsAt) return res.status(409).json({ success: false, message: 'El check-in todavía no está abierto o ya cerró.' });
+    const entry = tournament.entries.id(req.params.entryId);
+    if (!entry || String(entry.captain) !== req.auth.sub) return res.status(403).json({ success: false, message: 'Solo el capitán puede confirmar el check-in.' });
+    if (entry.status !== 'approved') return res.status(409).json({ success: false, message: 'La inscripción no está aprobada.' });
+    entry.status = 'checked-in';
+    await tournament.save();
+    return res.json({ success: true, status: entry.status });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/tournaments/:tournamentId/entries/:entryId/approve', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.tournamentId) || !mongoose.isValidObjectId(req.params.entryId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    const tournament = await Tournament.findOne({ _id: req.params.tournamentId, creator: req.auth.sub, status: 'open' });
+    if (!tournament) return res.status(404).json({ success: false, message: 'Torneo no encontrado o no sos su organizador.' });
+    const entry = tournament.entries.id(req.params.entryId);
+    if (!entry || entry.status !== 'pending') return res.status(404).json({ success: false, message: 'Inscripción pendiente no encontrada.' });
+    entry.status = req.body.approved === false ? 'withdrawn' : 'approved';
+    await tournament.save();
+    return res.json({ success: true, status: entry.status });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/tournaments/:tournamentId/start', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.tournamentId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    const tournament = await Tournament.findOne({ _id: req.params.tournamentId, creator: req.auth.sub, status: 'open' });
+    if (!tournament) return res.status(404).json({ success: false, message: 'Torneo no encontrado o ya iniciado.' });
+    if (new Date() < tournament.startsAt) return res.status(409).json({ success: false, message: 'Todavía no llegó la hora de inicio.' });
+    let eligible = tournament.entries.filter((entry) => entry.status === 'approved' || entry.status === 'checked-in');
+    if (tournament.teamSize > 1) {
+      const grouped = groupSoloEntries(eligible, tournament.teamSize);
+      tournament.entries = grouped;
+      eligible = grouped.filter((entry) => entry.registrationType === 'team');
+    }
+    if (eligible.length < 2) return res.status(409).json({ success: false, message: 'Se necesitan al menos dos equipos o jugadores aptos.' });
+    if (tournament.format === 'single-elimination') tournament.matches = buildSingleEliminationBracket(eligible);
+    tournament.status = 'in-progress';
+    tournament.updatedAt = new Date();
+    await tournament.save();
+    return res.json({ success: true, status: tournament.status, entries: eligible.length, matches: tournament.matches.length });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/tournaments/:tournamentId/entries/:entryId/score', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.tournamentId) || !mongoose.isValidObjectId(req.params.entryId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    const tournament = await Tournament.findOne({ _id: req.params.tournamentId, creator: req.auth.sub, format: 'single-lobby', status: 'in-progress' });
+    if (!tournament) return res.status(404).json({ success: false, message: 'Torneo no encontrado o no sos el organizador.' });
+    const score = Number(req.body.score);
+    if (!Number.isFinite(score) || score < 0 || score > 1000000) return res.status(400).json({ success: false, message: 'Puntuación inválida.' });
+    const entry = tournament.entries.id(req.params.entryId);
+    if (!entry || entry.status === 'withdrawn') return res.status(404).json({ success: false, message: 'Participante no encontrado.' });
+    entry.score = score;
+    tournament.entries.sort((a, b) => b.score - a.score);
+    tournament.entries.forEach((item, index) => { item.placement = index + 1; });
+    await tournament.save();
+    return res.json({ success: true, leaderboard: tournament.entries.filter((item) => item.status !== 'withdrawn').map((item) => ({ entryId: String(item._id), username: item.captainUsername, score: item.score, placement: item.placement })) });
+  } catch (error) { return next(error); }
+});
 
 const GAME_SERVER_HEARTBEAT_MAX_AGE_MS = 90 * 1000;
 const GAME_SERVER_TOKEN_PATTERN = /^[A-Za-z0-9_-]{40,60}$/;
