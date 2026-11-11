@@ -287,9 +287,9 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.ok(bobActivity.body.activities.every((item) => item.type !== 'post' && item.type !== 'room'));
     const aliceMissions = await request(baseUrl, '/api/me/missions', {}, alice.body.token);
     assert.equal(aliceMissions.status, 200);
-    assert.equal(aliceMissions.body.missions.length, 22);
-    assert.equal(aliceMissions.body.summary.total, 22);
-    assert.equal(new Set(aliceMissions.body.missions.map((mission) => mission.chapter)).size, 5);
+    assert.equal(aliceMissions.body.missions.length, 23);
+    assert.equal(aliceMissions.body.summary.total, 23);
+    assert.equal(new Set(aliceMissions.body.missions.map((mission) => mission.chapter)).size, 6);
     assert.equal(aliceMissions.body.rewardsEnabled, true);
     assert.equal(aliceMissions.body.missions.find((mission) => mission.id === 'welcome-post-1').completed, true);
     assert.equal(aliceMissions.body.missions.find((mission) => mission.id === 'party-room-1').completed, true);
