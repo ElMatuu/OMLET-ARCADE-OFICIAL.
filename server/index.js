@@ -15,6 +15,7 @@ const Room = require('./models/Room');
 const Club = require('./models/Club');
 const RoomMessage = require('./models/RoomMessage');
 const Post = require('./models/Post');
+const Story = require('./models/Story');
 const SavedPost = require('./models/SavedPost');
 const Comment = require('./models/Comment');
 const Friendship = require('./models/Friendship');
@@ -1450,6 +1451,91 @@ const postLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { success: false, message: 'Publicaste demasiado rápido. Probá más tarde.' }
+});
+
+// Stories are temporary community updates, available for 24 hours.
+app.get('/api/stories', requireAuth, async (req, res, next) => {
+  try {
+    const following = await Follow.find({ follower: req.auth.sub }).select('following').lean();
+    const visibleAuthors = [...new Set([req.auth.sub, ...following.map((item) => String(item.following))])];
+    const blocked = await Block.find({ $or: [
+      { blocker: req.auth.sub }, { blocked: req.auth.sub }
+    ] }).select('blocker blocked').lean();
+    const blockedIds = new Set(blocked.flatMap((item) => [String(item.blocker), String(item.blocked)]));
+    const allowedAuthors = visibleAuthors.filter((id) => !blockedIds.has(id));
+    const stories = await Story.find({
+      expiresAt: { $gt: new Date() },
+      $or: [
+        { author: req.auth.sub },
+        { author: { $in: allowedAuthors }, visibility: 'public' },
+        { author: { $in: allowedAuthors }, visibility: 'followers' }
+      ]
+    }).sort({ createdAt: -1, _id: -1 }).limit(100).lean();
+    return res.json({ success: true, stories: stories.map((story) => ({
+      id: String(story._id), authorId: String(story.author), authorUsername: story.authorUsername,
+      text: story.text, mediaUrl: story.mediaUrl, mediaType: story.mediaType,
+      visibility: story.visibility, viewCount: story.views.length,
+      viewedByMe: story.views.some((id) => String(id) === req.auth.sub),
+      createdAt: story.createdAt, expiresAt: story.expiresAt,
+      isMine: String(story.author) === req.auth.sub
+    })) });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/stories', requireAuth, postLimiter, async (req, res, next) => {
+  try {
+    const text = typeof req.body.text === 'string' ? req.body.text.trim() : '';
+    const mediaUrl = typeof req.body.mediaUrl === 'string' ? req.body.mediaUrl.trim() : '';
+    const mediaType = ['text', 'image', 'video'].includes(req.body.mediaType) ? req.body.mediaType : 'text';
+    const visibility = ['public', 'followers'].includes(req.body.visibility) ? req.body.visibility : 'public';
+    if (text.length > 500 || mediaUrl.length > 1200 || (!text && !mediaUrl)) {
+      return res.status(400).json({ success: false, message: 'La historia necesita texto o un enlace multimedia HTTPS válido.' });
+    }
+    if (mediaUrl) {
+      let parsed;
+      try { parsed = new URL(mediaUrl); } catch { parsed = null; }
+      if (!parsed || parsed.protocol !== 'https:' || !parsed.hostname || parsed.username || parsed.password) {
+        return res.status(400).json({ success: false, message: 'El contenido multimedia debe usar una URL HTTPS válida.' });
+      }
+    }
+    if (mediaType !== 'text' && !mediaUrl) {
+      return res.status(400).json({ success: false, message: 'Agregá el enlace del contenido multimedia.' });
+    }
+    const user = await User.findById(req.auth.sub).select('username').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    const now = new Date();
+    const story = await Story.create({
+      author: req.auth.sub, authorUsername: user.username, text, mediaUrl, mediaType, visibility,
+      createdAt: now, expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000)
+    });
+    return res.status(201).json({ success: true, story: {
+      id: String(story._id), authorId: req.auth.sub, authorUsername: story.authorUsername,
+      text: story.text, mediaUrl: story.mediaUrl, mediaType: story.mediaType,
+      visibility: story.visibility, viewCount: 0, viewedByMe: false,
+      createdAt: story.createdAt, expiresAt: story.expiresAt, isMine: true
+    } });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/stories/:storyId/view', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.storyId)) return res.status(400).json({ success: false, message: 'Historia inválida.' });
+    const story = await Story.findOneAndUpdate(
+      { _id: req.params.storyId, expiresAt: { $gt: new Date() }, author: { $ne: req.auth.sub } },
+      { $addToSet: { views: req.auth.sub } }, { new: true }
+    ).select('author views').lean();
+    if (!story) return res.status(404).json({ success: false, message: 'La historia no existe o ya venció.' });
+    return res.json({ success: true, viewCount: story.views.length, viewedByMe: true });
+  } catch (error) { return next(error); }
+});
+
+app.delete('/api/stories/:storyId', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.storyId)) return res.status(400).json({ success: false, message: 'Historia inválida.' });
+    const story = await Story.findOneAndDelete({ _id: req.params.storyId, author: req.auth.sub });
+    if (!story) return res.status(404).json({ success: false, message: 'No se encontró una historia propia para eliminar.' });
+    return res.json({ success: true, deletedStoryId: String(story._id) });
+  } catch (error) { return next(error); }
 });
 
 const MISSION_CATALOG = [
