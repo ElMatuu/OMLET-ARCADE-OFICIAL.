@@ -206,6 +206,15 @@ test('public player achievements require an authenticated account', async () => 
   });
 });
 
+test('trophy claim endpoint requires an authenticated account', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/me/achievements/first-post/claim', { method: 'POST' });
+    const body = await response.json();
+    assert.equal(response.status, 401);
+    assert.equal(body.success, false);
+  });
+});
+
 test('first purchase experience reward endpoints require an authenticated account', async () => {
   await withServer(async (baseUrl) => {
     const read = await fetch(baseUrl + '/api/me/experience-rewards');
