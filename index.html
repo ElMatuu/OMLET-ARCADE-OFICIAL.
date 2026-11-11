@@ -220,6 +220,7 @@
                 <button onclick="switchTab('live'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-tower-broadcast text-rose-400 w-5"></i><span>En Vivo</span></button>
                 <button onclick="switchTab('lobbies'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-gamepad text-emerald-400 w-5"></i><span>Juegos y Salas</span></button>
                 <button onclick="switchTab('clubs'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-users text-orange-300 w-5"></i><span>Clubs y Comunidades</span></button>
+                <button onclick="switchTab('tournaments'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-trophy text-amber-300 w-5"></i><span>Torneos</span></button>
                 <button onclick="switchTab('chat'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-comments text-sky-400 w-5"></i><span>Chat y Grupos</span></button>
                 <button onclick="switchTab('shop'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-store text-purple-400 w-5"></i><span>Tienda Arcade & Marcos</span></button>
                 <button onclick="switchTab('events'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-sparkles text-amber-400 w-5"></i><span>Eventos</span></button>
@@ -536,6 +537,28 @@
                     <p id="clubs-status" class="text-xs text-slate-400" role="status">Cargando comunidades…</p>
                 </section>
                 <div id="clubs-list" class="grid gap-3 sm:grid-cols-2" aria-live="polite"></div>
+            </div>
+
+            <!-- TAB TOURNAMENTS -->
+            <div id="tab-tournaments" class="space-y-5 hidden">
+                <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
+                    <div><p class="text-[10px] font-bold uppercase tracking-widest text-amber-300">COMPETENCIA PLAYVERSE</p><h3 class="font-black text-xl">Torneos</h3><p class="text-xs text-slate-400">Creá competencias, inscribite y seguí los resultados desde la plataforma.</p></div>
+                    <form id="tournament-create-form" class="grid gap-2 sm:grid-cols-2" onsubmit="createTournament(event)">
+                        <input id="tournament-title" required minlength="3" maxlength="80" class="sm:col-span-2 rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm" placeholder="Nombre del torneo">
+                        <input id="tournament-game" required minlength="2" maxlength="40" class="rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm" placeholder="Juego (Free Fire, Roblox…)">
+                        <select id="tournament-format" class="rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm"><option value="single-lobby">Single Lobby · Puntuación</option><option value="single-elimination">Eliminación directa</option></select>
+                        <select id="tournament-mode" class="rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm"><option value="quick">Modo rápido</option><option value="regular">Modo regular</option></select>
+                        <input id="tournament-team-size" type="number" min="1" max="10" value="1" class="rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm" aria-label="Jugadores por equipo">
+                        <input id="tournament-max-entries" type="number" min="2" max="256" value="32" class="rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm" aria-label="Máximo de inscripciones">
+                        <input id="tournament-starts-at" type="datetime-local" required class="sm:col-span-2 rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm">
+                        <select id="tournament-approval" class="rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm"><option value="automatic">Aprobación automática</option><option value="manual">Aprobación manual</option></select>
+                        <input id="tournament-checkin" type="number" min="0" max="180" value="15" class="rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm" aria-label="Minutos de check-in">
+                        <textarea id="tournament-description" maxlength="500" rows="2" class="sm:col-span-2 rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm" placeholder="Reglas y descripción (opcional)"></textarea>
+                        <button class="sm:col-span-2 PLAYVERSE-gradient rounded-xl px-4 py-3 text-sm font-black">Crear torneo</button>
+                    </form>
+                    <p id="tournaments-status" class="text-xs text-slate-400" role="status"></p>
+                </section>
+                <section class="space-y-3"><div class="flex items-center justify-between"><h4 class="font-bold">Torneos disponibles</h4><button type="button" onclick="loadTournaments()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs">Actualizar</button></div><div id="tournaments-list" class="grid gap-3 md:grid-cols-2"></div></section>
             </div>
 
             <!-- TAB EVENTS / MISSIONS -->
@@ -1283,7 +1306,7 @@
         }
 
         function switchTab(tabName) {
-            ['feed', 'live', 'chat', 'lobbies', 'clubs', 'shop', 'events', 'profile', 'friends', 'saved', 'notifications', 'help'].forEach(t => {
+            ['feed', 'live', 'chat', 'lobbies', 'clubs', 'tournaments', 'shop', 'events', 'profile', 'friends', 'saved', 'notifications', 'help'].forEach(t => {
                 const el = document.getElementById('tab-' + t);
                 if(el) el.classList.add('hidden');
             });
@@ -1291,6 +1314,7 @@
             if (tabName === 'live') loadLiveStreams();
             if (tabName === 'lobbies') loadRooms();
             if (tabName === 'clubs') loadClubs();
+            if (tabName === 'tournaments') loadTournaments();
             if (tabName === 'chat') loadDirectConversations();
             if (tabName === 'feed') loadCommunityPosts();
             if (tabName === 'saved') loadSavedPosts();
@@ -1889,6 +1913,75 @@
         function closeClubCreateModal() {
             document.getElementById('club-create-modal').classList.add('hidden');
         }
+        async function loadTournaments() {
+            const status = document.getElementById('tournaments-status');
+            const list = document.getElementById('tournaments-list');
+            if (!status || !list) return;
+            status.textContent = 'Cargando torneos…';
+            list.replaceChildren();
+            try {
+                const data = await apiRequest('/api/tournaments');
+                if (!data.tournaments.length) {
+                    status.textContent = 'Todavía no hay torneos abiertos. ¡Creá el primero!';
+                    return;
+                }
+                status.textContent = data.tournaments.length + ' torneos disponibles.';
+                data.tournaments.forEach((item) => {
+                    const card = document.createElement('article');
+                    card.className = 'PLAYVERSE-card rounded-2xl p-4 space-y-3';
+                    const date = new Date(item.startsAt).toLocaleString();
+                    card.innerHTML = '<div class="flex items-start justify-between gap-2"><div><h4 class="font-black">' + escapeHtml(item.title) + '</h4><p class="text-xs text-slate-400">' + escapeHtml(item.game) + ' · ' + (item.format === 'single-lobby' ? 'Single Lobby' : 'Eliminación directa') + '</p></div><span class="rounded-full bg-amber-500/10 px-2 py-1 text-[10px] text-amber-200">' + escapeHtml(item.status) + '</span></div><p class="text-xs text-slate-400">Organiza @' + escapeHtml(item.creatorUsername) + ' · ' + item.entriesCount + '/' + item.maxEntries + ' inscriptos</p><p class="text-xs text-slate-300">Inicio: ' + escapeHtml(date) + ' · Equipo de ' + item.teamSize + '</p><button type="button" class="w-full rounded-xl bg-orange-500 px-3 py-2.5 text-xs font-black text-white">Inscribirme</button>';
+                    const action = card.querySelector('button');
+                    action.disabled = item.status !== 'open' || item.entriesCount >= item.maxEntries;
+                    action.addEventListener('click', async () => {
+                        action.disabled = true;
+                        try {
+                            const result = await apiRequest('/api/tournaments/' + encodeURIComponent(item.id) + '/register', { method: 'POST' });
+                            status.textContent = result.message;
+                            await loadTournaments();
+                        } catch (error) {
+                            status.textContent = error.message;
+                            action.disabled = false;
+                        }
+                    });
+                    list.appendChild(card);
+                });
+            } catch (error) {
+                status.textContent = 'No se pudieron cargar los torneos: ' + error.message;
+            }
+        }
+
+        async function createTournament(event) {
+            event.preventDefault();
+            const status = document.getElementById('tournaments-status');
+            const startsAt = new Date(document.getElementById('tournament-starts-at').value);
+            if (!Number.isFinite(startsAt.getTime())) { status.textContent = 'Elegí una fecha y hora válidas.'; return; }
+            try {
+                const result = await apiRequest('/api/tournaments', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: document.getElementById('tournament-title').value,
+                        game: document.getElementById('tournament-game').value,
+                        description: document.getElementById('tournament-description').value,
+                        format: document.getElementById('tournament-format').value,
+                        mode: document.getElementById('tournament-mode').value,
+                        teamSize: Number(document.getElementById('tournament-team-size').value),
+                        maxEntries: Number(document.getElementById('tournament-max-entries').value),
+                        startsAt: startsAt.toISOString(),
+                        registrationClosesAt: new Date(startsAt.getTime() - 5 * 60000).toISOString(),
+                        approvalMode: document.getElementById('tournament-approval').value,
+                        checkInMinutes: Number(document.getElementById('tournament-checkin').value)
+                    })
+                });
+                status.textContent = 'Torneo creado correctamente: ' + result.tournament.title;
+                document.getElementById('tournament-create-form').reset();
+                await loadTournaments();
+            } catch (error) {
+                status.textContent = 'No se pudo crear el torneo: ' + error.message;
+            }
+        }
+
         async function loadClubs(query = '') {
             const status = document.getElementById('clubs-status');
             const list = document.getElementById('clubs-list');
