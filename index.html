@@ -558,7 +558,7 @@
                     </form>
                     <p id="tournaments-status" class="text-xs text-slate-400" role="status"></p>
                 </section>
-                <section class="space-y-3"><div class="flex items-center justify-between"><h4 class="font-bold">Torneos disponibles</h4><button type="button" onclick="loadTournaments()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs">Actualizar</button></div><div id="tournaments-list" class="grid gap-3 md:grid-cols-2"></div></section>
+                <section class="space-y-3"><div class="flex items-center justify-between"><h4 class="font-bold">Torneos disponibles</h4><button type="button" onclick="loadTournaments()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs">Actualizar</button></div><div id="tournaments-list" class="grid gap-3 md:grid-cols-2"></div><div id="tournament-details" class="space-y-3"></div></section>
             </div>
 
             <!-- TAB EVENTS / MISSIONS -->
@@ -1944,10 +1944,94 @@
                             action.disabled = false;
                         }
                     });
+                    const detailsButton = document.createElement('button');
+                    detailsButton.type = 'button';
+                    detailsButton.className = 'w-full rounded-xl border border-slate-700 px-3 py-2.5 text-xs font-bold text-slate-200';
+                    detailsButton.textContent = 'Ver torneo y gestionar';
+                    detailsButton.addEventListener('click', () => openTournamentDetails(item.id));
+                    card.appendChild(detailsButton);
                     list.appendChild(card);
                 });
             } catch (error) {
                 status.textContent = 'No se pudieron cargar los torneos: ' + error.message;
+            }
+        }
+
+        async function openTournamentDetails(tournamentId) {
+            const panel = document.getElementById('tournament-details');
+            const status = document.getElementById('tournaments-status');
+            if (!panel) return;
+            panel.replaceChildren();
+            try {
+                const data = await apiRequest('/api/tournaments/' + encodeURIComponent(tournamentId));
+                const tournament = data.tournament;
+                const owner = appState.profile && appState.profile.username === tournament.creatorUsername;
+                const card = document.createElement('section');
+                card.className = 'PLAYVERSE-card rounded-2xl p-4 space-y-3';
+                card.innerHTML = '<div class="flex items-center justify-between gap-2"><h4 class="font-black">' + escapeHtml(tournament.title) + '</h4><span class="text-[10px] text-amber-200">' + escapeHtml(tournament.status) + '</span></div><p class="text-xs text-slate-400">' + escapeHtml(tournament.description || 'Sin descripción') + '</p><h5 class="text-sm font-bold">Inscripciones (' + tournament.entries.length + ')</h5><div id="tournament-entry-list" class="space-y-2"></div><h5 class="text-sm font-bold">Partidas y llaves</h5><div id="tournament-match-list" class="space-y-2"></div>';
+                const entryList = card.querySelector('#tournament-entry-list');
+                tournament.entries.forEach((entry) => {
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center justify-between gap-2 rounded-xl bg-slate-950 p-3 text-xs';
+                    row.innerHTML = '<div><strong>' + escapeHtml(entry.teamName || entry.captainUsername) + '</strong><p class="text-slate-400">' + escapeHtml(entry.members.join(', ')) + ' · ' + escapeHtml(entry.status) + '</p></div>';
+                    if (entry.isCaptain && entry.status === 'approved' && tournament.status === 'open') {
+                        const checkin = document.createElement('button');
+                        checkin.className = 'rounded-lg bg-emerald-500 px-3 py-2 font-bold text-slate-950';
+                        checkin.textContent = 'Check-in';
+                        checkin.addEventListener('click', async () => {
+                            try { await apiRequest('/api/tournaments/' + tournamentId + '/entries/' + entry.id + '/check-in', { method: 'POST' }); await openTournamentDetails(tournamentId); }
+                            catch (error) { status.textContent = error.message; }
+                        });
+                        row.appendChild(checkin);
+                    }
+                    if (owner && entry.status === 'pending') {
+                        const approve = document.createElement('button');
+                        approve.className = 'rounded-lg bg-emerald-500 px-3 py-2 font-bold text-slate-950';
+                        approve.textContent = 'Aprobar';
+                        approve.addEventListener('click', async () => {
+                            try { await apiRequest('/api/tournaments/' + tournamentId + '/entries/' + entry.id + '/approve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ approved: true }) }); await openTournamentDetails(tournamentId); }
+                            catch (error) { status.textContent = error.message; }
+                        });
+                        row.appendChild(approve);
+                    }
+                    entryList.appendChild(row);
+                });
+                const matchList = card.querySelector('#tournament-match-list');
+                tournament.matches.forEach((match) => {
+                    const row = document.createElement('div');
+                    row.className = 'rounded-xl bg-slate-950 p-3 text-xs';
+                    const a = tournament.entries.find((entry) => entry.id === match.entryA);
+                    const b = tournament.entries.find((entry) => entry.id === match.entryB);
+                    row.innerHTML = '<p class="font-bold">Ronda ' + match.round + ' · Partida ' + match.matchNumber + '</p><p class="text-slate-400">' + escapeHtml(a ? (a.teamName || a.captainUsername) : 'Por definir') + ' vs ' + escapeHtml(b ? (b.teamName || b.captainUsername) : 'Por definir') + '</p><p class="text-slate-500">' + escapeHtml(match.status) + '</p>';
+                    if (owner && match.status === 'pending' && match.entryA && match.entryB) {
+                        [match.entryA, match.entryB].forEach((winnerId) => {
+                            const entry = tournament.entries.find((item) => item.id === winnerId);
+                            const button = document.createElement('button');
+                            button.className = 'mr-2 mt-2 rounded-lg border border-amber-500/40 px-3 py-2 text-amber-200';
+                            button.textContent = 'Ganó ' + (entry ? entry.captainUsername : 'participante');
+                            button.addEventListener('click', async () => {
+                                try { await apiRequest('/api/tournaments/' + tournamentId + '/matches/' + match.round + '/' + match.matchNumber + '/result', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ winnerEntryId: winnerId }) }); await openTournamentDetails(tournamentId); }
+                                catch (error) { status.textContent = error.message; }
+                            });
+                            row.appendChild(button);
+                        });
+                    }
+                    matchList.appendChild(row);
+                });
+                if (owner && tournament.status === 'open') {
+                    const start = document.createElement('button');
+                    start.className = 'w-full PLAYVERSE-gradient rounded-xl px-4 py-3 text-sm font-black';
+                    start.textContent = 'Iniciar torneo';
+                    start.addEventListener('click', async () => {
+                        try { await apiRequest('/api/tournaments/' + tournamentId + '/start', { method: 'POST' }); await openTournamentDetails(tournamentId); await loadTournaments(); }
+                        catch (error) { status.textContent = error.message; }
+                    });
+                    card.appendChild(start);
+                }
+                panel.appendChild(card);
+                panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } catch (error) {
+                status.textContent = 'No se pudo abrir el torneo: ' + error.message;
             }
         }
 
