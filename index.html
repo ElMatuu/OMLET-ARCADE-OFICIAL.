@@ -1174,6 +1174,16 @@
             }
             setupOverlayPermissionPrompt();
             const overlayPlugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.OverlayPermission;
+            function consumeFloatingAction() {
+                if (!overlayPlugin || typeof overlayPlugin.consumePendingAction !== 'function') return;
+                overlayPlugin.consumePendingAction().then(function(result) {
+                    if (result && result.action === 'chat') switchTab('chat');
+                    if (result && result.action === 'live') switchTab('live');
+                }).catch(function() {});
+            }
+            consumeFloatingAction();
+            window.addEventListener('focus', consumeFloatingAction);
+            const overlayPlugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.OverlayPermission;
             if (overlayPlugin && typeof overlayPlugin.consumePendingAction === 'function') {
                 overlayPlugin.consumePendingAction().then((result) => {
                     if (result && result.action === 'chat') switchTab('chat');
