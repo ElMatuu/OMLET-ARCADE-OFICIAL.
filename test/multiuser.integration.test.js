@@ -134,6 +134,17 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.equal(dailyMissionsResponse.body.dailyMissions.length, 4);
     assert.ok(dailyMissionsResponse.body.dailySummary.resetsAt);
     assert.ok(dailyMissionsResponse.body.dailyMissions.every((mission) => mission.daily === true && mission.id.startsWith('daily:')));
+    const dailyPostMission = dailyMissionsResponse.body.dailyMissions.find((mission) => mission.metric === 'posts');
+    assert.ok(dailyPostMission);
+    const dailyPost = await request(baseUrl, '/api/posts', { method: 'POST', body: { content: 'Progreso diario de integración' } }, charlie.body.token);
+    assert.equal(dailyPost.status, 201);
+    const refreshedDaily = await request(baseUrl, '/api/me/missions', {}, charlie.body.token);
+    const claimableDaily = refreshedDaily.body.dailyMissions.find((mission) => mission.id === dailyPostMission.id);
+    assert.equal(claimableDaily.claimable, true);
+    const dailyReward = await request(baseUrl, '/api/me/missions/' + encodeURIComponent(dailyPostMission.id) + '/claim', { method: 'POST' }, charlie.body.token);
+    assert.equal(dailyReward.status, 201);
+    const duplicateDailyReward = await request(baseUrl, '/api/me/missions/' + encodeURIComponent(dailyPostMission.id) + '/claim', { method: 'POST' }, charlie.body.token);
+    assert.equal(duplicateDailyReward.status, 409);
 
     const tournamentStart = new Date(Date.now() + 5000);
     const tournamentCreated = await request(baseUrl, '/api/tournaments', {
