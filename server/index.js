@@ -3099,13 +3099,14 @@ app.post('/api/game-servers/:serverId/heartbeat', async (req, res, next) => {
     if (!mongoose.isValidObjectId(req.params.serverId)) return res.status(400).json({ success: false, message: 'Identificador de servidor inválido.' });
     const token = req.get('X-Server-Token') || '';
     if (!GAME_SERVER_TOKEN_PATTERN.test(token)) return res.status(401).json({ success: false, message: 'Token de servidor inválido.' });
-    const playerCount = Number(req.body.playerCount);
-    const maxPlayers = Number(req.body.maxPlayers);
-    const isOnline = req.body.isOnline;
-    const version = typeof req.body.version === 'string' ? req.body.version.trim().slice(0, 40) : '';
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const playerCount = Number(body.playerCount);
+    const maxPlayers = Number(body.maxPlayers);
+    const isOnline = body.isOnline;
+    const version = typeof body.version === 'string' ? body.version.trim().slice(0, 40) : '';
     if (typeof isOnline !== 'boolean' || !Number.isInteger(playerCount) || playerCount < 0 || playerCount > 1000000 ||
         !Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 1000000 || playerCount > maxPlayers ||
-        (typeof req.body.version === 'string' && req.body.version.trim().length > 40)) {
+        (typeof body.version === 'string' && body.version.trim().length > 40)) {
       return res.status(400).json({ success: false, message: 'Cantidad de jugadores, capacidad o versión inválida.' });
     }
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
