@@ -129,6 +129,12 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     const archivedCannotBeJoined = await request(baseUrl, '/api/clubs/' + clubId + '/join', { method: 'POST' }, charlie.body.token);
     assert.equal(archivedCannotBeJoined.status, 404);
 
+    const dailyMissionsResponse = await request(baseUrl, '/api/me/missions', {}, charlie.body.token);
+    assert.equal(dailyMissionsResponse.status, 200);
+    assert.equal(dailyMissionsResponse.body.dailyMissions.length, 4);
+    assert.ok(dailyMissionsResponse.body.dailySummary.resetsAt);
+    assert.ok(dailyMissionsResponse.body.dailyMissions.every((mission) => mission.daily === true && mission.id.startsWith('daily:')));
+
     const tournamentStart = new Date(Date.now() + 5000);
     const tournamentCreated = await request(baseUrl, '/api/tournaments', {
       method: 'POST',
