@@ -24,8 +24,8 @@ test('creator stream overlay preferences are persisted with validated options', 
     socialYouTube: 60,
     socialTwitch: 60,
     socialTikTok: 60,
-    welcomeMessage: 120,
-    farewellMessage: 120
+    welcomeMessage: 200,
+    farewellMessage: 200
   })) {
     const path = schema.path(field);
     assert.ok(path, field + ' must be persisted');
