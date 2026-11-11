@@ -1066,7 +1066,7 @@ app.post('/api/wallet/transfers', requireAuth, storeLimiter, async (req, res, ne
       await TokenTransaction.create([
         { user: req.auth.sub, type: 'transfer_out', currency, amount: -amount, itemId: 'gift:' + String(recipient._id), counterparty: recipient._id, counterpartyUsername: recipient.username, balanceAfter: getWalletBalances(sender)[currency] },
         { user: recipient._id, type: 'transfer_in', currency, amount, itemId: 'gift:' + String(req.auth.sub), counterparty: req.auth.sub, counterpartyUsername: sender.username, balanceAfter: getWalletBalances(updatedRecipient)[currency] }
-      ], { session });
+      ], { session, ordered: true });
       const notifications = await Notification.create([{
         recipient: recipient._id, actor: req.auth.sub, type: 'token_gift',
         title: 'Recibiste un regalo', body: sender.username + ' te envió ' + amount + ' ' + getCurrencyLabel(currency) + '.'
