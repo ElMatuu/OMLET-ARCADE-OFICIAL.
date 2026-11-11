@@ -1844,7 +1844,7 @@
                 card.className = 'PLAYVERSE-card rounded-2xl p-3 space-y-2';
                 const icon = item.category === 'avatar-frame' ? '🖼️' : item.category === 'stream-overlay' ? '🎥' : item.category === 'stream-gift' ? '🎁' : '✨';
                 card.innerHTML = '<div class="h-20 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-3xl">' + icon + '</div>' +
-                    '<div><h4 class="text-xs font-bold text-white">' + escapeHtml(item.name) + '</h4><p class="text-[10px] text-slate-400 mt-1">' + escapeHtml(item.description) + '</p></div>' +
+                    '<div><h4 class="text-xs font-bold text-white">' + escapeHtml(item.name) + '</h4><p class="text-[10px] text-slate-400 mt-1">' + escapeHtml(item.description) + '</p><p class="text-[9px] uppercase tracking-wider text-orange-300 mt-1">' + escapeHtml(item.rarity || 'common') + ' · ' + escapeHtml(item.animation || 'static') + '</p></div>' +
                     '<p class="text-[10px] text-amber-300 font-bold">' + Number(item.priceTokens).toLocaleString('es-AR') + ' Tokens</p>' +
                     '<button type="button" data-preview-id="' + escapeHtml(item.id) + '" class="w-full rounded-lg border border-slate-700 px-2 py-2 text-[10px] font-bold text-slate-200">Previsualizar</button>' +
                     '<button type="button" data-buy-id="' + escapeHtml(item.id) + '" class="w-full rounded-lg px-2 py-2 text-[10px] font-bold ' + (owned && item.category !== 'stream-gift' ? 'bg-emerald-900/50 text-emerald-300' : 'bg-orange-500 text-white') + '" ' + (owned && item.category !== 'stream-gift' ? 'disabled' : '') + '>' +
@@ -1867,7 +1867,12 @@
                 'frame-gamer-rgb': ['#22c55e', '0 0 18px rgba(236,72,153,.8)', 'double'],
                 'frame-cyberpunk': ['#a855f7', '0 0 18px rgba(168,85,247,.8)', 'dashed'],
                 'frame-golden-dragon': ['#fbbf24', '0 0 18px rgba(251,191,36,.8)', 'double'],
-                'frame-seasonal': ['#34d399', '0 0 18px rgba(52,211,153,.7)', 'solid']
+                'frame-seasonal': ['#34d399', '0 0 18px rgba(52,211,153,.7)', 'solid'],
+                'frame-ice-circuit': ['#38bdf8', '0 0 18px rgba(56,189,248,.8)', 'double'],
+                'frame-void-legend': ['#8b5cf6', '0 0 18px rgba(139,92,246,.8)', 'double'],
+                'frame-pixel-hero': ['#f97316', '0 0 18px rgba(249,115,22,.7)', 'dashed'],
+                'frame-aurora': ['#34d399', '0 0 18px rgba(52,211,153,.8)', 'double'],
+                'frame-champion': ['#fbbf24', '0 0 18px rgba(251,191,36,.9)', 'double']
             };
             const look = frameLooks[item.id];
             frame.style.borderColor = item.category === 'avatar-frame' && look ? look[0] : '#475569';
@@ -1879,7 +1884,12 @@
                     'overlay-retro-arcade': 'linear-gradient(135deg, #14532d, #020617)',
                     'overlay-minimal-black': 'linear-gradient(135deg, #111827, #020617)',
                     'overlay-flame-rgb': 'linear-gradient(135deg, #7c2d12, #9f1239, #020617)',
-                    'overlay-pro-esports': 'linear-gradient(135deg, #1e3a8a, #111827)'
+                    'overlay-pro-esports': 'linear-gradient(135deg, #1e3a8a, #111827)',
+                    'overlay-cyber-arena': 'linear-gradient(135deg, #164e63, #020617)',
+                    'overlay-sunset': 'linear-gradient(135deg, #9a3412, #7c2d12, #020617)',
+                    'overlay-tournament': 'linear-gradient(135deg, #312e81, #1e293b)',
+                    'overlay-streamer-classic': 'linear-gradient(135deg, #334155, #020617)',
+                    'overlay-pixel-grid': 'linear-gradient(135deg, #713f12, #1c1917, #020617)'
                 };
                 overlay.style.borderColor = '#ff7a18';
                 overlay.style.background = overlayLooks[item.id] || 'linear-gradient(135deg, rgba(255,82,50,.25), rgba(15,23,42,.95))';
