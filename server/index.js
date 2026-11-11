@@ -1604,32 +1604,32 @@ function getCurrencyLabel(currency) {
 }
 
 const MISSION_CATALOG = [
-  { id: 'welcome-post-1', chapter: 'Primeros pasos', title: 'Tu voz en PLAYVERSE', description: 'Publicá tu primera idea, captura o presentación para que la comunidad te conozca.', metric: 'posts', target: 1, rewardTokens: 10 },
-  { id: 'welcome-post-3', chapter: 'Primeros pasos', title: 'Creador en movimiento', description: 'Compartí tres publicaciones diferentes y empezá a construir tu perfil.', metric: 'posts', target: 3, rewardTokens: 15 },
-  { id: 'welcome-friend-1', chapter: 'Primeros pasos', title: 'Tu primera conexión', description: 'Aceptá o conseguí tu primera amistad dentro de PLAYVERSE.', metric: 'friends', target: 1, rewardTokens: 10 },
-  { id: 'welcome-message-1', chapter: 'Primeros pasos', title: 'Romper el hielo', description: 'Mandá tu primer mensaje privado a una amistad.', metric: 'directMessages', target: 1, rewardTokens: 10 },
+  { id: 'welcome-post-1', chapter: 'Primeros pasos', title: 'Tu voz en PLAYVERSE', description: 'Publicá tu primera idea, captura o presentación para que la comunidad te conozca.', metric: 'posts', target: 1, rewardTokens: 500 },
+  { id: 'welcome-post-3', chapter: 'Primeros pasos', title: 'Creador en movimiento', description: 'Compartí tres publicaciones diferentes y empezá a construir tu perfil.', metric: 'posts', target: 3, rewardTokens: 750 },
+  { id: 'welcome-friend-1', chapter: 'Primeros pasos', title: 'Tu primera conexión', description: 'Aceptá o conseguí tu primera amistad dentro de PLAYVERSE.', metric: 'friends', target: 1, rewardTokens: 300 },
+  { id: 'welcome-message-1', chapter: 'Primeros pasos', title: 'Romper el hielo', description: 'Mandá tu primer mensaje privado a una amistad.', metric: 'directMessages', target: 1, rewardTokens: 250 },
 
-  { id: 'creator-post-10', chapter: 'Camino del creador', title: 'Voz reconocible', description: 'Llegá a diez publicaciones y mantené activa tu presencia en la comunidad.', metric: 'posts', target: 10, rewardTokens: 20 },
-  { id: 'creator-comment-1', chapter: 'Camino del creador', title: 'Conversación iniciada', description: 'Comentá una publicación de la comunidad y sumate al intercambio.', metric: 'comments', target: 1, rewardTokens: 10 },
-  { id: 'creator-comment-5', chapter: 'Camino del creador', title: 'Siempre hay algo para aportar', description: 'Escribí cinco comentarios útiles en publicaciones de la comunidad.', metric: 'comments', target: 5, rewardTokens: 20 },
-  { id: 'creator-like-1', chapter: 'Camino del creador', title: 'Buena onda', description: 'Dale tu primer me gusta a una publicación que te interese.', metric: 'likes', target: 1, rewardTokens: 10 },
+  { id: 'creator-post-10', chapter: 'Camino del creador', title: 'Voz reconocible', description: 'Llegá a diez publicaciones y mantené activa tu presencia en la comunidad.', metric: 'posts', target: 10, rewardTokens: 1000 },
+  { id: 'creator-comment-1', chapter: 'Camino del creador', title: 'Conversación iniciada', description: 'Comentá una publicación de la comunidad y sumate al intercambio.', metric: 'comments', target: 1, rewardTokens: 250 },
+  { id: 'creator-comment-5', chapter: 'Camino del creador', title: 'Siempre hay algo para aportar', description: 'Escribí cinco comentarios útiles en publicaciones de la comunidad.', metric: 'comments', target: 5, rewardTokens: 500 },
+  { id: 'creator-like-1', chapter: 'Camino del creador', title: 'Buena onda', description: 'Dale tu primer me gusta a una publicación que te interese.', metric: 'likes', target: 1, rewardTokens: 250 },
 
-  { id: 'party-room-1', chapter: 'Líder de escuadra', title: 'Armá la escuadra', description: 'Creá tu primera sala pública para reunir jugadores.', metric: 'rooms', target: 1, rewardTokens: 15 },
-  { id: 'party-room-3', rewardCurrency: 'purple', chapter: 'Líder de escuadra', title: 'Organizador habitual', description: 'Creá tres salas para organizar distintas sesiones de juego.', metric: 'rooms', target: 3, rewardTokens: 30 },
-  { id: 'party-chat-1', chapter: 'Líder de escuadra', title: 'Primera llamada al equipo', description: 'Mandá un mensaje en el chat de una sala.', metric: 'roomMessages', target: 1, rewardTokens: 10 },
-  { id: 'party-chat-10', chapter: 'Líder de escuadra', title: 'Capitán comunicador', description: 'Participá con diez mensajes en chats de salas.', metric: 'roomMessages', target: 10, rewardTokens: 20 },
-  { id: 'party-chat-30', chapter: 'Líder de escuadra', title: 'La voz de la sala', description: 'Alcanzá treinta mensajes en chats de salas y mantené viva la coordinación.', metric: 'roomMessages', target: 30, rewardTokens: 30 },
+  { id: 'party-room-1', chapter: 'Líder de escuadra', title: 'Armá la escuadra', description: 'Creá tu primera sala pública para reunir jugadores.', metric: 'rooms', target: 1, rewardTokens: 500 },
+  { id: 'party-room-3', rewardCurrency: 'purple', chapter: 'Líder de escuadra', title: 'Organizador habitual', description: 'Creá tres salas para organizar distintas sesiones de juego.', metric: 'rooms', target: 3, rewardTokens: 15 },
+  { id: 'party-chat-1', chapter: 'Líder de escuadra', title: 'Primera llamada al equipo', description: 'Mandá un mensaje en el chat de una sala.', metric: 'roomMessages', target: 1, rewardTokens: 250 },
+  { id: 'party-chat-10', chapter: 'Líder de escuadra', title: 'Capitán comunicador', description: 'Participá con diez mensajes en chats de salas.', metric: 'roomMessages', target: 10, rewardTokens: 500 },
+  { id: 'party-chat-30', chapter: 'Líder de escuadra', title: 'La voz de la sala', description: 'Alcanzá treinta mensajes en chats de salas y mantené viva la coordinación.', metric: 'roomMessages', target: 30, rewardTokens: 1000 },
 
-  { id: 'social-friends-3', chapter: 'Leyenda de comunidad', title: 'Círculo cercano', description: 'Formá un grupo de tres amistades aceptadas.', metric: 'friends', target: 3, rewardTokens: 20 },
-  { id: 'social-friends-5', rewardCurrency: 'purple', chapter: 'Leyenda de comunidad', title: 'Punto de encuentro', description: 'Llegá a cinco amistades aceptadas en PLAYVERSE.', metric: 'friends', target: 5, rewardTokens: 35 },
-  { id: 'social-follow-1', chapter: 'Leyenda de comunidad', title: 'Seguí a un creador', description: 'Empezá a seguir a otro jugador para no perderte sus novedades.', metric: 'follows', target: 1, rewardTokens: 10 },
-  { id: 'social-follow-5', chapter: 'Leyenda de comunidad', title: 'Radar de comunidad', description: 'Seguí a cinco jugadores cuyos contenidos te interesen.', metric: 'follows', target: 5, rewardTokens: 20 },
+  { id: 'social-friends-3', chapter: 'Leyenda de comunidad', title: 'Círculo cercano', description: 'Formá un grupo de tres amistades aceptadas.', metric: 'friends', target: 3, rewardTokens: 500 },
+  { id: 'social-friends-5', rewardCurrency: 'purple', chapter: 'Leyenda de comunidad', title: 'Punto de encuentro', description: 'Llegá a cinco amistades aceptadas en PLAYVERSE.', metric: 'friends', target: 5, rewardTokens: 15 },
+  { id: 'social-follow-1', chapter: 'Leyenda de comunidad', title: 'Seguí a un creador', description: 'Empezá a seguir a otro jugador para no perderte sus novedades.', metric: 'follows', target: 1, rewardTokens: 250 },
+  { id: 'social-follow-5', chapter: 'Leyenda de comunidad', title: 'Radar de comunidad', description: 'Seguí a cinco jugadores cuyos contenidos te interesen.', metric: 'follows', target: 5, rewardTokens: 500 },
 
-  { id: 'social-like-10', chapter: 'Coleccionista y comunicador', title: 'Apoyo constante', description: 'Reaccioná a diez publicaciones de otros jugadores.', metric: 'likes', target: 10, rewardTokens: 15 },
-  { id: 'social-save-1', chapter: 'Coleccionista y comunicador', title: 'Para después', description: 'Guardá tu primera publicación para volver a encontrarla.', metric: 'saved', target: 1, rewardTokens: 10 },
-  { id: 'social-save-5', rewardCurrency: 'diamond', chapter: 'Coleccionista y comunicador', title: 'Coleccionista de ideas', description: 'Guardá cinco publicaciones que quieras consultar más tarde.', metric: 'saved', target: 5, rewardTokens: 20 },
-  { id: 'social-dm-10', chapter: 'Coleccionista y comunicador', title: 'Compañero de equipo', description: 'Enviá diez mensajes privados a tus amistades.', metric: 'directMessages', target: 10, rewardTokens: 15 },
-  { id: 'social-dm-30', rewardCurrency: 'diamond', chapter: 'Coleccionista y comunicador', title: 'Conexiones duraderas', description: 'Alcanzá treinta mensajes privados enviados.', metric: 'directMessages', target: 30, rewardTokens: 25 }
+  { id: 'social-like-10', chapter: 'Coleccionista y comunicador', title: 'Apoyo constante', description: 'Reaccioná a diez publicaciones de otros jugadores.', metric: 'likes', target: 10, rewardTokens: 500 },
+  { id: 'social-save-1', chapter: 'Coleccionista y comunicador', title: 'Para después', description: 'Guardá tu primera publicación para volver a encontrarla.', metric: 'saved', target: 1, rewardTokens: 250 },
+  { id: 'social-save-5', rewardCurrency: 'diamond', chapter: 'Coleccionista y comunicador', title: 'Coleccionista de ideas', description: 'Guardá cinco publicaciones que quieras consultar más tarde.', metric: 'saved', target: 5, rewardTokens: 5 },
+  { id: 'social-dm-10', chapter: 'Coleccionista y comunicador', title: 'Compañero de equipo', description: 'Enviá diez mensajes privados a tus amistades.', metric: 'directMessages', target: 10, rewardTokens: 500 },
+  { id: 'social-dm-30', rewardCurrency: 'diamond', chapter: 'Coleccionista y comunicador', title: 'Conexiones duraderas', description: 'Alcanzá treinta mensajes privados enviados.', metric: 'directMessages', target: 30, rewardTokens: 5 }
   ,{ id: 'community-new-creators-3', rewardCurrency: 'purple', chapter: 'Comunidad que impulsa', title: 'Dale la bienvenida a los nuevos', description: 'Seguí a tres creadores que se hayan unido durante los últimos 30 días. El progreso se calcula con seguimientos reales y cuentas distintas.', metric: 'newCreatorFollows', target: 3, rewardTokens: 15 }
 ];
 
