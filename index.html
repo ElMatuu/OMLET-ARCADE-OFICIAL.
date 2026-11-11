@@ -953,12 +953,14 @@
             document.getElementById('drawer-username').textContent = displayName;
             const drawerBanner = document.getElementById('drawer-profile-banner');
             if (drawerBanner) {
+                drawerBanner.onerror = () => drawerBanner.classList.add('hidden');
                 if (user.profileBannerUrl) { drawerBanner.src = user.profileBannerUrl; drawerBanner.classList.remove('hidden'); }
                 else { drawerBanner.removeAttribute('src'); drawerBanner.classList.add('hidden'); }
             }
             const drawerAvatar = document.getElementById('drawer-avatar');
             const drawerPlaceholder = document.getElementById('drawer-avatar-placeholder');
             if (drawerAvatar && drawerPlaceholder) {
+                drawerAvatar.onerror = () => { drawerAvatar.classList.add('hidden'); drawerPlaceholder.classList.remove('hidden'); };
                 if (user.avatarUrl) { drawerAvatar.src = user.avatarUrl; drawerAvatar.classList.remove('hidden'); drawerPlaceholder.classList.add('hidden'); }
                 else { drawerAvatar.removeAttribute('src'); drawerAvatar.classList.add('hidden'); drawerPlaceholder.classList.remove('hidden'); }
             }
