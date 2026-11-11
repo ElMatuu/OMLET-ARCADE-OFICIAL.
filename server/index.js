@@ -1566,6 +1566,7 @@ const MISSION_CATALOG = [
   { id: 'social-save-5', chapter: 'Coleccionista y comunicador', title: 'Coleccionista de ideas', description: 'Guardá cinco publicaciones que quieras consultar más tarde.', metric: 'saved', target: 5, rewardTokens: 20 },
   { id: 'social-dm-10', chapter: 'Coleccionista y comunicador', title: 'Compañero de equipo', description: 'Enviá diez mensajes privados a tus amistades.', metric: 'directMessages', target: 10, rewardTokens: 15 },
   { id: 'social-dm-30', chapter: 'Coleccionista y comunicador', title: 'Conexiones duraderas', description: 'Alcanzá treinta mensajes privados enviados.', metric: 'directMessages', target: 30, rewardTokens: 25 }
+  ,{ id: 'community-new-creators-3', chapter: 'Comunidad que impulsa', title: 'Dale la bienvenida a los nuevos', description: 'Seguí a tres creadores que se hayan unido durante los últimos 30 días. El progreso se calcula con seguimientos reales y cuentas distintas.', metric: 'newCreatorFollows', target: 3, rewardTokens: 15 }
 ];
 
 async function buildMissionProgress(userId, session = null) {
@@ -1584,12 +1585,23 @@ async function buildMissionProgress(userId, session = null) {
     count(Post, { likes: userId, author: { $ne: userId } }),
     count(DirectMessage, { sender: userId })
   ];
+  const newCreatorFollowsQuery = Follow.aggregate([
+    { $match: { follower: new mongoose.Types.ObjectId(userId) } },
+    { $lookup: { from: User.collection.name, localField: 'following', foreignField: '_id', as: 'creator' } },
+    { $unwind: '$creator' },
+    { $match: { 'creator.createdAt': { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } },
+    { $count: 'total' }
+  ]);
+  if (session) newCreatorFollowsQuery.session(session);
   const claimsQuery = MissionClaim.find({ user: userId }).select('missionId rewardTokens claimedAt').lean();
   if (session) claimsQuery.session(session);
-  const [values, claims] = await Promise.all([Promise.all(countQueries), claimsQuery]);
+  const [values, claims, newCreatorFollowResult] = await Promise.all([
+    Promise.all(countQueries), claimsQuery, newCreatorFollowsQuery
+  ]);
   const metricCounts = {
     posts: values[0], rooms: values[1], roomMessages: values[2], saved: values[3],
-    comments: values[4], friends: values[5], follows: values[6], likes: values[7], directMessages: values[8]
+    comments: values[4], friends: values[5], follows: values[6], likes: values[7], directMessages: values[8],
+    newCreatorFollows: newCreatorFollowResult[0]?.total || 0
   };
   const claimedById = new Map(claims.map((claim) => [claim.missionId, claim]));
   return MISSION_CATALOG.map((definition) => {
