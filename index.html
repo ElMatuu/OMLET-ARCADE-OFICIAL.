@@ -350,12 +350,12 @@
                     
                     <div class="flex items-center justify-between"><div><h3 class="font-black text-lg">En Vivo</h3><p class="text-xs text-slate-400">Descubrí transmisiones de la comunidad</p></div><span class="text-[10px] font-bold text-rose-300 bg-rose-500/10 border border-rose-500/20 px-2 py-1 rounded-full">LIVE</span></div>
                     <div class="flex gap-2 overflow-x-auto pb-2" aria-label="Filtrar transmisiones por juego">
-                        <button type="button" class="rounded-full border border-orange-500/40 bg-orange-500/10 text-orange-300 px-3 py-2 text-xs font-bold">Todos</button>
-                        <button type="button" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">Minecraft</button>
-                        <button type="button" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">Roblox</button>
-                        <button type="button" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">Free Fire</button>
-                        <button type="button" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">PUBG Mobile</button>
-                        <button type="button" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">Otros</button>
+                        <button type="button" data-live-filter="all" onclick="filterLiveStreams('all', this)" class="rounded-full border border-orange-500/40 bg-orange-500/10 text-orange-300 px-3 py-2 text-xs font-bold">Todos</button>
+                        <button type="button" data-live-filter="minecraft" onclick="filterLiveStreams('minecraft', this)" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">Minecraft</button>
+                        <button type="button" data-live-filter="roblox" onclick="filterLiveStreams('roblox', this)" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">Roblox</button>
+                        <button type="button" data-live-filter="free fire" onclick="filterLiveStreams('free fire', this)" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">Free Fire</button>
+                        <button type="button" data-live-filter="pubg" onclick="filterLiveStreams('pubg', this)" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">PUBG Mobile</button>
+                        <button type="button" data-live-filter="other" onclick="filterLiveStreams('other', this)" class="rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs">Otros</button>
                     </div>
                 </section>
                 <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
@@ -383,8 +383,10 @@
                 </section>
                 <section id="live-player-panel" class="hidden PLAYVERSE-card rounded-2xl p-4 space-y-3">
                     <div class="flex items-center justify-between gap-2"><div class="min-w-0"><h4 id="live-player-title" class="font-bold text-sm truncate">Transmisión</h4><p id="live-player-role" class="text-[11px] text-slate-400"></p><p id="live-player-participant-count" class="text-[11px] text-emerald-300">Conectando participantes…</p></div><button type="button" onclick="leaveLiveStream()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs">Salir</button></div>
-                    <video id="live-local-preview" class="hidden w-full max-h-56 rounded-xl bg-black" autoplay muted playsinline></video>
-                    <div id="live-player-tracks" class="grid gap-2"></div>
+                    <div id="live-video-stage" class="relative w-full min-h-[12rem] rounded-xl bg-black/40 overflow-hidden">
+                        <div id="live-player-tracks" class="relative z-0 grid gap-2"></div>
+                        <video id="live-local-preview" class="hidden rounded-xl bg-black shadow-2xl" autoplay muted playsinline aria-label="Vista previa local de tu cámara"></video>
+                    </div>
                     <button id="live-audio-enable" type="button" onclick="enableLiveAudio()" class="hidden rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-200 px-3 py-2 text-xs">Activar audio de la transmisión</button>
                     <div id="live-host-controls" class="hidden flex flex-wrap gap-2">
                         <button type="button" onclick="toggleLiveCamera()" class="rounded-xl border border-slate-700 px-3 py-2 text-xs">Cámara</button>
@@ -833,7 +835,7 @@
                     <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Mostrar panel de donaciones/regalos<input id="stream-overlay-show-donations" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <label class="block text-xs text-slate-400">Demora de transmisión<select id="stream-delay" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="none">Sin demora</option><option value="5">5 segundos</option><option value="10">10 segundos</option><option value="15">15 segundos</option><option value="30">30 segundos</option><option value="60">60 segundos</option></select></label>
+                    <label class="block text-xs text-slate-400">Demora de transmisión<select id="stream-delay" disabled class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-500 opacity-70"><option value="none">No disponible · sin demora</option></select><span class="block mt-1 text-[10px] text-amber-300">La demora real requiere un pipeline de retransmisión dedicado; no se simula ni se aplica en esta versión.</span></label>
                     <label class="flex items-center justify-between gap-3 text-xs text-slate-200 rounded-xl border border-slate-800 p-3">Notificaciones del directo<input id="stream-notifications-enabled" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
                 </div>
                 <div class="rounded-xl border border-slate-800 bg-slate-950/50 p-3 space-y-3">
@@ -4560,7 +4562,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 document.getElementById('stream-overlay-show-donations').checked = preferences.overlayShowDonations !== false;
                 document.getElementById('stream-welcome-message').value = preferences.welcomeMessage || '';
                 document.getElementById('stream-farewell-message').value = preferences.farewellMessage || '';
-                document.getElementById('stream-delay').value = preferences.streamDelay || 'none';
+                document.getElementById('stream-delay').value = 'none';
                 document.getElementById('stream-notifications-enabled').checked = preferences.streamNotificationsEnabled !== false;
                 document.getElementById('stream-chat-rules').value = preferences.chatRules || '';
                 document.getElementById('stream-who-can-chat').value = preferences.whoCanChat || 'everyone';
@@ -4607,7 +4609,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 overlayShowDonations: document.getElementById('stream-overlay-show-donations').checked,
                 welcomeMessage: document.getElementById('stream-welcome-message').value.trim(),
                 farewellMessage: document.getElementById('stream-farewell-message').value.trim(),
-                streamDelay: document.getElementById('stream-delay').value,
+                streamDelay: 'none',
                 streamNotificationsEnabled: document.getElementById('stream-notifications-enabled').checked,
                 chatRules: document.getElementById('stream-chat-rules').value.trim(),
                 whoCanChat: document.getElementById('stream-who-can-chat').value,
@@ -4698,6 +4700,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         let streamChatSocket = null;
         let streamChatSocketScriptLoading = false;
         let streamChatOwner = false;
+        let activeLiveFilter = 'all';
 
         function setLiveStatus(message) {
             const status = document.getElementById('live-stream-status');
@@ -4706,13 +4709,72 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
 
         function attachLiveTrack(track, participant) {
             const container = document.getElementById('live-player-tracks');
-            if (!container || !track) return;
+            if (!container || !track) return null;
             const element = track.attach();
             element.autoplay = true;
             element.playsInline = true;
             element.className = track.kind === 'video' ? 'w-full max-h-[65vh] rounded-xl bg-black object-contain' : 'w-full';
             element.dataset.liveParticipant = participant ? participant.identity : 'remote';
+            element.dataset.liveSource = track.source || '';
             container.appendChild(element);
+            return element;
+        }
+
+        function getLiveCameraCaptureOptions() {
+            const resolutionMap = {
+                '720p': [1280, 720],
+                '1080p': [1920, 1080],
+                '1440p': [2560, 1440],
+                '2160p': [3840, 2160]
+            };
+            const selected = resolutionMap[activeStreamingPreferences.resolution] || [1280, 720];
+            const portrait = activeStreamingPreferences.orientation === 'portrait';
+            const fps = Number(activeStreamingPreferences.fps) || 30;
+            return {
+                resolution: {
+                    width: portrait ? selected[1] : selected[0],
+                    height: portrait ? selected[0] : selected[1],
+                    frameRate: fps
+                },
+                frameRate: fps
+            };
+        }
+
+        function applyLocalCameraPresentation(preview) {
+            if (!preview) return;
+            const screenShare = liveKitRoom && liveKitRoom.localParticipant.getTrackPublication(LivekitClient.Track.Source.ScreenShare);
+            preview.style.position = '';
+            preview.style.inset = '';
+            preview.style.width = '100%';
+            preview.style.height = 'auto';
+            preview.style.maxHeight = '56vh';
+            preview.style.aspectRatio = '';
+            preview.style.objectFit = 'contain';
+            preview.style.zIndex = '';
+            preview.style.border = '0';
+            preview.style.borderRadius = '0.75rem';
+            preview.style.boxShadow = '';
+            if (!screenShare || !screenShare.track || screenShare.track.isMuted) return;
+            const positions = {
+                'top-left': { top: '0.75rem', left: '0.75rem' },
+                'top-right': { top: '0.75rem', right: '0.75rem' },
+                'bottom-left': { bottom: '0.75rem', left: '0.75rem' },
+                'bottom-right': { bottom: '0.75rem', right: '0.75rem' }
+            };
+            Object.assign(preview.style, {
+                position: 'absolute',
+                width: 'clamp(6rem, 24%, 13rem)',
+                height: 'auto',
+                maxHeight: 'none',
+                aspectRatio: '4 / 3',
+                objectFit: 'cover',
+                zIndex: '20',
+                borderRadius: '0.75rem',
+                boxShadow: '0 8px 24px rgba(0,0,0,.55)',
+                ...positions[activeStreamingPreferences.cameraPosition] || positions['bottom-right']
+            });
+            const frame = activeStreamingPreferences.cameraFrame;
+            preview.style.border = frame === 'cyan' ? '3px solid #22d3ee' : frame === 'violet' ? '3px solid #a78bfa' : '1px solid rgba(255,255,255,.35)';
         }
 
         function detachLiveTrack(track) {
@@ -4722,7 +4784,11 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         async function connectLiveKitSession(connection, stream, role) {
             if (typeof LivekitClient === 'undefined') throw new Error('No se pudo cargar el SDK de video. Actualizá la aplicación.');
             if (liveKitRoom) await liveKitRoom.disconnect();
-            const room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
+            const room = new LivekitClient.Room({
+                adaptiveStream: true,
+                dynacast: true,
+                videoCaptureDefaults: getLiveCameraCaptureOptions()
+            });
             liveKitRoom = room;
             room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
                 attachLiveTrack(track, participant);
@@ -4760,11 +4826,21 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             if (role === 'publisher') {
                 const preview = document.getElementById('live-local-preview');
                 try {
-                    await room.localParticipant.setCameraEnabled(activeStreamingPreferences.cameraEnabled === true);
-                    const publication = room.localParticipant.getTrackPublication(LivekitClient.Track.Source.Camera);
-                    if (publication && publication.videoTrack) {
-                        preview.classList.remove('hidden');
-                        preview.srcObject = new MediaStream([publication.videoTrack.mediaStreamTrack]);
+                    if (activeStreamingPreferences.cameraEnabled === true) {
+                        const fps = Number(activeStreamingPreferences.fps) || 30;
+                        const bitrate = Math.max(1, Number(activeStreamingPreferences.bitrateMbps) || 6) * 1000000;
+                        const publication = await room.localParticipant.setCameraEnabled(true, getLiveCameraCaptureOptions(), {
+                            videoEncoding: { maxBitrate: bitrate, maxFramerate: fps }
+                        });
+                        const cameraPublication = publication || room.localParticipant.getTrackPublication(LivekitClient.Track.Source.Camera);
+                        if (cameraPublication && cameraPublication.videoTrack) {
+                            preview.classList.remove('hidden');
+                            preview.srcObject = new MediaStream([cameraPublication.videoTrack.mediaStreamTrack]);
+                            applyLocalCameraPresentation(preview);
+                        }
+                    } else {
+                        await room.localParticipant.setCameraEnabled(false);
+                        preview.classList.add('hidden');
                     }
                 } catch (error) {
                     document.getElementById('live-player-status').textContent = 'La sala está activa, pero la cámara no está disponible: ' + error.message + '. Podés probar Compartir pantalla.';
@@ -4918,6 +4994,17 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             });
         }
 
+        function filterLiveStreams(filter, button) {
+            activeLiveFilter = filter || 'all';
+            document.querySelectorAll('[data-live-filter]').forEach((item) => {
+                const selected = item.dataset.liveFilter === activeLiveFilter;
+                item.className = selected
+                    ? 'rounded-full border border-orange-500/40 bg-orange-500/10 text-orange-300 px-3 py-2 text-xs font-bold'
+                    : 'rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs';
+            });
+            loadLiveStreams();
+        }
+
         async function loadLiveStreams() {
             const container = document.getElementById('live-streams-container');
             if (!container) return;
@@ -4932,7 +5019,21 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                     container.appendChild(empty);
                     return;
                 }
-                data.streams.forEach((stream) => {
+                const visibleStreams = data.streams.filter((stream) => {
+                    if (activeLiveFilter === 'all') return true;
+                    const searchable = [stream.title, stream.description, stream.game, stream.category]
+                        .filter(Boolean).join(' ').toLowerCase();
+                    if (activeLiveFilter === 'other') return !['minecraft', 'roblox', 'free fire', 'pubg'].some((game) => searchable.includes(game));
+                    return searchable.includes(activeLiveFilter);
+                });
+                if (!visibleStreams.length) {
+                    const empty = document.createElement('p');
+                    empty.className = 'text-xs text-slate-500';
+                    empty.textContent = 'No hay transmisiones activas para este filtro.';
+                    container.appendChild(empty);
+                    return;
+                }
+                visibleStreams.forEach((stream) => {
                     const card = document.createElement('article');
                     card.className = 'PLAYVERSE-card rounded-xl p-3 flex items-center justify-between gap-3';
                     const details = document.createElement('div');
@@ -4973,7 +5074,19 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 try {
                     const saved = await apiRequest('/api/me/streaming-preferences');
                     const preferences = saved.preferences || {};
-                    activeStreamingPreferences = { cameraEnabled: preferences.cameraEnabled === true, microphoneEnabled: preferences.microphoneEnabled !== false, systemAudioEnabled: preferences.systemAudioEnabled === true, orientation: preferences.orientation || 'auto', cameraPosition: preferences.cameraPosition || 'bottom-right', cameraFrame: preferences.cameraFrame || 'none', textToSpeechEnabled: preferences.textToSpeechEnabled === true };
+                    activeStreamingPreferences = {
+                        ...preferences,
+                        cameraEnabled: preferences.cameraEnabled === true,
+                        microphoneEnabled: preferences.microphoneEnabled !== false,
+                        systemAudioEnabled: preferences.systemAudioEnabled === true,
+                        resolution: preferences.resolution || 'auto',
+                        fps: Number(preferences.fps) || 30,
+                        bitrateMbps: Number(preferences.bitrateMbps) || 6,
+                        orientation: preferences.orientation || 'auto',
+                        cameraPosition: preferences.cameraPosition || 'bottom-right',
+                        cameraFrame: preferences.cameraFrame || 'none',
+                        textToSpeechEnabled: preferences.textToSpeechEnabled === true
+                    };
                 } catch (preferencesError) {
                     activeStreamingPreferences = { cameraEnabled: false, microphoneEnabled: true, textToSpeechEnabled: false };
                 }
@@ -5042,8 +5155,26 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
 
         async function toggleLiveCamera() {
             if (!liveKitRoom || activeLiveStreamRole !== 'publisher') return;
-            try { await liveKitRoom.localParticipant.setCameraEnabled(!liveKitRoom.localParticipant.isCameraEnabled); }
-            catch (error) { document.getElementById('live-player-status').textContent = error.message; }
+            try {
+                const enabled = !liveKitRoom.localParticipant.isCameraEnabled;
+                if (enabled) {
+                    const fps = Number(activeStreamingPreferences.fps) || 30;
+                    const bitrate = Math.max(1, Number(activeStreamingPreferences.bitrateMbps) || 6) * 1000000;
+                    const publication = await liveKitRoom.localParticipant.setCameraEnabled(true, getLiveCameraCaptureOptions(), {
+                        videoEncoding: { maxBitrate: bitrate, maxFramerate: fps }
+                    });
+                    const preview = document.getElementById('live-local-preview');
+                    const cameraPublication = publication || liveKitRoom.localParticipant.getTrackPublication(LivekitClient.Track.Source.Camera);
+                    if (cameraPublication && cameraPublication.videoTrack) {
+                        preview.srcObject = new MediaStream([cameraPublication.videoTrack.mediaStreamTrack]);
+                        preview.classList.remove('hidden');
+                        applyLocalCameraPresentation(preview);
+                    }
+                } else {
+                    await liveKitRoom.localParticipant.setCameraEnabled(false);
+                    document.getElementById('live-local-preview').classList.add('hidden');
+                }
+            } catch (error) { document.getElementById('live-player-status').textContent = 'No se pudo cambiar la cámara: ' + error.message; }
         }
 
         async function toggleLiveMicrophone() {
@@ -5055,8 +5186,29 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         async function toggleLiveScreenShare() {
             if (!liveKitRoom || activeLiveStreamRole !== 'publisher') return;
             try {
-                await liveKitRoom.localParticipant.setScreenShareEnabled(!liveKitRoom.localParticipant.isScreenShareEnabled);
-                document.getElementById('live-player-status').textContent = 'Estado de compartir pantalla actualizado.';
+                const enabling = !liveKitRoom.localParticipant.isScreenShareEnabled;
+                if (enabling) {
+                    await liveKitRoom.localParticipant.setScreenShareEnabled(true, {
+                        audio: activeStreamingPreferences.systemAudioEnabled === true,
+                        systemAudio: activeStreamingPreferences.systemAudioEnabled === true ? 'include' : 'exclude',
+                        resolution: { width: 1920, height: 1080, frameRate: 30 },
+                        contentHint: 'motion'
+                    });
+                    const screenPublication = liveKitRoom.localParticipant.getTrackPublication(LivekitClient.Track.Source.ScreenShare);
+                    if (screenPublication && screenPublication.videoTrack) {
+                        attachLiveTrack(screenPublication.videoTrack, liveKitRoom.localParticipant);
+                    }
+                    applyLocalCameraPresentation(document.getElementById('live-local-preview'));
+                    document.getElementById('live-player-status').textContent = activeStreamingPreferences.systemAudioEnabled
+                        ? 'Pantalla compartida. El navegador ofrecerá audio del sistema si el dispositivo y la fuente seleccionada lo admiten.'
+                        : 'Pantalla compartida sin audio del sistema.';
+                } else {
+                    const screenPublication = liveKitRoom.localParticipant.getTrackPublication(LivekitClient.Track.Source.ScreenShare);
+                    if (screenPublication && screenPublication.videoTrack) detachLiveTrack(screenPublication.videoTrack);
+                    await liveKitRoom.localParticipant.setScreenShareEnabled(false);
+                    applyLocalCameraPresentation(document.getElementById('live-local-preview'));
+                    document.getElementById('live-player-status').textContent = 'Compartir pantalla finalizado.';
+                }
             } catch (error) { document.getElementById('live-player-status').textContent = 'No se pudo compartir la pantalla: ' + error.message; }
         }
 
@@ -5077,6 +5229,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             preview.srcObject = null;
             preview.classList.add('hidden');
             document.getElementById('live-player-tracks').replaceChildren();
+            document.getElementById('live-local-preview').style.cssText = '';
             document.getElementById('live-audio-enable').classList.add('hidden');
             document.getElementById('live-host-controls').classList.add('hidden');
             document.getElementById('live-player-panel').classList.add('hidden');
