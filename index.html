@@ -556,7 +556,7 @@
                             </select>
                         </label>
                         <label class="block text-xs text-slate-400">ID del elemento o usuario
-                            <input id="report-target-id" required maxlength="64" pattern="[a-fA-F0-9]{24}" class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white" placeholder="Pegá el ID de 24 caracteres">
+                            <input id="report-target-id" required maxlength="64" class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white" placeholder="Usuario o ID del contenido">
                         </label>
                         <label class="block text-xs text-slate-400">Motivo
                             <select id="report-reason" required class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white">
@@ -1302,6 +1302,15 @@
             } catch (error) {
                 // Badge refresh is non-critical; the inbox shows actionable errors when opened.
             }
+        }
+
+        function openReportFor(targetType, targetId) {
+            switchTab('help');
+            const type = document.getElementById('report-target-type');
+            const id = document.getElementById('report-target-id');
+            if (type) type.value = targetType;
+            if (id) id.value = targetType === 'user' ? '@' + String(targetId).replace(/^@/, '') : String(targetId);
+            if (id) id.focus();
         }
 
         async function submitContentReport(event) {
@@ -2595,6 +2604,11 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             commentToggle.type = 'button';
             commentToggle.className = 'text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 hover:border-orange-400 text-orange-300';
             commentToggle.textContent = '💬 Comentarios · ' + (Number(post.commentCount) || 0);
+            const reportButton = document.createElement('button');
+            reportButton.type = 'button';
+            reportButton.className = 'text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 hover:border-rose-400 text-rose-300';
+            reportButton.textContent = '⚑ Denunciar';
+            reportButton.addEventListener('click', () => openReportFor('post', post.id));
             const saveButton = document.createElement('button');
             saveButton.type = 'button';
             saveButton.className = 'text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 hover:border-cyan-400 text-cyan-300';
@@ -2624,6 +2638,14 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 }
             });
             actions.append(likeButton, commentToggle, saveButton);
+            if (post.authorUsername !== appState.username) {
+                const reportUserButton = document.createElement('button');
+                reportUserButton.type = 'button';
+                reportUserButton.className = 'text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 hover:border-rose-400 text-rose-300';
+                reportUserButton.textContent = 'Denunciar cuenta';
+                reportUserButton.addEventListener('click', () => openReportFor('user', post.authorUsername));
+                actions.append(reportUserButton, reportButton);
+            }
 
             const commentsPanel = document.createElement('section');
             commentsPanel.className = 'hidden space-y-3 border-t border-slate-800 pt-3';
