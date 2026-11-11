@@ -107,7 +107,7 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     const clubJoined = await request(baseUrl, '/api/clubs/' + clubId + '/join', { method: 'POST' }, bob.body.token);
     assert.equal(clubJoined.status, 200);
     const unauthorizedTransfer = await request(baseUrl, '/api/clubs/' + clubId + '/transfer', {
-      method: 'POST', body: { username: 'charlie_test' }
+      method: 'POST', body: { username: 'bob_test' }
     }, charlie.body.token);
     assert.equal(unauthorizedTransfer.status, 403, JSON.stringify(unauthorizedTransfer.body));
     const transfer = await request(baseUrl, '/api/clubs/' + clubId + '/transfer', {
