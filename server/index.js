@@ -975,8 +975,8 @@ app.put('/api/me/app-preferences', requireAuth, profileLimiter, async (req, res,
 app.get('/api/store/catalog', requireAuth, (req, res) => {
   return res.json({
     success: true,
-    items: STORE_CATALOG.map(({ id, name, category, description, priceTokens, rarity, animation, assetKey }) => ({
-      id, name, category, description, priceTokens, rarity, animation, assetKey
+    items: STORE_CATALOG.map(({ id, name, category, description, priceTokens, priceCurrency, rarity, animation, assetKey }) => ({
+      id, name, category, description, priceTokens, priceCurrency: priceCurrency || 'gold', currencyLabel: getCurrencyLabel(priceCurrency || 'gold'), rarity, animation, assetKey
     }))
   });
 });
@@ -984,7 +984,7 @@ app.get('/api/store/catalog', requireAuth, (req, res) => {
 app.get('/api/me/inventory', requireAuth, async (req, res, next) => {
   try {
     const [user, records] = await Promise.all([
-      User.findById(req.auth.sub).select('walletTokens activeAvatarFrame activeStreamOverlay').lean(),
+      User.findById(req.auth.sub).select('walletTokens walletPurpleTokens walletDiamondTokens activeAvatarFrame activeStreamOverlay').lean(),
       Inventory.find({ user: req.auth.sub }).sort({ acquiredAt: -1 }).lean()
     ]);
     if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
@@ -994,7 +994,7 @@ app.get('/api/me/inventory', requireAuth, async (req, res, next) => {
     }).filter(Boolean);
     return res.json({
       success: true,
-      wallet: { tokens: user.walletTokens || 0 },
+      wallet: { tokens: user.walletTokens || 0, balances: getWalletBalances(user) },
       equipped: { avatarFrame: user.activeAvatarFrame || null, streamOverlay: user.activeStreamOverlay || null },
       items
     });
@@ -1033,27 +1033,21 @@ app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next
   const itemId = typeof req.body.itemId === 'string' ? req.body.itemId : '';
   const product = STORE_CATALOG.find((entry) => entry.id === itemId);
   if (!product) return res.status(404).json({ success: false, message: 'Artículo no encontrado.' });
-
+  const currency = product.priceCurrency || 'gold';
+  const walletField = getCurrencyField(currency);
+  if (!walletField) return res.status(500).json({ success: false, message: 'Moneda de artículo inválida.' });
   const session = await mongoose.startSession();
   let result;
   try {
     await session.withTransaction(async () => {
       const existing = await Inventory.findOne({ user: req.auth.sub, itemId }).session(session);
-      if (existing && product.category !== 'stream-gift') {
-        result = { error: 'ALREADY_OWNED' };
-        return;
-      }
-
+      if (existing && product.category !== 'stream-gift') { result = { error: 'ALREADY_OWNED' }; return; }
       const user = await User.findOneAndUpdate(
-        { _id: req.auth.sub, walletTokens: { $gte: product.priceTokens } },
-        { $inc: { walletTokens: -product.priceTokens } },
+        { _id: req.auth.sub, [walletField]: { $gte: product.priceTokens } },
+        { $inc: { [walletField]: -product.priceTokens } },
         { new: true, session }
-      ).select('walletTokens');
-      if (!user) {
-        result = { error: 'INSUFFICIENT_TOKENS' };
-        return;
-      }
-
+      ).select('walletTokens walletPurpleTokens walletDiamondTokens');
+      if (!user) { result = { error: 'INSUFFICIENT_TOKENS' }; return; }
       if (product.category === 'stream-gift') {
         await Inventory.findOneAndUpdate(
           { user: req.auth.sub, itemId },
@@ -1064,21 +1058,14 @@ app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next
         await Inventory.create([{ user: req.auth.sub, itemId, quantity: 1 }], { session });
       }
       await TokenTransaction.create([{
-        user: req.auth.sub,
-        type: 'purchase',
-        amount: -product.priceTokens,
-        itemId,
-        balanceAfter: user.walletTokens
+        user: req.auth.sub, type: 'purchase', currency, amount: -product.priceTokens, itemId,
+        balanceAfter: getWalletBalances(user)[currency]
       }], { session });
-      result = { walletTokens: user.walletTokens };
+      result = { balances: getWalletBalances(user) };
     });
-    if (result && result.error === 'ALREADY_OWNED') {
-      return res.status(409).json({ success: false, message: 'Ya tenés este artículo en tu inventario.' });
-    }
-    if (result && result.error === 'INSUFFICIENT_TOKENS') {
-      return res.status(409).json({ success: false, message: 'No tenés Tokens suficientes. Tu saldo no fue modificado.' });
-    }
-    return res.status(201).json({ success: true, message: 'Compra registrada.', wallet: { tokens: result.walletTokens } });
+    if (result?.error === 'ALREADY_OWNED') return res.status(409).json({ success: false, message: 'Ya tenés este artículo en tu inventario.' });
+    if (result?.error === 'INSUFFICIENT_TOKENS') return res.status(409).json({ success: false, code: result.error, message: 'No tenés saldo suficiente de ' + getCurrencyLabel(currency) + '.' });
+    return res.status(201).json({ success: true, message: 'Compra registrada.', wallet: { balances: result.balances } });
   } catch (error) {
     return next(error);
   } finally {
@@ -1669,73 +1656,40 @@ app.get('/api/me/missions', requireAuth, async (req, res, next) => {
 app.post('/api/me/missions/:missionId/claim', requireAuth, storeLimiter, async (req, res, next) => {
   const definition = MISSION_CATALOG.find((mission) => mission.id === req.params.missionId);
   if (!definition) return res.status(404).json({ success: false, message: 'Misión no encontrada.' });
-  try {
-    // Ensure the collection and unique user/mission index exist before opening a transaction.
-    await MissionClaim.init();
-  } catch (error) {
-    return next(error);
-  }
+  const currency = definition.rewardCurrency || 'gold';
+  const walletField = getCurrencyField(currency);
+  try { await MissionClaim.init(); } catch (error) { return next(error); }
   const session = await mongoose.startSession();
   let result;
   try {
     await session.withTransaction(async () => {
       const missions = await buildMissionProgress(req.auth.sub, session);
       const mission = missions.find((item) => item.id === definition.id);
-      if (!mission || !mission.completed) {
-        result = { error: 'NOT_COMPLETED' };
-        return;
-      }
-      if (mission.claimed) {
-        result = { error: 'ALREADY_CLAIMED' };
-        return;
-      }
+      if (!mission || !mission.completed) { result = { error: 'NOT_COMPLETED' }; return; }
+      if (mission.claimed) { result = { error: 'ALREADY_CLAIMED' }; return; }
       const user = await User.findByIdAndUpdate(
-        req.auth.sub,
-        { $inc: { walletTokens: definition.rewardTokens } },
+        req.auth.sub, { $inc: { [walletField]: definition.rewardTokens } },
         { new: true, session }
-      ).select('walletTokens');
-      if (!user) {
-        result = { error: 'USER_NOT_FOUND' };
-        return;
-      }
-      await MissionClaim.create([{
-        user: req.auth.sub,
-        missionId: definition.id,
-        rewardTokens: definition.rewardTokens
-      }], { session });
+      ).select('walletTokens walletPurpleTokens walletDiamondTokens');
+      if (!user) { result = { error: 'USER_NOT_FOUND' }; return; }
+      await MissionClaim.create([{ user: req.auth.sub, missionId: definition.id, rewardTokens: definition.rewardTokens, rewardCurrency: currency }], { session });
       await TokenTransaction.create([{
-        user: req.auth.sub,
-        type: 'credit',
-        amount: definition.rewardTokens,
-        itemId: 'mission:' + definition.id,
-        balanceAfter: user.walletTokens
+        user: req.auth.sub, type: 'credit', currency, amount: definition.rewardTokens,
+        itemId: 'mission:' + definition.id, balanceAfter: getWalletBalances(user)[currency]
       }], { session });
-      result = { walletTokens: user.walletTokens, rewardTokens: definition.rewardTokens };
+      result = { balances: getWalletBalances(user), rewardTokens: definition.rewardTokens };
     });
-    if (result && result.error === 'NOT_COMPLETED') {
-      return res.status(409).json({ success: false, code: result.error, message: 'Completá los objetivos de la misión antes de reclamar la recompensa.' });
-    }
-    if (result && result.error === 'ALREADY_CLAIMED') {
-      return res.status(409).json({ success: false, code: result.error, message: 'Esta recompensa ya fue reclamada.' });
-    }
-    if (result && result.error === 'USER_NOT_FOUND') {
-      return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
-    }
+    if (result?.error === 'NOT_COMPLETED') return res.status(409).json({ success: false, code: result.error, message: 'Completá los objetivos de la misión antes de reclamar la recompensa.' });
+    if (result?.error === 'ALREADY_CLAIMED') return res.status(409).json({ success: false, code: result.error, message: 'Esta recompensa ya fue reclamada.' });
+    if (result?.error === 'USER_NOT_FOUND') return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
     return res.status(201).json({
-      success: true,
-      message: 'Recompensa acreditada.',
-      missionId: definition.id,
-      rewardTokens: result.rewardTokens,
-      wallet: { tokens: result.walletTokens }
+      success: true, message: 'Recompensa acreditada.', missionId: definition.id,
+      rewardTokens: result.rewardTokens, currency, wallet: { balances: result.balances }
     });
   } catch (error) {
-    if (error && error.code === 11000) {
-      return res.status(409).json({ success: false, code: 'ALREADY_CLAIMED', message: 'Esta recompensa ya fue reclamada.' });
-    }
+    if (error?.code === 11000) return res.status(409).json({ success: false, code: 'ALREADY_CLAIMED', message: 'Esta recompensa ya fue reclamada.' });
     return next(error);
-  } finally {
-    await session.endSession();
-  }
+  } finally { await session.endSession(); }
 });
 
 app.get('/api/me/saved-posts', requireAuth, async (req, res, next) => {
