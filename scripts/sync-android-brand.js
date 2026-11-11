@@ -100,7 +100,7 @@ const splashStyles = [
   '        <item name="android:windowSplashScreenBackground">#08090D</item>',
   '        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/playverse_foreground</item>',
   '        <item name="android:windowSplashScreenIconBackgroundColor">#08090D</item>',
-  '        <item name="android:postSplashScreenTheme">@style/AppTheme.NoActionBar</item>',
+  '        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>',
   '        <item name="android:background">@drawable/playverse_splash_background</item>',
   '    </style>',
   '</resources>'
