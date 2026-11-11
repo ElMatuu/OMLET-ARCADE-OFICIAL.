@@ -68,6 +68,7 @@ function pingMinecraftJava(host, port, timeoutMs = 5000) {
     const finish = (error, value) => {
       if (settled) return;
       settled = true;
+      clearTimeout(timer);
       socket.destroy();
       if (error) reject(error);
       else resolve(value);
@@ -108,10 +109,8 @@ function pingMinecraftJava(host, port, timeoutMs = 5000) {
         if (!Number.isInteger(online) || online < 0 || !Number.isInteger(maximum) || maximum < online) {
           throw new Error('El servidor devolvió un recuento de jugadores inválido.');
         }
-        clearTimeout(timer);
         finish(null, { playerCount: online, maxPlayers: maximum, version: String(status?.version?.name || '') });
       } catch (error) {
-        clearTimeout(timer);
         finish(error);
       }
     });
@@ -237,6 +236,7 @@ async function runOnce(config, dependencies = {}) {
   const send = dependencies.sendHeartbeat || sendHeartbeat;
   let metrics = {};
   let reachable = false;
+  let diagnostic = '';
   if (config.protocol === 'minecraft-java' || config.protocol === 'minecraft-bedrock') {
     try {
       const ping = config.protocol === 'minecraft-java'
@@ -244,14 +244,16 @@ async function runOnce(config, dependencies = {}) {
         : (dependencies.pingMinecraftBedrock || pingMinecraftBedrock);
       metrics = await ping(config.host, config.port);
       reachable = true;
-    } catch {
+    } catch (error) {
       reachable = false;
+      diagnostic = error instanceof Error ? error.message : String(error);
     }
   } else {
     reachable = await (dependencies.probeTcp || probeTcp)(config.host, config.port);
+    if (!reachable) diagnostic = 'No se pudo establecer conexión TCP con el host y puerto configurados.';
   }
   await send(config, reachable, undefined, metrics);
-  return { reachable, metrics };
+  return { reachable, metrics, diagnostic };
 }
 
 async function main() {
