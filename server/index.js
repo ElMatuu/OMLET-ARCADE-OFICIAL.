@@ -2538,6 +2538,41 @@ app.post('/api/tournaments/:tournamentId/start', requireAuth, async (req, res, n
   } catch (error) { return next(error); }
 });
 
+app.post('/api/tournaments/:tournamentId/matches/:round/:matchNumber/result', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.tournamentId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    const round = Number(req.params.round);
+    const matchNumber = Number(req.params.matchNumber);
+    if (!Number.isInteger(round) || round < 1 || !Number.isInteger(matchNumber) || matchNumber < 1) return res.status(400).json({ success: false, message: 'Partida inválida.' });
+    const tournament = await Tournament.findOne({ _id: req.params.tournamentId, creator: req.auth.sub, format: 'single-elimination', status: 'in-progress' });
+    if (!tournament) return res.status(404).json({ success: false, message: 'Torneo no encontrado o no sos el organizador.' });
+    const match = tournament.matches.find((item) => item.round === round && item.matchNumber === matchNumber);
+    const winnerId = String(req.body.winnerEntryId || '');
+    if (!match || match.status === 'completed' || ![String(match.entryA || ''), String(match.entryB || '')].includes(winnerId) || !winnerId) {
+      return res.status(409).json({ success: false, message: 'La partida no está disponible o el ganador no pertenece a ella.' });
+    }
+    match.winner = winnerId;
+    match.status = 'completed';
+    const nextMatch = tournament.matches.find((item) => item.round === round + 1 && item.matchNumber === Math.ceil(matchNumber / 2));
+    if (nextMatch) {
+      if (matchNumber % 2 === 1) nextMatch.entryA = winnerId;
+      else nextMatch.entryB = winnerId;
+      if (nextMatch.entryA && !nextMatch.entryB) {
+        nextMatch.winner = nextMatch.entryA;
+        nextMatch.status = 'completed';
+      } else if (nextMatch.entryB && !nextMatch.entryA) {
+        nextMatch.winner = nextMatch.entryB;
+        nextMatch.status = 'completed';
+      }
+    } else {
+      tournament.status = 'completed';
+    }
+    tournament.updatedAt = new Date();
+    await tournament.save();
+    return res.json({ success: true, status: tournament.status, winnerEntryId: winnerId });
+  } catch (error) { return next(error); }
+});
+
 app.post('/api/tournaments/:tournamentId/entries/:entryId/score', requireAuth, async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.tournamentId) || !mongoose.isValidObjectId(req.params.entryId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
