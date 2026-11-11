@@ -16,8 +16,13 @@ test('startup uses an original local Web Audio theme with a user sound control',
 
 test('startup progress begins visibly and cannot report 100 percent before session restoration', () => {
   assert.match(html, /currentProgress = 1/);
+  assert.match(html, /id="splash-percent"/);
+  assert.match(html, /aria-valuemax="100"/);
   assert.match(html, /Math\.min\(92,/);
   assert.match(html, /const restored = await restoreSession\(\)/);
+  assert.match(html, /await Promise\.allSettled\(\[/);
+  assert.match(html, /await loadCommunityGameServers\(\)/);
+  assert.match(html, /await loadCommunityStories\(\)/);
   assert.match(html, /ready = true;[\s\S]{0,180}clearInterval\(progressTimer\)[\s\S]{0,100}width = '100%'/);
 });
 
