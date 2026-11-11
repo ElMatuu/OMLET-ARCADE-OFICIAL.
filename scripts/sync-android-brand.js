@@ -70,6 +70,14 @@ for (const [name, xml] of Object.entries(animatorResources)) {
   fs.writeFileSync(path.join(animatorDir, name), xml + String.fromCharCode(10));
 }
 
+const stateAnimatorResources = {
+  'playverse_elevation_states.xml': '<?xml version="1.0" encoding="utf-8"?>\\n<selector xmlns:android="http://schemas.android.com/apk/res/android"><item android:state_enabled="true"><objectAnimator android:duration="180" android:valueTo="8dp" android:valueType="floatType" android:propertyName="elevation" /></item><item><objectAnimator android:duration="0" android:valueTo="0dp" android:valueType="floatType" android:propertyName="elevation" /></item></selector>',
+  'playverse_elevation_default.xml': '<?xml version="1.0" encoding="utf-8"?>\\n<selector xmlns:android="http://schemas.android.com/apk/res/android"><item><objectAnimator android:duration="1" android:valueTo="8dp" android:valueType="floatType" android:propertyName="elevation" /></item></selector>'
+};
+for (const [name, xml] of Object.entries(stateAnimatorResources)) {
+  fs.writeFileSync(path.join(animatorDir, name), xml + String.fromCharCode(10));
+}
+
 if (!fs.existsSync(path.join(generated, 'playverse_foreground.png'))) {
   console.error('Generated brand assets are missing. Run node scripts/generate-icons.js first.');
   process.exit(1);
