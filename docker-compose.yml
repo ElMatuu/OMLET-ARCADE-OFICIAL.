@@ -53,7 +53,9 @@ services:
       - ./livekit.yaml:/etc/livekit.yaml:ro
     ports:
       - "7881:7881/tcp"
+      - "3478:3478/udp"
       - "50000-50100:50000-50100/udp"
+      - "50101-50200:50101-50200/udp"
     expose:
       - "7880"
     networks: [playverse]
