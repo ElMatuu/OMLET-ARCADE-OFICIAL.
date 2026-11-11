@@ -1269,14 +1269,17 @@
             }
         });
 
-        function showAuthenticatedApp(user) {
+        async function showAuthenticatedApp(user) {
             applyProfileData(user);
             document.getElementById('auth-screen').classList.add('hidden');
             document.getElementById('main-app').classList.remove('hidden');
-            loadMyProfile();
-            loadRooms();
-            loadCommunityPosts();
-            refreshNotificationBadge();
+            // Wait for the first useful app data before marking startup as fully ready.
+            await Promise.allSettled([
+                loadMyProfile(),
+                loadRooms(),
+                loadCommunityPosts(),
+                refreshNotificationBadge()
+            ]);
             connectPresenceSocket();
             if (pendingFloatingAction) {
                 const action = pendingFloatingAction;
@@ -1317,7 +1320,7 @@
                     if (subtitle) subtitle.textContent = 'No pudimos validar tu sesión. Iniciá sesión nuevamente.';
                     return false;
                 }
-                showAuthenticatedApp(data.user);
+                await showAuthenticatedApp(data.user);
                 return true;
             } catch (error) {
                 if (subtitle) subtitle.textContent = 'No pudimos conectar con PLAYVERSE. Revisá tu conexión e intentá iniciar sesión; conservamos tu sesión para reintentar.';
