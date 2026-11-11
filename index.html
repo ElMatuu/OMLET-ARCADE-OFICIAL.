@@ -3387,6 +3387,15 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 const player = data.profile;
                 const card = document.createElement('div');
                 card.className = 'PLAYVERSE-card rounded-2xl border border-orange-500/30 p-4 space-y-3';
+                card.dataset.profileTheme = ['arcade', 'neon', 'minimal', 'esports'].includes(player.profileTheme) ? player.profileTheme : 'arcade';
+                if (player.profileBannerUrl) {
+                    const banner = document.createElement('img');
+                    banner.src = player.profileBannerUrl;
+                    banner.alt = 'Portada de ' + (player.displayName || player.username);
+                    banner.className = 'w-full h-28 rounded-xl object-cover';
+                    banner.addEventListener('error', () => banner.remove(), { once: true });
+                    card.appendChild(banner);
+                }
                 const name = document.createElement('p');
                 name.className = 'font-bold text-white';
                 name.textContent = player.displayName || player.username;
@@ -3402,7 +3411,32 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 const audience = document.createElement('p');
                 audience.className = 'text-xs text-slate-400';
                 audience.textContent = String(player.followersCount || 0) + ' seguidores · ' + String(player.followingCount || 0) + ' siguiendo';
-                card.append(name, handle, bio, posts, audience);
+                card.append(name, handle, bio);
+                if (Array.isArray(player.favoriteGames) && player.favoriteGames.length) {
+                    const games = document.createElement('div');
+                    games.className = 'flex flex-wrap gap-2';
+                    player.favoriteGames.slice(0, 8).forEach((game) => {
+                        const tag = document.createElement('span');
+                        tag.className = 'rounded-full border border-orange-400/30 bg-orange-500/10 px-3 py-1 text-[10px] font-bold text-orange-200';
+                        tag.textContent = game;
+                        games.appendChild(tag);
+                    });
+                    card.appendChild(games);
+                }
+                const socialLinks = document.createElement('div');
+                socialLinks.className = 'flex flex-wrap gap-2';
+                [['YouTube', player.socialYouTubeUrl], ['Twitch', player.socialTwitchUrl], ['TikTok', player.socialTikTokUrl]].forEach(([label, url]) => {
+                    if (!url) return;
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.className = 'rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-[10px] font-bold text-slate-200';
+                    link.textContent = label;
+                    socialLinks.appendChild(link);
+                });
+                if (socialLinks.childElementCount) card.appendChild(socialLinks);
+                card.append(posts, audience);
                 if (player.friendship !== 'self' && player.friendship !== 'blocked') {
                     const follow = document.createElement('button');
                     follow.type = 'button';
