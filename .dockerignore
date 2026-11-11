@@ -1,0 +1,11 @@
+node_modules
+www
+android
+release
+.git
+.github
+.env
+.env.*
+!.env.selfhost.example
+npm-debug.log*
+.DS_Store
