@@ -157,7 +157,7 @@ test('User stores application accessibility preferences with safe defaults', asy
 });
 
 
-test('UserAchievement persists one unique, weighted unlock per account', async () => {
+test('UserAchievement persists one unique unlock per account and separates XP claiming', async () => {
   const UserAchievement = require('../server/models/UserAchievement');
   const user = new mongoose.Types.ObjectId();
   const record = new UserAchievement({ user, achievementId: 'first-post', earnedXP: 20 });
@@ -165,7 +165,11 @@ test('UserAchievement persists one unique, weighted unlock per account', async (
   assert.equal(record.achievementId, 'first-post');
   assert.equal(record.earnedXP, 20);
   assert.ok(record.unlockedAt instanceof Date);
+  assert.equal(record.claimedAt, null);
+  const pending = new UserAchievement({ user, achievementId: 'comments-10', earnedXP: 0 });
+  await pending.validate();
+  assert.equal(pending.earnedXP, 0);
   assert.equal(UserAchievement.schema.indexes().some(([keys, options]) =>
     keys.user === 1 && keys.achievementId === 1 && options.unique === true), true);
-  await assert.rejects(new UserAchievement({ user, achievementId: 'first-post', earnedXP: 0 }).validate());
+  await assert.rejects(new UserAchievement({ user, achievementId: 'invalid-xp', earnedXP: -1 }).validate());
 });
