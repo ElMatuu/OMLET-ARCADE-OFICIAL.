@@ -2591,7 +2591,7 @@
         }
 
         async function loadRooms() {
-            loadCommunityGameServers();
+            await loadCommunityGameServers();
             const container = document.getElementById('rooms-container');
             const status = document.getElementById('rooms-status');
             if (!container || !status || !authToken) return;
@@ -3715,7 +3715,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         }
 
         async function loadCommunityPosts(append = false) {
-            loadCommunityStories();
+            await loadCommunityStories();
             const container = document.getElementById('community-posts-container');
             const status = document.getElementById('community-posts-status');
             const loadMoreButton = document.getElementById('community-load-more');
