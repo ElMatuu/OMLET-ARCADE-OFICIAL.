@@ -2989,22 +2989,34 @@ app.post('/api/reports', requireAuth, reportLimiter, async (req, res, next) => {
     const details = typeof (req.body && req.body.details) === 'string' ? req.body.details.trim() : '';
     const validTypes = ['user', 'post', 'comment', 'room', 'stream'];
     const validReasons = ['harassment', 'hate', 'spam', 'sexual_content', 'violence', 'impersonation', 'scam', 'other'];
-    if (!validTypes.includes(targetType) || !mongoose.isValidObjectId(targetId) ||
+    if (!validTypes.includes(targetType) || typeof targetId !== 'string' ||
         !validReasons.includes(reason) || details.length > 1000) {
       return res.status(400).json({ success: false, message: 'Revisá el tipo, identificador, motivo y detalle del reporte.' });
     }
-    const targetExists = targetType === 'user' ? await User.exists({ _id: targetId })
-      : targetType === 'post' ? await Post.exists({ _id: targetId })
-      : targetType === 'comment' ? await Comment.exists({ _id: targetId })
-      : targetType === 'room' ? await Room.exists({ _id: targetId })
-      : await LiveStream.exists({ _id: targetId });
+    let resolvedTargetId = targetId.trim();
+    if (targetType === 'user') {
+      const username = resolvedTargetId.replace(/^@/, '');
+      if (!/^[a-zA-Z0-9_]{3,24}$/.test(username)) {
+        return res.status(400).json({ success: false, message: 'Ingresá un nombre de usuario válido.' });
+      }
+      const targetUser = await User.findOne({ username }).select('_id').lean();
+      if (!targetUser) return res.status(404).json({ success: false, message: 'La cuenta que querés reportar no existe.' });
+      resolvedTargetId = String(targetUser._id);
+    } else if (!mongoose.isValidObjectId(resolvedTargetId)) {
+      return res.status(400).json({ success: false, message: 'El ID del contenido debe tener 24 caracteres hexadecimales.' });
+    }
+    const targetExists = targetType === 'user' ? await User.exists({ _id: resolvedTargetId })
+      : targetType === 'post' ? await Post.exists({ _id: resolvedTargetId })
+      : targetType === 'comment' ? await Comment.exists({ _id: resolvedTargetId })
+      : targetType === 'room' ? await Room.exists({ _id: resolvedTargetId })
+      : await LiveStream.exists({ _id: resolvedTargetId });
     if (!targetExists) return res.status(404).json({ success: false, message: 'El contenido o cuenta que querés reportar no existe.' });
-    if (targetType === 'user' && String(targetId) === String(req.auth.sub)) {
+    if (targetType === 'user' && String(resolvedTargetId) === String(req.auth.sub)) {
       return res.status(400).json({ success: false, message: 'No podés reportar tu propia cuenta.' });
     }
     try {
       const report = await Report.create({
-        reporter: req.auth.sub, targetType, targetId, reason, details
+        reporter: req.auth.sub, targetType, targetId: resolvedTargetId, reason, details
       });
       return res.status(201).json({
         success: true,
