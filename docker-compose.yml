@@ -6,6 +6,11 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env.selfhost}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env.selfhost}
+      MONGO_APP_USERNAME: ${MONGO_APP_USERNAME:?Set MONGO_APP_USERNAME in .env.selfhost}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?Set MONGO_APP_PASSWORD in .env.selfhost}
+    volumes:
+      - playverse_mongo_data:/data/db
+      - ./docker/mongo-init:/docker-entrypoint-initdb.d:ro
     volumes:
       - playverse_mongo_data:/data/db
     healthcheck:
@@ -23,7 +28,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongo:27017/playverse?authSource=admin
+      MONGODB_URI: mongodb://${MONGO_APP_USERNAME}:${MONGO_APP_PASSWORD}@mongo:27017/playverse?authSource=playverse
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.selfhost}
       CORS_ORIGIN: ${CORS_ORIGIN:?Set CORS_ORIGIN in .env.selfhost}
       LIVEKIT_URL: ${LIVEKIT_URL:?Set LIVEKIT_URL in .env.selfhost}
