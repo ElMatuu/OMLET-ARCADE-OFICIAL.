@@ -57,7 +57,7 @@ const application = manifest.match(/<application\b[^>]*>/);
 if (!application) throw new Error('AndroidManifest.xml does not contain an application element.');
 let appTag = application[0];
 for (const [attribute, value] of [['android:icon', '@mipmap/ic_launcher'], ['android:roundIcon', '@mipmap/ic_launcher_round'], ['android:label', 'PLAYVERSE']]) {
-  const pattern = new RegExp('\\s' + attribute + '="[^"]*"');
+  const pattern = new RegExp('\s' + attribute + '="[^"]*"');
   if (pattern.test(appTag)) appTag = appTag.replace(pattern, ' ' + attribute + '="' + value + '"');
   else appTag = appTag.slice(0, -1) + ' ' + attribute + '="' + value + '">';
 }
@@ -110,7 +110,7 @@ fs.writeFileSync(path.join(v31, 'styles.xml'), splashStyles);
 const overlayPermission = '    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />';
 if (!manifest.includes('android.permission.SYSTEM_ALERT_WINDOW')) {
   const appAt = manifest.indexOf('<application');
-  manifest = manifest.slice(0, appAt) + overlayPermission + '\\n    ' + manifest.slice(appAt);
+  manifest = manifest.slice(0, appAt) + overlayPermission + '\n    ' + manifest.slice(appAt);
   fs.writeFileSync(manifestPath, manifest);
 }
 
@@ -129,7 +129,7 @@ function findMainActivity(directory) {
 const activityPath = findMainActivity(mainActivityPath);
 if (!activityPath) throw new Error('Capacitor MainActivity.java was not found; cannot register overlay permission bridge.');
 let activity = fs.readFileSync(activityPath, 'utf8');
-const packageMatch = activity.match(/^package\\s+([\\w.]+);/m);
+const packageMatch = activity.match(/^package\s+([\w.]+);/m);
 if (!packageMatch) throw new Error('Could not determine Android application package for overlay permission bridge.');
 const javaPackage = packageMatch[1];
 const pluginPath = path.join(path.dirname(activityPath), 'OverlayPermissionPlugin.java');
@@ -177,7 +177,7 @@ public class OverlayPermissionPlugin extends Plugin {
 `;
 fs.writeFileSync(pluginPath, pluginSource);
 if (!activity.includes('OverlayPermissionPlugin.class')) {
-  activity = activity.replace(/public class MainActivity extends BridgeActivity\\s*\\{/, `public class MainActivity extends BridgeActivity {
+  activity = activity.replace(/public class MainActivity extends BridgeActivity\s*\{/, `public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(android.os.Bundle savedInstanceState) {
         registerPlugin(OverlayPermissionPlugin.class);
