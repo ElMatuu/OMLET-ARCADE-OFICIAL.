@@ -6,6 +6,23 @@ const generated = path.join(root, 'assets', 'generated');
 const androidRoot = path.join(root, 'android', 'app', 'src', 'main');
 const resources = path.join(androidRoot, 'res');
 
+const animationDir = path.join(resources, 'anim');
+fs.mkdirSync(animationDir, { recursive: true });
+const animationResources = {
+  'playverse_fade_in.xml': '<?xml version="1.0" encoding="utf-8"?>\n<alpha xmlns:android="http://schemas.android.com/apk/res/android" android:duration="180" android:interpolator="@android:anim/decelerate_interpolator" android:fromAlpha="0.0" android:toAlpha="1.0" />',
+  'playverse_fade_out.xml': '<?xml version="1.0" encoding="utf-8"?>\n<alpha xmlns:android="http://schemas.android.com/apk/res/android" android:duration="150" android:interpolator="@android:anim/accelerate_interpolator" android:fromAlpha="1.0" android:toAlpha="0.0" />',
+  'playverse_panel_enter.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:shareInterpolator="false"><scale android:duration="220" android:interpolator="@android:anim/decelerate_interpolator" android:pivotX="50%" android:pivotY="100%" android:fromXScale="0.9" android:toXScale="1.0" android:fromYScale="0.9" android:toYScale="1.0" /><alpha android:duration="180" android:interpolator="@android:anim/decelerate_interpolator" android:fromAlpha="0.0" android:toAlpha="1.0" /></set>',
+  'playverse_panel_exit.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:shareInterpolator="false"><scale android:duration="170" android:interpolator="@android:anim/accelerate_interpolator" android:pivotX="50%" android:pivotY="100%" android:fromXScale="1.0" android:toXScale="0.9" android:fromYScale="1.0" android:toYScale="0.9" /><alpha android:duration="150" android:interpolator="@android:anim/accelerate_interpolator" android:fromAlpha="1.0" android:toAlpha="0.0" /></set>',
+  'playverse_slide_in_up.xml': '<?xml version="1.0" encoding="utf-8"?>\n<translate xmlns:android="http://schemas.android.com/apk/res/android" android:duration="220" android:interpolator="@android:anim/decelerate_interpolator" android:fromYDelta="50%p" android:toYDelta="0" />',
+  'playverse_slide_in_down.xml': '<?xml version="1.0" encoding="utf-8"?>\n<translate xmlns:android="http://schemas.android.com/apk/res/android" android:duration="220" android:interpolator="@android:anim/decelerate_interpolator" android:fromYDelta="-50%p" android:toYDelta="0" />',
+  'playverse_slide_out_down.xml': '<?xml version="1.0" encoding="utf-8"?>\n<translate xmlns:android="http://schemas.android.com/apk/res/android" android:duration="180" android:interpolator="@android:anim/accelerate_interpolator" android:fromYDelta="0" android:toYDelta="50%p" />',
+  'playverse_slide_out_up.xml': '<?xml version="1.0" encoding="utf-8"?>\n<translate xmlns:android="http://schemas.android.com/apk/res/android" android:duration="180" android:interpolator="@android:anim/accelerate_interpolator" android:fromYDelta="0" android:toYDelta="-50%p" />'
+};
+for (const [name, xml] of Object.entries(animationResources)) {
+  fs.writeFileSync(path.join(animationDir, name), xml + String.fromCharCode(10));
+}
+
+
 if (!fs.existsSync(androidRoot)) {
   console.error('Android platform is not generated yet. Run npx cap add android first.');
   process.exit(1);
@@ -258,37 +275,6 @@ public class FloatingControlsService extends Service {
         showBubble();
     }
 
-
-const anim = path.join(resources, 'anim');
-fs.mkdirSync(anim, { recursive: true });
-const animationResources = {
-  'playverse_fade_in.xml': `<?xml version="1.0" encoding="utf-8"?>
-<alpha xmlns:android="http://schemas.android.com/apk/res/android" android:duration="180" android:interpolator="@android:anim/decelerate_interpolator" android:fromAlpha="0.0" android:toAlpha="1.0" />`,
-  'playverse_fade_out.xml': `<?xml version="1.0" encoding="utf-8"?>
-<alpha xmlns:android="http://schemas.android.com/apk/res/android" android:duration="150" android:interpolator="@android:anim/accelerate_interpolator" android:fromAlpha="1.0" android:toAlpha="0.0" />`,
-  'playverse_panel_enter.xml': `<?xml version="1.0" encoding="utf-8"?>
-<set xmlns:android="http://schemas.android.com/apk/res/android" android:shareInterpolator="false">
-    <scale android:duration="220" android:interpolator="@android:anim/decelerate_interpolator" android:pivotX="50%" android:pivotY="100%" android:fromXScale="0.9" android:toXScale="1.0" android:fromYScale="0.9" android:toYScale="1.0" />
-    <alpha android:duration="180" android:interpolator="@android:anim/decelerate_interpolator" android:fromAlpha="0.0" android:toAlpha="1.0" />
-</set>`,
-  'playverse_panel_exit.xml': `<?xml version="1.0" encoding="utf-8"?>
-<set xmlns:android="http://schemas.android.com/apk/res/android" android:shareInterpolator="false">
-    <scale android:duration="170" android:interpolator="@android:anim/accelerate_interpolator" android:pivotX="50%" android:pivotY="100%" android:fromXScale="1.0" android:toXScale="0.9" android:fromYScale="1.0" android:toYScale="0.9" />
-    <alpha android:duration="150" android:interpolator="@android:anim/accelerate_interpolator" android:fromAlpha="1.0" android:toAlpha="0.0" />
-</set>`,
-  'playverse_slide_in_up.xml': `<?xml version="1.0" encoding="utf-8"?>
-<translate xmlns:android="http://schemas.android.com/apk/res/android" android:duration="220" android:interpolator="@android:anim/decelerate_interpolator" android:fromYDelta="50%p" android:toYDelta="0" />`,
-  'playverse_slide_in_down.xml': `<?xml version="1.0" encoding="utf-8"?>
-<translate xmlns:android="http://schemas.android.com/apk/res/android" android:duration="220" android:interpolator="@android:anim/decelerate_interpolator" android:fromYDelta="-50%p" android:toYDelta="0" />`,
-  'playverse_slide_out_down.xml': `<?xml version="1.0" encoding="utf-8"?>
-<translate xmlns:android="http://schemas.android.com/apk/res/android" android:duration="180" android:interpolator="@android:anim/accelerate_interpolator" android:fromYDelta="0" android:toYDelta="50%p" />`,
-  'playverse_slide_out_up.xml': `<?xml version="1.0" encoding="utf-8"?>
-<translate xmlns:android="http://schemas.android.com/apk/res/android" android:duration="180" android:interpolator="@android:anim/accelerate_interpolator" android:fromYDelta="0" android:toYDelta="-50%p" />`
-};
-for (const [name, xml] of Object.entries(animationResources)) {
-  fs.writeFileSync(path.join(anim, name), xml + String.fromCharCode(10));
-}
-
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(CHANNEL, "Controles flotantes PLAYVERSE", NotificationManager.IMPORTANCE_LOW);
@@ -385,7 +371,7 @@ for (const [name, xml] of Object.entries(animationResources)) {
         panelParams.x = Math.max(dp(8), Math.min(bubbleParams.x - dp(165), getResources().getDisplayMetrics().widthPixels - dp(232)));
         panelParams.y = Math.max(dp(30), Math.min(bubbleParams.y - dp(110), getResources().getDisplayMetrics().heightPixels - dp(260)));
         manager.addView(panel,panelParams);
-        android.view.animation.Animation entrance = android.view.animation.AnimationUtils.loadAnimation(this, com.playverse.app.R.anim.playverse_panel_enter);
+        android.view.animation.Animation entrance = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.playverse_panel_enter);
         panel.startAnimation(entrance);
         expanded = true;
     }
@@ -401,7 +387,7 @@ for (const [name, xml] of Object.entries(animationResources)) {
     private void hidePanel() {
         if (panel != null) {
             final View closingPanel = panel;
-            android.view.animation.Animation exit = android.view.animation.AnimationUtils.loadAnimation(this, com.playverse.app.R.anim.playverse_panel_exit);
+            android.view.animation.Animation exit = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.playverse_panel_exit);
             exit.setAnimationListener(new android.view.animation.Animation.AnimationListener() {
                 @Override public void onAnimationStart(android.view.animation.Animation animation) {}
                 @Override public void onAnimationRepeat(android.view.animation.Animation animation) {}
