@@ -1183,13 +1183,7 @@
             }
             consumeFloatingAction();
             window.addEventListener('focus', consumeFloatingAction);
-            const overlayPlugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.OverlayPermission;
-            if (overlayPlugin && typeof overlayPlugin.consumePendingAction === 'function') {
-                overlayPlugin.consumePendingAction().then((result) => {
-                    if (result && result.action === 'chat') switchTab('chat');
-                    else if (result && result.action === 'live') switchTab('live');
-                }).catch(() => {});
-            }
+
         });
 
         let isRegisterMode = false;
