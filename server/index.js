@@ -718,7 +718,18 @@ const DEFAULT_STREAMING_PREFERENCES = {
   systemAudioEnabled: true,
   orientation: 'auto',
   cameraPosition: 'bottom-right',
-  cameraFrame: 'none'
+  cameraFrame: 'none',
+  overlayTheme: 'arcade',
+  overlayLayout: 'wide',
+  overlayShowChat: true,
+  overlayShowViewerCount: true,
+  overlayShowDonations: true,
+  overlayBrandingText: '',
+  socialYouTube: '',
+  socialTwitch: '',
+  socialTikTok: '',
+  welcomeMessage: '',
+  farewellMessage: ''
 };
 
 const STREAMING_PREFERENCE_RULES = {
@@ -730,7 +741,18 @@ const STREAMING_PREFERENCE_RULES = {
   systemAudioEnabled: (value) => typeof value === 'boolean',
   orientation: (value) => ['auto', 'portrait', 'landscape'].includes(value),
   cameraPosition: (value) => ['top-left', 'top-right', 'bottom-left', 'bottom-right'].includes(value),
-  cameraFrame: (value) => ['none', 'cyan', 'violet'].includes(value)
+  cameraFrame: (value) => ['none', 'cyan', 'violet'].includes(value),
+  overlayTheme: (value) => ['arcade', 'neon', 'minimal', 'esports'].includes(value),
+  overlayLayout: (value) => ['compact', 'wide', 'vertical'].includes(value),
+  overlayShowChat: (value) => typeof value === 'boolean',
+  overlayShowViewerCount: (value) => typeof value === 'boolean',
+  overlayShowDonations: (value) => typeof value === 'boolean',
+  overlayBrandingText: (value) => typeof value === 'string' && value.trim().length <= 40,
+  socialYouTube: (value) => typeof value === 'string' && value.trim().length <= 60,
+  socialTwitch: (value) => typeof value === 'string' && value.trim().length <= 60,
+  socialTikTok: (value) => typeof value === 'string' && value.trim().length <= 60,
+  welcomeMessage: (value) => typeof value === 'string' && value.trim().length <= 120,
+  farewellMessage: (value) => typeof value === 'string' && value.trim().length <= 120
 };
 
 app.get('/api/me/streaming-preferences', requireAuth, async (req, res, next) => {

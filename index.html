@@ -535,6 +535,27 @@
                 <div class="grid grid-cols-2 gap-3"><label class="text-xs text-slate-400">Orientación<select id="stream-orientation" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="auto">Automática</option><option value="portrait">Vertical</option><option value="landscape">Horizontal</option></select></label><label class="text-xs text-slate-400">Posición de cámara<select id="stream-camera-position" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="top-left">Arriba izquierda</option><option value="top-right">Arriba derecha</option><option value="bottom-left">Abajo izquierda</option><option value="bottom-right">Abajo derecha</option></select></label></div>
                 <label class="block text-xs text-slate-400">Marco de cámara<select id="stream-camera-frame" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="none">Sin marco</option><option value="cyan">Cian</option><option value="violet">Violeta</option></select></label>
             </section>
+            <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-orange-300">Personalización del overlay · Stream Overlays 2.0</h4>
+                <p class="text-[11px] text-slate-400">Configurá la identidad visual de tu directo, los paneles visibles y tus mensajes para la audiencia.</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="text-xs text-slate-400">Tema visual<select id="stream-overlay-theme" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="arcade">Arcade clásico</option><option value="neon">Neón</option><option value="minimal">Minimal</option><option value="esports">eSports</option></select></label>
+                    <label class="text-xs text-slate-400">Distribución<select id="stream-overlay-layout" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="compact">Compacta</option><option value="wide">Horizontal</option><option value="vertical">Vertical</option></select></label>
+                </div>
+                <label class="block text-xs text-slate-400">Marca / nombre del canal<input id="stream-overlay-branding" maxlength="40" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="Tu nombre de creador"></label>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <label class="text-xs text-slate-400">YouTube<input id="stream-social-youtube" maxlength="60" class="mt-1 w-full min-w-0 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="@canal"></label>
+                    <label class="text-xs text-slate-400">Twitch<input id="stream-social-twitch" maxlength="60" class="mt-1 w-full min-w-0 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="@usuario"></label>
+                    <label class="text-xs text-slate-400">TikTok<input id="stream-social-tiktok" maxlength="60" class="mt-1 w-full min-w-0 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="@usuario"></label>
+                </div>
+                <div class="space-y-2 rounded-xl border border-slate-800 bg-slate-950/50 p-3">
+                    <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Mostrar chat en overlay<input id="stream-overlay-show-chat" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
+                    <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Mostrar espectadores<input id="stream-overlay-show-viewers" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
+                    <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Mostrar panel de donaciones/regalos<input id="stream-overlay-show-donations" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
+                </div>
+                <label class="block text-xs text-slate-400">Mensaje de bienvenida<input id="stream-welcome-message" maxlength="120" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="¡Bienvenidos al directo!"></label>
+                <label class="block text-xs text-slate-400">Mensaje de despedida<input id="stream-farewell-message" maxlength="120" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="¡Gracias por acompañarme!"></label>
+                <p class="text-[11px] text-amber-300/80">La configuración queda guardada en tu cuenta. La composición visual en tiempo real y los paneles de donaciones conectados a pagos se habilitarán al completar el motor de overlays y sus integraciones.</p>
+            </section>
             <p id="streaming-settings-status" class="text-xs text-slate-400" role="status">Cargando preferencias guardadas…</p>
             <p class="text-[11px] text-amber-300/90">Estas opciones guardan tus preferencias. No activan todavía la captura de pantalla/cámara ni inician una transmisión real.</p>
             <div class="flex gap-2"><button type="button" onclick="closeSettingsModal()" class="flex-1 rounded-xl border border-slate-700 px-4 py-3 text-xs font-bold text-slate-300">Cancelar</button><button id="streaming-settings-save" type="submit" class="flex-1 PLAYVERSE-gradient text-white font-bold py-3 rounded-xl shadow-md">Guardar preferencias</button></div>
@@ -2678,6 +2699,17 @@
                 document.getElementById('stream-orientation').value = preferences.orientation || 'auto';
                 document.getElementById('stream-camera-position').value = preferences.cameraPosition || 'bottom-right';
                 document.getElementById('stream-camera-frame').value = preferences.cameraFrame || 'none';
+                document.getElementById('stream-overlay-theme').value = preferences.overlayTheme || 'arcade';
+                document.getElementById('stream-overlay-layout').value = preferences.overlayLayout || 'wide';
+                document.getElementById('stream-overlay-branding').value = preferences.overlayBrandingText || '';
+                document.getElementById('stream-social-youtube').value = preferences.socialYouTube || '';
+                document.getElementById('stream-social-twitch').value = preferences.socialTwitch || '';
+                document.getElementById('stream-social-tiktok').value = preferences.socialTikTok || '';
+                document.getElementById('stream-overlay-show-chat').checked = preferences.overlayShowChat !== false;
+                document.getElementById('stream-overlay-show-viewers').checked = preferences.overlayShowViewerCount !== false;
+                document.getElementById('stream-overlay-show-donations').checked = preferences.overlayShowDonations !== false;
+                document.getElementById('stream-welcome-message').value = preferences.welcomeMessage || '';
+                document.getElementById('stream-farewell-message').value = preferences.farewellMessage || '';
                 status.textContent = data.capabilityNote || 'Preferencias cargadas desde tu cuenta.';
             } catch (error) {
                 status.textContent = 'No se pudieron cargar las preferencias: ' + error.message;
@@ -2700,7 +2732,18 @@
                 systemAudioEnabled: document.getElementById('stream-system-audio').checked,
                 orientation: document.getElementById('stream-orientation').value,
                 cameraPosition: document.getElementById('stream-camera-position').value,
-                cameraFrame: document.getElementById('stream-camera-frame').value
+                cameraFrame: document.getElementById('stream-camera-frame').value,
+                overlayTheme: document.getElementById('stream-overlay-theme').value,
+                overlayLayout: document.getElementById('stream-overlay-layout').value,
+                overlayBrandingText: document.getElementById('stream-overlay-branding').value.trim(),
+                socialYouTube: document.getElementById('stream-social-youtube').value.trim(),
+                socialTwitch: document.getElementById('stream-social-twitch').value.trim(),
+                socialTikTok: document.getElementById('stream-social-tiktok').value.trim(),
+                overlayShowChat: document.getElementById('stream-overlay-show-chat').checked,
+                overlayShowViewerCount: document.getElementById('stream-overlay-show-viewers').checked,
+                overlayShowDonations: document.getElementById('stream-overlay-show-donations').checked,
+                welcomeMessage: document.getElementById('stream-welcome-message').value.trim(),
+                farewellMessage: document.getElementById('stream-farewell-message').value.trim()
             };
             try {
                 const data = await apiRequest('/api/me/streaming-preferences', {

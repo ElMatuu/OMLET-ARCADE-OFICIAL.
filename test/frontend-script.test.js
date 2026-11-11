@@ -18,6 +18,12 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /livekit-client\.umd\.js/, 'The bundled LiveKit browser SDK must be loaded locally');
   assert.match(html, /function connectLiveKitSession\(/, 'The live UI must connect to authenticated LiveKit sessions');
   assert.match(html, /function startLiveStream\(/, 'Creators must be able to start a real stream from the UI');
+  assert.match(html, /id="stream-overlay-theme"/, 'Creators must be able to choose a stream overlay theme');
+  assert.match(html, /id="stream-overlay-layout"/, 'Creators must be able to choose an overlay layout');
+  assert.match(html, /id="stream-welcome-message"/, 'Creators must be able to configure stream welcome messages');
+  assert.match(html, /id="stream-farewell-message"/, 'Creators must be able to configure stream farewell messages');
+  assert.match(html, /overlayShowDonations: document\.getElementById\('stream-overlay-show-donations'\)\.checked/, 'Overlay donation panel preference must be persisted');
+
   assert.match(html, /function joinLiveStream\(/, 'Viewers must be able to join live streams from the UI');
   assert.match(html, /function toggleLiveScreenShare\(/, 'Creators must have a screen-sharing control');
   assert.match(html, /RoomEvent\.ParticipantConnected/, 'Live viewers must update the connected participant count');

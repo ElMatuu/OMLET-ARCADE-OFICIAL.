@@ -9,7 +9,18 @@ const streamingPreferencesSchema = new mongoose.Schema({
   systemAudioEnabled: { type: Boolean, default: true },
   orientation: { type: String, enum: ['auto', 'portrait', 'landscape'], default: 'auto' },
   cameraPosition: { type: String, enum: ['top-left', 'top-right', 'bottom-left', 'bottom-right'], default: 'bottom-right' },
-  cameraFrame: { type: String, enum: ['none', 'cyan', 'violet'], default: 'none' }
+  cameraFrame: { type: String, enum: ['none', 'cyan', 'violet'], default: 'none' },
+  overlayTheme: { type: String, enum: ['arcade', 'neon', 'minimal', 'esports'], default: 'arcade' },
+  overlayLayout: { type: String, enum: ['compact', 'wide', 'vertical'], default: 'wide' },
+  overlayShowChat: { type: Boolean, default: true },
+  overlayShowViewerCount: { type: Boolean, default: true },
+  overlayShowDonations: { type: Boolean, default: true },
+  overlayBrandingText: { type: String, trim: true, maxlength: 40, default: '' },
+  socialYouTube: { type: String, trim: true, maxlength: 60, default: '' },
+  socialTwitch: { type: String, trim: true, maxlength: 60, default: '' },
+  socialTikTok: { type: String, trim: true, maxlength: 60, default: '' },
+  welcomeMessage: { type: String, trim: true, maxlength: 120, default: '' },
+  farewellMessage: { type: String, trim: true, maxlength: 120, default: '' }
 }, { _id: false });
 
 const appPreferencesSchema = new mongoose.Schema({
