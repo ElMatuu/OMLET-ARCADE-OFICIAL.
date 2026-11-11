@@ -110,7 +110,8 @@ fs.writeFileSync(path.join(v31, 'styles.xml'), splashStyles);
 const overlayPermission = [
   '    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />',
   '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />',
-  '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />',\n  '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />'
+  '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />',
+  '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />'
 ].join(String.fromCharCode(10));
 if (!manifest.includes('android.permission.SYSTEM_ALERT_WINDOW')) {
   const appAt = manifest.indexOf('<application');
