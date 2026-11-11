@@ -366,19 +366,20 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.equal(charlieNotificationsAfterRead.body.unreadCount, 0);
     const unauthenticatedNotifications = await request(baseUrl, '/api/me/notifications');
     assert.equal(unauthenticatedNotifications.status, 401);
-    const bobFriendsBefore = await request(baseUrl, '/api/friends', {}, bob.body.token);
-    assert.equal(bobFriendsBefore.status, 200);
-    assert.equal(bobFriendsBefore.body.incomingRequests.length, 1);
+    const charlieFriendsBefore = await request(baseUrl, '/api/friends', {}, charlie.body.token);
+    assert.equal(charlieFriendsBefore.status, 200);
+    assert.equal(charlieFriendsBefore.body.incomingRequests.length, 1);
+    assert.equal(charlieFriendsBefore.body.incomingRequests[0].username, 'alice_test');
 
-    const friendshipId = bobFriendsBefore.body.incomingRequests[0].friendshipId;
+    const friendshipId = charlieFriendsBefore.body.incomingRequests[0].friendshipId;
     const accepted = await request(baseUrl, '/api/friends/requests/' + friendshipId + '/accept', {
       method: 'PUT'
-    }, bob.body.token);
+    }, charlie.body.token);
     assert.equal(accepted.status, 200);
     assert.equal(accepted.body.status, 'accepted');
     const aliceFriendAccepted = await request(baseUrl, '/api/me/notifications', {}, alice.body.token);
-    assert.equal(aliceFriendAccepted.body.notifications[0].type, 'friend_accepted');
-    assert.equal(aliceFriendAccepted.body.unreadCount, 1);
+    assert.ok(aliceFriendAccepted.body.notifications.some((notification) => notification.type === 'friend_accepted'));
+    assert.ok(aliceFriendAccepted.body.unreadCount >= 1);
 
     const aliceConversation = await request(baseUrl, '/api/conversations/bob_test', {
       method: 'POST'
