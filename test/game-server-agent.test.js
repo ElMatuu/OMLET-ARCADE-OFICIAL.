@@ -27,6 +27,12 @@ test('agent config requires valid API, token, port and player limits', () => {
   }), /HTTPS/);
   assert.throws(() => readConfig({
     PLAYVERSE_API_URL: 'https://api.example',
+    GAME_SERVER_ID: 'not-an-object-id',
+    GAME_SERVER_TOKEN: 'x',
+    GAME_SERVER_PORT: '25565'
+  }), /ObjectId/);
+  assert.throws(() => readConfig({
+    PLAYVERSE_API_URL: 'https://api.example',
     GAME_SERVER_ID: 'a'.repeat(24),
     GAME_SERVER_TOKEN: 'x',
     GAME_SERVER_PORT: '25565'
