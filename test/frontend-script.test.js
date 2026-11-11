@@ -21,6 +21,10 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /function createClub\(/, 'Players must be able to create clubs');
   assert.match(html, /nav-btn-clubs/, 'The main navigation must expose Clubs');
   assert.match(html, /id="arcade-home-title"/, 'The home screen must open on the PLAYVERSE Arcade hub');
+  assert.match(html, /id="splash-screen"/, 'The app must render its launch screen before the main interface');
+  assert.match(html, /role="progressbar" aria-label="Cargando PLAYVERSE"/, 'The launch progress indicator must be accessible');
+  assert.match(html, /if \(progress\) progress\.style\.width = '100%'/, 'The launch sequence must reach completion before dismissing the splash');
+  assert.match(html, /splash\.style\.visibility = 'hidden'/, 'The splash must be dismissed after startup completes');
   assert.match(html, /new AbortController\(\)/, 'Startup session restoration must have an abortable network timeout');
   assert.match(html, /response.status === 401 \|\| response.status === 403/, 'Only rejected credentials should invalidate a restored session');
   assert.match(html, /conservamos tu sesión para reintentar/, 'A temporary connection failure must preserve the saved session');
