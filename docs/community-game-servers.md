@@ -1,6 +1,6 @@
 # Publicar un servidor comunitario en PLAYVERSE
 
-PLAYVERSE ofrece un directorio y una capa de descubrimiento. **No aloja ni administra los mundos anunciados** y no garantiza que un proveedor externo permanezca disponible.
+PLAYVERSE ofrece un directorio y una capa de descubrimiento. **No aloja ni administra los mundos anunciados** y no garantiza que un proveedor externo permanezca disponible. El indicador verde significa únicamente que el agente del propietario envió un heartbeat reciente; no es una comprobación independiente de conexión TCP/UDP ni una garantía de que cualquier jugador pueda entrar.
 
 ## Crear la publicación
 
@@ -32,7 +32,7 @@ Al apagar el servidor, el agente puede enviar `isOnline:false`. Si no llegan hea
 
 - Cada cuenta puede publicar hasta cinco servidores; el directorio lista hasta cien resultados por consulta.
 - El campo de capacidad describe el límite que informa el anfitrión, no una capacidad garantizada por PLAYVERSE.
-- El contador solo es confiable si el propietario configura un agente/plugin que consulte la población real del servidor y envíe el heartbeat.
+- El contador es un dato declarado por el agente/plugin del propietario. Solo refleja la población real si ese agente consulta correctamente el proceso del juego; PLAYVERSE no lo verifica de forma independiente.
 - No se deben anunciar servidores ajenos, falsos, comprometidos o que distribuyan contenido sin licencia.
 - Nunca publiques tokens, contraseñas, direcciones privadas de tu red ni datos personales.
 - Los límites de la plataforma de hosting del juego dependen del proveedor y del hardware contratado. PLAYVERSE no promete hosting gratuito ilimitado ni 100.000 jugadores por servidor.
@@ -44,4 +44,4 @@ Al apagar el servidor, el agente puede enviar `isOnline:false`. Si no llegan hea
 - `POST /api/game-servers/:serverId/heartbeat` — actualiza presencia y jugadores con `X-Server-Token`.
 - `DELETE /api/game-servers/:serverId` — elimina la publicación; solo el propietario.
 
-El token se almacena como SHA-256 y nunca se devuelve en listados.
+El token se almacena como SHA-256 y nunca se devuelve en listados. El estado mostrado es **heartbeat recibido**, no una prueba de que el puerto del juego acepte conexiones.
