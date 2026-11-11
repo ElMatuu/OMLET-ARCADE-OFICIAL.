@@ -11,6 +11,8 @@ test('store catalogue has unique identifiers and valid prices', () => {
   for (const item of STORE_CATALOG) {
     assert.ok(item.id && item.name && item.description && item.assetKey);
     assert.ok(Number.isInteger(item.priceTokens) && item.priceTokens > 0);
+    assert.ok(['gold', 'purple', 'diamond'].includes(item.priceCurrency || 'gold'));
+    assert.ok(['static', 'css'].includes(item.animation));
     assert.ok(['avatar-frame', 'stream-overlay', 'chat-effect', 'entrance-effect', 'stream-gift'].includes(item.category));
   }
 });
@@ -27,4 +29,22 @@ test('wallet starts at zero and cannot be negative', () => {
   const wallet = User.schema.path('walletTokens');
   assert.equal(wallet.options.default, 0);
   assert.equal(wallet.options.min, 0);
+});
+
+test('PLAYVERSE exposes three independent non-negative token wallets', () => {
+  const User = require('../server/models/User');
+  assert.equal(User.schema.path('walletTokens').options.default, 0);
+  assert.equal(User.schema.path('walletPurpleTokens').options.default, 0);
+  assert.equal(User.schema.path('walletDiamondTokens').options.default, 0);
+  assert.equal(User.schema.path('walletPurpleTokens').options.min, 0);
+  assert.equal(User.schema.path('walletDiamondTokens').options.min, 0);
+});
+
+test('wallet ledger supports currency-aware transfers', () => {
+  const TokenTransaction = require('../server/models/TokenTransaction');
+  assert.ok(TokenTransaction.schema.path('currency').enumValues.includes('gold'));
+  assert.ok(TokenTransaction.schema.path('currency').enumValues.includes('purple'));
+  assert.ok(TokenTransaction.schema.path('currency').enumValues.includes('diamond'));
+  assert.ok(TokenTransaction.schema.path('type').enumValues.includes('transfer_in'));
+  assert.ok(TokenTransaction.schema.path('type').enumValues.includes('transfer_out'));
 });
