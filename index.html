@@ -709,11 +709,13 @@
 
         async function loadMyProfile() {
             try {
-                const [data, avatarData] = await Promise.all([
-                    apiRequest('/api/me'),
-                    apiRequest('/api/avatar-catalog')
-                ]);
-                avatarCatalogCache = Array.isArray(avatarData.avatars) ? avatarData.avatars : [];
+                const data = await apiRequest('/api/me');
+                try {
+                    const avatarData = await apiRequest('/api/avatar-catalog');
+                    avatarCatalogCache = Array.isArray(avatarData.avatars) ? avatarData.avatars : [];
+                } catch {
+                    avatarCatalogCache = [];
+                }
                 if (data.user) applyProfileData(data.user);
             } catch (error) {
                 const status = document.getElementById('profile-status');
@@ -2889,7 +2891,7 @@
                 const selected = avatarCatalogCache.find((avatar) => avatar.id === selectedAvatarPreset);
                 status.textContent = selected ? 'Seleccionado: ' + selected.name : 'Elegí tu personaje.';
             } catch (error) {
-                grid.innerHTML = '';
+                grid.replaceChildren();
                 status.textContent = 'No se pudo cargar el catálogo. ' + error.message;
             }
         }
