@@ -7,3 +7,9 @@ rtc:
   use_external_ip: true
 
 log_level: info
+
+turn:
+  enabled: true
+  udp_port: 3478
+  relay_range_start: 50101
+  relay_range_end: 50200
