@@ -2211,11 +2211,10 @@ app.patch('/api/rooms/:roomId/participation-requests/:userId', requireAuth, asyn
     };
     if (decision === 'accept') filter.$expr = { $lt: ['$memberCount', '$capacity'] };
     const room = await Room.findOneAndUpdate(filter, update, { new: true, runValidators: true })
-      .select('name memberCount capacity ownerUsername joinRequests').lean();
+      .select('name memberCount capacity').lean();
     if (!room) return res.status(409).json({ success: false, message: decision === 'accept'
       ? 'La solicitud ya fue respondida, la sala se cerró o está completa.'
       : 'La solicitud ya fue respondida o la sala se cerró.' });
-    const requestRecord = (room.joinRequests || []).find((item) => String(item.user) === String(userId));
     try {
       const notification = await Notification.create({
         recipient: userId,
