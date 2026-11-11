@@ -79,6 +79,23 @@ test('clubs discovery and creation endpoints require an authenticated account', 
   });
 });
 
+
+test('game server heartbeat rejects non-boolean online status before database access', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/game-servers/507f1f77bcf86cd799439011/heartbeat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Server-Token': 'T'.repeat(43)
+      },
+      body: JSON.stringify({ playerCount: 0, maxPlayers: 20, isOnline: 'false' })
+    });
+    const body = await response.json();
+    assert.equal(response.status, 400);
+    assert.equal(body.success, false);
+  });
+});
+
 test('protected profile endpoint rejects unauthenticated requests', async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(baseUrl + '/api/me');
