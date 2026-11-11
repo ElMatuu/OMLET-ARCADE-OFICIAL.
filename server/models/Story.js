@@ -10,7 +10,7 @@ const storySchema = new mongoose.Schema({
   visibility: { type: String, enum: ['public', 'followers'], default: 'public' },
   views: { type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], default: [] },
   createdAt: { type: Date, default: Date.now, index: true },
-  expiresAt: { type: Date, required: true, index: true }
+  expiresAt: { type: Date, required: true }
 }, { versionKey: false });
 
 storySchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
