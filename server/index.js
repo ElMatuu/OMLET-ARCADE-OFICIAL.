@@ -2444,7 +2444,7 @@ app.post('/api/tournaments', requireAuth, profileLimiter, async (req, res, next)
   } catch (error) { return next(error); }
 });
 
-app.get('/api/tournaments/:tournamentId', async (req, res, next) => {
+app.get('/api/tournaments/:tournamentId', requireAuth, async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.tournamentId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
     const tournament = await Tournament.findById(req.params.tournamentId).lean();
@@ -2452,7 +2452,7 @@ app.get('/api/tournaments/:tournamentId', async (req, res, next) => {
     const entries = tournament.entries.filter((entry) => entry.status !== 'withdrawn').map((entry) => ({
       id: String(entry._id), teamName: entry.teamName, captainUsername: entry.captainUsername,
       members: entry.members.map((member) => member.username), registrationType: entry.registrationType,
-      status: entry.status, score: entry.score, placement: entry.placement
+      status: entry.status, score: entry.score, placement: entry.placement, isCaptain: String(entry.captain) === req.auth.sub
     }));
     return res.json({ success: true, tournament: {
       id: String(tournament._id), title: tournament.title, description: tournament.description, game: tournament.game,
