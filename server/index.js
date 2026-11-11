@@ -3104,8 +3104,9 @@ app.post('/api/game-servers/:serverId/heartbeat', async (req, res, next) => {
     const maxPlayers = Number(body.maxPlayers);
     const isOnline = body.isOnline;
     const version = typeof body.version === 'string' ? body.version.trim().slice(0, 40) : '';
-    if (typeof isOnline !== 'boolean' || !Number.isInteger(playerCount) || playerCount < 0 || playerCount > 1000000 ||
-        !Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 1000000 || playerCount > maxPlayers ||
+    if (typeof isOnline !== 'boolean' ||
+        typeof body.playerCount !== 'number' || !Number.isInteger(playerCount) || playerCount < 0 || playerCount > 1000000 ||
+        typeof body.maxPlayers !== 'number' || !Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 1000000 || playerCount > maxPlayers ||
         (typeof body.version === 'string' && body.version.trim().length > 40)) {
       return res.status(400).json({ success: false, message: 'Cantidad de jugadores, capacidad o versión inválida.' });
     }
