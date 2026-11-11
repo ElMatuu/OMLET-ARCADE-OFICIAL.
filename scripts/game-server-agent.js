@@ -237,9 +237,12 @@ async function runOnce(config, dependencies = {}) {
   const send = dependencies.sendHeartbeat || sendHeartbeat;
   let metrics = {};
   let reachable = false;
-  if (config.protocol === 'minecraft-java') {
+  if (config.protocol === 'minecraft-java' || config.protocol === 'minecraft-bedrock') {
     try {
-      metrics = await (dependencies.pingMinecraftJava || pingMinecraftJava)(config.host, config.port);
+      const ping = config.protocol === 'minecraft-java'
+        ? (dependencies.pingMinecraftJava || pingMinecraftJava)
+        : (dependencies.pingMinecraftBedrock || pingMinecraftBedrock);
+      metrics = await ping(config.host, config.port);
       reachable = true;
     } catch {
       reachable = false;
