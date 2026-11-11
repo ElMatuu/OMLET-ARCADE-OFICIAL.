@@ -2345,8 +2345,7 @@ app.post('/api/clubs/:clubId/transfer', requireAuth, friendshipLimiter, async (r
         _id: req.params.clubId,
         owner: req.auth.sub,
         status: 'active',
-        'members.user': target._id,
-        'members.role': { $ne: 'owner' }
+        members: { $elemMatch: { user: target._id, role: { $ne: 'owner' } } }
       },
       {
         $set: {
