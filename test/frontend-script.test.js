@@ -43,6 +43,10 @@ test('all inline JavaScript in the main interface parses successfully', () => {
 
   assert.match(html, /function joinLiveStream\(/, 'Viewers must be able to join live streams from the UI');
   assert.match(html, /function toggleLiveScreenShare\(/, 'Creators must have a screen-sharing control');
+  assert.match(html, /function startLiveCompositeBroadcast\(/, 'The creator client must compose camera and screen into one outgoing video track');
+  assert.match(html, /canvas\.captureStream\(/, 'The composed camera and screen output must be captured from a canvas stream');
+  assert.match(html, /participant\.publishTrack\(outputTrack/, 'The composed video must be published to LiveKit for viewers');
+  assert.match(html, /function stopLiveCompositeBroadcast\(/, 'Stopping screen share must clean up the composite and restore the camera safely');
   assert.match(html, /RoomEvent\.ParticipantConnected/, 'Live viewers must update the connected participant count');
   assert.match(html, /live-player-participant-count/, 'The live player must expose participant synchronization status');
   assert.match(html, /RoomEvent\.AudioPlaybackStatusChanged/, 'The player must handle browser audio autoplay restrictions');
