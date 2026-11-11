@@ -297,16 +297,30 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.equal(aliceMissions.body.missions.find((mission) => mission.id === 'welcome-post-1').claimable, true);
     const missionReward = await request(baseUrl, '/api/me/missions/welcome-post-1/claim', { method: 'POST' }, alice.body.token);
     assert.equal(missionReward.status, 201);
-    assert.equal(missionReward.body.rewardTokens, 10);
-    assert.equal(missionReward.body.wallet.tokens, 10);
+    assert.equal(missionReward.body.rewardTokens, 500);
+    assert.equal(missionReward.body.wallet.tokens, 500);
     const duplicateMissionReward = await request(baseUrl, '/api/me/missions/welcome-post-1/claim', { method: 'POST' }, alice.body.token);
     assert.equal(duplicateMissionReward.status, 409);
     const incompleteMissionReward = await request(baseUrl, '/api/me/missions/social-save-1/claim', { method: 'POST' }, alice.body.token);
     assert.equal(incompleteMissionReward.status, 409);
     const aliceWallet = await request(baseUrl, '/api/me/inventory', {}, alice.body.token);
-    assert.equal(aliceWallet.body.wallet.tokens, 10);
+    assert.equal(aliceWallet.body.wallet.tokens, 500);
     const aliceWalletHistory = await request(baseUrl, '/api/me/wallet/transactions', {}, alice.body.token);
-    assert.ok(aliceWalletHistory.body.transactions.some((item) => item.itemName === 'Misión: Tu voz en PLAYVERSE' && item.amount === 10));
+    assert.ok(aliceWalletHistory.body.transactions.some((item) => item.itemName === 'Misión: Tu voz en PLAYVERSE' && item.amount === 500));
+    const tokenGift = await request(baseUrl, '/api/wallet/transfers', {
+      method: 'POST', body: { recipientUsername: 'bob_test', currency: 'gold', amount: 125 }
+    }, alice.body.token);
+    assert.equal(tokenGift.status, 201);
+    assert.equal(tokenGift.body.amount, 125);
+    const aliceAfterGift = await request(baseUrl, '/api/me/inventory', {}, alice.body.token);
+    const bobAfterGift = await request(baseUrl, '/api/me/inventory', {}, bob.body.token);
+    assert.equal(aliceAfterGift.body.wallet.balances.gold, 375);
+    assert.equal(bobAfterGift.body.wallet.balances.gold, 125);
+    const selfGift = await request(baseUrl, '/api/wallet/transfers', {
+      method: 'POST', body: { recipientUsername: 'alice_test', currency: 'gold', amount: 1 }
+    }, alice.body.token);
+    assert.equal(selfGift.status, 400);
+
     const missionsAfterClaim = await request(baseUrl, '/api/me/missions', {}, alice.body.token);
     assert.equal(missionsAfterClaim.body.missions.find((mission) => mission.id === 'welcome-post-1').claimed, true);
     const unauthenticatedMissions = await request(baseUrl, '/api/me/missions');
