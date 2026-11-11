@@ -50,3 +50,25 @@ test('bracket gives an automatic bye to an unopposed entrant', () => {
 test('single elimination requires at least two approved entrants', () => {
   assert.throws(() => buildSingleEliminationBracket([entry('a', 'solo', 'pending')]), /dos equipos aprobados/);
 });
+
+
+test('six entrants receive two first-round byes without empty first-round matches', () => {
+  const matches = buildSingleEliminationBracket([
+    entry('a'), entry('b'), entry('c'), entry('d'), entry('e'), entry('f')
+  ]);
+  const firstRound = matches.filter((match) => match.round === 1);
+  assert.equal(firstRound.length, 4);
+  assert.ok(firstRound.every((match) => match.entryA || match.entryB));
+  assert.equal(firstRound.filter((match) => match.status === 'completed').length, 2);
+  assert.equal(firstRound.filter((match) => match.status === 'pending').length, 2);
+});
+
+test('five entrants receive three byes and no empty first-round match', () => {
+  const matches = buildSingleEliminationBracket([
+    entry('a'), entry('b'), entry('c'), entry('d'), entry('e')
+  ]);
+  const firstRound = matches.filter((match) => match.round === 1);
+  assert.equal(firstRound.length, 4);
+  assert.ok(firstRound.every((match) => match.entryA || match.entryB));
+  assert.equal(firstRound.filter((match) => match.status === 'completed').length, 3);
+});
