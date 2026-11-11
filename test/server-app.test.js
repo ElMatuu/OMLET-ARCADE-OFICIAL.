@@ -197,6 +197,24 @@ test('achievement progress endpoint requires an authenticated account', async ()
   });
 });
 
+test('public player achievements require an authenticated account', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/users/example_player/achievements');
+    const body = await response.json();
+    assert.equal(response.status, 401);
+    assert.equal(body.success, false);
+  });
+});
+
+test('first purchase experience reward endpoints require an authenticated account', async () => {
+  await withServer(async (baseUrl) => {
+    const read = await fetch(baseUrl + '/api/me/experience-rewards');
+    assert.equal(read.status, 401);
+    const claim = await fetch(baseUrl + '/api/me/experience-rewards/first-purchase/claim', { method: 'POST' });
+    assert.equal(claim.status, 401);
+  });
+});
+
 test('report submission requires an authenticated account', async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(baseUrl + '/api/reports', {
