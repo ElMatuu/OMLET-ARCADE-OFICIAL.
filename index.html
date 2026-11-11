@@ -1383,6 +1383,23 @@
                         button.addEventListener('click', () => resolveModerationReport(report.id, decision, note.value, button));
                         actions.append(button);
                     });
+                    if (['post', 'comment', 'room', 'stream'].includes(report.targetType)) {
+                        const remove = document.createElement('button');
+                        remove.type = 'button';
+                        remove.className = 'col-span-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-200';
+                        remove.textContent = 'Eliminar contenido denunciado';
+                        remove.addEventListener('click', () => {
+                            if (window.confirm('Esta acción elimina el contenido denunciado de forma permanente. ¿Continuar?')) {
+                                resolveModerationReport(report.id, 'reviewed', note.value, remove, 'remove_content');
+                            }
+                        });
+                        actions.append(remove);
+                    } else {
+                        const restricted = document.createElement('p');
+                        restricted.className = 'col-span-2 text-[10px] text-amber-300';
+                        restricted.textContent = 'Reporte de cuenta: requiere un procedimiento de sanción específico.';
+                        actions.append(restricted);
+                    }
                     card.append(heading, target, details, note, actions);
                     list.append(card);
                 });
@@ -1391,13 +1408,13 @@
             }
         }
 
-        async function resolveModerationReport(reportId, statusValue, moderatorNotes, button) {
+        async function resolveModerationReport(reportId, statusValue, moderatorNotes, button, action = 'none') {
             if (button) button.disabled = true;
             try {
                 await apiRequest('/api/admin/reports/' + encodeURIComponent(reportId), {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status: statusValue, moderatorNotes })
+                    body: JSON.stringify({ status: statusValue, moderatorNotes, action })
                 });
                 await loadModerationReports();
             } catch (error) {
