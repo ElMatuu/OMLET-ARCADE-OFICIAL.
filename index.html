@@ -242,9 +242,23 @@
         </div>
 
         <!-- CONTENIDO TABS -->
-        <main class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-4xl mx-auto w-full"><div class="rounded-xl border border-orange-500/30 bg-orange-950/40 px-4 py-3 text-xs text-orange-100"><strong>PLAYVERSE · CONSTRUCCIÓN EN CURSO</strong><br>Registro, inicio de sesión y perfil básico conectados a la API. Feed, transmisiones, tienda, créditos y herramientas sociales siguen en desarrollo.</div>
-            <!-- TAB FEED -->
+        <main class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-4xl mx-auto w-full"><!-- TAB FEED -->
             <div id="tab-feed" class="space-y-6">
+                <section class="relative overflow-hidden rounded-3xl border border-orange-400/25 bg-gradient-to-br from-[#192b4b] via-[#111b31] to-[#25172e] p-5 sm:p-6 shadow-xl" aria-labelledby="arcade-home-title">
+                <div class="pointer-events-none absolute -right-10 -top-14 h-44 w-44 rounded-full border border-sky-300/10"></div>
+                <div class="pointer-events-none absolute -right-2 -top-6 h-28 w-28 rounded-full border border-orange-300/15"></div>
+                <div class="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                    <div class="max-w-xl">
+                        <span class="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-[9px] font-black tracking-[.18em] text-emerald-200"><span class="h-1.5 w-1.5 rounded-full bg-emerald-300"></span> ARCADE HUB</span>
+                        <h2 id="arcade-home-title" class="mt-3 text-2xl font-black leading-tight text-white sm:text-3xl">Tu universo gamer, <span class="text-orange-300">en un solo lugar.</span></h2>
+                        <p class="mt-2 max-w-lg text-xs leading-5 text-slate-300">Encontrá jugadores, descubrí directos, armá salas y compartí tus mejores partidas con la comunidad PLAYVERSE.</p>
+                    </div>
+                    <div class="relative flex shrink-0 gap-2">
+                        <button type="button" onclick="switchTab('live')" class="rounded-xl bg-rose-500 px-4 py-3 text-xs font-black text-white shadow-lg"><i class="fa-solid fa-tower-broadcast mr-1"></i> Ver directos</button>
+                        <button type="button" onclick="switchTab('lobbies')" class="rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-xs font-bold text-white"><i class="fa-solid fa-gamepad mr-1"></i> Jugar</button>
+                    </div>
+                </div>
+            </section>
                 <section aria-labelledby="highlights-title" class="space-y-3">
                     <div class="flex items-center justify-between">
                         <div>
@@ -882,6 +896,7 @@
         const API_URL = window.PLAYVERSE_API_URL || (isNativeShell || ['file:', 'capacitor:'].includes(window.location.protocol) ? 'https://playverse-api-bgyg.onrender.com' : window.location.origin);
         const SESSION_KEY = 'playverse_session_token';
         let authToken = sessionStorage.getItem(SESSION_KEY);
+        let pendingFloatingAction = '';
         let appState = { username: '', walletTokens: 0, walletBalances: { gold: 0, purple: 0, diamond: 0 }, profile: null };
         let activeRoomId = null;
         let activeRoomName = '';
@@ -1120,6 +1135,11 @@
             loadCommunityPosts();
             refreshNotificationBadge();
             connectPresenceSocket();
+            if (pendingFloatingAction) {
+                const action = pendingFloatingAction;
+                pendingFloatingAction = '';
+                switchTab(action);
+            }
             if (!friendsPresenceTimer) {
                 friendsPresenceTimer = setInterval(() => {
                     const friendsTab = document.getElementById('tab-friends');
@@ -1132,19 +1152,35 @@
 
         async function restoreSession() {
             if (!authToken) return false;
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 12000);
+            const subtitle = document.getElementById('auth-subtitle');
             try {
                 const response = await fetch(API_URL + '/api/me', {
-                    headers: { Authorization: 'Bearer ' + authToken }
+                    headers: { Authorization: 'Bearer ' + authToken },
+                    signal: controller.signal
                 });
-                if (!response.ok) throw new Error('SESSION_EXPIRED');
+                if (response.status === 401 || response.status === 403) {
+                    authToken = null;
+                    sessionStorage.removeItem(SESSION_KEY);
+                    if (subtitle) subtitle.textContent = 'Tu sesión venció. Iniciá sesión para volver a PLAYVERSE.';
+                    return false;
+                }
+                if (!response.ok) throw new Error('SERVER_UNAVAILABLE');
                 const data = await response.json();
-                if (!data.success || !data.user) throw new Error('SESSION_INVALID');
+                if (!data.success || !data.user) {
+                    authToken = null;
+                    sessionStorage.removeItem(SESSION_KEY);
+                    if (subtitle) subtitle.textContent = 'No pudimos validar tu sesión. Iniciá sesión nuevamente.';
+                    return false;
+                }
                 showAuthenticatedApp(data.user);
                 return true;
             } catch (error) {
-                authToken = null;
-                sessionStorage.removeItem(SESSION_KEY);
+                if (subtitle) subtitle.textContent = 'No pudimos conectar con PLAYVERSE. Revisá tu conexión e intentá iniciar sesión; conservamos tu sesión para reintentar.';
                 return false;
+            } finally {
+                clearTimeout(timeout);
             }
         }
 
@@ -1233,8 +1269,10 @@
             function consumeFloatingAction() {
                 if (!overlayPlugin || typeof overlayPlugin.consumePendingAction !== 'function') return;
                 overlayPlugin.consumePendingAction().then(function(result) {
-                    if (result && result.action === 'chat') switchTab('chat');
-                    if (result && result.action === 'live') switchTab('live');
+                    const action = result && result.action;
+                    if (!['chat', 'live', 'lobbies', 'clubs'].includes(action)) return;
+                    if (authToken) switchTab(action);
+                    else pendingFloatingAction = action;
                 }).catch(function() {});
             }
             consumeFloatingAction();

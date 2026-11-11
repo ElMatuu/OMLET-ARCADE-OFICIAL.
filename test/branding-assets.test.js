@@ -34,3 +34,14 @@ test('one official vector logo is the source for Android and Windows native icon
   assert.equal(packageJson.build.win.icon, 'assets/playverse-icon.ico');
   assert.equal(packageJson.build.files.includes('assets/**/*'), true);
 });
+
+test('Android floating Arcade menu opens chat, live, multiplayer rooms and clubs', () => {
+  const androidSync = read('scripts/sync-android-brand.js');
+  const html = read('index.html');
+  for (const action of ['chat', 'live', 'lobbies', 'clubs']) {
+    assert.ok(androidSync.includes('launchApp("' + action + '")'), 'Native floating menu must expose ' + action);
+  }
+  assert.ok(html.includes("['chat', 'live', 'lobbies', 'clubs'].includes(action)"), 'Floating menu must accept only supported Arcade destinations');
+  assert.ok(html.includes("pendingFloatingAction = action"), 'Signed-out users must retain the selected Arcade destination until sign-in');
+  assert.ok(html.includes("switchTab(action)"), 'Authenticated users must navigate to the selected Arcade destination');
+});
