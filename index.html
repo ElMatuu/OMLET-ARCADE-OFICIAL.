@@ -1994,6 +1994,20 @@
                         });
                         row.appendChild(approve);
                     }
+                    if (owner && tournament.format === 'single-lobby' && tournament.status === 'in-progress') {
+                        const scoreForm = document.createElement('form');
+                        scoreForm.className = 'flex items-center gap-2';
+                        scoreForm.innerHTML = '<input type="number" min="0" max="1000000" step="1" required class="w-24 rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-xs" aria-label="Puntuación" value="' + Number(entry.score || 0) + '"><button class="rounded-lg border border-amber-500/40 px-3 py-2 text-[10px] font-bold text-amber-200">Guardar puntos</button>';
+                        scoreForm.addEventListener('submit', async (event) => {
+                            event.preventDefault();
+                            const score = Number(scoreForm.querySelector('input').value);
+                            try {
+                                await apiRequest('/api/tournaments/' + tournamentId + '/entries/' + entry.id + '/score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ score }) });
+                                await openTournamentDetails(tournamentId);
+                            } catch (error) { status.textContent = error.message; }
+                        });
+                        row.appendChild(scoreForm);
+                    }
                     entryList.appendChild(row);
                 });
                 if (tournament.teamSize > 1 && tournament.status === 'open') {
