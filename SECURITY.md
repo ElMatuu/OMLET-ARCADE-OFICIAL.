@@ -14,4 +14,4 @@ Do not publish exploit details, credentials, personal data or production tokens 
 
 ## Current status
 
-PLAYVERSE is currently a UI prototype. Do not use it to collect real credentials or personal information.
+PLAYVERSE has working backend foundations for authentication, profiles, social interactions, chat, presence and other features, but it is not production-ready. Do not use real credentials, sensitive personal information or production user data until a documented security review, deployment hardening, backup/restore validation, abuse-response process and real-device acceptance testing have been completed.
