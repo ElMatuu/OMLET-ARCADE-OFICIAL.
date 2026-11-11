@@ -4861,7 +4861,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                     }
                     streamChatOwner = result.isOwner === true;
                     state.textContent = streamChatOwner ? 'Chat de creador' : 'Conectado';
-                    const canWrite = streamChatOwner || result.whoCanChat !== 'nobody';
+                    const canWrite = result.canChat === true;
                     input.disabled = !canWrite;
                     send.disabled = !canWrite;
                     if (!canWrite) document.getElementById('stream-chat-feedback').textContent = 'El creador cerró el chat.';
@@ -4961,7 +4961,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 try {
                     const saved = await apiRequest('/api/me/streaming-preferences');
                     const preferences = saved.preferences || {};
-                    activeStreamingPreferences = { cameraEnabled: preferences.cameraEnabled === true, microphoneEnabled: preferences.microphoneEnabled !== false, systemAudioEnabled: preferences.systemAudioEnabled === true, orientation: preferences.orientation || 'auto', cameraPosition: preferences.cameraPosition || 'bottom-right', cameraFrame: preferences.cameraFrame || 'none' };
+                    activeStreamingPreferences = { cameraEnabled: preferences.cameraEnabled === true, microphoneEnabled: preferences.microphoneEnabled !== false, systemAudioEnabled: preferences.systemAudioEnabled === true, orientation: preferences.orientation || 'auto', cameraPosition: preferences.cameraPosition || 'bottom-right', cameraFrame: preferences.cameraFrame || 'none', textToSpeechEnabled: preferences.textToSpeechEnabled === true };
                 } catch (preferencesError) {
                     activeStreamingPreferences = { cameraEnabled: false, microphoneEnabled: true, textToSpeechEnabled: false };
                 }
