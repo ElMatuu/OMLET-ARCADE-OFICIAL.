@@ -17,7 +17,7 @@ test('achievement catalog has unique IDs, meaningful progression and valid rewar
     assert.ok(tiers.has(item.tier));
     assert.ok(Number.isInteger(item.target) && item.target > 0);
     assert.ok(Number.isInteger(item.xp) && item.xp > 0);
-    assert.ok(['posts', 'comments', 'rooms', 'roomMessages', 'friends', 'followers', 'savedPosts', 'tournaments', 'tournamentWins', 'streams', 'firstPurchaseBonusClaimed'].includes(item.metric));
+    assert.ok(['posts', 'comments', 'rooms', 'roomMessages', 'friends', 'followers', 'savedPosts', 'tournaments', 'tournamentWins', 'streams', 'firstPurchaseBonusAvailable'].includes(item.metric));
   }
 });
 
