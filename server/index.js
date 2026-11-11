@@ -1648,7 +1648,7 @@ app.delete('/api/stories/:storyId', requireAuth, async (req, res, next) => {
 
 const CURRENCY_CONFIG = {
   gold: { label: 'Oro PLAYVERSE', shortLabel: 'Oro', field: 'walletTokens', symbol: 'PV', icon: '🟡' },
-  purple: { label: 'Violeta PLAYVERSE', shortLabel: 'Violeta', field: 'walletPurpleTokens', symbol: 'PV', icon: '🟣' },
+  purple: { label: 'Plata PLAYVERSE', shortLabel: 'Plata', field: 'walletPurpleTokens', symbol: 'PV', icon: '🥈' },
   diamond: { label: 'Diamante PLAYVERSE', shortLabel: 'Diamante', field: 'walletDiamondTokens', symbol: 'PV', icon: '💎' }
 };
 function getCurrencyField(currency) {
