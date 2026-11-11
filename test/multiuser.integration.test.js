@@ -320,6 +320,18 @@ integrationTest('multiple independent accounts can interact concurrently with ow
       method: 'POST', body: { recipientUsername: 'alice_test', currency: 'gold', amount: 1 }
     }, alice.body.token);
     assert.equal(selfGift.status, 400);
+    const storePurchase = await request(baseUrl, '/api/store/purchase', {
+      method: 'POST', body: { itemId: 'chat-sticker-gg' }
+    }, alice.body.token);
+    assert.equal(storePurchase.status, 201);
+    const aliceAfterPurchase = await request(baseUrl, '/api/me/inventory', {}, alice.body.token);
+    assert.equal(aliceAfterPurchase.body.wallet.balances.gold, 345);
+    assert.ok(aliceAfterPurchase.body.items.some((item) => item.id === 'chat-sticker-gg'));
+    const duplicateStorePurchase = await request(baseUrl, '/api/store/purchase', {
+      method: 'POST', body: { itemId: 'chat-sticker-gg' }
+    }, alice.body.token);
+    assert.equal(duplicateStorePurchase.status, 409);
+
 
     const missionsAfterClaim = await request(baseUrl, '/api/me/missions', {}, alice.body.token);
     assert.equal(missionsAfterClaim.body.missions.find((mission) => mission.id === 'welcome-post-1').claimed, true);
