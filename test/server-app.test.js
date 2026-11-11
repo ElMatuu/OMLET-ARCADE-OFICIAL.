@@ -96,6 +96,24 @@ test('game server heartbeat rejects non-boolean online status before database ac
   });
 });
 
+test('game server heartbeat rejects null and non-object JSON bodies without a server error', async () => {
+  await withServer(async (baseUrl) => {
+    for (const body of ['null', '[]', '"invalid"']) {
+      const response = await fetch(baseUrl + '/api/game-servers/507f1f77bcf86cd799439011/heartbeat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Server-Token': 'T'.repeat(43)
+        },
+        body
+      });
+      const payload = await response.json();
+      assert.equal(response.status, 400, 'body ' + body + ' should be rejected as a client error');
+      assert.equal(payload.success, false);
+    }
+  });
+});
+
 test('protected profile endpoint rejects unauthenticated requests', async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(baseUrl + '/api/me');
