@@ -55,6 +55,12 @@ const userSchema = new mongoose.Schema({
     maxlength: 160,
     default: ''
   },
+  profileBannerUrl: { type: String, trim: true, maxlength: 500, default: '' },
+  profileTheme: { type: String, enum: ['arcade', 'neon', 'minimal', 'esports'], default: 'arcade' },
+  favoriteGames: { type: [{ type: String, trim: true, maxlength: 32 }], default: [] },
+  socialYouTubeUrl: { type: String, trim: true, maxlength: 200, default: '' },
+  socialTwitchUrl: { type: String, trim: true, maxlength: 200, default: '' },
+  socialTikTokUrl: { type: String, trim: true, maxlength: 200, default: '' },
   avatarUrl: {
     type: String,
     trim: true,
