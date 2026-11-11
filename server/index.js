@@ -11,6 +11,7 @@ const jwt = require('jsonwebtoken');
 const { rateLimit } = require('express-rate-limit');
 const User = require('./models/User');
 const Room = require('./models/Room');
+const Club = require('./models/Club');
 const RoomMessage = require('./models/RoomMessage');
 const Post = require('./models/Post');
 const SavedPost = require('./models/SavedPost');
@@ -1920,6 +1921,105 @@ app.delete('/api/posts/:postId/comments/:commentId', requireAuth, commentLimiter
   } catch (error) {
     return next(error);
   }
+});
+
+app.get('/api/clubs', requireAuth, async (req, res, next) => {
+  try {
+    const query = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 60) : '';
+    const filter = { visibility: 'public', status: 'active' };
+    if (query) {
+      const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.$or = [
+        { name: { $regex: safeQuery, $options: 'i' } },
+        { game: { $regex: safeQuery, $options: 'i' } },
+        { description: { $regex: safeQuery, $options: 'i' } }
+      ];
+    }
+    const clubs = await Club.find(filter)
+      .select('name description game ownerUsername members memberCount createdAt updatedAt')
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(60)
+      .lean();
+    return res.json({ success: true, clubs: clubs.map((club) => ({
+      id: String(club._id),
+      name: club.name,
+      description: club.description,
+      game: club.game,
+      ownerUsername: club.ownerUsername,
+      memberCount: club.memberCount,
+      isMember: club.members.some((member) => String(member.user) === req.auth.sub),
+      isOwner: club.members.some((member) => String(member.user) === req.auth.sub && member.role === 'owner')
+    })) });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/clubs', requireAuth, profileLimiter, async (req, res, next) => {
+  try {
+    const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+    const game = typeof req.body.game === 'string' ? req.body.game.trim() : '';
+    const description = typeof req.body.description === 'string' ? req.body.description.trim() : '';
+    if (name.length < 3 || name.length > 40 || game.length < 2 || game.length > 40 || description.length > 240) {
+      return res.status(400).json({ success: false, message: 'Nombre (3-40), juego (2-40) o descripción (máximo 240) inválidos.' });
+    }
+    const club = await Club.create({
+      name, game, description,
+      owner: req.auth.sub,
+      ownerUsername: req.auth.username,
+      members: [{ user: req.auth.sub, username: req.auth.username, role: 'owner' }],
+      memberCount: 1
+    });
+    return res.status(201).json({ success: true, club: {
+      id: String(club._id), name: club.name, description: club.description,
+      game: club.game, ownerUsername: club.ownerUsername, memberCount: club.memberCount,
+      isMember: true, isOwner: true
+    } });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/clubs/:clubId/join', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.clubId)) return res.status(400).json({ success: false, message: 'Identificador de club inválido.' });
+    const updated = await Club.findOneAndUpdate(
+      { _id: req.params.clubId, visibility: 'public', status: 'active', 'members.user': { $ne: req.auth.sub } },
+      {
+        $push: { members: { user: req.auth.sub, username: req.auth.username, role: 'member' } },
+        $inc: { memberCount: 1 },
+        $set: { updatedAt: new Date() }
+      },
+      { new: true, runValidators: true }
+    ).select('memberCount').lean();
+    if (!updated) {
+      const existing = await Club.findById(req.params.clubId).select('members.user').lean();
+      if (!existing) return res.status(404).json({ success: false, message: 'Club no encontrado.' });
+      if (existing.members.some((member) => String(member.user) === req.auth.sub)) {
+        return res.status(409).json({ success: false, message: 'Ya pertenecés a este club.' });
+      }
+      return res.status(404).json({ success: false, message: 'Club no disponible.' });
+    }
+    return res.json({ success: true, memberCount: updated.memberCount, message: 'Te uniste al club.' });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/clubs/:clubId/leave', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.clubId)) return res.status(400).json({ success: false, message: 'Identificador de club inválido.' });
+    const club = await Club.findById(req.params.clubId).select('members.user members.role').lean();
+    if (!club) return res.status(404).json({ success: false, message: 'Club no encontrado.' });
+    const member = club.members.find((entry) => String(entry.user) === req.auth.sub);
+    if (!member) return res.status(409).json({ success: false, message: 'No pertenecés a este club.' });
+    if (member.role === 'owner') return res.status(400).json({ success: false, message: 'El propietario no puede abandonar su club. Transferí la propiedad o archivá el club.' });
+    const updated = await Club.findOneAndUpdate(
+      { _id: req.params.clubId, status: 'active', 'members.user': req.auth.sub, 'members.role': { $ne: 'owner' } },
+      {
+        $pull: { members: { user: req.auth.sub } },
+        $inc: { memberCount: -1 },
+        $set: { updatedAt: new Date() }
+      },
+      { new: true, runValidators: true }
+    ).select('memberCount').lean();
+    if (!updated) return res.status(409).json({ success: false, message: 'No se pudo actualizar tu membresía. Actualizá la lista e intentá de nuevo.' });
+    return res.json({ success: true, memberCount: updated.memberCount, message: 'Saliste del club.' });
+  } catch (error) { return next(error); }
 });
 
 app.get('/api/rooms', requireAuth, async (req, res, next) => {

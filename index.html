@@ -132,6 +132,7 @@
                 <button onclick="switchTab('feed'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-tv text-orange-400 w-5"></i><span>Feed y Transmisiones</span></button>
                 <button onclick="switchTab('live'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-tower-broadcast text-rose-400 w-5"></i><span>En Vivo</span></button>
                 <button onclick="switchTab('lobbies'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-gamepad text-emerald-400 w-5"></i><span>Juegos y Salas</span></button>
+                <button onclick="switchTab('clubs'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-users text-orange-300 w-5"></i><span>Clubs y Comunidades</span></button>
                 <button onclick="switchTab('chat'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-comments text-sky-400 w-5"></i><span>Chat y Grupos</span></button>
                 <button onclick="switchTab('shop'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-store text-purple-400 w-5"></i><span>Tienda Arcade & Marcos</span></button>
                 <button onclick="switchTab('events'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-sparkles text-amber-400 w-5"></i><span>Eventos</span></button>
@@ -390,6 +391,22 @@
                 </section>
             </div>
 
+            <!-- TAB CLUBS / COMMUNITIES -->
+            <div id="tab-clubs" class="space-y-5 hidden">
+                <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <div><p class="text-[10px] font-bold uppercase tracking-widest text-orange-300">COMUNIDAD GAMER</p><h3 class="font-black text-xl">Clubs</h3><p class="text-xs text-slate-400">Encontrá jugadores que comparten tus juegos y armá tu comunidad.</p></div>
+                        <button type="button" onclick="openClubCreateModal()" class="shrink-0 PLAYVERSE-gradient rounded-xl px-3 py-2.5 text-xs font-bold text-white"><i class="fa-solid fa-plus mr-1"></i> Crear club</button>
+                    </div>
+                    <form class="flex gap-2" onsubmit="searchClubs(event)">
+                        <input id="club-search" maxlength="60" class="min-w-0 flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-sm text-white" placeholder="Buscar por club o juego…">
+                        <button type="submit" class="rounded-xl border border-slate-700 px-4 text-xs font-bold text-orange-200">Buscar</button>
+                    </form>
+                    <p id="clubs-status" class="text-xs text-slate-400" role="status">Cargando comunidades…</p>
+                </section>
+                <div id="clubs-list" class="grid gap-3 sm:grid-cols-2" aria-live="polite"></div>
+            </div>
+
             <!-- TAB EVENTS / MISSIONS -->
             <div id="tab-events" class="space-y-4 hidden max-w-lg mx-auto">
                 <section class="PLAYVERSE-card rounded-2xl p-5 space-y-2">
@@ -482,9 +499,9 @@
         <!-- NAVEGACIÓN PRINCIPAL PLAYVERSE -->
         <nav aria-label="Navegación principal" class="h-[4.5rem] bg-slate-900/95 backdrop-blur-md border-t border-slate-800 grid grid-cols-5 items-center shrink-0 z-30 pb-[env(safe-area-inset-bottom)]">
             <button type="button" onclick="switchTab('feed')" id="nav-btn-feed" aria-current="page" class="flex flex-col items-center justify-center gap-1 text-orange-400"><i class="fa-solid fa-house text-lg"></i><span class="text-[10px] font-semibold">Inicio</span></button>
-            <button type="button" onclick="switchTab('live')" id="nav-btn-live" class="flex flex-col items-center justify-center gap-1 text-slate-400"><i class="fa-solid fa-tower-broadcast text-lg"></i><span class="text-[10px] font-semibold">En Vivo</span></button>
+            <button type="button" onclick="switchTab('live')" id="nav-btn-live" class="flex flex-col items-center justify-center gap-1 text-slate-400"><i class="fa-solid fa-tower-broadcast text-lg"></i><span class="text-[10px] font-semibold">Descubrir</span></button>
             <div class="flex justify-center -mt-5"><button type="button" onclick="openActionSelector()" aria-label="Crear y transmitir" class="w-14 h-14 PLAYVERSE-gradient rounded-full flex items-center justify-center text-white shadow-xl border-4 border-slate-950 text-xl"><i class="fa-solid fa-plus"></i></button></div>
-            <button type="button" onclick="switchTab('lobbies')" id="nav-btn-lobbies" class="flex flex-col items-center justify-center gap-1 text-slate-400"><i class="fa-solid fa-gamepad text-lg"></i><span class="text-[10px] font-semibold">Juegos</span></button>
+            <button type="button" onclick="switchTab('clubs')" id="nav-btn-clubs" class="flex flex-col items-center justify-center gap-1 text-slate-400"><i class="fa-solid fa-users text-lg"></i><span class="text-[10px] font-semibold">Clubs</span></button>
             <button type="button" onclick="switchTab('chat')" id="nav-btn-chat" class="flex flex-col items-center justify-center gap-1 text-slate-400"><i class="fa-solid fa-comments text-lg"></i><span class="text-[10px] font-semibold">Chat</span></button>
         </nav>
     </div>
@@ -559,6 +576,18 @@
             <p id="streaming-settings-status" class="text-xs text-slate-400" role="status">Cargando preferencias guardadas…</p>
             <p class="text-[11px] text-amber-300/90">Estas opciones guardan tus preferencias. No activan todavía la captura de pantalla/cámara ni inician una transmisión real.</p>
             <div class="flex gap-2"><button type="button" onclick="closeSettingsModal()" class="flex-1 rounded-xl border border-slate-700 px-4 py-3 text-xs font-bold text-slate-300">Cancelar</button><button id="streaming-settings-save" type="submit" class="flex-1 PLAYVERSE-gradient text-white font-bold py-3 rounded-xl shadow-md">Guardar preferencias</button></div>
+        </form>
+    </div>
+
+    <!-- MODAL CREAR CLUB -->
+    <div id="club-create-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <form onsubmit="createClub(event)" class="PLAYVERSE-card rounded-3xl w-full max-w-md p-5 space-y-4 border border-slate-700">
+            <div class="flex items-center justify-between"><div><h3 class="font-black text-lg">Crear un club</h3><p class="text-xs text-slate-400">Dale un hogar a tu comunidad gamer.</p></div><button type="button" onclick="closeClubCreateModal()" class="p-2 text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button></div>
+            <label class="block text-xs text-slate-400">Nombre del club<input id="club-create-name" required minlength="3" maxlength="40" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-white" placeholder="Ej. Comunidad Minecraft Argentina"></label>
+            <label class="block text-xs text-slate-400">Juego principal<input id="club-create-game" required minlength="2" maxlength="40" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-white" placeholder="Minecraft, Roblox, Free Fire…"></label>
+            <label class="block text-xs text-slate-400">Descripción<textarea id="club-create-description" maxlength="240" rows="3" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-white" placeholder="¿Qué van a compartir los miembros?"></textarea></label>
+            <p id="club-create-status" class="text-xs text-slate-400" role="status"></p>
+            <div class="flex gap-2"><button type="button" onclick="closeClubCreateModal()" class="flex-1 rounded-xl border border-slate-700 px-3 py-3 text-xs font-bold">Cancelar</button><button id="club-create-submit" type="submit" class="flex-1 PLAYVERSE-gradient rounded-xl px-3 py-3 text-xs font-bold">Crear comunidad</button></div>
         </form>
     </div>
 
@@ -934,13 +963,14 @@
         }
 
         function switchTab(tabName) {
-            ['feed', 'live', 'chat', 'lobbies', 'shop', 'events', 'profile', 'friends', 'saved', 'notifications', 'help'].forEach(t => {
+            ['feed', 'live', 'chat', 'lobbies', 'clubs', 'shop', 'events', 'profile', 'friends', 'saved', 'notifications', 'help'].forEach(t => {
                 const el = document.getElementById('tab-' + t);
                 if(el) el.classList.add('hidden');
             });
             document.getElementById('tab-' + tabName).classList.remove('hidden');
             if (tabName === 'live') loadLiveStreams();
             if (tabName === 'lobbies') loadRooms();
+            if (tabName === 'clubs') loadClubs();
             if (tabName === 'chat') loadDirectConversations();
             if (tabName === 'feed') loadCommunityPosts();
             if (tabName === 'saved') loadSavedPosts();
@@ -949,7 +979,7 @@
             if (tabName === 'notifications') loadNotifications(true);
             if (tabName === 'profile') { loadMyProfile(); loadProfileSummary(); loadProfileActivity(true); }
             if (tabName === 'shop') loadStore();
-            ['feed', 'live', 'chat', 'lobbies', 'shop', 'events', 'friends', 'profile', 'notifications'].forEach(t => {
+            ['feed', 'live', 'chat', 'clubs', 'shop', 'events', 'friends', 'profile', 'notifications'].forEach(t => {
                 const btn = document.getElementById('nav-btn-' + t);
                 if(btn) {
                     btn.classList.remove('text-orange-400');
@@ -1401,6 +1431,117 @@
             directTypingStopTimer = setTimeout(stopDirectTyping, 1400);
         });
         directMessageInput.addEventListener('blur', stopDirectTyping);
+
+        let clubsCache = [];
+        function openClubCreateModal() {
+            document.getElementById('club-create-status').textContent = '';
+            document.getElementById('club-create-modal').classList.remove('hidden');
+        }
+        function closeClubCreateModal() {
+            document.getElementById('club-create-modal').classList.add('hidden');
+        }
+        async function loadClubs(query = '') {
+            const status = document.getElementById('clubs-status');
+            const list = document.getElementById('clubs-list');
+            if (!status || !list) return;
+            status.textContent = 'Buscando comunidades…';
+            list.replaceChildren();
+            try {
+                const params = new URLSearchParams();
+                if (query) params.set('q', query);
+                const data = await apiRequest('/api/clubs' + (params.toString() ? '?' + params.toString() : ''));
+                clubsCache = data.clubs || [];
+                status.textContent = clubsCache.length + (clubsCache.length === 1 ? ' club encontrado.' : ' clubs encontrados.');
+                if (!clubsCache.length) {
+                    const empty = document.createElement('p');
+                    empty.className = 'text-xs text-slate-500 sm:col-span-2';
+                    empty.textContent = 'Todavía no hay clubs públicos para esta búsqueda. ¡Podés crear el primero!';
+                    list.appendChild(empty);
+                    return;
+                }
+                clubsCache.forEach((club) => {
+                    const card = document.createElement('article');
+                    card.className = 'PLAYVERSE-card rounded-2xl p-4 space-y-3';
+                    const top = document.createElement('div');
+                    top.className = 'flex items-start gap-3';
+                    const emblem = document.createElement('div');
+                    emblem.className = 'w-11 h-11 shrink-0 rounded-xl PLAYVERSE-gradient flex items-center justify-center text-xl text-white';
+                    emblem.textContent = '🎮';
+                    const details = document.createElement('div');
+                    details.className = 'min-w-0 flex-1';
+                    const name = document.createElement('h4');
+                    name.className = 'text-sm font-black text-white break-words';
+                    name.textContent = club.name;
+                    const game = document.createElement('p');
+                    game.className = 'text-[11px] text-orange-300 mt-1';
+                    game.textContent = club.game + ' · ' + Number(club.memberCount || 0).toLocaleString('es-AR') + ' miembros';
+                    details.append(name, game);
+                    top.append(emblem, details);
+                    const description = document.createElement('p');
+                    description.className = 'text-xs text-slate-400';
+                    description.textContent = club.description || 'Comunidad abierta para jugadores.';
+                    const owner = document.createElement('p');
+                    owner.className = 'text-[10px] text-slate-500';
+                    owner.textContent = 'Creado por @' + club.ownerUsername;
+                    const action = document.createElement('button');
+                    action.type = 'button';
+                    action.className = 'w-full rounded-xl px-3 py-2.5 text-xs font-bold ' + (club.isOwner ? 'border border-amber-500/40 text-amber-200' : club.isMember ? 'border border-slate-700 text-slate-300' : 'PLAYVERSE-gradient text-white');
+                    action.textContent = club.isOwner ? 'Propietario' : club.isMember ? 'Salir del club' : 'Unirme al club';
+                    action.disabled = club.isOwner;
+                    action.addEventListener('click', () => club.isMember ? leaveClub(club.id) : joinClub(club.id));
+                    card.append(top, description, owner, action);
+                    list.appendChild(card);
+                });
+            } catch (error) {
+                status.textContent = 'No se pudieron cargar los clubs: ' + error.message;
+            }
+        }
+        function searchClubs(event) {
+            event.preventDefault();
+            loadClubs(document.getElementById('club-search').value.trim());
+        }
+        async function joinClub(clubId) {
+            try {
+                await apiRequest('/api/clubs/' + encodeURIComponent(clubId) + '/join', { method: 'POST' });
+                await loadClubs(document.getElementById('club-search').value.trim());
+            } catch (error) {
+                document.getElementById('clubs-status').textContent = error.message;
+            }
+        }
+        async function leaveClub(clubId) {
+            try {
+                await apiRequest('/api/clubs/' + encodeURIComponent(clubId) + '/leave', { method: 'POST' });
+                await loadClubs(document.getElementById('club-search').value.trim());
+            } catch (error) {
+                document.getElementById('clubs-status').textContent = error.message;
+            }
+        }
+        async function createClub(event) {
+            event.preventDefault();
+            const button = document.getElementById('club-create-submit');
+            const status = document.getElementById('club-create-status');
+            button.disabled = true;
+            button.textContent = 'Creando…';
+            try {
+                await apiRequest('/api/clubs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: document.getElementById('club-create-name').value.trim(),
+                        game: document.getElementById('club-create-game').value.trim(),
+                        description: document.getElementById('club-create-description').value.trim()
+                    })
+                });
+                document.querySelector('#club-create-modal form').reset();
+                closeClubCreateModal();
+                await loadClubs();
+            } catch (error) {
+                status.textContent = error.message;
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Crear comunidad';
+            }
+        }
 
         async function loadRooms() {
             const container = document.getElementById('rooms-container');
