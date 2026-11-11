@@ -6,7 +6,7 @@ const { readConfig, probeTcp, runOnce } = require('../scripts/game-server-agent'
 function config(overrides = {}) {
   return {
     apiBase: 'https://playverse.example',
-    serverId: 'server-123',
+    serverId: 'a'.repeat(24),
     token: 'A'.repeat(43),
     host: '127.0.0.1',
     port: 25565,
@@ -20,25 +20,25 @@ function config(overrides = {}) {
 test('agent config requires valid API, token, port and player limits', () => {
   assert.throws(() => readConfig({}), /PLAYVERSE_API_URL/);
   assert.throws(() => readConfig({
-    PLAYVERSE_API_URL: 'file:///tmp',
-    GAME_SERVER_ID: 'id',
+    PLAYVERSE_API_URL: 'http://api.example',
+    GAME_SERVER_ID: 'a'.repeat(24),
     GAME_SERVER_TOKEN: 'x',
     GAME_SERVER_PORT: '25565'
-  }), /HTTP o HTTPS/);
+  }), /HTTPS/);
   assert.throws(() => readConfig({
     PLAYVERSE_API_URL: 'https://api.example',
-    GAME_SERVER_ID: 'id',
+    GAME_SERVER_ID: 'a'.repeat(24),
     GAME_SERVER_TOKEN: 'x',
     GAME_SERVER_PORT: '25565'
   }), /token.*inválido/i);
   assert.deepEqual(readConfig({
     PLAYVERSE_API_URL: 'https://api.example/',
-    GAME_SERVER_ID: 'id',
+    GAME_SERVER_ID: 'a'.repeat(24),
     GAME_SERVER_TOKEN: 'A'.repeat(43),
     GAME_SERVER_PORT: '25565'
   }), {
     apiBase: 'https://api.example',
-    serverId: 'id',
+    serverId: 'a'.repeat(24),
     token: 'A'.repeat(43),
     host: '127.0.0.1',
     port: 25565,
