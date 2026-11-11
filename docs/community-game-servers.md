@@ -23,7 +23,7 @@ Al apagar el servidor, el agente puede enviar `isOnline:false`. Si no llegan hea
 
 ## Agente de monitoreo (Node.js 20+)
 
-El repositorio incluye `scripts/game-server-agent.js`. Ejecutalo en la misma máquina o red del servidor de juego. El modo `tcp` solo comprueba que el puerto acepta una conexión TCP; no valida el protocolo del juego ni descubre jugadores. Para Minecraft Java, el modo `minecraft-java` realiza el intercambio oficial de estado del servidor y obtiene el recuento de jugadores y la capacidad desde la respuesta del propio juego.
+El repositorio incluye `scripts/game-server-agent.js`. Ejecutalo en la misma máquina o red del servidor de juego. El modo `tcp` solo comprueba que el puerto acepta una conexión TCP; no valida el protocolo del juego ni descubre jugadores. Para Minecraft Java, `minecraft-java` realiza el Server List Ping TCP y obtiene jugadores, capacidad y versión. Para Minecraft Bedrock, `minecraft-bedrock` envía un RakNet Unconnected Ping UDP y valida el Unconnected Pong antes de obtener jugadores, capacidad y versión.
 
 Configurá estas variables en el entorno del equipo anfitrión (no las subas al repositorio):
 
@@ -33,20 +33,21 @@ GAME_SERVER_ID=ID_DE_LA_PUBLICACION
 GAME_SERVER_TOKEN=TOKEN_PRIVADO
 GAME_SERVER_HOST=127.0.0.1
 GAME_SERVER_PORT=25565
+# Java: 25565/TCP | Bedrock: 19132/UDP
 GAME_SERVER_PROTOCOL=minecraft-java
 GAME_SERVER_MAX_PLAYERS=20
 GAME_SERVER_PLAYER_COUNT=0
 ```
 
-`GAME_SERVER_HOST` y `GAME_SERVER_PORT` deben apuntar al puerto local real del juego. Usá `GAME_SERVER_PROTOCOL=minecraft-java` para Minecraft Java: el agente reporta los jugadores/capacidad devueltos por el protocolo. Usá `GAME_SERVER_PROTOCOL=tcp` para otros servicios TCP; en ese modo `GAME_SERVER_PLAYER_COUNT` y `GAME_SERVER_MAX_PLAYERS` son datos manuales, no un contador en vivo. En una terminal del anfitrión ejecutá:
+`GAME_SERVER_HOST` y `GAME_SERVER_PORT` deben apuntar al puerto local real del juego. Usá `GAME_SERVER_PROTOCOL=minecraft-java` para Minecraft Java (puerto habitual 25565/TCP) o `GAME_SERVER_PROTOCOL=minecraft-bedrock` para Bedrock (puerto habitual 19132/UDP). Ambos consultan el protocolo del juego y reportan jugadores, capacidad y versión cuando el servidor responde. Usá `GAME_SERVER_PROTOCOL=tcp` para otros servicios TCP; en ese modo `GAME_SERVER_PLAYER_COUNT` y `GAME_SERVER_MAX_PLAYERS` son datos manuales, no un contador en vivo. En una terminal del anfitrión ejecutá:
 
 ```bash
 node scripts/game-server-agent.js
 ```
 
-El agente hace una comprobación inmediata y repite cada 30 segundos. Si el puerto no acepta TCP, envía `isOnline:false`. Requiere salida HTTPS hacia la API y Node.js 20 o superior. Para detenerlo, usá Ctrl+C. No compartas el token ni lo pongas en argumentos visibles de procesos.
+El agente hace una comprobación inmediata y repite cada 30 segundos. Si el servidor Java no devuelve un estado válido o Bedrock no devuelve un RakNet Pong válido dentro del timeout, envía `isOnline:false`. Requiere salida HTTPS hacia la API y Node.js 20 o superior. Para detenerlo, usá Ctrl+C. No compartas el token ni lo pongas en argumentos visibles de procesos.
 
-**Límites importantes:** el modo Minecraft Java consulta estado y población, pero no crea ni aloja el mundo, no abre puertos del router, no configura firewall, no implementa partidas ni sincroniza estados de juego. Minecraft Bedrock usa RakNet/UDP y requiere un monitor específico; no selecciones `minecraft-java` ni declares compatible el modo TCP para Bedrock.
+**Límites importantes:** ambos monitores verifican el protocolo de estado, no el ingreso autenticado de un jugador ni la capacidad de completar una partida. No crean ni alojan mundos, no abren puertos del router, no configuran firewall ni sincronizan estados de juego. Bedrock requiere que el UDP real sea accesible desde la máquina donde corre el agente; el éxito en localhost no garantiza accesibilidad pública a través de NAT/firewall.
 
 ## Minecraft
 
