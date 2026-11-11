@@ -195,25 +195,13 @@
                     <button onclick="openStreamStudio()" class="PLAYVERSE-gradient text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md hover:scale-105">Transmitir</button>
                 </div>
 
-                <div class="space-y-4">
-                    <h3 class="font-black text-base flex items-center gap-2"><i class="fa-solid fa-fire text-orange-500"></i> Streams en Vivo Populares</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="PLAYVERSE-card rounded-2xl overflow-hidden shadow-lg">
-                            <div class="relative aspect-video bg-slate-950 flex items-center justify-center">
-                                <img src="https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=80" alt="Minecraft" class="w-full h-full object-cover opacity-75">
-                                <div class="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded flex items-center gap-1">EN VIVO</div>
-                                <div class="absolute bottom-3 left-3 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-lg text-xs font-semibold">Minecraft PE • Survival Técnico</div>
-                            </div>
-                            <div class="p-3.5 flex items-center justify-between">
-                                <div class="flex items-center space-x-3">
-                                    <div class="w-9 h-9 rounded-full bg-purple-500/20 border border-purple-400 flex items-center justify-center text-lg">🧙‍♂️</div>
-                                    <div><h5 class="font-bold text-sm">GamerPro_MC</h5><p class="text-[10px] text-slate-400">1,420 espectadores</p></div>
-                                </div>
-                                <button onclick="alert('Conectando...')" class="bg-orange-500/20 text-orange-400 border border-orange-500/40 text-xs px-3.5 py-1.5 rounded-xl font-bold">Ver Stream</button>
-                            </div>
-                        </div>
+                <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center gap-2"><i class="fa-solid fa-tower-broadcast text-rose-400"></i><div><h3 class="font-black text-sm">Descubrí la comunidad en directo</h3><p class="text-xs text-slate-400">Entrá a transmisiones reales o buscá partidas públicas para jugar.</p></div></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" onclick="switchTab('live')" class="rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-200 px-3 py-3 text-xs font-bold"><i class="fa-solid fa-satellite-dish mr-1"></i> Live Now</button>
+                        <button type="button" onclick="switchTab('lobbies')" class="rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-200 px-3 py-3 text-xs font-bold"><i class="fa-solid fa-gamepad mr-1"></i> Viewer Games</button>
                     </div>
-                </div>
+                </section>
 
                 <div class="space-y-4 pt-2">
                     <h3 class="font-black text-base flex items-center gap-2"><i class="fa-solid fa-earth-americas text-purple-400"></i> Publicaciones de la Comunidad</h3>
@@ -227,6 +215,11 @@
             <!-- TAB LIVE -->
             <div id="tab-live" class="space-y-6 hidden">
                 <section class="space-y-2">
+                    <div class="grid grid-cols-2 gap-2" role="group" aria-label="Descubrimiento de PLAYVERSE">
+                        <button type="button" aria-current="page" class="rounded-xl border border-rose-500/40 bg-rose-500/10 text-rose-200 px-3 py-3 text-xs font-black"><i class="fa-solid fa-tower-broadcast mr-1"></i> Live Now</button>
+                        <button type="button" onclick="switchTab('lobbies')" class="rounded-xl border border-slate-700 bg-slate-900 text-slate-200 px-3 py-3 text-xs font-bold"><i class="fa-solid fa-gamepad mr-1"></i> Viewer Games</button>
+                    </div>
+                    
                     <div class="flex items-center justify-between"><div><h3 class="font-black text-lg">En Vivo</h3><p class="text-xs text-slate-400">Descubrí transmisiones de la comunidad</p></div><span class="text-[10px] font-bold text-rose-300 bg-rose-500/10 border border-rose-500/20 px-2 py-1 rounded-full">LIVE</span></div>
                     <div class="flex gap-2 overflow-x-auto pb-2" aria-label="Filtrar transmisiones por juego">
                         <button type="button" class="rounded-full border border-orange-500/40 bg-orange-500/10 text-orange-300 px-3 py-2 text-xs font-bold">Todos</button>
