@@ -61,6 +61,7 @@ const userSchema = new mongoose.Schema({
     maxlength: 500,
     default: ''
   },
+  avatarPreset: { type: String, trim: true, maxlength: 40, default: 'arcade-hero' },
   streamingPreferences: {
     type: streamingPreferencesSchema,
     default: () => ({})

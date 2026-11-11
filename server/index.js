@@ -29,6 +29,7 @@ const Inventory = require('./models/Inventory');
 const TokenTransaction = require('./models/TokenTransaction');
 const MissionClaim = require('./models/MissionClaim');
 const { STORE_CATALOG } = require('./data/storeCatalog');
+const { AVATAR_CATALOG, AVATAR_BY_ID } = require('./data/avatarCatalog');
 const { requireAuth } = require('./middleware/auth');
 const { attachSocketServer } = require('./socket');
 const { createLiveKitApi, createParticipantToken, createRoomName, createWebhookReceiver, getLiveKitConfig } = require('./services/livekit');
@@ -500,10 +501,14 @@ app.post('/api/login', authLimiter, async (req, res, next) => {
   }
 });
 
+app.get('/api/avatar-catalog', requireAuth, (req, res) => {
+  return res.json({ success: true, avatars: AVATAR_CATALOG });
+});
+
 app.get('/api/me', requireAuth, async (req, res, next) => {
   try {
     const user = await User.findById(req.auth.sub)
-      .select('username role displayName bio avatarUrl createdAt')
+      .select('username role displayName bio avatarUrl avatarPreset createdAt')
       .lean();
     if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
     return res.json({ success: true, user: {
@@ -513,6 +518,7 @@ app.get('/api/me', requireAuth, async (req, res, next) => {
       displayName: user.displayName || '',
       bio: user.bio || '',
       avatarUrl: user.avatarUrl || '',
+      avatarPreset: user.avatarPreset || 'arcade-hero',
       createdAt: user.createdAt
     } });
   } catch (error) {
@@ -780,6 +786,13 @@ app.put('/api/me/profile', requireAuth, profileLimiter, async (req, res, next) =
       }
       updates.avatarUrl = avatarUrl;
     }
+    if (Object.prototype.hasOwnProperty.call(req.body, 'avatarPreset')) {
+      if (typeof req.body.avatarPreset !== 'string' || !AVATAR_BY_ID.has(req.body.avatarPreset)) {
+        return res.status(400).json({ success: false, message: 'Elegí un avatar disponible del catálogo.' });
+      }
+      updates.avatarPreset = req.body.avatarPreset;
+      updates.avatarUrl = '';
+    }
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ success: false, message: 'No hay cambios de perfil para guardar.' });
     }
@@ -788,7 +801,7 @@ app.put('/api/me/profile', requireAuth, profileLimiter, async (req, res, next) =
       req.auth.sub,
       { $set: updates },
       { new: true, runValidators: true }
-    ).select('username role displayName bio avatarUrl createdAt').lean();
+    ).select('username role displayName bio avatarUrl avatarPreset createdAt').lean();
     if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
     return res.json({ success: true, user: {
       id: String(user._id),
@@ -797,6 +810,7 @@ app.put('/api/me/profile', requireAuth, profileLimiter, async (req, res, next) =
       displayName: user.displayName || '',
       bio: user.bio || '',
       avatarUrl: user.avatarUrl || '',
+      avatarPreset: user.avatarPreset || 'arcade-hero',
       createdAt: user.createdAt
     } });
   } catch (error) {

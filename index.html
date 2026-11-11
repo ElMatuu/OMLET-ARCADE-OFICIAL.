@@ -603,6 +603,12 @@
             </div>
             <div><label for="profile-display-name-input" class="text-xs font-bold text-slate-400 block mb-1">Nombre visible</label><input id="profile-display-name-input" maxlength="30" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="Cómo querés que te vean"></div>
             <div><label for="profile-bio-input" class="text-xs font-bold text-slate-400 block mb-1">Biografía (máximo 160 caracteres)</label><textarea id="profile-bio-input" maxlength="160" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white resize-y" placeholder="Contá algo sobre vos y tus juegos"></textarea></div>
+            <section class="space-y-2">
+                <div class="flex items-center justify-between"><label class="text-xs font-bold text-slate-300">Elegí tu avatar gamer</label><span class="text-[10px] text-slate-500">32 diseños incluidos</span></div>
+                <p class="text-[10px] text-slate-500">Elegí un personaje para tu identidad. Se guarda en tu cuenta y aparece en tu perfil.</p>
+                <div id="profile-avatar-catalog" class="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-56 overflow-y-auto pr-1" aria-label="Catálogo de avatares"></div>
+                <p id="profile-avatar-selection" class="text-xs text-orange-300" aria-live="polite">Seleccioná un avatar.</p>
+            </section>
             <div><label for="profile-avatar-url-input" class="text-xs font-bold text-slate-400 block mb-1">Avatar (URL HTTPS)</label><input id="profile-avatar-url-input" type="url" maxlength="500" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="https://..."></div>
             <p id="profile-editor-status" class="text-xs text-slate-400" role="status"></p>
             <div class="flex gap-2"><button type="button" onclick="closeProfileEditor()" class="flex-1 rounded-xl border border-slate-700 px-4 py-3 text-xs font-bold text-slate-300">Cancelar</button><button id="profile-save-button" type="submit" class="flex-1 PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white">Guardar perfil</button></div>
@@ -693,12 +699,23 @@
                 avatar.removeAttribute('src');
                 avatar.classList.add('hidden');
                 placeholder.classList.remove('hidden');
+                const preset = (avatarCatalogCache || []).find((item) => item.id === user.avatarPreset);
+                placeholder.textContent = preset ? preset.emoji : '🎮';
+                placeholder.parentElement.style.background = preset
+                    ? 'linear-gradient(135deg,' + preset.colorA + ',' + preset.colorB + ')'
+                    : '';
             }
         }
 
         async function loadMyProfile() {
             try {
                 const data = await apiRequest('/api/me');
+                try {
+                    const avatarData = await apiRequest('/api/avatar-catalog');
+                    avatarCatalogCache = Array.isArray(avatarData.avatars) ? avatarData.avatars : [];
+                } catch {
+                    avatarCatalogCache = [];
+                }
                 if (data.user) applyProfileData(data.user);
             } catch (error) {
                 const status = document.getElementById('profile-status');
@@ -2842,13 +2859,61 @@
             }
         }
 
+        let avatarCatalogCache = null;
+        let selectedAvatarPreset = 'arcade-hero';
+
+        async function loadAvatarCatalog() {
+            const grid = document.getElementById('profile-avatar-catalog');
+            const status = document.getElementById('profile-avatar-selection');
+            grid.innerHTML = '<p class="col-span-full text-xs text-slate-500">Cargando catálogo…</p>';
+            try {
+                if (!avatarCatalogCache) {
+                    const data = await apiRequest('/api/avatar-catalog');
+                    avatarCatalogCache = Array.isArray(data.avatars) ? data.avatars : [];
+                }
+                grid.replaceChildren();
+                avatarCatalogCache.forEach((avatar) => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.dataset.avatarId = avatar.id;
+                    button.title = avatar.name;
+                    button.setAttribute('aria-label', 'Elegir avatar ' + avatar.name);
+                    button.setAttribute('aria-pressed', String(avatar.id === selectedAvatarPreset));
+                    button.className = 'rounded-xl border p-2 flex flex-col items-center gap-1 min-w-0 transition';
+                    button.style.background = 'linear-gradient(135deg,' + avatar.colorA + ',' + avatar.colorB + ')';
+                    button.style.borderColor = avatar.id === selectedAvatarPreset ? '#fff' : 'rgba(255,255,255,.12)';
+                    button.innerHTML = '<span class="text-3xl leading-tight"></span><span class="text-[9px] font-bold text-white text-center leading-tight"></span>';
+                    button.children[0].textContent = avatar.emoji;
+                    button.children[1].textContent = avatar.name;
+                    button.addEventListener('click', () => selectAvatarPreset(avatar.id));
+                    grid.appendChild(button);
+                });
+                const selected = avatarCatalogCache.find((avatar) => avatar.id === selectedAvatarPreset);
+                status.textContent = selected ? 'Seleccionado: ' + selected.name : 'Elegí tu personaje.';
+            } catch (error) {
+                grid.replaceChildren();
+                status.textContent = 'No se pudo cargar el catálogo. ' + error.message;
+            }
+        }
+
+        function selectAvatarPreset(id) {
+            if (!avatarCatalogCache || !avatarCatalogCache.some((avatar) => avatar.id === id)) return;
+            selectedAvatarPreset = id;
+            const selected = avatarCatalogCache.find((avatar) => avatar.id === id);
+            document.getElementById('profile-avatar-url-input').value = '';
+            document.getElementById('profile-avatar-selection').textContent = 'Seleccionado: ' + selected.name;
+            loadAvatarCatalog();
+        }
+
         function openProfileEditor() {
             const profile = appState.profile || {};
             document.getElementById('profile-display-name-input').value = profile.displayName || '';
             document.getElementById('profile-bio-input').value = profile.bio || '';
             document.getElementById('profile-avatar-url-input').value = profile.avatarUrl || '';
+            selectedAvatarPreset = profile.avatarPreset || 'arcade-hero';
             document.getElementById('profile-editor-status').textContent = '';
             document.getElementById('profile-editor-modal').classList.remove('hidden');
+            loadAvatarCatalog();
         }
 
         function closeProfileEditor() {
@@ -2869,7 +2934,8 @@
                     body: JSON.stringify({
                         displayName: document.getElementById('profile-display-name-input').value,
                         bio: document.getElementById('profile-bio-input').value,
-                        avatarUrl: document.getElementById('profile-avatar-url-input').value
+                        avatarUrl: document.getElementById('profile-avatar-url-input').value,
+                        avatarPreset: document.getElementById('profile-avatar-url-input').value.trim() ? undefined : selectedAvatarPreset
                     })
                 });
                 applyProfileData(result.user);
