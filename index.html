@@ -499,11 +499,12 @@
                         <div><p class="text-[10px] font-bold uppercase tracking-widest text-orange-300">PLAYVERSE STORE</p><h3 class="font-black text-xl">Tienda y personalización</h3></div>
                         <div class="grid grid-cols-3 gap-2 w-full sm:w-auto">
 <div class="rounded-xl bg-slate-950 border border-amber-400/30 px-2 py-2 text-center"><span class="pv-coin pv-coin-gold">PV</span><strong id="wallet-gold-balance" class="block text-xs text-amber-300">0</strong><span class="text-[9px] text-slate-500">ORO</span></div>
-<div class="rounded-xl bg-slate-950 border border-fuchsia-400/30 px-2 py-2 text-center"><span class="pv-coin pv-coin-purple">PV</span><strong id="wallet-purple-balance" class="block text-xs text-fuchsia-300">0</strong><span class="text-[9px] text-slate-500">PLATA</span></div>
+<div class="rounded-xl bg-slate-950 border border-fuchsia-400/30 px-2 py-2 text-center"><span class="pv-coin pv-coin-purple">PV</span><strong id="wallet-purple-balance" class="block text-xs text-fuchsia-300">0</strong><span class="text-[9px] text-slate-500">VIOLETA</span></div>
 <div class="rounded-xl bg-slate-950 border border-cyan-300/30 px-2 py-2 text-center"><span class="pv-coin pv-coin-diamond">PV</span><strong id="wallet-diamond-balance" class="block text-xs text-cyan-200">0</strong><span class="text-[9px] text-slate-500">DIAMANTE</span></div>
 </div>
                     </div>
                     <p class="text-xs text-slate-400">Tres monedas virtuales independientes con identidad PLAYVERSE. Se consiguen jugando, completando misiones y participando en la comunidad; no se compran con dinero real.</p>
+                    <p class="text-[10px] leading-relaxed text-slate-500">Referencia interna de balance: 1 Cristal Violeta = 100 Oro; 1 Diamante = 1.000 Oro. Son equivalencias ficticias de la economía del juego: no representan metales ni gemas reales, no tienen valor monetario, no se convierten y no se canjean por efectivo.</p>
                 </section>
                 <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
 <div><h4 class="font-bold text-sm">Enviar monedas a otro jugador</h4><p class="text-[10px] text-slate-400">Transferencia entre billeteras PLAYVERSE. Se descuenta de tu saldo y se acredita al destinatario en una sola operación.</p></div>
@@ -3027,7 +3028,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             button.disabled = true; button.textContent = 'Enviando…';
             try {
                 const result = await apiRequest('/api/wallet/transfers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recipientUsername, currency, amount }) });
-                status.textContent = result.message + ' Se acreditaron ' + amount + ' ' + (currency === 'diamond' ? '💎 Diamantes' : currency === 'purple' ? '🥈 Platas' : '🟡 Oros') + '.';
+                status.textContent = result.message + ' Se acreditaron ' + amount + ' ' + (currency === 'diamond' ? '💎 Diamantes' : currency === 'purple' ? '🟣 Cristales Violetas' : '🟡 Oros') + '.';
                 document.getElementById('wallet-gift-amount').value = '';
                 await loadStore();
             } catch (error) { status.textContent = error.message; }
@@ -3281,7 +3282,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             const currency = item.priceCurrency || 'gold';
             const available = Number(appState.walletBalances[currency] || 0);
             if (available < item.priceTokens) {
-                document.getElementById('store-status').textContent = 'Saldo insuficiente de ' + (currency === 'diamond' ? 'Diamantes' : currency === 'purple' ? 'Platas' : 'Oros') + '. Completá misiones para conseguir más.';
+                document.getElementById('store-status').textContent = 'Saldo insuficiente de ' + (currency === 'diamond' ? 'Diamantes' : currency === 'purple' ? 'Cristales Violetas' : 'Oros') + '. Completá misiones para conseguir más.';
                 return;
             }
             try {
