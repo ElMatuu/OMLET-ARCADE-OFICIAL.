@@ -49,6 +49,19 @@ jobs:
         run: npm run check:syntax
       - name: Check JSON configuration
         run: npm run check:config
+      - name: Validate self-hosted Docker Compose stack
+        run: |
+          printf '%s\n' \
+            'JWT_SECRET=ci-only-secret-value-at-least-64-characters-long-000000000000000000' \
+            'LIVEKIT_API_KEY=ci-playverse-key' \
+            'LIVEKIT_API_SECRET=ci-only-livekit-secret-00000000000000000000000000000000' \
+            'MONGO_ROOT_USERNAME=playverse_ci' \
+            'MONGO_ROOT_PASSWORD=ci-only-password-1234567890' \
+            'API_DOMAIN=api.example.com' \
+            'LIVE_DOMAIN=live.example.com' \
+            'LIVEKIT_URL=wss://live.example.com' \
+            'CORS_ORIGIN=https://api.example.com' > .env.selfhost
+          docker compose --env-file .env.selfhost config --quiet
       - name: Run unit and multi-user integration tests
         run: npm test
         env:
