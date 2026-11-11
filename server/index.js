@@ -2189,7 +2189,8 @@ app.patch('/api/rooms/:roomId/participation-requests/:userId', requireAuth, asyn
       _id: roomId,
       owner: req.auth.sub,
       status: 'open',
-      joinRequests: { $elemMatch: { user: userId, status: 'pending' } }
+      joinRequests: { $elemMatch: { user: userId, status: 'pending' } },
+      members: { $ne: userId }
     };
     if (decision === 'accept') filter.$expr = { $lt: ['$memberCount', '$capacity'] };
     const room = await Room.findOneAndUpdate(filter, update, { new: true, runValidators: true })
