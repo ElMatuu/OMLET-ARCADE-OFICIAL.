@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
 const { io: createSocketClient } = require('socket.io-client');
 const { attachSocketServer } = require('../server/socket');
+const Club = require('../server/models/Club');
 
 const mongoUri = process.env.PLAYVERSE_TEST_MONGODB_URI;
 const integrationTest = mongoUri ? test : test.skip;
@@ -96,6 +97,37 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.equal(aliceIdentity.body.user.username, 'alice_test');
     assert.equal(bobIdentity.body.user.username, 'bob_test');
     assert.notEqual(aliceIdentity.body.user.id, bobIdentity.body.user.id);
+
+    const clubCreated = await request(baseUrl, '/api/clubs', {
+      method: 'POST',
+      body: { name: 'Comunidad PlayVerse', game: 'Minecraft', description: 'Club de integración' }
+    }, alice.body.token);
+    assert.equal(clubCreated.status, 201);
+    const clubId = clubCreated.body.club.id;
+    const clubJoined = await request(baseUrl, '/api/clubs/' + clubId + '/join', { method: 'POST' }, bob.body.token);
+    assert.equal(clubJoined.status, 200);
+    const unauthorizedTransfer = await request(baseUrl, '/api/clubs/' + clubId + '/transfer', {
+      method: 'POST', body: { username: 'charlie_test' }
+    }, charlie.body.token);
+    assert.equal(unauthorizedTransfer.status, 403);
+    const transfer = await request(baseUrl, '/api/clubs/' + clubId + '/transfer', {
+      method: 'POST', body: { username: 'bob_test' }
+    }, alice.body.token);
+    assert.equal(transfer.status, 200);
+    assert.equal(transfer.body.club.ownerUsername, 'bob_test');
+    const transferredClub = await Club.findById(clubId).lean();
+    assert.equal(String(transferredClub.owner), bob.body.user.id);
+    assert.equal(transferredClub.members.find((member) => String(member.user) === alice.body.user.id).role, 'moderator');
+    assert.equal(transferredClub.members.find((member) => String(member.user) === bob.body.user.id).role, 'owner');
+    const oldOwnerCannotArchive = await request(baseUrl, '/api/clubs/' + clubId + '/archive', { method: 'POST' }, alice.body.token);
+    assert.equal(oldOwnerCannotArchive.status, 403);
+    const archivedClub = await request(baseUrl, '/api/clubs/' + clubId + '/archive', { method: 'POST' }, bob.body.token);
+    assert.equal(archivedClub.status, 200);
+    assert.equal(archivedClub.body.club.status, 'archived');
+    const archivedNotListed = await request(baseUrl, '/api/clubs', {}, bob.body.token);
+    assert.equal(archivedNotListed.body.clubs.some((club) => club.id === clubId), false);
+    const archivedCannotBeJoined = await request(baseUrl, '/api/clubs/' + clubId + '/join', { method: 'POST' }, charlie.body.token);
+    assert.equal(archivedCannotBeJoined.status, 404);
 
     const liveCatalog = await request(baseUrl, '/api/streams');
     assert.equal(liveCatalog.status, 200);
