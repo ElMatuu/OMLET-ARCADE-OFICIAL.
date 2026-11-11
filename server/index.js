@@ -42,6 +42,7 @@ const app = express();
 // Keep the hop count explicit so express-rate-limit can safely read client IPs.
 app.set('trust proxy', 1);
 const httpServer = http.createServer(app);
+app.set('isShuttingDown', false);
 const PORT = Number(process.env.PORT) || 3000;
 const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
   .split(',')
@@ -218,11 +219,13 @@ app.get('/api/health/live', (req, res) => {
 });
 
 app.get('/api/health/ready', (req, res) => {
-  const ready = mongoose.connection.readyState === 1;
+  const draining = app.get('isShuttingDown') === true;
+  const databaseReady = mongoose.connection.readyState === 1;
+  const ready = databaseReady && !draining;
   return res.status(ready ? 200 : 503).json({
     success: ready,
     service: 'PLAYVERSE API',
-    status: ready ? 'ready' : 'database-disconnected'
+    status: draining ? 'draining' : (databaseReady ? 'ready' : 'database-disconnected')
   });
 });
 
@@ -3185,16 +3188,37 @@ async function start() {
   });
 }
 
+let shutdownPromise;
+async function shutdown(signal = 'shutdown') {
+  if (shutdownPromise) return shutdownPromise;
+  app.set('isShuttingDown', true);
+  shutdownPromise = (async () => {
+    console.log(`PLAYVERSE API shutting down (${signal}); readiness disabled`);
+    if (httpServer.io) {
+      await new Promise((resolve) => httpServer.io.close(resolve));
+    } else if (httpServer.listening) {
+      await new Promise((resolve, reject) => httpServer.close((error) => error ? reject(error) : resolve()));
+    }
+    await mongoose.disconnect();
+    console.log('PLAYVERSE API shutdown complete');
+  })();
+  return shutdownPromise;
+}
+
 if (require.main === module) {
   start().catch((error) => {
     console.error('Unable to start PLAYVERSE API:', error.message);
     process.exit(1);
   });
 
-  process.on('SIGTERM', async () => {
-    await mongoose.disconnect();
-    httpServer.close(() => process.exit(0));
-  });
+  for (const signal of ['SIGTERM', 'SIGINT']) {
+    process.on(signal, () => {
+      shutdown(signal).then(() => process.exit(0)).catch((error) => {
+        console.error('PLAYVERSE API shutdown failed:', error.message);
+        process.exit(1);
+      });
+    });
+  }
 }
 
-module.exports = { app, httpServer, start };
+module.exports = { app, httpServer, start, shutdown };

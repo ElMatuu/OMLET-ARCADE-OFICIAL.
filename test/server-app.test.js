@@ -136,6 +136,21 @@ test('readiness probe returns 503 while database is disconnected', async () => {
   });
 });
 
+test('readiness probe returns 503 while the instance is draining', async () => {
+  await withServer(async (baseUrl) => {
+    app.set('isShuttingDown', true);
+    try {
+      const response = await fetch(baseUrl + '/api/health/ready');
+      const body = await response.json();
+      assert.equal(response.status, 503);
+      assert.equal(body.success, false);
+      assert.equal(body.status, 'draining');
+    } finally {
+      app.set('isShuttingDown', false);
+    }
+  });
+});
+
 
 test('creator streaming preferences remain protected by authentication', async () => {
   await withServer(async (baseUrl) => {
