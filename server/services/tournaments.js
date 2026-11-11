@@ -27,10 +27,22 @@ function groupSoloEntries(entries, teamSize) {
 function buildSingleEliminationBracket(entries) {
   const active = entries.filter((entry) => entry.status === 'approved' || entry.status === 'checked-in');
   if (active.length < 2) throw new Error('Se necesitan al menos dos equipos aprobados.');
+
   const bracketSize = 2 ** Math.ceil(Math.log2(active.length));
+  const byeCount = bracketSize - active.length;
+  const current = [];
+
+  // Distribute byes across distinct first-round matches. Appending every bye
+  // at the end can create empty-vs-empty matches and strand later rounds.
+  for (let index = 0; index < byeCount; index += 1) {
+    current.push(String(active[index]._id), null);
+  }
+  for (let index = byeCount; index < active.length; index += 2) {
+    current.push(String(active[index]._id));
+    current.push(index + 1 < active.length ? String(active[index + 1]._id) : null);
+  }
+
   const matches = [];
-  let current = active.map((entry) => String(entry._id));
-  while (current.length < bracketSize) current.push(null);
   let round = 1;
   while (current.length > 1) {
     const winners = [];
@@ -41,7 +53,7 @@ function buildSingleEliminationBracket(entries) {
       matches.push({ round, matchNumber: index / 2 + 1, entryA, entryB, winner, status: winner ? 'completed' : 'pending' });
       winners.push(winner);
     }
-    current = winners;
+    current.splice(0, current.length, ...winners);
     round += 1;
   }
   return matches;
