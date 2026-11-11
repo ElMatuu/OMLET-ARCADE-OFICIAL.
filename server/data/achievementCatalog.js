@@ -24,7 +24,7 @@ const ACHIEVEMENTS = [
   { id: 'first-tournament', title: 'A la arena', description: 'Inscribite en tu primer torneo.', category: 'Competitivo', tier: 'novato', icon: '🏁', metric: 'tournaments', target: 1, xp: 40 },
   { id: 'tournaments-10', title: 'Competidor habitual', description: 'Participá en 10 torneos.', category: 'Competitivo', tier: 'avanzado', icon: '🥇', metric: 'tournaments', target: 10, xp: 300 },
   { id: 'first-tournament-win', title: 'Primer campeonato', description: 'Conseguí tu primer primer puesto registrado.', category: 'Competitivo', tier: 'avanzado', icon: '🏆', metric: 'tournamentWins', target: 1, xp: 350 },
-  { id: 'tournament-wins-5', title: 'Dominio competitivo', description: 'Gan en 5 torneos con resultado registrado.', category: 'Competitivo', tier: 'profesional', icon: '💎', metric: 'tournamentWins', target: 5, xp: 1200 },
+  { id: 'tournament-wins-5', title: 'Dominio competitivo', description: 'Conquistá 5 torneos con resultado registrado.', category: 'Competitivo', tier: 'profesional', icon: '💎', metric: 'tournamentWins', target: 5, xp: 1200 },
   { id: 'first-stream', title: 'En el aire', description: 'Finalizá tu primera transmisión registrada.', category: 'Creadores', tier: 'novato', icon: '📹', metric: 'streams', target: 1, xp: 60 },
   { id: 'streams-25', title: 'Canal en marcha', description: 'Finalizá 25 transmisiones registradas.', category: 'Creadores', tier: 'avanzado', icon: '🎥', metric: 'streams', target: 25, xp: 400 },
   { id: 'streams-100', title: 'Creador profesional', description: 'Finalizá 100 transmisiones registradas.', category: 'Creadores', tier: 'profesional', icon: '🚀', metric: 'streams', target: 100, xp: 1300 }
