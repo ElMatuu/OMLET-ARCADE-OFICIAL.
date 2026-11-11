@@ -1018,6 +1018,8 @@ app.get('/api/me/wallet/transactions', requireAuth, async (req, res, next) => {
         id: String(record._id),
         type: record.type,
         amount: record.amount,
+        currency: record.currency || 'gold',
+        counterpartyUsername: record.counterpartyUsername || null,
         itemName: mission ? 'Misión: ' + mission.title : (item ? item.name : null),
         balanceAfter: record.balanceAfter,
         createdAt: record.createdAt
@@ -1026,6 +1028,61 @@ app.get('/api/me/wallet/transactions', requireAuth, async (req, res, next) => {
     return res.json({ success: true, transactions });
   } catch (error) {
     return next(error);
+  }
+});
+
+app.post('/api/wallet/transfers', requireAuth, storeLimiter, async (req, res, next) => {
+  const recipientUsername = typeof req.body.recipientUsername === 'string' ? req.body.recipientUsername.trim() : '';
+  const currency = ['gold', 'purple', 'diamond'].includes(req.body.currency) ? req.body.currency : '';
+  const amount = Number(req.body.amount);
+  if (!recipientUsername || recipientUsername.length < 3 || recipientUsername.length > 24 ||
+      !/^[a-zA-Z0-9_]+$/.test(recipientUsername) || !currency ||
+      !Number.isSafeInteger(amount) || amount < 1 || amount > 100000) {
+    return res.status(400).json({ success: false, message: 'Revisá destinatario, moneda y cantidad.' });
+  }
+  const walletField = getCurrencyField(currency);
+  const session = await mongoose.startSession();
+  let result;
+  try {
+    await session.withTransaction(async () => {
+      const recipient = await User.findOne({ username: recipientUsername }).select('_id username').session(session);
+      if (!recipient) { result = { error: 'RECIPIENT_NOT_FOUND' }; return; }
+      if (String(recipient._id) === String(req.auth.sub)) { result = { error: 'SELF_TRANSFER' }; return; }
+      const blocked = await Block.findOne({ $or: [
+        { blocker: req.auth.sub, blocked: recipient._id },
+        { blocker: recipient._id, blocked: req.auth.sub }
+      ] }).session(session);
+      if (blocked) { result = { error: 'BLOCKED' }; return; }
+      const sender = await User.findOneAndUpdate(
+        { _id: req.auth.sub, [walletField]: { $gte: amount } },
+        { $inc: { [walletField]: -amount } },
+        { new: true, session }
+      ).select('walletTokens walletPurpleTokens walletDiamondTokens username');
+      if (!sender) { result = { error: 'INSUFFICIENT_FUNDS' }; return; }
+      const updatedRecipient = await User.findByIdAndUpdate(
+        recipient._id, { $inc: { [walletField]: amount } }, { new: true, session }
+      ).select('walletTokens walletPurpleTokens walletDiamondTokens');
+      if (!updatedRecipient) throw new Error('Transfer recipient disappeared during transaction.');
+      await TokenTransaction.create([
+        { user: req.auth.sub, type: 'transfer_out', currency, amount: -amount, itemId: 'gift:' + String(recipient._id), counterparty: recipient._id, counterpartyUsername: recipient.username, balanceAfter: getWalletBalances(sender)[currency] },
+        { user: recipient._id, type: 'transfer_in', currency, amount, itemId: 'gift:' + String(req.auth.sub), counterparty: req.auth.sub, counterpartyUsername: sender.username, balanceAfter: getWalletBalances(updatedRecipient)[currency] }
+      ], { session });
+      const notifications = await Notification.create([{
+        recipient: recipient._id, actor: req.auth.sub, type: 'token_gift',
+        title: 'Recibiste un regalo', body: sender.username + ' te envió ' + amount + ' ' + getCurrencyLabel(currency) + '.'
+      }], { session });
+      result = { recipientUsername: recipient.username, balances: getWalletBalances(sender), notification: notifications[0] };
+    });
+    if (result?.error === 'RECIPIENT_NOT_FOUND') return res.status(404).json({ success: false, message: 'No encontramos esa cuenta.' });
+    if (result?.error === 'SELF_TRANSFER') return res.status(400).json({ success: false, message: 'No podés enviarte monedas a vos mismo.' });
+    if (result?.error === 'BLOCKED') return res.status(403).json({ success: false, message: 'No se pueden transferir monedas entre cuentas con un bloqueo activo.' });
+    if (result?.error === 'INSUFFICIENT_FUNDS') return res.status(409).json({ success: false, message: 'No tenés saldo suficiente de ' + getCurrencyLabel(currency) + '.' });
+    if (httpServer.io && result.notification) httpServer.io.to('user:' + String(result.notification.recipient)).emit('new_notification', { id: String(result.notification._id), type: result.notification.type, title: result.notification.title, body: result.notification.body, createdAt: result.notification.createdAt });
+    return res.status(201).json({ success: true, message: 'Regalo enviado a ' + result.recipientUsername + '.', recipientUsername: result.recipientUsername, currency, amount, wallet: { balances: result.balances } });
+  } catch (error) {
+    return next(error);
+  } finally {
+    await session.endSession();
   }
 });
 
@@ -1623,6 +1680,7 @@ async function buildMissionProgress(userId, session = null) {
       target: definition.target,
       completed: current >= definition.target,
       rewardTokens: definition.rewardTokens,
+      rewardCurrency: definition.rewardCurrency || 'gold',
       claimed: Boolean(claim),
       claimable: current >= definition.target && !claim,
       claimedAt: claim ? claim.claimedAt : null
