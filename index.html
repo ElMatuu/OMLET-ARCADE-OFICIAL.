@@ -932,7 +932,7 @@
             <label class="block text-xs text-slate-400">Nombre<input id="game-server-name" required minlength="3" maxlength="60" class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" placeholder="Mi mundo survival"></label>
             <div class="grid grid-cols-2 gap-2">
                 <label class="block text-xs text-slate-400">Juego<select id="game-server-game" class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"><option>Minecraft</option><option>Roblox</option><option>Terraria</option><option>Otro</option></select></label>
-                <label class="block text-xs text-slate-400">Edición<select id="game-server-edition" class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"><option value="bedrock">Bedrock</option><option value="java">Java</option><option value="crossplay">Crossplay</option><option value="other">Otra</option></select></label>
+                <label class="block text-xs text-slate-400">Edición<select id="game-server-edition" onchange="updateGameServerDefaultPort()" class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"><option value="bedrock">Bedrock</option><option value="java">Java</option><option value="crossplay">Crossplay</option><option value="other">Otra</option></select></label>
             </div>
             <div class="grid grid-cols-[1fr_110px] gap-2">
                 <label class="block text-xs text-slate-400">Dirección pública<input id="game-server-address" required maxlength="253" class="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" placeholder="play.ejemplo.net"></label>
@@ -2764,8 +2764,24 @@
 
         function openGameServerModal() {
             document.getElementById('game-server-form').reset();
-            document.getElementById('game-server-form-status').textContent = 'Publicá únicamente servidores que administrás o tenés autorización para anunciar.';
+            const edition = document.getElementById('game-server-edition');
+            edition.dataset.previousDefaultPort = edition.value === 'java' ? '25565' : '19132';
+            updateGameServerDefaultPort();
+            document.getElementById('game-server-form-status').textContent = 'Publicá únicamente servidores que administrás o tenés autorización para anunciar. Java usa normalmente 25565/TCP; Bedrock 19132/UDP.';
             document.getElementById('game-server-modal').classList.remove('hidden');
+        }
+
+        function updateGameServerDefaultPort() {
+            const edition = document.getElementById('game-server-edition');
+            const port = document.getElementById('game-server-port');
+            if (!edition || !port) return;
+            const previousDefault = Number(edition.dataset.previousDefaultPort || 19132);
+            const nextDefault = edition.value === 'java' ? 25565
+                : edition.value === 'bedrock' ? 19132 : null;
+            if (nextDefault !== null && (!port.value || Number(port.value) === previousDefault)) {
+                port.value = String(nextDefault);
+            }
+            edition.dataset.previousDefaultPort = nextDefault === null ? '' : String(nextDefault);
         }
 
         function closeGameServerModal() {
@@ -2889,7 +2905,12 @@
                     })
                 });
                 closeGameServerModal();
-                window.alert('Servidor publicado. Guardá este token privado para configurar el heartbeat del servidor. No se volverá a mostrar.\n\n' + result.heartbeatToken + '\n\nEndpoint: ' + result.heartbeatEndpoint + '\nIntervalo: cada 30 segundos.');
+                const monitorMode = result.server?.edition === 'java'
+                    ? 'Minecraft Java: GAME_SERVER_PROTOCOL=minecraft-java (TCP)'
+                    : result.server?.edition === 'bedrock'
+                        ? 'Minecraft Bedrock: GAME_SERVER_PROTOCOL=minecraft-bedrock (UDP)'
+                        : 'Otros juegos: GAME_SERVER_PROTOCOL=tcp (solo conectividad TCP)';
+                window.alert('Servidor publicado. Guardá este token privado para configurar el heartbeat del servidor. No se volverá a mostrar.\\n\\n' + result.heartbeatToken + '\\n\\nEndpoint: ' + result.heartbeatEndpoint + '\\nIntervalo: cada 30 segundos.\\nMonitor recomendado: ' + monitorMode + '.');
                 await loadCommunityGameServers();
             } catch (error) {
                 status.textContent = error.message;
