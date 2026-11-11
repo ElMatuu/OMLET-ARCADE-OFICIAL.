@@ -43,7 +43,7 @@ jobs:
       - name: Sync Android project
         run: npx cap sync android
 
-      - name: Build debug APK
+      - name: Apply official launcher icon and startup screen\n        run: node scripts/sync-android-brand.js\n\n      - name: Build debug APK
         run: |
           cd android
           chmod +x gradlew
