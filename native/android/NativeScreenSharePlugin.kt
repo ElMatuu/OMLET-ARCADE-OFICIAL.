@@ -49,7 +49,7 @@ class NativeScreenSharePlugin : Plugin() {
             return
         }
         if (room != null && screenShareActive) {
-            call.resolve(JSObject().put("active", true))
+            call.resolve(JSObject().apply { put("active", true) })
             return
         }
         val manager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
@@ -79,7 +79,7 @@ class NativeScreenSharePlugin : Plugin() {
                 }
                 room = connectedRoom
                 screenShareActive = true
-                call.resolve(JSObject().put("active", true).put("screenShare", true))
+                call.resolve(JSObject().apply { put("active", true); put("screenShare", true) })
             } catch (error: Exception) {
                 try { connectedRoom?.disconnect() } catch (_: Exception) {}
                 context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_CAPTURE_STOP))
@@ -104,7 +104,7 @@ class NativeScreenSharePlugin : Plugin() {
                 context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_CAPTURE_STOP))
                 context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_MICROPHONE_STOP))
                 context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_CAMERA_STOP))
-                call.resolve(JSObject().put("active", false))
+                call.resolve(JSObject().apply { put("active", false) })
             } catch (error: Exception) {
                 call.reject("No se pudo detener la captura nativa: " + (error.message ?: "error desconocido"))
             }
@@ -145,7 +145,7 @@ class NativeScreenSharePlugin : Plugin() {
                     throw IllegalStateException("LiveKit no pudo cambiar el micrófono.")
                 }
                 if (!enabled) context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_MICROPHONE_STOP))
-                call.resolve(JSObject().put("enabled", enabled))
+                call.resolve(JSObject().apply { put("enabled", enabled) })
             } catch (error: Exception) {
                 call.reject("No se pudo cambiar el micrófono: " + (error.message ?: "error desconocido"))
             }
