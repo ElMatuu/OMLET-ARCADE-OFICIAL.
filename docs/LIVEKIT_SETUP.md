@@ -26,7 +26,7 @@ In LiveKit Cloud, add a webhook destination:
 
 `https://<your-playverse-api-domain>/api/webhooks/livekit`
 
-Subscribe to the `room_finished` event. The endpoint verifies the LiveKit Authorization signature using the server-only API key and secret and marks the matching transmisión de Omlet Arcade as ended. It requires the raw request body and must remain reachable over HTTPS.
+Subscribe to the `track_published` and `room_finished` events. The API keeps a new session in `starting` and only lists it as live after LiveKit reports a published video track. A room-finished event ends either a starting or live session. The endpoint verifies the LiveKit Authorization signature using the server-only API key and secret and marks the matching transmisión de Omlet Arcade as ended. It requires the raw request body and must remain reachable over HTTPS.
 
 ## 4. Validate the real flow
 
@@ -36,7 +36,7 @@ Subscribe to the `room_finished` event. The endpoint verifies the LiveKit Author
 4. From a second account/device, open **En Vivo** and join the published stream.
 5. Verify remote video and audio, then test mute, camera toggle and screen sharing where supported.
 6. End the stream from the creator account.
-7. Confirm the viewer disconnects, the LiveKit room closes, the signed webhook marks the session ended and the stream disappears from the active catalog.
+7. Confirm the viewer disconnects, the LiveKit room closes, the signed webhook marks the session ended and the stream disappears from the active catalog. Before a video track is published, the stream must remain in preparation and must not appear in public discovery.
 
 The API issues role-scoped participant tokens that expire after **10 minutes**; publisher and viewer permissions are restricted to the requested room. Clients must request a fresh token when a new session is needed. The API returns a clear `503 LIVE_STREAMING_NOT_CONFIGURED` response until all three server environment variables are valid.
 
