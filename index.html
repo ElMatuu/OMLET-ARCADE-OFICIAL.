@@ -1779,14 +1779,18 @@
             const picker = document.getElementById('live-stream-game');
             if (picker && Array.from(picker.options).some((option) => option.value === game)) picker.value = game;
             switchTab('live');
-            const status = document.getElementById('live-stream-status');
-            if (status) status.textContent = game + ' seleccionado. Completá los datos de tu transmisión.';
             document.getElementById('live-stream-title')?.focus({ preventScroll: true });
         }
 
         function openGameDirects(filter) {
+            activeLiveFilter = filter || 'all';
+            document.querySelectorAll('[data-live-filter]').forEach((item) => {
+                const selected = item.dataset.liveFilter === activeLiveFilter;
+                item.className = selected
+                    ? 'rounded-full border border-orange-500/40 bg-orange-500/10 text-orange-300 px-3 py-2 text-xs font-bold'
+                    : 'rounded-full border border-slate-700 text-slate-300 px-3 py-2 text-xs';
+            });
             switchTab('live');
-            filterLiveStreams(filter);
         }
 
         function switchTab(tabName) {
