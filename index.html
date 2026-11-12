@@ -409,6 +409,15 @@
                             </div>
                             <p id="live-recording-status" class="text-[11px] text-slate-400" role="status" aria-live="polite">Consultando estado de grabación…</p>
                         </section>
+                        <section id="live-rtmp-broadcast-controls" class="hidden basis-full rounded-xl border border-orange-500/30 bg-slate-950/70 p-3 space-y-2" aria-label="Retransmisión a plataformas externas">
+                            <div><h5 class="text-sm font-bold text-orange-100">Retransmisión multiplataforma</h5><p class="text-[11px] text-slate-400">Envía esta misma emisión a tus destinos RTMP conectados usando LiveKit Egress.</p></div>
+                            <div class="flex flex-wrap gap-2">
+                                <button id="live-rtmp-broadcast-start" type="button" onclick="startLiveRtmpBroadcast()" class="rounded-lg bg-orange-500 px-3 py-2 text-xs font-bold text-white">Iniciar retransmisión</button>
+                                <button id="live-rtmp-broadcast-stop" type="button" onclick="stopLiveRtmpBroadcast()" class="hidden rounded-lg border border-orange-500/40 bg-orange-500/10 px-3 py-2 text-xs font-bold text-orange-200">Detener retransmisión</button>
+                                <button type="button" onclick="loadLiveRtmpBroadcastStatus()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs">Actualizar estado</button>
+                            </div>
+                            <p id="live-rtmp-broadcast-status" class="text-[11px] text-slate-400" role="status" aria-live="polite">Consultando destinos conectados…</p>
+                        </section>
                     </div>
                     <section id="live-participant-moderation" class="hidden rounded-xl border border-cyan-500/30 bg-slate-950/70 p-3 space-y-3" aria-label="Moderación de participantes">
                         <div class="flex items-center justify-between gap-2">
@@ -1032,7 +1041,7 @@
                 <p class="text-[11px] text-amber-300/80">La configuración queda guardada en tu cuenta. La composición visual en tiempo real y los paneles de donaciones conectados a pagos se habilitarán al completar el motor de overlays y sus integraciones.</p>
             </section>
             <section class="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-                <div><h4 class="text-xs font-black uppercase tracking-wider text-orange-300">Destinos RTMP de creador</h4><p class="text-[11px] text-slate-400 mt-1">Guardá tus claves de Twitch, YouTube o Kick cifradas para copiarlas al codificador. Esto no vincula OAuth ni inicia una transmisión por sí solo.</p></div>
+                <div><h4 class="text-xs font-black uppercase tracking-wider text-orange-300">Destinos RTMP de creador</h4><p class="text-[11px] text-slate-400 mt-1">Conectá claves privadas de Twitch, YouTube o Kick. Cuando estés en vivo, podés retransmitir a todos esos destinos desde el panel del anfitrión.</p></div>
                 <div id="stream-destination-form" class="space-y-2">
                     <label class="block text-xs text-slate-400">Plataforma<select id="stream-destination-provider" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="twitch">Twitch</option><option value="youtube">YouTube</option><option value="kick">Kick</option></select></label>
                     <label class="block text-xs text-slate-400">Clave de transmisión<input id="stream-destination-key" type="password" autocomplete="off" minlength="8" maxlength="256" required onkeydown="if(event.key==='Enter'){event.preventDefault();saveStreamDestination(event)}" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="Pegá tu clave privada"></label>
@@ -1042,7 +1051,7 @@
                 <div id="stream-destinations-list" class="space-y-2"></div>
             </section>
             <p id="streaming-settings-status" class="text-xs text-slate-400" role="status">Cargando preferencias guardadas…</p>
-            <p class="text-[11px] text-amber-300/90">Estas opciones guardan tus preferencias. No activan todavía la captura de pantalla/cámara ni inician una transmisión real.</p>
+            <p class="text-[11px] text-amber-300/90">Las preferencias se aplican al iniciar una emisión. La retransmisión a destinos externos se inicia desde el panel del anfitrión una vez que estés en vivo.</p>
             <div class="flex gap-2"><button type="button" onclick="closeSettingsModal()" class="flex-1 rounded-xl border border-slate-700 px-4 py-3 text-xs font-bold text-slate-300">Cancelar</button><button id="streaming-settings-save" type="submit" class="flex-1 PLAYVERSE-gradient text-white font-bold py-3 rounded-xl shadow-md">Guardar preferencias</button></div>
         </form>
     </div>
@@ -6275,6 +6284,8 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             if (role === 'publisher') {
                 await loadLiveRecordingStatus(stream.id);
                 if (generation !== liveKitConnectionGeneration || liveKitRoom !== room) return false;
+                await loadLiveRtmpBroadcastStatus();
+                if (generation !== liveKitConnectionGeneration || liveKitRoom !== room) return false;
             }
             streamChatBoundStreamId = String(stream.id);
             await loadLiveChatHistory(stream.id);
@@ -6471,6 +6482,69 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             } catch (error) {
                 status.textContent = 'No se pudo consultar la grabación: ' + error.message;
                 startButton.disabled = true;
+            }
+        }
+
+        function setLiveRtmpBroadcastStatus(message, isError = false) {
+            const status = document.getElementById('live-rtmp-broadcast-status');
+            if (!status) return;
+            status.textContent = message;
+            status.className = 'text-[11px] ' + (isError ? 'text-red-300' : 'text-slate-400');
+        }
+
+        async function loadLiveRtmpBroadcastStatus() {
+            if (!activeLiveStream || activeLiveStreamRole !== 'publisher') return;
+            const panel = document.getElementById('live-rtmp-broadcast-controls');
+            const start = document.getElementById('live-rtmp-broadcast-start');
+            const stop = document.getElementById('live-rtmp-broadcast-stop');
+            if (panel) panel.classList.remove('hidden');
+            if (start) start.disabled = true;
+            try {
+                const data = await apiRequest('/api/me/stream-destinations/streams/' + encodeURIComponent(activeLiveStream.id) + '/broadcast');
+                const broadcast = data.broadcast;
+                if (broadcast && ['starting', 'active', 'stopping'].includes(broadcast.status)) {
+                    if (start) start.classList.add('hidden');
+                    if (stop) stop.classList.toggle('hidden', broadcast.status !== 'active');
+                    setLiveRtmpBroadcastStatus('Estado: ' + broadcast.status + ' · destinos: ' + (broadcast.providers || []).join(', '));
+                } else {
+                    if (start) { start.classList.remove('hidden'); start.disabled = false; }
+                    if (stop) stop.classList.add('hidden');
+                    setLiveRtmpBroadcastStatus('Listo para retransmitir. Si no conectaste destinos, hacelo desde Ajustes → Destinos RTMP.');
+                }
+            } catch (error) {
+                if (start) { start.classList.remove('hidden'); start.disabled = false; }
+                if (stop) stop.classList.add('hidden');
+                setLiveRtmpBroadcastStatus('No se pudo consultar la retransmisión: ' + error.message, true);
+            }
+        }
+
+        async function startLiveRtmpBroadcast() {
+            if (!activeLiveStream || activeLiveStreamRole !== 'publisher') return;
+            const button = document.getElementById('live-rtmp-broadcast-start');
+            if (button) button.disabled = true;
+            setLiveRtmpBroadcastStatus('Conectando con LiveKit Egress y los destinos externos…');
+            try {
+                const data = await apiRequest('/api/me/stream-destinations/streams/' + encodeURIComponent(activeLiveStream.id) + '/broadcast/start', { method: 'POST' });
+                setLiveRtmpBroadcastStatus('LiveKit aceptó la retransmisión a: ' + (data.broadcast.providers || []).join(', ') + '. Confirmá que cada plataforma la reciba.');
+                await loadLiveRtmpBroadcastStatus();
+            } catch (error) {
+                setLiveRtmpBroadcastStatus('No se pudo iniciar la retransmisión: ' + error.message, true);
+                if (button) button.disabled = false;
+            }
+        }
+
+        async function stopLiveRtmpBroadcast() {
+            if (!activeLiveStream || activeLiveStreamRole !== 'publisher') return;
+            const button = document.getElementById('live-rtmp-broadcast-stop');
+            if (button) button.disabled = true;
+            setLiveRtmpBroadcastStatus('Deteniendo la retransmisión externa…');
+            try {
+                await apiRequest('/api/me/stream-destinations/streams/' + encodeURIComponent(activeLiveStream.id) + '/broadcast/stop', { method: 'POST' });
+                setLiveRtmpBroadcastStatus('Solicitud de detención enviada. Esperando confirmación de LiveKit…');
+                await loadLiveRtmpBroadcastStatus();
+            } catch (error) {
+                setLiveRtmpBroadcastStatus('No se pudo detener la retransmisión: ' + error.message, true);
+                if (button) button.disabled = false;
             }
         }
 
