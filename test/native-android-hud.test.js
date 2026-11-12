@@ -27,6 +27,8 @@ test('floating HUD is draggable and its visible actions work', () => {
     assert.ok(service.includes(action), 'HUD must expose ' + action);
   }
   assert.match(service, /FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION/);
+  assert.match(service, /FOREGROUND_SERVICE_TYPE_MICROPHONE/);
+  assert.match(service, /FOREGROUND_SERVICE_TYPE_CAMERA/);
 });
 
 test('Android sync script registers the plugin and declares the overlay service', () => {
@@ -52,6 +54,8 @@ test('Android app uses the registered ArcadeHud bridge instead of the old placeh
 });
 
 test('native screen share joins LiveKit and publishes Android MediaProjection video', () => {
+  assert.match(screenShare, /import androidx\.activity\.result\.ActivityResult/);
+  assert.doesNotMatch(screenShare, /com\.getcapacitor\.ActivityResult/);
   assert.match(screenShare, /MediaProjectionManager/);
   assert.match(screenShare, /createScreenCaptureIntent/);
   assert.match(screenShare, /LiveKit\.create/);
