@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const TAB_LABELS={feed:'Inicio',live:'En vivo',chat:'Mensajes',lobbies:'Juegos',clubs:'Comunidades',tournaments:'Torneos',shop:'Tienda',events:'Misiones',profile:'Perfil',friends:'Amigos',saved:'Guardados',notifications:'Notificaciones',help:'Ayuda'};
-  const TAB_ICONS={feed:'fa-house',live:'fa-tower-broadcast',chat:'fa-comments',lobbies:'fa-gamepad',clubs:'fa-users',tournaments:'fa-trophy',shop:'fa-store',events:'fa-calendar-star',profile:'fa-user',friends:'fa-user-group',saved:'fa-bookmark',notifications:'fa-bell'};
+  const TAB_ICONS={feed:'fa-house',live:'fa-tower-broadcast',chat:'fa-comments',lobbies:'fa-gamepad',clubs:'fa-users',tournaments:'fa-trophy',shop:'fa-store',events:'fa-calendar-star',profile:'fa-user',friends:'fa-user-group',saved:'fa-bookmark',notifications:'fa-bell',help:'fa-circle-question'};
   const DESKTOP_TABS=['feed','live','lobbies','clubs','chat','friends','shop','tournaments','events','saved','profile','notifications','help'];
   const byId=id=>document.getElementById(id);
   let currentTab='feed',historyReady=false,switchingFromHistory=false;
@@ -87,6 +87,8 @@
     const store=byId('tab-shop');if(!store||byId('pv-store-subnav'))return;
     const entries=[
       {label:'Monedero',target:'wallet-gold-balance'},
+      {label:'PLAYVERSE Plus',target:'plus-plan-buttons'},
+      {label:'Enviar monedas',target:'wallet-gift-form'},
       {label:'Personalización',target:'store-avatar-preview'},
       {label:'Catálogo',target:'store-search'},
       {label:'Inventario',target:'store-inventory-list'},
