@@ -21,12 +21,12 @@ jobs:
     runs-on: windows-latest
     defaults:
       run:
-        working-directory: source
+        working-directory: D:/a/playverse-source
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
-          path: source
+          path: ../playverse-source
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -46,6 +46,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: PLAYVERSE-Windows-installer
-          path: source/release/*.exe
+          path: D:/a/playverse-source/release/*.exe
           if-no-files-found: error
           retention-days: 14
