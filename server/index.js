@@ -261,7 +261,7 @@ app.get('/api/me/streams/:streamId/moderators', requireAuth, async (req, res, ne
     const stream = await LiveStream.findOne({ _id: req.params.streamId, owner: req.auth.sub, status: 'live' })
       .populate('moderators.user', 'username').select('moderators').lean();
     if (!stream) return res.status(404).json({ success: false, message: 'Transmisión no disponible o no sos el anfitrión.' });
-    return res.json({ success: true, moderators: (stream.moderators || []).map((entry) => ({
+    return res.json({ success: true, moderators: (stream.moderators || []).filter((entry) => entry.user).map((entry) => ({
       userId: String(entry.user._id), username: entry.user.username, addedAt: entry.addedAt
     })) });
   } catch (error) { return next(error); }
@@ -277,9 +277,11 @@ app.post('/api/me/streams/:streamId/moderators', requireAuth, streamLimiter, asy
     const target = await User.findOne({ username }).select('_id username').lean();
     if (!target) return res.status(404).json({ success: false, message: 'No encontramos esa cuenta.' });
     if (String(target._id) === String(stream.owner)) return res.status(400).json({ success: false, message: 'El anfitrión ya tiene todos los permisos.' });
-    await LiveStream.updateOne({ _id: stream._id, owner: req.auth.sub, status: 'live' }, {
-      $addToSet: { moderators: { user: target._id, addedBy: req.auth.sub, addedAt: new Date() } }
-    });
+    const added = await LiveStream.updateOne({
+      _id: stream._id, owner: req.auth.sub, status: 'live',
+      moderators: { $not: { $elemMatch: { user: target._id } } }
+    }, { $push: { moderators: { user: target._id, addedBy: req.auth.sub, addedAt: new Date() } } });
+    if (!added.matchedCount) return res.status(409).json({ success: false, message: 'Ese usuario ya es coanfitrión o la transmisión cambió.' });
     const io = httpServer.io;
     if (io) io.to('stream-chat:' + String(stream._id)).emit('stream_chat_moderators_changed', { streamId: String(stream._id) });
     return res.status(200).json({ success: true, moderator: { userId: String(target._id), username: target.username } });
@@ -348,7 +350,7 @@ app.post('/api/streams/:streamId/messages/:messageId/pin', requireAuth, liveChat
     const target = await LiveStreamMessage.findOne({ _id: req.params.messageId, stream: stream._id }).lean();
     if (!target) return res.status(404).json({ success: false, message: 'El mensaje ya no existe.' });
     const pinnedAt = new Date();
-    await LiveStream.updateOne({ _id: stream._id, owner: req.auth.sub, status: 'live' },
+    await LiveStream.updateOne({ _id: stream._id, status: 'live' },
       { $set: { pinnedMessage: target._id, pinnedBy: req.auth.sub, pinnedAt } });
     const pinnedMessage = { id: String(target._id), authorId: String(target.author), username: target.username,
       message: target.message, sentAt: target.sentAt, pinnedBy: String(req.auth.sub), pinnedAt };
@@ -361,9 +363,10 @@ app.post('/api/streams/:streamId/messages/:messageId/pin', requireAuth, liveChat
 app.delete('/api/streams/:streamId/pin', requireAuth, liveChatLimiter, async (req, res, next) => {
   try {
     if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
-    const stream = await LiveStream.findOneAndUpdate({ _id: req.params.streamId, owner: req.auth.sub, status: 'live' },
-      { $set: { pinnedMessage: null, pinnedBy: null, pinnedAt: null } }, { new: true }).select('_id').lean();
-    if (!stream) return res.status(404).json({ success: false, message: 'Transmisión no disponible o no sos el anfitrión.' });
+    const stream = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).select('owner moderators').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
+    if (!isLiveStreamModerator(stream, req.auth.sub)) return res.status(403).json({ success: false, message: 'No tenés permisos para moderar este chat.' });
+    await LiveStream.updateOne({ _id: stream._id, status: 'live' }, { $set: { pinnedMessage: null, pinnedBy: null, pinnedAt: null } });
     const io = httpServer.io;
     if (io) io.to('stream-chat:' + String(stream._id)).emit('stream_chat_unpinned', { streamId: String(stream._id) });
     return res.json({ success: true });
@@ -381,7 +384,7 @@ app.delete('/api/streams/:streamId/messages/:messageId', requireAuth, liveChatLi
     const removed = await LiveStreamMessage.findOneAndDelete({ _id: req.params.messageId, stream: stream._id }).lean();
     if (!removed) return res.status(404).json({ success: false, message: 'El mensaje ya no existe.' });
     const wasPinned = String(stream.pinnedMessage || '') === String(removed._id);
-    if (wasPinned) await LiveStream.updateOne({ _id: stream._id, owner: req.auth.sub, status: 'live' },
+    if (wasPinned) await LiveStream.updateOne({ _id: stream._id, status: 'live' },
       { $set: { pinnedMessage: null, pinnedBy: null, pinnedAt: null } });
     const io = httpServer.io;
     if (io) {
@@ -413,14 +416,9 @@ app.post('/api/streams/:streamId/participants/:userId/mute', requireAuth, liveCh
     const target = await User.exists({ _id: userId });
     if (!target) return res.status(404).json({ success: false, message: 'Participante no encontrado.' });
     const expiresAt = new Date(Date.now() + durationMinutes * 60 * 1000);
-    const updated = await LiveStream.findOneAndUpdate(
-      { _id: streamId, owner: req.auth.sub, status: 'live' },
-      { $pull: { mutedParticipants: { user: userId } } },
-      { new: true }
-    ).select('_id').lean();
-    if (!updated) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
+    await LiveStream.updateOne({ _id: streamId, status: 'live' }, { $pull: { mutedParticipants: { user: userId } } });
     await LiveStream.updateOne(
-      { _id: streamId, owner: req.auth.sub, status: 'live' },
+      { _id: streamId, status: 'live' },
       { $push: { mutedParticipants: { user: userId, moderator: req.auth.sub, expiresAt, createdAt: new Date() } } }
     );
     const payload = { streamId, userId, expiresAt, durationMinutes };
