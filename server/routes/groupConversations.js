@@ -104,7 +104,12 @@ router.delete('/:groupId/members/:userId', limiter, async (req, res, next) => {
     if (group.members.length < 2) group.status = 'archived';
     await group.save();
     const io = req.app.get('io');
-    if (io) io.to('group:' + String(group._id)).emit('group_member_removed', { groupId: String(group._id), userId: String(req.params.userId) });
+    if (io) {
+      const room = 'group:' + String(group._id);
+      io.to(room).emit('group_member_removed', { groupId: String(group._id), userId: String(req.params.userId) });
+      const sockets = await io.in(room).fetchSockets();
+      await Promise.all(sockets.filter(socket => String(socket.data.userId) === String(req.params.userId)).map(socket => socket.leave(room)));
+    }
     return res.json({ success: true, memberCount: group.members.length, archived: group.status === 'archived' });
   } catch (error) { return next(error); }
 });
