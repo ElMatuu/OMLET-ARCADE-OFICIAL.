@@ -9,6 +9,27 @@ const sourceRoot = path.join(root, 'native', 'android');
 if (!fs.existsSync(androidRoot)) {
   throw new Error('Android platform is not generated. Run npx cap add android first.');
 }
+const animationResources = {
+  playverse_panel_enter: `<?xml version="1.0" encoding="utf-8"?>
+<set xmlns:android="http://schemas.android.com/apk/res/android" android:shareInterpolator="false">
+    <scale android:duration="220" android:interpolator="@android:anim/decelerate_interpolator" android:pivotX="50%" android:pivotY="100%" android:fromXScale="0.92" android:toXScale="1.0" android:fromYScale="0.92" android:toYScale="1.0" />
+    <alpha android:duration="180" android:interpolator="@android:anim/decelerate_interpolator" android:fromAlpha="0.0" android:toAlpha="1.0" />
+</set>
+`,
+  playverse_panel_exit: `<?xml version="1.0" encoding="utf-8"?>
+<set xmlns:android="http://schemas.android.com/apk/res/android" android:shareInterpolator="false">
+    <scale android:duration="150" android:interpolator="@android:anim/accelerate_interpolator" android:pivotX="50%" android:pivotY="100%" android:fromXScale="1.0" android:toXScale="0.94" android:fromYScale="1.0" android:toYScale="0.94" />
+    <alpha android:duration="130" android:interpolator="@android:anim/accelerate_interpolator" android:fromAlpha="1.0" android:toAlpha="0.0" />
+</set>
+`
+};
+const animationDirectory = path.join(androidRoot, 'res', 'anim');
+fs.mkdirSync(animationDirectory, { recursive: true });
+for (const [name, xml] of Object.entries(animationResources)) {
+  fs.writeFileSync(path.join(animationDirectory, name + '.xml'), xml);
+}
+
+
 
 function findMainActivity(directory) {
   if (!fs.existsSync(directory)) return null;
