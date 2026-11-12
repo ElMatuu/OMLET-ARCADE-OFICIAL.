@@ -67,3 +67,25 @@ test('LiveStream keeps recording state private and validates recording lifecycle
   stream.recordingStatus = 'uploaded';
   assert.ok(stream.validateSync().errors.recordingStatus);
 });
+
+
+test('LiveStream persists a bounded custom watermark with an empty default', () => {
+  const stream = new LiveStream({
+    owner: new mongoose.Types.ObjectId(),
+    ownerUsername: 'creator',
+    title: 'Watermark stream',
+    roomName: 'pv_watermark_test',
+    customWatermark: 'PLAYVERSE CREATOR'
+  });
+  assert.equal(stream.customWatermark, 'PLAYVERSE CREATOR');
+  assert.equal(LiveStream.schema.path('customWatermark').options.maxlength, 40);
+  assert.equal(LiveStream.schema.path('customWatermark').options.default, '');
+  const invalid = new LiveStream({
+    owner: new mongoose.Types.ObjectId(),
+    ownerUsername: 'creator',
+    title: 'Invalid watermark',
+    roomName: 'pv_watermark_invalid',
+    customWatermark: 'x'.repeat(41)
+  });
+  assert.ok(invalid.validateSync().errors.customWatermark);
+});
