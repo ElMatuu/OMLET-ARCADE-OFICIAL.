@@ -1210,6 +1210,11 @@
             }
             if (presenceSocket && (presenceSocket.connected || presenceSocket.active)) return;
             presenceSocket = window.io(API_URL, { auth: { token: authToken } });
+            presenceSocket.on('notification_received', () => {
+                refreshNotificationBadge();
+                const notificationTab = document.getElementById('tab-notifications');
+                if (notificationTab && !notificationTab.classList.contains('hidden')) loadNotifications(true);
+            });
             presenceSocket.on('connect', () => {
                 presenceSocket.emit('presence_heartbeat', {}, (result) => {
                     if (!result || !result.success) console.warn('PLAYVERSE presence heartbeat was not accepted.');
@@ -4062,6 +4067,10 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             }));
             groupSocket.on('group_message_received', message => {
                 if (String(message.conversationId) === String(activeGroupConversationId)) appendGroupMessage(message);
+                loadGroupConversations();
+            });
+            groupSocket.on('group_member_added', event => {
+                if (event && String(event.groupId) === String(activeGroupConversationId)) refreshGroupMembers();
                 loadGroupConversations();
             });
             groupSocket.on('group_owner_transferred', event => {
