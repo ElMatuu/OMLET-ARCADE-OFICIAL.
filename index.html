@@ -386,6 +386,16 @@
                             <ul id="live-cohost-list" class="space-y-2" aria-live="polite"><li class="text-xs text-slate-500">Cargando equipo…</li></ul>
                         </section>
                     </div>
+                    <section id="live-participant-moderation" class="hidden rounded-xl border border-cyan-500/30 bg-slate-950/70 p-3 space-y-3" aria-label="Moderación de participantes">
+                        <div class="flex items-center justify-between gap-2">
+                            <div><h5 class="text-sm font-bold text-cyan-100">Participantes conectados</h5><p class="text-[11px] text-slate-400">Herramientas del equipo de moderación.</p></div>
+                            <button type="button" onclick="toggleLiveParticipantsPanel()" class="rounded-lg border border-cyan-500/30 px-3 py-2 text-xs font-semibold text-cyan-200">Ver participantes</button>
+                        </div>
+                        <div id="live-participant-list-panel" class="hidden space-y-2">
+                            <div class="flex items-center justify-between gap-2"><p id="live-participant-status" class="text-[11px] text-slate-400" role="status" aria-live="polite"></p><button type="button" onclick="loadLiveParticipants()" class="text-[11px] text-cyan-200">Actualizar</button></div>
+                            <ul id="live-participant-list" class="space-y-2"><li class="text-xs text-slate-500">Abrí el panel para cargar participantes.</li></ul>
+                        </div>
+                    </section>
                     <section class="rounded-xl border border-slate-800 bg-slate-950/70 p-3 space-y-3" aria-label="Chat de la transmisión">
                         <div class="flex items-center justify-between gap-2"><div><h5 class="text-sm font-bold">Chat en vivo</h5><p id="live-chat-status" class="text-[11px] text-slate-500" role="status">Conectando al chat…</p></div><span class="text-[10px] text-emerald-300">EN DIRECTO</span></div>
                         <div id="live-chat-pinned" class="hidden rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100" aria-live="polite"></div>
@@ -4462,6 +4472,88 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         let pinnedLiveChatMessage = null;
         const renderedStreamChatMessageIds = new Set();
 
+        function toggleLiveParticipantsPanel() {
+            const panel = document.getElementById('live-participant-list-panel');
+            if (!panel || !activeLiveStream || !canModerateLiveChat) return;
+            const opening = panel.classList.contains('hidden');
+            panel.classList.toggle('hidden', !opening);
+            if (opening) loadLiveParticipants();
+        }
+
+        function setLiveParticipantStatus(message, isError = false) {
+            const status = document.getElementById('live-participant-status');
+            if (!status) return;
+            status.textContent = message;
+            status.className = 'text-[11px] ' + (isError ? 'text-red-300' : 'text-slate-400');
+        }
+
+        async function loadLiveParticipants() {
+            if (!activeLiveStream || !canModerateLiveChat) return;
+            const list = document.getElementById('live-participant-list');
+            if (!list) return;
+            list.replaceChildren();
+            const loading = document.createElement('li');
+            loading.className = 'text-xs text-slate-500';
+            loading.textContent = 'Consultando participantes en LiveKit…';
+            list.appendChild(loading);
+            try {
+                const data = await apiRequest('/api/streams/' + encodeURIComponent(activeLiveStream.id) + '/participants');
+                list.replaceChildren();
+                if (!data.participants || !data.participants.length) {
+                    const empty = document.createElement('li');
+                    empty.className = 'text-xs text-slate-500';
+                    empty.textContent = 'No hay espectadores conectados en este momento.';
+                    list.appendChild(empty);
+                    setLiveParticipantStatus('Lista actualizada · 0 espectadores.');
+                    return;
+                }
+                data.participants.forEach((participant) => {
+                    const item = document.createElement('li');
+                    item.className = 'flex items-center justify-between gap-2 rounded-lg bg-slate-900 px-3 py-2';
+                    const identity = document.createElement('span');
+                    identity.className = 'min-w-0 truncate text-xs text-slate-200';
+                    identity.textContent = '@' + String(participant.username || 'Jugador');
+                    const kick = document.createElement('button');
+                    kick.type = 'button';
+                    kick.className = 'shrink-0 rounded-md border border-red-500/30 px-2 py-1 text-[10px] font-semibold text-red-300';
+                    kick.textContent = 'Retirar';
+                    kick.addEventListener('click', () => kickLiveParticipant(participant));
+                    item.append(identity, kick);
+                    list.appendChild(item);
+                });
+                setLiveParticipantStatus('Lista actualizada · ' + data.participants.length + ' espectadores.');
+            } catch (error) {
+                list.replaceChildren();
+                const failure = document.createElement('li');
+                failure.className = 'text-xs text-red-300';
+                failure.textContent = error.message || 'No se pudo consultar LiveKit.';
+                list.appendChild(failure);
+                setLiveParticipantStatus('No se pudo actualizar la lista.', true);
+            }
+        }
+
+        async function kickLiveParticipant(participant) {
+            if (!activeLiveStream || !canModerateLiveChat || !participant || !participant.identity) return;
+            const rawDuration = window.prompt('¿Cuántos minutos querés impedir que vuelva a entrar? (1 a 1440)', '10');
+            if (rawDuration === null) return;
+            const durationMinutes = Number(rawDuration.trim());
+            if (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 1440) {
+                setLiveParticipantStatus('La duración debe ser un número entero entre 1 y 1440 minutos.', true);
+                return;
+            }
+            const username = String(participant.username || 'este espectador');
+            if (!window.confirm('¿Retirar a @' + username + ' durante ' + durationMinutes + ' minutos?')) return;
+            try {
+                await apiRequest('/api/streams/' + encodeURIComponent(activeLiveStream.id) + '/participants/kick', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ identity: participant.identity, durationMinutes })
+                });
+                setLiveParticipantStatus('@' + username + ' fue retirado por ' + durationMinutes + ' minutos.');
+                await loadLiveParticipants();
+            } catch (error) { setLiveParticipantStatus(error.message, true); }
+        }
+
         function toggleLiveCoHostPanel() {
             const panel = document.getElementById('live-cohost-panel');
             if (!panel || !activeLiveStream || activeLiveStreamRole !== 'publisher') return;
@@ -4725,6 +4817,13 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                     if (streamChatBoundStreamId) joinStreamChatRoom(streamChatBoundStreamId);
                 });
                 streamChatSocket.on('stream_chat_message', appendLiveChatMessage);
+                streamChatSocket.on('stream_chat_participant_kicked', (payload) => {
+                    if (!payload || String(payload.streamId) !== String(streamChatBoundStreamId)) return;
+                    if (String(payload.userId) === getAuthenticatedSessionUserId()) {
+                        setLiveChatStatus('El equipo de moderación te retiró temporalmente de esta transmisión.', true);
+                    }
+                    if (!document.getElementById('live-participant-list-panel')?.classList.contains('hidden')) loadLiveParticipants();
+                });
                 streamChatSocket.on('stream_chat_moderators_changed', (payload) => {
                     if (!payload || String(payload.streamId) !== String(streamChatBoundStreamId)) return;
                     if (activeLiveStream) loadLiveChatHistory(activeLiveStream.id);
@@ -4775,6 +4874,9 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             try {
                 const data = await apiRequest('/api/streams/' + encodeURIComponent(streamId) + '/messages?limit=100');
                 canModerateLiveChat = data.canModerate === true;
+                const participantModeration = document.getElementById('live-participant-moderation');
+                if (participantModeration) participantModeration.classList.toggle('hidden', !canModerateLiveChat);
+                if (!canModerateLiveChat) document.getElementById('live-participant-list-panel')?.classList.add('hidden');
                 renderLiveChatPinnedMessage(data.pinnedMessage);
                 container.replaceChildren();
                 (data.messages || []).forEach(appendLiveChatMessage);
