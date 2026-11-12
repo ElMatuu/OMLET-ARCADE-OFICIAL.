@@ -520,6 +520,13 @@
                     </div>
                     <p id="store-selection-name" class="text-xs text-orange-200 text-center">Elegí un artículo para previsualizarlo.</p>
                 </section>
+                <form id="store-discovery-form" onsubmit="event.preventDefault(); loadStore()" class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2" role="search" aria-label="Buscar artículos en la tienda">
+                    <input id="store-search" type="search" maxlength="80" class="min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-xs text-white" placeholder="Buscar marcos, stickers, regalos y overlays…">
+                    <select id="store-sort" aria-label="Ordenar artículos" onchange="loadStore()" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-xs text-white">
+                        <option value="recommended">Recomendados</option><option value="price-asc">Menor precio</option><option value="price-desc">Mayor precio</option><option value="name">Nombre A–Z</option>
+                    </select>
+                    <button type="submit" class="sm:col-span-2 rounded-xl border border-orange-500/40 bg-orange-500/10 px-3 py-2 text-xs font-bold text-orange-200">Buscar en toda la tienda</button>
+                </form>
                 <div class="flex gap-2 overflow-x-auto pb-1" aria-label="Categorías de la tienda">
                     <button type="button" data-store-category="avatar-frame" class="store-category-btn shrink-0 rounded-full bg-orange-500 text-white px-4 py-2 text-xs font-bold">Marcos</button>
                     <button type="button" data-store-category="stream-overlay" class="store-category-btn shrink-0 rounded-full bg-slate-800 text-slate-300 px-4 py-2 text-xs font-bold">Overlays</button>
@@ -2767,8 +2774,14 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             if (!authToken) { status.textContent = 'Iniciá sesión para acceder a la tienda.'; return; }
             status.textContent = 'Cargando catálogo e inventario…';
             try {
+                const storeQuery = new URLSearchParams();
+                const searchTerm = document.getElementById('store-search')?.value.trim() || '';
+                const sortOrder = document.getElementById('store-sort')?.value || 'recommended';
+                if (searchTerm) storeQuery.set('q', searchTerm);
+                if (sortOrder !== 'recommended') storeQuery.set('sort', sortOrder);
+                const catalogUrl = '/api/store/catalog' + (storeQuery.toString() ? '?' + storeQuery.toString() : '');
                 const [catalog, inventory, walletHistory] = await Promise.all([
-                    apiRequest('/api/store/catalog'),
+                    apiRequest(catalogUrl),
                     apiRequest('/api/me/inventory'),
                     apiRequest('/api/me/wallet/transactions')
                 ]);
