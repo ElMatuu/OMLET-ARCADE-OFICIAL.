@@ -9,7 +9,7 @@ const connectLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 8, standardH
 router.get('/', requireAuth, async (req, res, next) => {
   try {
     const records = await ExternalProviderConnection.find({ owner: req.auth.sub })
-      .select('provider externalUsername scopes expiresAt status connectedAt').lean();
+      .select('provider externalUsername scopes expiresAt status connectedAt chatSyncStatus chatSyncLastAt chatSyncError').lean();
     const byProvider = new Map(records.map(record => [record.provider, record]));
     return res.set('Cache-Control', 'no-store').json({
       success: true,
