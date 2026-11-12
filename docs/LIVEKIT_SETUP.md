@@ -1,4 +1,4 @@
-# PLAYVERSE — LiveKit setup and validation
+# Omlet Arcade — LiveKit setup and validation
 
 This guide configures the live video service. The repository contains the backend session APIs and web client integration, but streams remain disabled until a real LiveKit project is configured.
 
@@ -8,9 +8,9 @@ This guide configures the live video service. The repository contains the backen
 2. Copy the project's WebSocket URL, API key and API secret.
 3. Keep the API secret private. Never paste it into GitHub source files, frontend code, issue comments or chat messages.
 
-## 2. Configure the PLAYVERSE API
+## 2. Configure the API de Omlet Arcade
 
-In the hosting provider's environment settings for the PLAYVERSE API service, add:
+In the hosting provider's environment settings for the API de Omlet Arcade service, add:
 
 - `LIVEKIT_URL`: the project's secure WebSocket URL, normally `wss://<project>.livekit.cloud`.
 - `LIVEKIT_API_KEY`: the API key from the LiveKit project.
@@ -26,11 +26,11 @@ In LiveKit Cloud, add a webhook destination:
 
 `https://<your-playverse-api-domain>/api/webhooks/livekit`
 
-Subscribe to the `room_finished` event. The endpoint verifies the LiveKit Authorization signature using the server-only API key and secret and marks the matching PLAYVERSE stream as ended. It requires the raw request body and must remain reachable over HTTPS.
+Subscribe to the `room_finished` event. The endpoint verifies the LiveKit Authorization signature using the server-only API key and secret and marks the matching transmisión de Omlet Arcade as ended. It requires the raw request body and must remain reachable over HTTPS.
 
 ## 4. Validate the real flow
 
-1. Sign in to PLAYVERSE with a creator account.
+1. Sign in to Omlet Arcade con a creator account.
 2. Open **En Vivo**, enter a title and start a stream.
 3. Allow camera and microphone permissions when the browser or desktop app requests them.
 4. From a second account/device, open **En Vivo** and join the published stream.
