@@ -6,6 +6,7 @@ const { STORE_CATALOG } = require('../server/data/storeCatalog');
 const indexHtml = fs.readFileSync('index.html', 'utf8');
 
 const serverSource = fs.readFileSync('server/index.js', 'utf8');
+const overlayServiceSource = fs.readFileSync('server/services/streamOverlay.js', 'utf8');
 const overlayStart = serverSource.indexOf("app.get('/overlay/:token'");
 const overlayEnd = serverSource.indexOf("app.post('/api/register'", overlayStart);
 const browserOverlay = serverSource.slice(overlayStart, overlayEnd);
@@ -32,7 +33,7 @@ test('overlay renders safe chat text, custom watermark and equipped cosmetic wit
   assert.match(browserOverlay, /body\.textContent=String\(message\.message\|\|'\'\)/);
   assert.match(browserOverlay, /set\('watermark',data\.stream\.watermark\)/);
   assert.match(browserOverlay, /root\.dataset\.product=p\.equippedOverlay\.id/);
-  assert.match(serverSource, /donations: false/);
+  assert.match(overlayServiceSource, /donations: false/);
 });
 
 
