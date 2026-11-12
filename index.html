@@ -4031,9 +4031,8 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                     const button = document.createElement('button');
                     button.type = 'button';
                     button.className = 'shrink-0 rounded-lg bg-orange-500/15 border border-orange-500/40 px-3 py-2 text-[10px] font-bold text-orange-200';
-                    button.textContent = item.equipped ? 'Equipado' : 'Equipar';
-                    button.disabled = item.equipped;
-                    button.addEventListener('click', () => equipStoreItem(item.id));
+                    button.textContent = item.equipped ? 'Quitar' : 'Equipar';
+                    button.addEventListener('click', () => item.equipped ? unequipStoreCategory(item.category) : equipStoreItem(item.id));
                     row.appendChild(button);
                 }
                 container.appendChild(row);
@@ -4044,6 +4043,17 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             try {
                 await apiRequest('/api/me/inventory/' + encodeURIComponent(itemId) + '/equip', { method: 'PUT' });
                 document.getElementById('store-status').textContent = 'Artículo equipado.';
+                await loadStore();
+            } catch (error) {
+                document.getElementById('store-status').textContent = error.message;
+            }
+        }
+
+        async function unequipStoreCategory(category) {
+            if (!['avatar-frame', 'stream-overlay'].includes(category)) return;
+            try {
+                await apiRequest('/api/me/inventory/' + encodeURIComponent(category) + '/equip', { method: 'DELETE' });
+                document.getElementById('store-status').textContent = 'Cosmético retirado.';
                 await loadStore();
             } catch (error) {
                 document.getElementById('store-status').textContent = error.message;
