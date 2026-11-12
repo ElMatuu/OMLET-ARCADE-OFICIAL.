@@ -58,6 +58,19 @@ services:
       - ./docker/mongo-init-replica-set.sh:/scripts/init-replica-set.sh:ro
     networks: [playverse]
 
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
+    volumes:
+      - playverse_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks: [playverse]
+
   api:
     build:
       context: .
@@ -81,9 +94,28 @@ services:
       LIVEKIT_RECORDING_S3_ENDPOINT: ${LIVEKIT_RECORDING_S3_ENDPOINT:-}
       LIVEKIT_RECORDING_S3_FORCE_PATH_STYLE: ${LIVEKIT_RECORDING_S3_FORCE_PATH_STYLE:-false}
     depends_on:
+      redis:
+        condition: service_healthy
       mongo-init-replica-set:
         condition: service_completed_successfully
+      livekit-egress:
+    image: livekit/egress:v1.9.0
+    restart: unless-stopped
+    environment:
+      EGRESS_CONFIG_FILE: /etc/egress.yaml
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:?Set LIVEKIT_API_KEY in .env.selfhost}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?Set LIVEKIT_API_SECRET in .env.selfhost}
+    volumes:
+      - ./egress.yaml:/etc/egress.yaml:ro
+    shm_size: 1gb
+    depends_on:
+      redis:
+        condition: service_healthy
       livekit:
+        condition: service_started
+    networks: [playverse]
+
+  livekit:
         condition: service_started
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
@@ -132,6 +164,7 @@ services:
     networks: [playverse]
 
 volumes:
+  playverse_redis_data:
   playverse_mongo_data:
   playverse_mongo_keyfile:
   playverse_caddy_data:
