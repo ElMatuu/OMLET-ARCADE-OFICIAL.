@@ -244,7 +244,7 @@ app.get('/api/streams', async (req, res, next) => {
   try {
     const streams = await LiveStream.find({ status: 'live' })
       .sort({ startedAt: -1 }).limit(50)
-      .select('ownerUsername title description startedAt').lean();
+      .select('ownerUsername title description customWatermark startedAt').lean();
     return res.json({
       success: true,
       streamingEnabled: Boolean(getLiveKitConfig()),
@@ -253,6 +253,7 @@ app.get('/api/streams', async (req, res, next) => {
         creator: stream.ownerUsername,
         title: stream.title,
         description: stream.description,
+        customWatermark: stream.customWatermark || '',
         startedAt: stream.startedAt
       }))
     });
@@ -270,6 +271,7 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
     const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
     const title = typeof body.title === 'string' ? body.title.trim() : '';
     const description = typeof body.description === 'string' ? body.description.trim() : '';
+    const customWatermark = typeof body.customWatermark === 'string' ? body.customWatermark.trim().slice(0, 40) : '';
     if (!title || title.length > 100 || description.length > 500) {
       return res.status(400).json({ success: false, message: 'El título es obligatorio (máximo 100 caracteres) y la descripción admite hasta 500.' });
     }
@@ -291,6 +293,7 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
       ownerUsername: user.username,
       title,
       description,
+      customWatermark,
       roomName,
       overlayTokenHash,
       status: 'live'
@@ -308,7 +311,7 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
       });
       return res.status(201).json({
         success: true,
-        stream: { id: String(session._id), title: session.title, description: session.description, status: session.status, startedAt: session.startedAt },
+        stream: { id: String(session._id), title: session.title, description: session.description, customWatermark: session.customWatermark, status: session.status, startedAt: session.startedAt },
         liveKit: { url: config.clientUrl, token, role: 'publisher', expiresInSeconds: 600 },
         overlay: { url: req.protocol + '://' + req.get('host') + '/overlay/' + overlayAccessToken, refreshIntervalMs: 5000 }
       });
