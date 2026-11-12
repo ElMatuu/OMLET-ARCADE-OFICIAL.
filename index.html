@@ -630,15 +630,38 @@
                     </div>
                     <p id="store-selection-name" class="text-xs text-orange-200 text-center">Elegí un artículo para previsualizarlo.</p>
                 </section>
+                <form id="store-discovery-form" onsubmit="event.preventDefault(); loadStore(1)" class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2" role="search" aria-label="Buscar artículos en la tienda">
+                    <input id="store-search" type="search" maxlength="80" class="min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-xs text-white" placeholder="Buscar marcos, stickers, regalos y overlays…">
+                    <select id="store-sort" aria-label="Ordenar artículos" onchange="loadStore(1)" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-xs text-white">
+                        <option value="recommended">Recomendados</option><option value="price-asc">Menor precio</option><option value="price-desc">Mayor precio</option><option value="name">Nombre A–Z</option>
+                    </select>
+                    <button type="submit" class="sm:col-span-2 rounded-xl border border-orange-500/40 bg-orange-500/10 px-3 py-2 text-xs font-bold text-orange-200">Buscar en toda la tienda</button>
+                </form>
                 <div class="flex gap-2 overflow-x-auto pb-1" aria-label="Categorías de la tienda">
-                    <button type="button" data-store-category="avatar-frame" class="store-category-btn shrink-0 rounded-full bg-orange-500 text-white px-4 py-2 text-xs font-bold">Marcos</button>
+                    <button type="button" data-store-category="" class="store-category-btn shrink-0 rounded-full bg-orange-500 text-white px-4 py-2 text-xs font-bold">Todo</button>
+                    <button type="button" data-store-category="avatar-frame" class="store-category-btn shrink-0 rounded-full bg-slate-800 text-slate-300 px-4 py-2 text-xs font-bold">Marcos</button>
                     <button type="button" data-store-category="stream-overlay" class="store-category-btn shrink-0 rounded-full bg-slate-800 text-slate-300 px-4 py-2 text-xs font-bold">Overlays</button>
                     <button type="button" data-store-category="chat-effect" class="store-category-btn shrink-0 rounded-full bg-slate-800 text-slate-300 px-4 py-2 text-xs font-bold">Chat y entrada</button>
                     <button type="button" data-store-category="entrance-effect" class="store-category-btn shrink-0 rounded-full bg-slate-800 text-slate-300 px-4 py-2 text-xs font-bold">VIP Arrival</button>
                     <button type="button" data-store-category="stream-gift" class="store-category-btn shrink-0 rounded-full bg-slate-800 text-slate-300 px-4 py-2 text-xs font-bold">Regalos</button>
                 </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <label class="text-[10px] font-bold text-slate-400">Moneda
+                        <select id="store-currency-filter" onchange="loadStore(1)" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white">
+                            <option value="">Todas las monedas</option><option value="gold">🟡 Oro</option><option value="purple">🥈 Plata</option><option value="diamond">💎 Diamante</option>
+                        </select>
+                    </label>
+                    <label class="text-[10px] font-bold text-slate-400">Rareza
+                        <select id="store-rarity-filter" onchange="loadStore(1)" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white"><option value="">Todas las rarezas</option></select>
+                    </label>
+                </div>
                 <p id="store-status" class="text-xs text-slate-400" role="status">Cargando catálogo…</p>
                 <div id="store-items-grid" class="grid grid-cols-2 md:grid-cols-3 gap-3"></div>
+                <nav id="store-pagination" class="flex items-center justify-between gap-2" aria-label="Paginación de la tienda">
+                    <button id="store-page-previous" type="button" onclick="loadStore(Math.max(1, storePagination.page - 1))" class="rounded-lg border border-slate-700 px-3 py-2 text-xs text-white">Anterior</button>
+                    <span id="store-page-label" class="text-[10px] text-slate-400 text-center">Página 1 de 1</span>
+                    <button id="store-page-next" type="button" onclick="loadStore(storePagination.page + 1)" class="rounded-lg border border-slate-700 px-3 py-2 text-xs text-white">Siguiente</button>
+                </nav>
                 <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
                     <div class="flex items-center justify-between"><h4 class="font-bold text-sm">Mi inventario</h4><span id="inventory-count" class="text-[10px] text-slate-400">0 artículos</span></div>
                     <div id="store-inventory-list" class="space-y-2"><p class="text-xs text-slate-400">Todavía no tenés artículos.</p></div>
@@ -3156,8 +3179,10 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
 
                 let storeItems = [];
         let inventoryItems = [];
-        let selectedStoreCategory = 'avatar-frame';
+        let selectedStoreCategory = '';
         let selectedStoreItemId = null;
+        let storePagination = { page: 1, pages: 1, total: 0, hasNext: false, hasPrevious: false };
+        let storeLoadGeneration = 0;
         const STORE_CATEGORY_LABELS = {
             'avatar-frame': 'Marcos de avatar',
             'stream-overlay': 'Overlays para stream',
@@ -3166,19 +3191,36 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             'stream-gift': 'Regalos virtuales'
         };
 
-        async function loadStore() {
+        async function loadStore(page = 1) {
             const status = document.getElementById('store-status');
             if (!authToken) { status.textContent = 'Iniciá sesión para acceder a la tienda.'; return; }
+            const generation = ++storeLoadGeneration;
             status.textContent = 'Cargando catálogo e inventario…';
             try {
+                const storeQuery = new URLSearchParams();
+                const searchTerm = document.getElementById('store-search')?.value.trim() || '';
+                const sortOrder = document.getElementById('store-sort')?.value || 'recommended';
+                const currency = document.getElementById('store-currency-filter')?.value || '';
+                const rarity = document.getElementById('store-rarity-filter')?.value || '';
+                if (selectedStoreCategory) storeQuery.set('category', selectedStoreCategory);
+                if (searchTerm) storeQuery.set('q', searchTerm);
+                if (sortOrder !== 'recommended') storeQuery.set('sort', sortOrder);
+                if (currency) storeQuery.set('currency', currency);
+                if (rarity) storeQuery.set('rarity', rarity);
+                storeQuery.set('page', String(Math.max(1, Number(page) || 1)));
+                storeQuery.set('perPage', '12');
+                const catalogUrl = '/api/store/catalog?' + storeQuery.toString();
                 const [catalog, inventory, walletHistory, plusWallet, plusSubscription] = await Promise.all([
-                    apiRequest('/api/store/catalog'),
+                    apiRequest(catalogUrl),
                     apiRequest('/api/me/inventory'),
                     apiRequest('/api/me/wallet/transactions'),
                     apiRequest('/api/me/plus'),
                     apiRequest('/api/me/subscription')
                 ]);
+                if (generation !== storeLoadGeneration) return;
                 storeItems = catalog.items || [];
+                storePagination = catalog.pagination || { page: 1, pages: 1, total: storeItems.length, hasNext: false, hasPrevious: false };
+                renderStoreFilterOptions(catalog.filters || {});
                 inventoryItems = inventory.items || [];
                 appState.walletBalances = inventory.wallet?.balances || { gold: Number(inventory.wallet?.tokens || 0), purple: 0, diamond: 0 };
                 appState.walletTokens = Number(appState.walletBalances.gold || 0);
@@ -3207,7 +3249,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                                 method: 'POST', body: JSON.stringify({ planId: button.dataset.plusPlan })
                             });
                             if (statusNode) statusNode.textContent = redeemed.message || 'Membresía activada.';
-                            await loadStore();
+                            await loadStore(1);
                         } catch (error) {
                             if (statusNode) statusNode.textContent = error.message;
                         } finally { button.disabled = false; }
@@ -3217,7 +3259,13 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 renderStoreItems();
                 renderStoreInventory(inventory);
                 renderWalletTransactions(walletHistory.transactions || []);
-                status.textContent = storeItems.length + ' artículos disponibles · ' + (inventoryItems.length) + ' en tu inventario.';
+                status.textContent = storePagination.total + ' artículos encontrados · ' + inventoryItems.length + ' en tu inventario.';
+                const pageLabel = document.getElementById('store-page-label');
+                const previous = document.getElementById('store-page-previous');
+                const next = document.getElementById('store-page-next');
+                if (pageLabel) pageLabel.textContent = 'Página ' + storePagination.page + ' de ' + storePagination.pages + ' · ' + storePagination.total + ' artículos';
+                if (previous) previous.disabled = !storePagination.hasPrevious;
+                if (next) next.disabled = !storePagination.hasNext;
                 const avatar = document.getElementById('profile-avatar');
                 const preview = document.getElementById('store-avatar-preview');
                 const placeholder = document.getElementById('store-avatar-preview-placeholder');
@@ -3232,13 +3280,33 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 }
                 applyEquippedCosmetics(inventory.equipped || {});
             } catch (error) {
+                if (generation !== storeLoadGeneration) return;
                 status.textContent = 'No se pudo cargar la tienda: ' + error.message;
+            }
+        }
+
+        function renderStoreFilterOptions(filters) {
+            const raritySelect = document.getElementById('store-rarity-filter');
+            if (raritySelect) {
+                const selected = raritySelect.value;
+                raritySelect.replaceChildren(new Option('Todas las rarezas', ''));
+                (filters.rarities || []).forEach((rarity) => raritySelect.add(new Option(rarity.charAt(0).toUpperCase() + rarity.slice(1), rarity)));
+                if ([...raritySelect.options].some(option => option.value === selected)) raritySelect.value = selected;
+                else raritySelect.value = '';
+            }
+            const currencySelect = document.getElementById('store-currency-filter');
+            if (currencySelect) {
+                const selected = currencySelect.value;
+                [...currencySelect.options].forEach(option => {
+                    if (option.value) option.hidden = !(filters.currencies || []).includes(option.value);
+                });
+                if (selected && !(filters.currencies || []).includes(selected)) currencySelect.value = '';
             }
         }
 
         function renderStoreItems() {
             const grid = document.getElementById('store-items-grid');
-            const filtered = storeItems.filter(item => item.category === selectedStoreCategory);
+            const filtered = storeItems;
             grid.replaceChildren();
             document.querySelectorAll('[data-store-category]').forEach(button => {
                 const active = button.dataset.storeCategory === selectedStoreCategory;
@@ -3432,8 +3500,8 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
 
         document.querySelectorAll('[data-store-category]').forEach(button => {
             button.addEventListener('click', () => {
-                selectedStoreCategory = button.dataset.storeCategory;
-                renderStoreItems();
+                selectedStoreCategory = button.dataset.storeCategory || '';
+                loadStore(1);
             });
         });
 
