@@ -208,10 +208,10 @@ test('streaming DND rejects non-boolean values before database access', async ()
 });
 
 test('squad voice token endpoint requires membership authentication and fails closed without LiveKit', async () => {
-  const unauthenticated = await withServer(async (baseUrl) => {
-    return fetch(baseUrl + '/api/rooms/507f1f77bcf86cd799439011/voice-token', { method: 'POST' });
+  await withServer(async (baseUrl) => {
+    const unauthenticated = await fetch(baseUrl + '/api/rooms/507f1f77bcf86cd799439011/voice-token', { method: 'POST' });
+    assert.equal(unauthenticated.status, 401);
   });
-  assert.equal(unauthenticated.status, 401);
 
   const jwt = require('jsonwebtoken');
   const token = jwt.sign({
