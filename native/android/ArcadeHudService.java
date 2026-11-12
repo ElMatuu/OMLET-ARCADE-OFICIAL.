@@ -160,6 +160,10 @@ public class ArcadeHudService extends Service {
             }
         });
         card.addView(returnButton);
+        addActionButton(card, "Chat", "chat");
+        addActionButton(card, "Directos", "live");
+        addActionButton(card, "Salas", "lobbies");
+        addActionButton(card, "Clubes", "clubs");
 
         Button closeButton = new Button(this);
         closeButton.setText("Cerrar HUD");
@@ -172,6 +176,22 @@ public class ArcadeHudService extends Service {
         panelParams.x = bubbleParams.x;
         panelParams.y = bubbleParams.y + 64;
         windowManager.addView(panel, panelParams);
+    }
+
+    private void addActionButton(LinearLayout card, String label, String action) {
+        Button button = new Button(this);
+        button.setText(label);
+        button.setOnClickListener(v -> openApp(action));
+        card.addView(button);
+    }
+
+    private void openApp(String action) {
+        getSharedPreferences("arcade_hud", MODE_PRIVATE).edit().putString("pending_action", action).apply();
+        Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
+        if (launch != null) {
+            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            startActivity(launch);
+        }
     }
 
     private void createNotificationChannel() {
