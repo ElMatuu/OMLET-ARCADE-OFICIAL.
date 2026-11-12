@@ -61,6 +61,11 @@ public class ArcadeHudService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent == null ? null : intent.getAction();
         if (ACTION_STOP.equals(action)) {
+            hideHud();
+            if (captureActive || microphoneActive || cameraActive) {
+                refreshForegroundTypes();
+                return START_STICKY;
+            }
             stopSelf();
             return START_NOT_STICKY;
         }
@@ -198,8 +203,11 @@ public class ArcadeHudService extends Service {
         addActionButton(card, "Clubes", "clubs");
 
         Button closeButton = new Button(this);
-        closeButton.setText("Cerrar HUD");
-        closeButton.setOnClickListener(v -> stopSelf());
+        closeButton.setText("Ocultar HUD");
+        closeButton.setOnClickListener(v -> {
+            hideHud();
+            if (!captureActive && !microphoneActive && !cameraActive) stopSelf();
+        });
         card.addView(closeButton);
 
         panel = card;
@@ -208,6 +216,17 @@ public class ArcadeHudService extends Service {
         panelParams.x = bubbleParams.x;
         panelParams.y = bubbleParams.y + 64;
         windowManager.addView(panel, panelParams);
+    }
+
+    private void hideHud() {
+        if (panel != null) {
+            windowManager.removeView(panel);
+            panel = null;
+        }
+        if (bubble != null) {
+            windowManager.removeView(bubble);
+            bubble = null;
+        }
     }
 
     private void addActionButton(LinearLayout card, String label, String action) {
