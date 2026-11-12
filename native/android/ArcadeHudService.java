@@ -63,7 +63,7 @@ public class ArcadeHudService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent == null ? null : intent.getAction();
-        if (ACTION_SHOW.equals(action)) getSharedPreferences("arcade_hud", MODE_PRIVATE).edit().putBoolean("hud_hidden", false).apply();
+        if (ACTION_SHOW.equals(action)) getSharedPreferences("arcade_hud", MODE_PRIVATE).edit().putBoolean("hud_hidden", false).putBoolean("hud_enabled", true).apply();
         if (ACTION_STOP.equals(action)) {
             hideHud();
             if (captureActive || microphoneActive || cameraActive) {
@@ -265,7 +265,7 @@ public class ArcadeHudService extends Service {
     }
 
     private void hideHud() {
-        getSharedPreferences("arcade_hud", MODE_PRIVATE).edit().putBoolean("hud_hidden", true).apply();
+        getSharedPreferences("arcade_hud", MODE_PRIVATE).edit().putBoolean("hud_hidden", true).putBoolean("hud_enabled", false).apply();
         if (panel != null) {
             windowManager.removeView(panel);
             panel = null;
