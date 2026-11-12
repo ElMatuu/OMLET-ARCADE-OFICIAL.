@@ -790,6 +790,16 @@
                 <label class="block text-xs text-slate-400">Mensaje de despedida<input id="stream-farewell-message" maxlength="200" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="¡Gracias por acompañarme!"></label>
                 <p class="text-[11px] text-amber-300/80">La configuración queda guardada en tu cuenta. La composición visual en tiempo real y los paneles de donaciones conectados a pagos se habilitarán al completar el motor de overlays y sus integraciones.</p>
             </section>
+            <section class="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <div><h4 class="text-xs font-black uppercase tracking-wider text-orange-300">Destinos RTMP de creador</h4><p class="text-[11px] text-slate-400 mt-1">Guardá tus claves de Twitch, YouTube o Kick cifradas para copiarlas al codificador. Esto no vincula OAuth ni inicia una transmisión por sí solo.</p></div>
+                <form id="stream-destination-form" onsubmit="saveStreamDestination(event)" class="space-y-2">
+                    <label class="block text-xs text-slate-400">Plataforma<select id="stream-destination-provider" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="twitch">Twitch</option><option value="youtube">YouTube</option><option value="kick">Kick</option></select></label>
+                    <label class="block text-xs text-slate-400">Clave de transmisión<input id="stream-destination-key" type="password" autocomplete="off" minlength="8" maxlength="256" required class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="Pegá tu clave privada"></label>
+                    <button id="stream-destination-save" type="submit" class="w-full rounded-xl border border-orange-500/40 bg-orange-500/10 px-4 py-2.5 text-xs font-bold text-orange-200">Guardar destino cifrado</button>
+                </form>
+                <p id="stream-destination-status" class="text-[11px] text-slate-400" role="status">Los destinos guardados aparecerán acá.</p>
+                <div id="stream-destinations-list" class="space-y-2"></div>
+            </section>
             <p id="streaming-settings-status" class="text-xs text-slate-400" role="status">Cargando preferencias guardadas…</p>
             <p class="text-[11px] text-amber-300/90">Estas opciones guardan tus preferencias. No activan todavía la captura de pantalla/cámara ni inician una transmisión real.</p>
             <div class="flex gap-2"><button type="button" onclick="closeSettingsModal()" class="flex-1 rounded-xl border border-slate-700 px-4 py-3 text-xs font-bold text-slate-300">Cancelar</button><button id="streaming-settings-save" type="submit" class="flex-1 PLAYVERSE-gradient text-white font-bold py-3 rounded-xl shadow-md">Guardar preferencias</button></div>
@@ -3991,6 +4001,132 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             }
         });
 
+        async function loadStreamDestinations() {
+            const status = document.getElementById('stream-destination-status');
+            const list = document.getElementById('stream-destinations-list');
+            if (!status || !list || !authToken) return;
+            status.textContent = 'Cargando destinos guardados…';
+            list.replaceChildren();
+            try {
+                const data = await apiRequest('/api/me/stream-destinations');
+                renderStreamDestinations(data.destinations || []);
+                status.textContent = (data.destinations || []).length ? 'Tus destinos están protegidos en el servidor.' : 'Todavía no guardaste ningún destino RTMP.';
+            } catch (error) {
+                status.textContent = 'No se pudieron cargar los destinos: ' + error.message;
+            }
+        }
+
+        function renderStreamDestinations(destinations) {
+            const list = document.getElementById('stream-destinations-list');
+            if (!list) return;
+            list.replaceChildren();
+            destinations.forEach((destination) => {
+                const card = document.createElement('article');
+                card.className = 'rounded-xl border border-slate-800 bg-slate-900/70 p-3 space-y-2';
+                const heading = document.createElement('div');
+                heading.className = 'flex items-center justify-between gap-2';
+                const title = document.createElement('strong');
+                title.className = 'text-xs text-white';
+                title.textContent = destination.name + ' · clave terminada en ' + destination.keyLastFour;
+                const reveal = document.createElement('button');
+                reveal.type = 'button';
+                reveal.className = 'text-[11px] font-bold text-orange-200';
+                reveal.textContent = 'Ver clave';
+                const secret = document.createElement('code');
+                secret.className = 'block break-all rounded-lg bg-black/40 p-2 text-[11px] text-emerald-200';
+                secret.hidden = true;
+                const server = document.createElement('p');
+                server.className = 'break-all text-[10px] text-slate-400';
+                server.textContent = 'Servidor RTMP: ' + destination.rtmpUrl;
+                const actions = document.createElement('div');
+                actions.className = 'flex flex-wrap gap-3';
+                const copy = document.createElement('button');
+                copy.type = 'button';
+                copy.className = 'text-[11px] text-slate-300';
+                copy.textContent = 'Copiar clave';
+                copy.hidden = true;
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'text-[11px] text-red-300';
+                remove.textContent = 'Desconectar';
+                let revealed = false;
+                let streamKey = '';
+                reveal.addEventListener('click', async () => {
+                    if (revealed) {
+                        secret.textContent = '';
+                        secret.hidden = true;
+                        copy.hidden = true;
+                        revealed = false;
+                        reveal.textContent = 'Ver clave';
+                        return;
+                    }
+                    reveal.disabled = true;
+                    try {
+                        const data = await apiRequest('/api/me/stream-destinations/' + encodeURIComponent(destination.provider) + '/credentials');
+                        streamKey = data.credentials.streamKey;
+                        secret.textContent = streamKey;
+                        secret.hidden = false;
+                        copy.hidden = false;
+                        revealed = true;
+                        reveal.textContent = 'Ocultar clave';
+                    } catch (error) {
+                        document.getElementById('stream-destination-status').textContent = 'No se pudo revelar la clave: ' + error.message;
+                    } finally { reveal.disabled = false; }
+                });
+                copy.addEventListener('click', async () => {
+                    if (!streamKey) return;
+                    try {
+                        await navigator.clipboard.writeText(streamKey);
+                        document.getElementById('stream-destination-status').textContent = 'Clave copiada. No la compartas con nadie.';
+                    } catch {
+                        document.getElementById('stream-destination-status').textContent = 'El navegador no permitió copiar automáticamente. Mostrá la clave y copiala manualmente.';
+                    }
+                });
+                remove.addEventListener('click', async () => {
+                    if (!window.confirm('¿Desconectar el destino ' + destination.name + '?')) return;
+                    remove.disabled = true;
+                    try {
+                        await apiRequest('/api/me/stream-destinations/' + encodeURIComponent(destination.provider), { method: 'DELETE' });
+                        await loadStreamDestinations();
+                    } catch (error) {
+                        document.getElementById('stream-destination-status').textContent = 'No se pudo desconectar: ' + error.message;
+                        remove.disabled = false;
+                    }
+                });
+                heading.append(title, reveal);
+                actions.append(copy, remove);
+                card.append(heading, server, secret, actions);
+                list.appendChild(card);
+            });
+        }
+
+        async function saveStreamDestination(event) {
+            event.preventDefault();
+            const button = document.getElementById('stream-destination-save');
+            const status = document.getElementById('stream-destination-status');
+            const provider = document.getElementById('stream-destination-provider').value;
+            const keyInput = document.getElementById('stream-destination-key');
+            const streamKey = keyInput.value.trim();
+            if (!streamKey) return;
+            button.disabled = true;
+            button.textContent = 'Cifrando y guardando…';
+            try {
+                await apiRequest('/api/me/stream-destinations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ provider, streamKey })
+                });
+                keyInput.value = '';
+                status.textContent = 'Destino guardado de forma cifrada. La clave no vuelve a mostrarse automáticamente.';
+                await loadStreamDestinations();
+            } catch (error) {
+                status.textContent = 'No se pudo guardar el destino: ' + error.message;
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Guardar destino cifrado';
+            }
+        }
+
         async function loadStreamingPreferences() {
             const status = document.getElementById('streaming-settings-status');
             status.textContent = 'Cargando preferencias de tu cuenta…';
@@ -4117,6 +4253,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             if (authToken) {
                 loadStreamingPreferences();
                 loadApplicationPreferences();
+                loadStreamDestinations();
             }
         }
         function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
