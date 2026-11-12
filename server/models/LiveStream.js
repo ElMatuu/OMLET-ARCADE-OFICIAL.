@@ -10,6 +10,11 @@ const liveStreamSchema = new mongoose.Schema({
   pinnedMessage: { type: mongoose.Schema.Types.ObjectId, ref: 'LiveStreamMessage', default: null },
   pinnedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   pinnedAt: { type: Date, default: null },
+  moderators: [{
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    addedAt: { type: Date, default: Date.now }
+  }],
   mutedParticipants: [{
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     moderator: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },

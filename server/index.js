@@ -250,10 +250,64 @@ app.get('/api/health/ready', (req, res) => {
   });
 });
 
+function isLiveStreamModerator(stream, userId) {
+  return String(stream.owner) === String(userId) ||
+    (stream.moderators || []).some((moderator) => String(moderator.user || moderator) === String(userId));
+}
+
+app.get('/api/me/streams/:streamId/moderators', requireAuth, async (req, res, next) => {
+  try {
+    if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
+    const stream = await LiveStream.findOne({ _id: req.params.streamId, owner: req.auth.sub, status: 'live' })
+      .populate('moderators.user', 'username').select('moderators').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'Transmisión no disponible o no sos el anfitrión.' });
+    return res.json({ success: true, moderators: (stream.moderators || []).filter((entry) => entry.user).map((entry) => ({
+      userId: String(entry.user._id), username: entry.user.username, addedAt: entry.addedAt
+    })) });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/me/streams/:streamId/moderators', requireAuth, streamLimiter, async (req, res, next) => {
+  try {
+    if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
+    const username = typeof (req.body && req.body.username) === 'string' ? req.body.username.trim() : '';
+    if (!username || username.length > 24) return res.status(400).json({ success: false, message: 'Ingresá un nombre de usuario válido.' });
+    const stream = await LiveStream.findOne({ _id: req.params.streamId, owner: req.auth.sub, status: 'live' }).select('_id owner').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'Transmisión no disponible o no sos el anfitrión.' });
+    const target = await User.findOne({ username }).select('_id username').lean();
+    if (!target) return res.status(404).json({ success: false, message: 'No encontramos esa cuenta.' });
+    if (String(target._id) === String(stream.owner)) return res.status(400).json({ success: false, message: 'El anfitrión ya tiene todos los permisos.' });
+    const added = await LiveStream.updateOne({
+      _id: stream._id, owner: req.auth.sub, status: 'live',
+      moderators: { $not: { $elemMatch: { user: target._id } } }
+    }, { $push: { moderators: { user: target._id, addedBy: req.auth.sub, addedAt: new Date() } } });
+    if (!added.matchedCount) return res.status(409).json({ success: false, message: 'Ese usuario ya es coanfitrión o la transmisión cambió.' });
+    const io = httpServer.io;
+    if (io) io.to('stream-chat:' + String(stream._id)).emit('stream_chat_moderators_changed', { streamId: String(stream._id) });
+    return res.status(200).json({ success: true, moderator: { userId: String(target._id), username: target.username } });
+  } catch (error) { return next(error); }
+});
+
+app.delete('/api/me/streams/:streamId/moderators/:userId', requireAuth, streamLimiter, async (req, res, next) => {
+  try {
+    const { streamId, userId } = req.params;
+    if (!isValidObjectId(streamId) || !isValidObjectId(userId)) return res.status(400).json({ success: false, message: 'Transmisión o participante inválido.' });
+    const stream = await LiveStream.findOneAndUpdate(
+      { _id: streamId, owner: req.auth.sub, status: 'live' },
+      { $pull: { moderators: { user: userId } } },
+      { new: true }
+    ).select('_id').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'Transmisión no disponible o no sos el anfitrión.' });
+    const io = httpServer.io;
+    if (io) io.to('stream-chat:' + streamId).emit('stream_chat_moderators_changed', { streamId, userId });
+    return res.json({ success: true });
+  } catch (error) { return next(error); }
+});
+
 app.get('/api/streams/:streamId/messages', requireAuth, async (req, res, next) => {
   try {
     if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
-    const stream = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).select('owner pinnedMessage pinnedBy pinnedAt').lean();
+    const stream = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).select('owner moderators pinnedMessage pinnedBy pinnedAt').lean();
     if (!stream) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
     if (String(stream.owner) !== String(req.auth.sub)) {
       const blocked = await Block.exists({ $or: [
@@ -271,7 +325,7 @@ app.get('/api/streams/:streamId/messages', requireAuth, async (req, res, next) =
       : null;
     return res.set('Cache-Control', 'no-store').json({
       success: true,
-      canModerate: String(stream.owner) === String(req.auth.sub),
+      canModerate: isLiveStreamModerator(stream, req.auth.sub),
       pinnedMessage: pinned ? {
         id: String(pinned._id), authorId: String(pinned.author),
         username: pinned.username, message: pinned.message, sentAt: pinned.sentAt,
@@ -290,13 +344,13 @@ app.post('/api/streams/:streamId/messages/:messageId/pin', requireAuth, liveChat
     if (!isValidObjectId(req.params.streamId) || !isValidObjectId(req.params.messageId)) {
       return res.status(400).json({ success: false, message: 'Transmisión o mensaje inválido.' });
     }
-    const stream = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).select('owner').lean();
+    const stream = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).select('owner moderators').lean();
     if (!stream) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
-    if (String(stream.owner) !== String(req.auth.sub)) return res.status(403).json({ success: false, message: 'Solo el anfitrión puede fijar mensajes.' });
+    if (!isLiveStreamModerator(stream, req.auth.sub)) return res.status(403).json({ success: false, message: 'No tenés permisos para moderar este chat.' });
     const target = await LiveStreamMessage.findOne({ _id: req.params.messageId, stream: stream._id }).lean();
     if (!target) return res.status(404).json({ success: false, message: 'El mensaje ya no existe.' });
     const pinnedAt = new Date();
-    await LiveStream.updateOne({ _id: stream._id, owner: req.auth.sub, status: 'live' },
+    await LiveStream.updateOne({ _id: stream._id, status: 'live' },
       { $set: { pinnedMessage: target._id, pinnedBy: req.auth.sub, pinnedAt } });
     const pinnedMessage = { id: String(target._id), authorId: String(target.author), username: target.username,
       message: target.message, sentAt: target.sentAt, pinnedBy: String(req.auth.sub), pinnedAt };
@@ -309,9 +363,10 @@ app.post('/api/streams/:streamId/messages/:messageId/pin', requireAuth, liveChat
 app.delete('/api/streams/:streamId/pin', requireAuth, liveChatLimiter, async (req, res, next) => {
   try {
     if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
-    const stream = await LiveStream.findOneAndUpdate({ _id: req.params.streamId, owner: req.auth.sub, status: 'live' },
-      { $set: { pinnedMessage: null, pinnedBy: null, pinnedAt: null } }, { new: true }).select('_id').lean();
-    if (!stream) return res.status(404).json({ success: false, message: 'Transmisión no disponible o no sos el anfitrión.' });
+    const stream = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).select('owner moderators').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
+    if (!isLiveStreamModerator(stream, req.auth.sub)) return res.status(403).json({ success: false, message: 'No tenés permisos para moderar este chat.' });
+    await LiveStream.updateOne({ _id: stream._id, status: 'live' }, { $set: { pinnedMessage: null, pinnedBy: null, pinnedAt: null } });
     const io = httpServer.io;
     if (io) io.to('stream-chat:' + String(stream._id)).emit('stream_chat_unpinned', { streamId: String(stream._id) });
     return res.json({ success: true });
@@ -323,13 +378,13 @@ app.delete('/api/streams/:streamId/messages/:messageId', requireAuth, liveChatLi
     if (!isValidObjectId(req.params.streamId) || !isValidObjectId(req.params.messageId)) {
       return res.status(400).json({ success: false, message: 'Transmisión o mensaje inválido.' });
     }
-    const stream = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).select('owner pinnedMessage').lean();
+    const stream = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).select('owner moderators pinnedMessage').lean();
     if (!stream) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
-    if (String(stream.owner) !== String(req.auth.sub)) return res.status(403).json({ success: false, message: 'Solo el anfitrión puede eliminar mensajes.' });
+    if (!isLiveStreamModerator(stream, req.auth.sub)) return res.status(403).json({ success: false, message: 'No tenés permisos para moderar este chat.' });
     const removed = await LiveStreamMessage.findOneAndDelete({ _id: req.params.messageId, stream: stream._id }).lean();
     if (!removed) return res.status(404).json({ success: false, message: 'El mensaje ya no existe.' });
     const wasPinned = String(stream.pinnedMessage || '') === String(removed._id);
-    if (wasPinned) await LiveStream.updateOne({ _id: stream._id, owner: req.auth.sub, status: 'live' },
+    if (wasPinned) await LiveStream.updateOne({ _id: stream._id, status: 'live' },
       { $set: { pinnedMessage: null, pinnedBy: null, pinnedAt: null } });
     const io = httpServer.io;
     if (io) {
@@ -350,10 +405,10 @@ app.post('/api/streams/:streamId/participants/:userId/mute', requireAuth, liveCh
     if (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 1440) {
       return res.status(400).json({ success: false, message: 'La duración debe estar entre 1 y 1440 minutos.' });
     }
-    const stream = await LiveStream.findOne({ _id: streamId, status: 'live' }).select('owner').lean();
+    const stream = await LiveStream.findOne({ _id: streamId, status: 'live' }).select('owner moderators').lean();
     if (!stream) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
-    if (String(stream.owner) !== String(req.auth.sub)) {
-      return res.status(403).json({ success: false, message: 'Solo el anfitrión puede silenciar participantes.' });
+    if (!isLiveStreamModerator(stream, req.auth.sub)) {
+      return res.status(403).json({ success: false, message: 'No tenés permisos para moderar este chat.' });
     }
     if (String(stream.owner) === String(userId) || String(req.auth.sub) === String(userId)) {
       return res.status(400).json({ success: false, message: 'No podés silenciar al anfitrión ni a vos mismo.' });
@@ -361,14 +416,9 @@ app.post('/api/streams/:streamId/participants/:userId/mute', requireAuth, liveCh
     const target = await User.exists({ _id: userId });
     if (!target) return res.status(404).json({ success: false, message: 'Participante no encontrado.' });
     const expiresAt = new Date(Date.now() + durationMinutes * 60 * 1000);
-    const updated = await LiveStream.findOneAndUpdate(
-      { _id: streamId, owner: req.auth.sub, status: 'live' },
-      { $pull: { mutedParticipants: { user: userId } } },
-      { new: true }
-    ).select('_id').lean();
-    if (!updated) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
+    await LiveStream.updateOne({ _id: streamId, status: 'live' }, { $pull: { mutedParticipants: { user: userId } } });
     await LiveStream.updateOne(
-      { _id: streamId, owner: req.auth.sub, status: 'live' },
+      { _id: streamId, status: 'live' },
       { $push: { mutedParticipants: { user: userId, moderator: req.auth.sub, expiresAt, createdAt: new Date() } } }
     );
     const payload = { streamId, userId, expiresAt, durationMinutes };
@@ -384,12 +434,10 @@ app.delete('/api/streams/:streamId/participants/:userId/mute', requireAuth, live
     if (!isValidObjectId(streamId) || !isValidObjectId(userId)) {
       return res.status(400).json({ success: false, message: 'Transmisión o participante inválido.' });
     }
-    const stream = await LiveStream.findOneAndUpdate(
-      { _id: streamId, owner: req.auth.sub, status: 'live' },
-      { $pull: { mutedParticipants: { user: userId } } },
-      { new: true }
-    ).select('_id').lean();
-    if (!stream) return res.status(404).json({ success: false, message: 'Transmisión no disponible o no sos el anfitrión.' });
+    const stream = await LiveStream.findOne({ _id: streamId, status: 'live' }).select('owner moderators').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
+    if (!isLiveStreamModerator(stream, req.auth.sub)) return res.status(403).json({ success: false, message: 'No tenés permisos para moderar este chat.' });
+    await LiveStream.updateOne({ _id: streamId, status: 'live' }, { $pull: { mutedParticipants: { user: userId } } });
     const io = httpServer.io;
     if (io) io.to('stream-chat:' + streamId).emit('stream_chat_participant_unmuted', { streamId, userId });
     return res.json({ success: true });
