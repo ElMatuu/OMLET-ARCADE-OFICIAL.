@@ -7,6 +7,7 @@ const { fetchJson, getAccessToken, getCredentials, getProvider } = require('./ex
 let twitchAppToken = null;
 let twitchAppTokenExpiresAt = 0;
 let kickPublicKey = null;
+let kickPublicKeyExpiresAt = 0;
 
 function verifyTwitchEventSub({ rawBody, headers, secret, now = Date.now() }) {
   const messageId = headers['twitch-eventsub-message-id'];
@@ -21,8 +22,8 @@ function verifyTwitchEventSub({ rawBody, headers, secret, now = Date.now() }) {
   const b = Buffer.from(signature);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
-async function getKickPublicKey() {
-  if (kickPublicKey) return kickPublicKey;
+async function getKickPublicKey(forceRefresh = false) {
+  if (!forceRefresh && kickPublicKey && kickPublicKeyExpiresAt > Date.now()) return kickPublicKey;
   const response = await fetch('https://api.kick.com/public/v1/public-key', { signal: AbortSignal.timeout(10000) });
   if (!response.ok) throw new Error('No se pudo obtener la clave pública de Kick.');
   const raw = await response.text();
@@ -32,6 +33,7 @@ async function getKickPublicKey() {
     pem = parsed.public_key || parsed.publicKey || parsed.data?.public_key || raw;
   } catch {}
   kickPublicKey = crypto.createPublicKey(pem);
+  kickPublicKeyExpiresAt = Date.now() + 15 * 60 * 1000;
   return kickPublicKey;
 }
 async function verifyKickWebhook({ rawBody, headers, now = Date.now() }) {
@@ -42,9 +44,12 @@ async function verifyKickWebhook({ rawBody, headers, now = Date.now() }) {
   const sentAt = Date.parse(timestamp);
   if (!Number.isFinite(sentAt) || Math.abs(now - sentAt) > 10 * 60 * 1000) return false;
   try {
-    const key = await getKickPublicKey();
     const signed = Buffer.from(messageId + '.' + timestamp + '.' + rawBody.toString('utf8'));
-    return crypto.verify('RSA-SHA256', signed, key, Buffer.from(signature, 'base64'));
+    const signatureBytes = Buffer.from(signature, 'base64');
+    const key = await getKickPublicKey();
+    if (crypto.verify('RSA-SHA256', signed, key, signatureBytes)) return true;
+    const rotatedKey = await getKickPublicKey(true);
+    return crypto.verify('RSA-SHA256', signed, rotatedKey, signatureBytes);
   } catch { return false; }
 }
 async function ingestExternalChatMessage({ provider, externalUserId, externalMessageId, username, message, io }) {
@@ -97,7 +102,10 @@ async function subscribeProviderEvents(provider, owner, env = process.env) {
     .select('+encryptedAccessToken +accessIv +accessAuthTag +encryptedRefreshToken +refreshIv +refreshAuthTag externalUserId scopes').lean();
   if (!connection) return { subscribed: false, reason: 'not_connected' };
   const callback = (env.PLAYVERSE_API_URL || '').replace(/\/$/, '') + '/api/webhooks/' + provider;
-  if (!/^https:\/\//.test(callback)) return { subscribed: false, reason: 'public_https_callback_required' };
+  if (!/^https:\/\//.test(callback)) {
+    await ExternalProviderConnection.updateOne({ _id: connection._id }, { $set: { chatSyncStatus: 'error', chatSyncError: 'Configurá PLAYVERSE_API_URL con una URL HTTPS pública para recibir eventos.' } });
+    return { subscribed: false, reason: 'public_https_callback_required' };
+  }
   try {
     if (provider === 'twitch') {
       const secret = env.TWITCH_EVENTSUB_SECRET || '';
