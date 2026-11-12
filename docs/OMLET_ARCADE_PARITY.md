@@ -2,7 +2,7 @@
 
 ## Product decision
 
-PLAYVERSE is being redesigned around the historical Omlet Arcade product experience, not around a generic streaming dashboard. Omlet is the product reference for information architecture, interaction patterns, density, visual hierarchy, and mobile-first behavior. PLAYVERSE keeps its own name, identity assets, backend, and implementation.
+Omlet Arcade is the target product name and experience for this rebuild. The owner states that authorization for the brand and product has been obtained. The implementation is being rebuilt in this repository with project-owned backend services. The official identity package, legal attribution/authorization record, and approved assets must be supplied by the rights holder and integrated before public distribution.
 
 This document is the acceptance baseline for the redesign. A screen is not complete because it renders: its primary action, loading/empty/error states, permissions, persistence, and device behavior must work.
 
@@ -13,7 +13,7 @@ Historical Android screenshots and feature descriptions reviewed:
 - AndroidBlip historical feature description: https://www.androidblip.com/android-apps/mobisocial.arcade.html
 - APKMirror 1.43.3 release notes: https://www.apkmirror.com/apk/omlet-inc/omlet-arcade-stream-meet-and-play/omlet-arcade-stream-meet-play-1-43-3-android-apk-download/
 
-Reference behaviors include game-first discovery, per-game live browsing, mobile screen broadcasting, floating in-game controls, stream HUD and chat, public/group chat, voice groups, communities with co-admins, profiles and shared clips, and stream destinations. These are product behaviors to reproduce with PLAYVERSE services; historical server availability is not assumed.
+Reference behaviors include game-first discovery, per-game live browsing, mobile screen broadcasting, floating in-game controls, stream HUD and chat, public/group chat, voice groups, communities with co-admins, profiles and shared clips, and stream destinations. These are product behaviors to reproduce with Omlet Arcade services; historical server availability is not assumed.
 
 ## Audit findings in the current branch
 
@@ -24,7 +24,7 @@ Specific defects and gaps:
 - The publisher path uses browser camera and screen-share APIs. It does not provide a native Android MediaProjection capture pipeline for broadcasting another app's gameplay.
 - The floating permission screen only requests Android's draw-over-other-apps permission. A permission prompt alone is not a functioning floating in-game HUD/service.
 - The games area is a rooms/server directory, not a complete installed-game launcher/catalog with recognizable per-game artwork, metadata, game-specific feeds, and one-tap stream setup.
-- The current navigation and content density are custom PLAYVERSE dashboard patterns, not a faithful mobile-first Omlet-style social arcade structure.
+- The current navigation and content density are custom dashboard patterns, not a faithful mobile-first Omlet-style social arcade structure.
 - Club, chat, profile, notifications, and shop screens exist as separate feature areas, but their layouts and interaction details have not been validated against the reference screenshots.
 - The web shell's responsive breakpoints do not establish a verified Windows-native layout or an Android-native capture experience.
 
