@@ -112,18 +112,38 @@ Specific defects and gaps:
 - [x] Add a game choice to the creator flow.
 - [x] Remove the OBS overlay URL from the default mobile creator experience.
 - [x] Add an initial eight-game catalog, local vector artwork, search, live filters and game-to-stream shortcuts. These first illustrations are not the official game publisher logos.
-- [x] Add dedicated detail panels for all eight catalog entries, with game-specific descriptions, artwork, a working route into the stream composer, and live listings fetched from `/api/streams` that open the existing player.
+- [x] Add dedicated detail panels for all eight catalog entries with live discovery, game-to-stream setup, club search and game-tagged community posts; approved publisher artwork remains a release task.
 - [x] Replace the generic home hero with a live-session carousel and game shortcuts backed by the stream API.
 - [x] Refine private chat with participant avatar header and distinct incoming/outgoing message bubbles.
 - [x] Add optional self-hosted Minecraft Java/Paper and Bedrock server templates behind the explicit `game-servers` profile and EULA gate.
 - [ ] Replace the temporary Omlet Arcade icon adaptation with the rights holder's official brand package before public distribution.
-- [ ] Replace the current browser-only publisher with native Android gameplay capture and a foreground service.
-- [ ] Implement the full streaming HUD controls and game-specific publisher-approved artwork package.
+- [x] Add a native Android MediaProjection/LiveKit screen-share plugin and foreground service, with mic/camera controls; physical-device validation, system/game audio and picture-in-picture remain open.
+- [x] Implement a draggable floating HUD with capture, mic, camera, end-stream and open-chat actions; in-panel chat rendering and physical-device lifecycle validation remain open.
+
+## Engineering work required
+
+1. Break the monolithic client into maintainable feature modules and shared components before the visual overhaul becomes harder to test.
+2. Validate the implemented Android MediaProjection/LiveKit publisher and foreground-service lifecycle on physical Android devices, including Android 14+ behavior.
+3. Validate the native floating HUD's permission, drag, hide/reopen, mic/camera, end-stream, process-death, and background behavior; render live chat inside the overlay.
+4. Replace the current generic live composer with the game-first Go Live flow and make OBS an optional advanced destination.
+5. Complete the game catalog with rights-holder-approved artwork and expand game detail feeds with player discovery, game-specific clubs, and richer server-backed metadata.
+6. Redesign the feed, live player, chat, clubs, notifications, profiles, shop, settings, and desktop shell against the reference.
+7. Add UI tests for navigation, responsive states, stream lifecycle, chat, club membership, profile permissions, and notification deep links.
+8. Run Android tests on physical devices and Windows tests on a real Windows machine. CI build success alone is not acceptance.
+
+## Release gates
+
+- No feature is labelled complete until its backend, UI, permission path, and real-device behavior are verified.
+- Android screen capture and floating HUD must be demonstrated on a physical Android device.
+- Two separate accounts/devices must verify publishing, viewing, chat, moderation, reconnect, and stream termination.
+- Windows must be installed and tested on a real Windows machine.
+- CI must pass after each implementation batch.
+- Keep this work on the existing feature branch and draft PR. Do not merge or deploy without explicit approval.
 
 ## Native Android HUD and screen-share implementation status (2026-11-12)
 
 - [x] Capacitor `ArcadeHud` bridge for overlay permission, service start/stop and pending navigation actions.
-- [x] Android foreground service with draggable overlay bubble, compact panel, hide-without-stopping-active-capture behavior and notification.
+- [x] Android foreground service with draggable overlay bubble, compact panel, persistent hide preference and hide-without-stopping-active-capture behavior.
 - [x] HUD actions for game capture, microphone, camera, ending the stream and opening the live chat in PLAYVERSE.
 - [x] Native `NativeScreenShare` Capacitor plugin: Android MediaProjection consent flow, LiveKit Android SDK connection using short-lived server-issued publisher credentials, screen-share track publication and stop/disconnect.
 - [x] Native LiveKit microphone/camera toggles with runtime permission requests and matching Android foreground-service type changes.
@@ -132,10 +152,10 @@ Specific defects and gaps:
 - [ ] Test consent, capture after leaving PLAYVERSE, mic/camera controls, hide HUD, stop capture and finalizing the server stream on physical Android devices (including Android 14+).
 - [ ] Confirm viewers on a second device receive the native screen-share track and the webhook transitions the stream to live.
 
-Important scope limits: system/game audio capture is not wired yet. Camera is published as a separate LiveKit camera track; a picture-in-picture composition with gameplay still needs implementation. The “Chat del directo” HUD action opens the in-app live chat; the chat is not yet rendered inside the floating native panel. The service uses Android's special-use foreground-service type for the persistent overlay; Play distribution still requires policy eligibility/review. Do not mark this feature production-ready until the device tests and distribution review are complete.
+Important scope limits: system/game audio capture is not wired yet. Camera is published as a separate LiveKit camera track; picture-in-picture composition with gameplay still needs implementation. The “Chat del directo” HUD action opens the in-app live chat; the chat is not yet rendered inside the floating native panel. The service uses Android's special-use foreground-service type for the persistent overlay; Play distribution still requires policy eligibility/review. Do not mark this feature production-ready until device tests and distribution review are complete.
 
-## Game detail slice (2026-11-12)
+## Game detail and social discovery slice (2026-11-12)
 
-Validation coverage includes all eight detail entry points, live API discovery/player navigation, stream-composer routing, and game-filtered club discovery. The game-to-club shortcut pre-fills the existing club search and uses the normal tab navigation to issue a single filtered request.
+All eight initial catalog entries now open a dedicated detail panel with local artwork, category, game-specific introduction, direct action to filter live broadcasts, shortcut to prepare the stream composer, and game-specific club discovery through the existing `/api/clubs?q=` search. The panel fetches `/api/streams`, filters actual active sessions by game, provides loading/empty/error states, and opens the existing live player for a selected session.
 
-All eight initial catalog entries now open a dedicated detail panel with their local artwork, category, a short game-specific introduction, a direct action to filter live broadcasts, a shortcut to prepare the stream composer, and game-specific club discovery through the existing `/api/clubs?q=` search. The panel fetches `/api/streams`, filters actual active sessions by game, provides loading/empty/error states, and opens the existing live player for a selected session. Club navigation carries the selected game into the existing search field and performs one filtered request. Community posts now have an optional validated `game` association, indexed for game/time discovery; the composer can tag one of the eight catalog games, the general feed displays the tag, and each game detail fetches its own tagged posts using `/api/posts?game=` while reusing existing likes, comments, edit and delete actions. Stale responses are discarded when the user switches game details. These are game discovery pages, not a full game feed: game-linked community posts, player lists, and club recommendations still require explicit backend relationships and UI.
+Community posts now have an optional validated `game` association, indexed for game/time discovery. The composer can tag one of the eight catalog games, the general feed displays the tag, and each game detail fetches its own tagged posts using `/api/posts?game=` while reusing existing likes, comments, edit and delete actions. Stale responses are discarded when the user switches game details. The game pages are an initial social discovery slice, not full per-game feeds: player directories, recommendation ranking and club activity streams remain open.
