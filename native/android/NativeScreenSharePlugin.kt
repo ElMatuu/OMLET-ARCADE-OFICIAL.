@@ -1,9 +1,5 @@
 package com.playverse.app.plugins
 
-// This plugin connects as a unique companion participant. The server issues a distinct
-// short-lived token so the existing WebView publisher remains connected.
-
-import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -16,28 +12,25 @@ import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.ActivityCallback
 import com.getcapacitor.annotation.CapacitorPlugin
-import com.getcapacitor.annotation.Permission
-import com.getcapacitor.annotation.PermissionCallback
 import io.livekit.android.LiveKit
 import io.livekit.android.room.Room
 import io.livekit.android.room.track.screencapture.ScreenCaptureParams
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@CapacitorPlugin(
-    name = "NativeScreenShare",
-    permissions = [
-        Permission(alias = "microphone", strings = [Manifest.permission.RECORD_AUDIO]),
-        Permission(alias = "camera", strings = [Manifest.permission.CAMERA])
-    ]
-)
+@CapacitorPlugin(name = "NativeScreenShare")
 class NativeScreenSharePlugin : Plugin() {
     private val pluginScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
     @Volatile private var room: Room? = null
     @Volatile private var screenShareActive = false
+    @Volatile private var startPending = false
+    @Volatile private var captureGeneration = 0L
+    @Volatile private var pendingGeneration = 0L
 
     @PluginMethod
     fun start(call: PluginCall) {
@@ -51,43 +44,92 @@ class NativeScreenSharePlugin : Plugin() {
             call.reject("Falta el token temporal de LiveKit.")
             return
         }
-        if (room != null && screenShareActive) {
-            call.resolve(JSObject().apply { put("active", true) })
-            return
+
+        synchronized(this) {
+            if (room != null && screenShareActive) {
+                call.resolve(JSObject().apply { put("active", true) })
+                return
+            }
+            if (startPending) {
+                call.reject("Ya hay una solicitud de captura en curso.")
+                return
+            }
+            startPending = true
+            pendingGeneration = ++captureGeneration
         }
-        val manager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        startActivityForResult(call, manager.createScreenCaptureIntent(), "handleScreenCaptureResult")
+
+        try {
+            val manager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            startActivityForResult(call, manager.createScreenCaptureIntent(), "handleScreenCaptureResult")
+        } catch (error: Exception) {
+            synchronized(this) {
+                if (pendingGeneration == captureGeneration) {
+                    startPending = false
+                    pendingGeneration = 0L
+                }
+            }
+            call.reject("No se pudo abrir el permiso de captura de Android: " + (error.message ?: "error desconocido"))
+        }
     }
 
     @ActivityCallback
     private fun handleScreenCaptureResult(call: PluginCall, result: ActivityResult) {
+        val requestGeneration = pendingGeneration
+        if (!startPending || requestGeneration == 0L || requestGeneration != captureGeneration) {
+            call.reject("La solicitud de captura fue cancelada.")
+            return
+        }
         if (result.resultCode != Activity.RESULT_OK || result.data == null) {
+            synchronized(this) {
+                if (requestGeneration == captureGeneration) {
+                    startPending = false
+                    pendingGeneration = 0L
+                }
+            }
             call.reject("Cancelaste el permiso para compartir la pantalla.")
             return
         }
-        val url = call.getString("url")?.trim().orEmpty()
-        val token = call.getString("token")?.trim().orEmpty()
+
         val projectionData = result.data!!
         pluginScope.launch {
-            var connectedRoom: Room? = null
             var pendingRoom: Room? = null
             try {
-                val service = Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_CAPTURE_START)
+                val service = Intent(context, ArcadeHudService::class.java)
+                    .setAction(ArcadeHudService.ACTION_CAPTURE_START)
                 if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(service) else context.startService(service)
-                connectedRoom = withContext(Dispatchers.IO) {
-                    val created = LiveKit.create(context.applicationContext)
-                    pendingRoom = created
-                    created.connect(url, token)
-                    val published = created.localParticipant.setScreenShareEnabled(true, ScreenCaptureParams(projectionData))
+
+                val connectedRoom = withContext(Dispatchers.IO) {
+                    if (requestGeneration != captureGeneration) throw CancellationException("Solicitud de captura cancelada.")
+                    val candidate = LiveKit.create(context.applicationContext)
+                    pendingRoom = candidate
+                    candidate.connect(call.getString("url")!!.trim(), call.getString("token")!!.trim())
+                    if (requestGeneration != captureGeneration) throw CancellationException("Solicitud de captura cancelada.")
+                    val published = candidate.localParticipant.setScreenShareEnabled(true, ScreenCaptureParams(projectionData))
                     if (!published) throw IllegalStateException("LiveKit no pudo publicar la captura de pantalla.")
-                    created
+                    candidate
                 }
-                room = connectedRoom
-                screenShareActive = true
+
+                if (requestGeneration != captureGeneration) {
+                    withContext(Dispatchers.IO) { connectedRoom.disconnect() }
+                    throw CancellationException("La transmisión se cerró durante el inicio de la captura.")
+                }
+
+                synchronized(this@NativeScreenSharePlugin) {
+                    room = connectedRoom
+                    screenShareActive = true
+                    startPending = false
+                    pendingGeneration = 0L
+                }
                 call.resolve(JSObject().apply { put("active", true); put("screenShare", true) })
             } catch (error: Exception) {
-                try { (connectedRoom ?: pendingRoom)?.disconnect() } catch (_: Exception) {}
+                try { withContext(Dispatchers.IO) { pendingRoom?.disconnect() } } catch (_: Exception) {}
                 context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_CAPTURE_STOP))
+                synchronized(this@NativeScreenSharePlugin) {
+                    if (requestGeneration == captureGeneration) {
+                        startPending = false
+                        pendingGeneration = 0L
+                    }
+                }
                 call.reject("No se pudo iniciar la captura nativa: " + (error.message ?: "error desconocido"))
             }
         }
@@ -95,28 +137,38 @@ class NativeScreenSharePlugin : Plugin() {
 
     @PluginMethod
     fun stop(call: PluginCall) {
+        val currentRoom: Room?
+        synchronized(this) {
+            captureGeneration += 1
+            pendingGeneration = 0L
+            startPending = false
+            currentRoom = room
+            room = null
+            screenShareActive = false
+        }
+
         pluginScope.launch {
             var failure: Exception? = null
             try {
-                val current = room
-                if (current != null) {
+                if (currentRoom != null) {
                     withContext(Dispatchers.IO) {
                         try {
-                            if (screenShareActive) current.localParticipant.setScreenShareEnabled(false)
+                            currentRoom.localParticipant.setScreenShareEnabled(false)
                         } finally {
-                            current.disconnect()
+                            currentRoom.disconnect()
                         }
                     }
                 }
             } catch (error: Exception) {
                 failure = error
             } finally {
-                room = null
-                screenShareActive = false
-                context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_CAPTURE_STOP))
-                context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_MICROPHONE_STOP))
-                context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_CAMERA_STOP))
+                try {
+                    context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_CAPTURE_STOP))
+                } catch (error: Exception) {
+                    if (failure == null) failure = error
+                }
             }
+
             if (failure != null) {
                 call.reject("No se pudo detener la captura nativa: " + (failure.message ?: "error desconocido"))
             } else {
@@ -124,106 +176,4 @@ class NativeScreenSharePlugin : Plugin() {
             }
         }
     }
-
-    @PluginMethod
-    fun updateHudChat(call: PluginCall) {
-        val preferences = context.getSharedPreferences("arcade_hud", Context.MODE_PRIVATE)
-        if (!preferences.getBoolean("hud_enabled", false)) {
-            call.resolve(JSObject().apply { put("updated", false) })
-            return
-        }
-        val messages = call.getString("messages") ?: "[]"
-        val service = Intent(context, ArcadeHudService::class.java)
-            .setAction(ArcadeHudService.ACTION_CHAT_UPDATE)
-            .putExtra("messages", messages)
-        try {
-            context.startService(service)
-            call.resolve(JSObject().apply { put("updated", true) })
-        } catch (error: Exception) {
-            call.reject("No se pudo actualizar el chat flotante: " + (error.message ?: "error desconocido"))
-        }
-    }
-
-    @PluginMethod
-    fun toggleMicrophone(call: PluginCall) {
-        if (getPermissionState("microphone") != com.getcapacitor.PermissionState.GRANTED) {
-            requestPermissionForAlias("microphone", call, "microphonePermissionCallback")
-            return
-        }
-        setMicrophone(call)
-    }
-
-    @PermissionCallback
-    private fun microphonePermissionCallback(call: PluginCall) {
-        if (getPermissionState("microphone") != com.getcapacitor.PermissionState.GRANTED) {
-            call.reject("Se necesita permiso de micrófono para emitir audio.")
-            return
-        }
-        setMicrophone(call)
-    }
-
-    private fun setMicrophone(call: PluginCall) {
-        val current = room
-        if (current == null) {
-            call.reject("Primero iniciá una transmisión con captura nativa.")
-            return
-        }
-        pluginScope.launch {
-            try {
-                val enabled = !current.localParticipant.isMicrophoneEnabled
-                if (enabled) context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_MICROPHONE_START))
-                val changed = withContext(Dispatchers.IO) { current.localParticipant.setMicrophoneEnabled(enabled) }
-                if (!changed) {
-                    if (enabled) context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_MICROPHONE_STOP))
-                    throw IllegalStateException("LiveKit no pudo cambiar el micrófono.")
-                }
-                if (!enabled) context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_MICROPHONE_STOP))
-                call.resolve(JSObject().apply { put("enabled", enabled) })
-            } catch (error: Exception) {
-                call.reject("No se pudo cambiar el micrófono: " + (error.message ?: "error desconocido"))
-            }
-        }
-    }
-
-    @PluginMethod
-    fun toggleCamera(call: PluginCall) {
-        if (getPermissionState("camera") != com.getcapacitor.PermissionState.GRANTED) {
-            requestPermissionForAlias("camera", call, "cameraPermissionCallback")
-            return
-        }
-        setCamera(call)
-    }
-
-    @PermissionCallback
-    private fun cameraPermissionCallback(call: PluginCall) {
-        if (getPermissionState("camera") != com.getcapacitor.PermissionState.GRANTED) {
-            call.reject("Se necesita permiso de cámara para activar la cámara.")
-            return
-        }
-        setCamera(call)
-    }
-
-    private fun setCamera(call: PluginCall) {
-        val current = room
-        if (current == null) {
-            call.reject("Primero iniciá una transmisión con captura nativa.")
-            return
-        }
-        pluginScope.launch {
-            try {
-                val enabled = !current.localParticipant.isCameraEnabled
-                if (enabled) context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_CAMERA_START))
-                val changed = withContext(Dispatchers.IO) { current.localParticipant.setCameraEnabled(enabled) }
-                if (!changed) {
-                    if (enabled) context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_CAMERA_STOP))
-                    throw IllegalStateException("LiveKit no pudo cambiar la cámara.")
-                }
-                if (!enabled) context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_CAMERA_STOP))
-                call.resolve(JSObject().apply { put("enabled", enabled) })
-            } catch (error: Exception) {
-                call.reject("No se pudo cambiar la cámara: " + (error.message ?: "error desconocido"))
-            }
-        }
-    }
-
 }

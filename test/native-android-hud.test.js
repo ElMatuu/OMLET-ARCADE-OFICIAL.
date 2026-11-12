@@ -45,6 +45,11 @@ test('Android sync is idempotent and registers the plugin and foreground service
   assert.match(screenSharePlugin, /startActivityForResult/);
   assert.match(screenSharePlugin, /setScreenShareEnabled\(true, ScreenCaptureParams/);
   assert.match(screenSharePlugin, /ACTION_CAPTURE_STOP/);
+  assert.match(screenSharePlugin, /startPending/);
+  assert.match(screenSharePlugin, /captureGeneration/);
+  assert.match(screenSharePlugin, /requestGeneration != captureGeneration/);
+  assert.match(screenSharePlugin, /CancellationException/);
+  assert.doesNotMatch(screenSharePlugin, /toggleMicrophone|toggleCamera|Permission\(alias = "microphone"/);
   assert.match(sync, /SYSTEM_ALERT_WINDOW/);
   assert.match(sync, /FOREGROUND_SERVICE_SPECIAL_USE/);
   assert.match(sync, /FOREGROUND_SERVICE_MEDIA_PROJECTION/);
