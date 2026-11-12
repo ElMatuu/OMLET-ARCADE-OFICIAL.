@@ -5,6 +5,10 @@ const root = path.resolve(__dirname, '..');
 const androidRoot = path.join(root, 'android', 'app', 'src', 'main');
 const javaRoot = path.join(androidRoot, 'java');
 const sourceRoot = path.join(root, 'native', 'android');
+
+if (!fs.existsSync(androidRoot)) {
+  throw new Error('Android platform is not generated. Run npx cap add android first.');
+}
 const animationResources = {
   playverse_panel_enter: `<?xml version="1.0" encoding="utf-8"?>
 <set xmlns:android="http://schemas.android.com/apk/res/android" android:shareInterpolator="false">
@@ -26,9 +30,6 @@ for (const [name, xml] of Object.entries(animationResources)) {
 }
 
 
-if (!fs.existsSync(androidRoot)) {
-  throw new Error('Android platform is not generated. Run npx cap add android first.');
-}
 
 function findMainActivity(directory) {
   if (!fs.existsSync(directory)) return null;
