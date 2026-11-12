@@ -11,6 +11,26 @@ const PROVIDERS = Object.freeze({
 function getProvider(provider) {
   return Object.prototype.hasOwnProperty.call(PROVIDERS, provider) ? PROVIDERS[provider] : null;
 }
+function getMissingConfiguration(provider, env = process.env) {
+  const prefix = provider === 'youtube' ? 'YOUTUBE' : String(provider || '').toUpperCase();
+  const missing = [];
+  if (!getEncryptionKey(env)) missing.push('APP_INTEGRATION_ENCRYPTION_KEY');
+  if (!env[prefix + '_CLIENT_ID']) missing.push(prefix + '_CLIENT_ID');
+  if (!env[prefix + '_CLIENT_SECRET']) missing.push(prefix + '_CLIENT_SECRET');
+  const base = (env.PLAYVERSE_API_URL || env.PUBLIC_API_URL || '').replace(/\\/$/, '');
+  let validBase = false;
+  try {
+    const parsed = new URL(base);
+    validBase = (parsed.protocol === 'https:' || (parsed.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(parsed.hostname))) &&
+      !parsed.username && !parsed.password && !parsed.search && !parsed.hash && (!parsed.pathname || parsed.pathname === '/');
+  } catch {}
+  if (!validBase) missing.push('PLAYVERSE_API_URL');
+  if (provider === 'twitch') {
+    const secret = env.TWITCH_EVENTSUB_SECRET || '';
+    if (secret.length < 10 || secret.length > 100) missing.push('TWITCH_EVENTSUB_SECRET (10–100 caracteres)');
+  }
+  return missing;
+}
 function getCredentials(provider, env = process.env) {
   const prefix = provider === 'youtube' ? 'YOUTUBE' : provider.toUpperCase();
   const clientId = env[prefix + '_CLIENT_ID'] || '';
