@@ -420,6 +420,19 @@
                     </section>
                     <p id="live-player-status" class="text-xs text-slate-400" role="status"></p>
                 </section>
+                <section id="recording-library" class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center justify-between gap-2">
+                        <div><h4 class="font-black text-sm"><i class="fa-solid fa-photo-film mr-2 text-rose-300"></i>Mi biblioteca de grabaciones</h4><p class="text-[11px] text-slate-400">Tus transmisiones finalizadas, guardadas de forma privada.</p></div>
+                        <button type="button" onclick="loadMyRecordings()" class="rounded-lg border border-slate-700 px-3 py-2 text-[11px] font-bold">Actualizar</button>
+                    </div>
+                    <p id="recording-library-status" class="text-xs text-slate-400" role="status" aria-live="polite">Cargando tu biblioteca…</p>
+                    <div id="recording-library-list" class="grid gap-2" aria-live="polite"></div>
+                </section>
+                <section id="recording-playback-panel" class="hidden PLAYVERSE-card rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center justify-between gap-2"><h4 id="recording-playback-title" class="font-bold text-sm truncate">Reproducción privada</h4><button type="button" onclick="closeRecordingPlayback()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs">Cerrar</button></div>
+                    <video id="recording-playback-video" class="w-full max-h-[65vh] rounded-xl bg-black" controls playsinline preload="metadata"></video>
+                    <p id="recording-playback-status" class="text-[11px] text-slate-400" role="status" aria-live="polite">El enlace privado vence a los 5 minutos. Solicitá otro si vence.</p>
+                </section>
                 <section class="PLAYVERSE-card rounded-2xl p-4 space-y-2">
                     <h4 class="font-bold text-sm">Multi-Stream Squads</h4>
                     <p class="text-xs text-slate-400">Las transmisiones compartidas de varios jugadores estarán disponibles cuando se integre el servicio de video en tiempo real.</p>
@@ -1484,7 +1497,7 @@
                 if(el) el.classList.add('hidden');
             });
             document.getElementById('tab-' + tabName).classList.remove('hidden');
-            if (tabName === 'live') loadLiveStreams();
+            if (tabName === 'live') { loadLiveStreams(); loadMyRecordings(); }
             if (tabName === 'lobbies') loadRooms();
             if (tabName === 'clubs') loadClubs();
             if (tabName === 'tournaments') loadTournaments();
@@ -5514,6 +5527,88 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             }
         }
 
+        function formatRecordingDuration(seconds) {
+            if (!Number.isFinite(seconds) || seconds < 0) return 'Duración no disponible';
+            const total = Math.floor(seconds);
+            const hours = Math.floor(total / 3600);
+            const minutes = Math.floor((total % 3600) / 60);
+            const remainder = total % 60;
+            return hours > 0 ? hours + ' h ' + minutes + ' min' : minutes + ' min ' + remainder + ' s';
+        }
+
+        async function loadMyRecordings() {
+            const status = document.getElementById('recording-library-status');
+            const list = document.getElementById('recording-library-list');
+            if (!status || !list) return;
+            if (!authToken) {
+                status.textContent = 'Iniciá sesión para consultar tus grabaciones privadas.';
+                list.replaceChildren();
+                return;
+            }
+            status.textContent = 'Cargando grabaciones finalizadas…';
+            list.replaceChildren();
+            try {
+                const data = await apiRequest('/api/me/recordings');
+                const recordings = data.recordings || [];
+                if (!recordings.length) {
+                    status.textContent = 'Todavía no tenés grabaciones finalizadas. Iniciá un directo y activá la grabación para guardar tu primera emisión.';
+                    return;
+                }
+                status.textContent = recordings.length + ' grabación(es) privada(s).';
+                recordings.forEach(recording => {
+                    const card = document.createElement('article');
+                    card.className = 'flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3';
+                    const details = document.createElement('div');
+                    details.className = 'min-w-0 flex-1';
+                    const title = document.createElement('p');
+                    title.className = 'break-words text-sm font-bold text-white';
+                    title.textContent = recording.title || 'Transmisión PLAYVERSE';
+                    const metadata = document.createElement('p');
+                    metadata.className = 'mt-1 text-[11px] text-slate-400';
+                    const date = recording.startedAt ? new Date(recording.startedAt).toLocaleString('es-AR') : 'Fecha no disponible';
+                    metadata.textContent = date + ' · ' + formatRecordingDuration(recording.durationSeconds);
+                    details.append(title, metadata);
+                    const play = document.createElement('button');
+                    play.type = 'button';
+                    play.className = 'rounded-lg bg-rose-500/15 px-3 py-2 text-xs font-bold text-rose-200 border border-rose-500/30';
+                    play.textContent = 'Reproducir';
+                    play.addEventListener('click', () => playMyRecording(recording.id, recording.title));
+                    card.append(details, play);
+                    list.appendChild(card);
+                });
+            } catch (error) { status.textContent = 'No se pudo cargar la biblioteca: ' + error.message; }
+        }
+
+        async function playMyRecording(recordingId, title) {
+            const panel = document.getElementById('recording-playback-panel');
+            const video = document.getElementById('recording-playback-video');
+            const status = document.getElementById('recording-playback-status');
+            document.getElementById('recording-playback-title').textContent = title || 'Reproducción privada';
+            panel.classList.remove('hidden');
+            status.textContent = 'Generando enlace privado de reproducción…';
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+            try {
+                const data = await apiRequest('/api/me/recordings/' + encodeURIComponent(recordingId) + '/playback');
+                video.src = data.playback.url;
+                status.textContent = 'Enlace privado activo por 5 minutos. No compartas esta dirección.';
+                try { await video.play(); } catch {}
+            } catch (error) {
+                status.textContent = 'No se pudo abrir la grabación: ' + error.message;
+            }
+        }
+
+        function closeRecordingPlayback() {
+            const video = document.getElementById('recording-playback-video');
+            if (video) {
+                video.pause();
+                video.removeAttribute('src');
+                video.load();
+            }
+            document.getElementById('recording-playback-panel').classList.add('hidden');
+        }
+
         async function loadLiveStreams() {
             const container = document.getElementById('live-streams-container');
             if (!container) return;
@@ -5614,6 +5709,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             try {
                 await apiRequest('/api/me/streams/' + encodeURIComponent(activeLiveStream.id) + '/recording/stop', { method: 'POST' });
                 await loadLiveRecordingStatus(activeLiveStream.id);
+                await loadMyRecordings();
             } catch (error) {
                 status.textContent = 'No se pudo detener la grabación: ' + error.message;
                 button.disabled = false;
