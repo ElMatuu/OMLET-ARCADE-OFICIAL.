@@ -7,9 +7,16 @@ on:
       - feat/arcade-hud-game-discovery
   pull_request:
     branches:
-      - main
-      - feat/profile-menu-achievements
-      - feat/arcade-hud-game-discovery
+      - main      - feat/profile-menu-achievements
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: playverse-android-build
+  cancel-in-progress: true
 
 jobs:
   build-android:
@@ -46,9 +53,6 @@ jobs:
 
       - name: Apply official launcher icon and startup screen
         run: node scripts/sync-android-brand.js
-
-      - name: Install native floating HUD plugin
-        run: node scripts/sync-android-hud.js
 
       - name: Build debug APK
         run: |
