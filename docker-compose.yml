@@ -89,7 +89,7 @@ services:
     profiles: ["game-servers"]
     restart: unless-stopped
     environment:
-      EULA: "TRUE"
+      EULA: ${MINECRAFT_EULA:-FALSE}
       SERVER_NAME: "Omlet Arcade · Servidor Bedrock"
       GAMEMODE: ${MINECRAFT_BEDROCK_GAMEMODE:-survival}
       DIFFICULTY: ${MINECRAFT_BEDROCK_DIFFICULTY:-normal}
