@@ -900,6 +900,7 @@
                 <div class="min-w-0"><h3 id="room-chat-title" class="font-black text-base text-white truncate">Chat de sala</h3><p id="room-chat-status" class="text-xs text-slate-400" role="status">Conectando…</p></div>
                 <button type="button" onclick="closeRoomChat()" class="text-slate-400 p-2" aria-label="Cerrar chat"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
+            <div id="room-chat-pinned" class="hidden rounded-xl border border-orange-500/40 bg-orange-500/10 px-3 py-2 text-xs text-orange-100" aria-live="polite"></div>
             <div id="room-chat-messages" class="flex-1 overflow-y-auto py-3 space-y-2" aria-live="polite"></div>
             <form id="room-chat-form" onsubmit="sendRoomMessage(event)" class="flex gap-2 border-t border-slate-800 pt-3">
                 <input id="room-chat-input" maxlength="1000" required autocomplete="off" class="min-w-0 flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-sm text-white" placeholder="Escribí un mensaje…">
@@ -2590,6 +2591,45 @@
             }
         }
 
+        let roomCanModerate = false;
+
+        function renderPinnedRoomMessage(message) {
+            const banner = document.getElementById('room-chat-pinned');
+            if (!banner) return;
+            banner.replaceChildren();
+            if (!message) { banner.classList.add('hidden'); return; }
+            const label = document.createElement('strong');
+            label.textContent = 'Mensaje fijado · ' + String(message.username || 'Jugador') + ': ';
+            const body = document.createElement('span');
+            body.textContent = String(message.message || '');
+            banner.append(label, body);
+            if (roomCanModerate) {
+                const unpin = document.createElement('button');
+                unpin.type = 'button';
+                unpin.className = 'ml-2 underline font-bold';
+                unpin.textContent = 'Quitar';
+                unpin.addEventListener('click', unpinRoomMessage);
+                banner.appendChild(unpin);
+            }
+            banner.classList.remove('hidden');
+        }
+
+        function pinRoomMessage(messageId) {
+            if (!roomSocket || !roomSocketJoined || !activeRoomId) return;
+            roomSocket.emit('pin_room_message', { roomId: activeRoomId, messageId }, (result) => {
+                if (!result || !result.success) document.getElementById('room-chat-status').textContent =
+                    (result && result.message) || 'No se pudo fijar el mensaje.';
+            });
+        }
+
+        function unpinRoomMessage() {
+            if (!roomSocket || !roomSocketJoined || !activeRoomId) return;
+            roomSocket.emit('unpin_room_message', { roomId: activeRoomId }, (result) => {
+                if (!result || !result.success) document.getElementById('room-chat-status').textContent =
+                    (result && result.message) || 'No se pudo quitar el mensaje fijado.';
+            });
+        }
+
         function appendRoomMessage(message) {
             const container = document.getElementById('room-chat-messages');
             if (!container || !message) return;
@@ -2602,6 +2642,14 @@
             body.className = 'text-sm text-slate-100 whitespace-pre-wrap break-words';
             body.textContent = String(message.message || '');
             item.append(heading, body);
+            if (roomCanModerate && message.id) {
+                const pin = document.createElement('button');
+                pin.type = 'button';
+                pin.className = 'mt-2 text-[11px] font-bold text-orange-300 underline';
+                pin.textContent = 'Fijar mensaje';
+                pin.addEventListener('click', () => pinRoomMessage(String(message.id)));
+                item.appendChild(pin);
+            }
             container.appendChild(item);
             container.scrollTop = container.scrollHeight;
         }
@@ -2610,6 +2658,8 @@
             const container = document.getElementById('room-chat-messages');
             container.replaceChildren();
             const data = await apiRequest('/api/rooms/' + encodeURIComponent(roomId) + '/messages');
+            roomCanModerate = Boolean(data.canModerate);
+            renderPinnedRoomMessage(data.pinnedMessage);
             data.messages.forEach(appendRoomMessage);
         }
 
@@ -2642,6 +2692,12 @@
                 });
             });
             roomSocket.on('receive_message', appendRoomMessage);
+            roomSocket.on('room_message_pinned', (event) => {
+                if (event && event.roomId === activeRoomId) renderPinnedRoomMessage(event.pinnedMessage);
+            });
+            roomSocket.on('room_message_unpinned', (event) => {
+                if (event && event.roomId === activeRoomId) renderPinnedRoomMessage(null);
+            });
             roomSocket.on('connect_error', () => {
                 roomSocketJoined = false;
                 document.getElementById('room-chat-status').textContent = 'Chat en vivo no disponible; modo de mensajes guardados.';
