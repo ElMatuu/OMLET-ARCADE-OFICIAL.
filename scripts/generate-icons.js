@@ -3,7 +3,7 @@ const path = require('node:path');
 const sharp = require('sharp');
 
 const root = path.resolve(__dirname, '..');
-const source = path.join(root, 'assets', 'playverse-icon.svg');
+const source = path.join(root, 'assets', 'omlet-arcade-icon.svg');
 const output = path.join(root, 'assets', 'generated');
 const icoPath = path.join(root, 'assets', 'playverse-icon.ico');
 
@@ -31,7 +31,7 @@ function buildIco(images) {
 }
 
 async function main() {
-  if (!fs.existsSync(source)) throw new Error('No se encontró assets/playverse-icon.svg');
+  if (!fs.existsSync(source)) throw new Error('No se encontró assets/omlet-arcade-icon.svg');
   fs.mkdirSync(output, { recursive: true });
   const icoImages = [];
   for (const size of [16, 24, 32, 48, 64, 128, 256]) {
@@ -49,7 +49,7 @@ async function main() {
   await sharp(source).resize(432, 432).png().toFile(path.join(output, 'playverse_splash.png'));
   await sharp(source).resize(432, 432).png().toFile(path.join(output, 'playverse_foreground.png'));
   await sharp(source).resize(512, 512).png().toFile(path.join(root, 'assets', 'playverse-icon.png'));
-  console.log('PLAYVERSE: generated Windows ICO and Android launcher/splash PNG assets from the single official SVG.');
+  console.log('PLAYVERSE: generated Windows ICO and Android launcher/splash PNG assets from the Omlet Arcade SVG adaptation.');
 }
 
 main().catch((error) => {
