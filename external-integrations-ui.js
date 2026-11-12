@@ -67,7 +67,7 @@
         detail.className = 'text-[10px] text-slate-400';
         detail.textContent = item.connection && item.connection.connected
           ? 'Conectada como ' + item.connection.username + ' · chat: ' + (item.connection.chatSyncStatus || 'pendiente') + ' · envío: ' + (item.connection.canSend ? 'habilitado' : 'actualizar permisos') + (item.connection.chatSyncError ? ' · ' + item.connection.chatSyncError : '')
-          : (item.connection && item.connection.status === 'reauthorization_required' ? 'La autorización venció: volvé a vincular' : (item.configured ? 'Lista para autorizar tu cuenta' : 'Faltan credenciales OAuth gratuitas en el servidor'));
+          : (item.connection && item.connection.status === 'reauthorization_required' ? 'La autorización venció: volvé a vincular' : (item.configured ? 'Lista para autorizar tu cuenta' : 'Falta configurar en el servidor: ' + (item.missingConfiguration || []).join(', ')));
         info.append(name, detail);
         const action = document.createElement('button');
         action.type = 'button';
