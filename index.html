@@ -431,10 +431,13 @@
                 <div id="dm-inbox-list" class="space-y-2" aria-live="polite"></div>
                 <section id="dm-thread" class="hidden PLAYVERSE-card rounded-2xl p-3 space-y-3">
                     <div class="flex items-center justify-between gap-2 border-b border-slate-800 pb-3">
-                        <div class="min-w-0"><h4 id="dm-thread-title" class="font-bold text-sm truncate">Conversación</h4><p id="dm-thread-status" class="text-[11px] text-slate-400" role="status">Conectando…</p></div>
-                        <button type="button" onclick="closeDirectConversation()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs">Cerrar</button>
+                        <div class="flex min-w-0 items-center gap-3">
+                            <div id="dm-thread-avatar" class="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-slate-700 bg-slate-800 flex items-center justify-center text-lg">🎮</div>
+                            <div class="min-w-0"><h4 id="dm-thread-title" class="font-bold text-sm truncate">Conversación</h4><p id="dm-thread-status" class="text-[11px] text-slate-400" role="status">Conectando…</p></div>
+                        </div>
+                        <button type="button" onclick="closeDirectConversation()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs">Volver</button>
                     </div>
-                    <div id="dm-messages" class="h-72 overflow-y-auto space-y-2 py-2" aria-live="polite"></div>
+                    <div id="dm-messages" class="h-[min(58vh,520px)] overflow-y-auto space-y-3 rounded-xl bg-slate-950/65 px-3 py-3" aria-live="polite"></div>
                     <p id="dm-typing-status" class="min-h-4 text-[11px] text-slate-400" aria-live="polite"></p>
                     <form id="dm-send-form" class="flex gap-2 border-t border-slate-800 pt-3">
                         <input id="dm-message-input" maxlength="2000" required autocomplete="off" class="min-w-0 flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-sm text-white" placeholder="Escribí un mensaje…">
@@ -2111,20 +2114,20 @@
             if (!container) return;
             const own = String(message.senderId) === String(appState.profile && appState.profile.id);
             const item = document.createElement('article');
-            item.className = 'max-w-[88%] rounded-2xl px-3 py-2 ' + (own ? 'ml-auto bg-orange-500/15 border border-orange-500/20' : 'mr-auto bg-slate-800/80');
+            item.className = 'flex max-w-[84%] flex-col rounded-2xl px-3.5 py-2.5 shadow-sm ' + (own ? 'ml-auto rounded-br-md border border-orange-400/25 bg-gradient-to-br from-orange-500/20 to-rose-500/10' : 'mr-auto rounded-bl-md border border-slate-700/80 bg-slate-800/95');
             item.dataset.messageId = String(message.id);
             item.dataset.senderId = String(message.senderId || '');
             const heading = document.createElement('p');
-            heading.className = 'text-[10px] text-slate-400 mb-1';
+            heading.className = 'mb-1 text-[10px] font-semibold text-slate-400';
             heading.textContent = (own ? 'Vos' : '@' + (message.senderUsername || activeDirectParticipant?.username || 'jugador')) + ' · ' +
                 (message.createdAt ? new Date(message.createdAt).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : 'ahora');
             const body = document.createElement('p');
-            body.className = 'text-sm text-slate-100 whitespace-pre-wrap break-words';
+            body.className = 'text-[13px] leading-5 text-slate-100 whitespace-pre-wrap break-words';
             body.textContent = String(message.body || '');
             item.append(heading, body);
             if (own) {
                 const delivery = document.createElement('p');
-                delivery.className = 'text-[10px] text-right text-slate-400 mt-1';
+                delivery.className = 'mt-1 text-right text-[10px] font-medium text-orange-200/70';
                 delivery.dataset.messageStatus = 'true';
                 delivery.textContent = message.readAt ? '✓✓ Leído' : '✓ Enviado';
                 item.appendChild(delivery);
@@ -2220,8 +2223,17 @@
             const title = document.getElementById('dm-thread-title');
             const status = document.getElementById('dm-thread-status');
             const messages = document.getElementById('dm-messages');
+            const avatar = document.getElementById('dm-thread-avatar');
             panel.classList.remove('hidden');
             title.textContent = participant.displayName || '@' + participant.username;
+            avatar.replaceChildren();
+            if (participant.avatarUrl) {
+                const image = document.createElement('img');
+                image.src = participant.avatarUrl;
+                image.alt = '';
+                image.className = 'h-full w-full object-cover';
+                avatar.appendChild(image);
+            } else avatar.textContent = '🎮';
             status.textContent = 'Cargando historial…';
             messages.replaceChildren();
             try {
