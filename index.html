@@ -495,7 +495,7 @@
                     <section id="game-detail-panel" class="hidden space-y-4 rounded-2xl border border-orange-500/25 bg-slate-900/95 p-4" aria-live="polite">
                         <div class="flex items-center justify-between gap-3"><button type="button" onclick="closeGameDetail()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-200">← Volver al catálogo</button><span id="game-detail-category" class="text-[10px] font-bold uppercase tracking-wider text-orange-300"></span></div>
                         <div class="flex items-center gap-3"><img id="game-detail-art" src="/assets/games/minecraft.svg" alt="" class="h-20 w-20 rounded-xl object-cover"><div class="min-w-0"><h3 id="game-detail-title" class="text-xl font-black text-white"></h3><p id="game-detail-description" class="mt-1 text-xs leading-relaxed text-slate-400"></p></div></div>
-                        <div class="grid grid-cols-2 gap-2"><button id="game-detail-live-action" type="button" class="rounded-xl bg-rose-500/15 px-3 py-3 text-xs font-black text-rose-200">Ver directos</button><button id="game-detail-stream-action" type="button" class="rounded-xl bg-orange-500 px-3 py-3 text-xs font-black text-slate-950">Preparar transmisión</button></div>
+                        <div class="grid grid-cols-2 gap-2"><button id="game-detail-live-action" type="button" class="rounded-xl bg-rose-500/15 px-3 py-3 text-xs font-black text-rose-200">Ver directos</button><button id="game-detail-stream-action" type="button" class="rounded-xl bg-orange-500 px-3 py-3 text-xs font-black text-slate-950">Preparar transmisión</button></div><button id="game-detail-clubs-action" type="button" class="w-full rounded-xl border border-slate-700 px-3 py-3 text-xs font-bold text-slate-200">Buscar clubs de este juego</button>
                         <div><div class="mb-2 flex items-center justify-between"><h4 class="text-sm font-black text-white">Directos de este juego</h4><button type="button" onclick="loadGameDetailStreams()" class="text-[10px] font-bold text-orange-300">Actualizar</button></div><p id="game-detail-stream-status" class="text-xs text-slate-400" role="status">Cargando directos…</p><div id="game-detail-streams" class="space-y-2"></div></div>
                         <p class="text-[10px] leading-relaxed text-slate-500">La ficha reúne transmisiones publicadas en PLAYVERSE. No instala ni inicia el juego y no garantiza compatibilidad de captura en todos los dispositivos.</p>
                     </section>
@@ -1872,7 +1872,17 @@ const GAME_CATALOG_DETAILS = {
             art.alt = 'Ilustración de ' + game.name;
             document.getElementById('game-detail-live-action').onclick = () => openGameDirects(key);
             document.getElementById('game-detail-stream-action').onclick = () => selectGameForStream(game.name);
+            document.getElementById('game-detail-clubs-action').onclick = openGameDetailClubs;
             loadGameDetailStreams();
+        }
+
+        function openGameDetailClubs() {
+            const game = GAME_CATALOG_DETAILS[activeGameDetailKey];
+            if (!game) return;
+            switchTab('clubs');
+            const search = document.getElementById('club-search');
+            if (search) search.value = game.name;
+            loadClubs(game.name);
         }
 
         function closeGameDetail() {
