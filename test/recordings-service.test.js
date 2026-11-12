@@ -66,6 +66,6 @@ test('room recording start and stop call only validated LiveKit Egress operation
   assert.equal(started.egressId, 'EG_abc123');
   assert.equal(stopped.status, 'EGRESS_ENDING');
   assert.equal(calls[0].options.layout, 'grid');
-  assert.throws(() => stopRoomRecording({ egressClient, egressId: 'invalid' }));
+  await assert.rejects(stopRoomRecording({ egressClient, egressId: 'invalid' }));
   await assert.rejects(startRoomRecording({ egressClient, roomName: 'invalid', output: {} }));
 });
