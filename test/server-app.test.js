@@ -193,6 +193,50 @@ test('report submission requires an authenticated account', async () => {
   });
 });
 
+test('live chat message reports require authentication', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        targetType: 'stream_message',
+        targetId: '507f1f77bcf86cd799439011',
+        reason: 'other',
+        details: 'Mensaje abusivo'
+      })
+    });
+    assert.equal(response.status, 401);
+  });
+});
+
+test('live chat message reports reject malformed target identifiers before database access', async () => {
+  const jwt = require('jsonwebtoken');
+  const mongoose = require('mongoose');
+  const token = jwt.sign({
+    sub: new mongoose.Types.ObjectId().toString(),
+    username: 'ordinary_player',
+    role: 'user'
+  }, process.env.JWT_SECRET, {
+    algorithm: 'HS256',
+    expiresIn: '5m',
+    issuer: 'playverse-api',
+    audience: 'playverse-clients'
+  });
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/reports', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        targetType: 'stream_message',
+        targetId: 'not-an-object-id',
+        reason: 'other',
+        details: ''
+      })
+    });
+    assert.equal(response.status, 400);
+  });
+});
+
 test('ordinary accounts cannot read the moderator report queue', async () => {
   const jwt = require('jsonwebtoken');
   const mongoose = require('mongoose');
