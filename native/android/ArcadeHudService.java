@@ -27,6 +27,7 @@ public class ArcadeHudService extends Service {
     public static final String ACTION_MICROPHONE_STOP = "com.playverse.app.hud.MICROPHONE_STOP";
     public static final String ACTION_CAMERA_START = "com.playverse.app.hud.CAMERA_START";
     public static final String ACTION_CAMERA_STOP = "com.playverse.app.hud.CAMERA_STOP";
+    public static final String ACTION_CHAT_UPDATE = "com.playverse.app.hud.CHAT_UPDATE";
     private static final String CHANNEL_ID = "playverse_hud";
     private static final int NOTIFICATION_ID = 7411;
 
@@ -37,6 +38,8 @@ public class ArcadeHudService extends Service {
     private WindowManager windowManager;
     private View bubble;
     private View panel;
+    private TextView chatPreview;
+    private String chatPreviewText = "El chat del directo aparecerá acá cuando haya mensajes.";
     private WindowManager.LayoutParams bubbleParams;
     private WindowManager.LayoutParams panelParams;
 
@@ -76,6 +79,10 @@ public class ArcadeHudService extends Service {
         if (ACTION_MICROPHONE_STOP.equals(action)) microphoneActive = false;
         if (ACTION_CAMERA_START.equals(action)) cameraActive = true;
         if (ACTION_CAMERA_STOP.equals(action)) cameraActive = false;
+        if (ACTION_CHAT_UPDATE.equals(action) && intent != null) {
+            chatPreviewText = formatChatPreview(intent.getStringExtra("messages"));
+            if (chatPreview != null) chatPreview.setText(chatPreviewText);
+        }
         refreshForegroundTypes();
         if (!getSharedPreferences("arcade_hud", MODE_PRIVATE).getBoolean("hud_hidden", false)) showBubble();
         return START_STICKY;
@@ -183,6 +190,23 @@ public class ArcadeHudService extends Service {
         status.setPadding(0, 8, 0, 12);
         card.addView(status);
 
+        TextView chatHeading = new TextView(this);
+        chatHeading.setText("CHAT DEL DIRECTO");
+        chatHeading.setTextColor(Color.rgb(251, 146, 60));
+        chatHeading.setTextSize(10);
+        chatHeading.setTypeface(null, 1);
+        chatHeading.setPadding(0, 10, 0, 4);
+        card.addView(chatHeading);
+
+        chatPreview = new TextView(this);
+        chatPreview.setText(chatPreviewText);
+        chatPreview.setTextColor(Color.WHITE);
+        chatPreview.setTextSize(11);
+        chatPreview.setMaxLines(6);
+        chatPreview.setPadding(10, 8, 10, 8);
+        chatPreview.setBackground(makeBackground(Color.rgb(30, 41, 59), 12));
+        card.addView(chatPreview);
+
         Button returnButton = new Button(this);
         returnButton.setText("Abrir PLAYVERSE");
         returnButton.setOnClickListener(v -> {
@@ -197,7 +221,7 @@ public class ArcadeHudService extends Service {
         addActionButton(card, "Micrófono", "microphone_toggle");
         addActionButton(card, "Cámara", "camera_toggle");
         addActionButton(card, "Finalizar directo", "end_stream");
-        addActionButton(card, "Chat del directo", "stream_chat");
+        addActionButton(card, "Responder en PLAYVERSE", "stream_chat");
         addActionButton(card, "Chat", "chat");
         addActionButton(card, "Directos", "live");
         addActionButton(card, "Salas", "lobbies");
@@ -217,6 +241,27 @@ public class ArcadeHudService extends Service {
         panelParams.x = bubbleParams.x;
         panelParams.y = bubbleParams.y + 64;
         windowManager.addView(panel, panelParams);
+    }
+
+    private String formatChatPreview(String rawMessages) {
+        if (rawMessages == null || rawMessages.trim().isEmpty()) return "El chat del directo aparecerá acá cuando haya mensajes.";
+        try {
+            org.json.JSONArray messages = new org.json.JSONArray(rawMessages);
+            StringBuilder preview = new StringBuilder();
+            int start = Math.max(0, messages.length() - 6);
+            for (int i = start; i < messages.length(); i++) {
+                org.json.JSONObject item = messages.optJSONObject(i);
+                if (item == null) continue;
+                String username = item.optString("username", "Jugador");
+                String message = item.optString("message", "");
+                if (message.trim().isEmpty()) continue;
+                if (preview.length() > 0) preview.append("\n");
+                preview.append("@").append(username).append(": ").append(message);
+            }
+            return preview.length() == 0 ? "Todavía no hay mensajes." : preview.toString();
+        } catch (org.json.JSONException error) {
+            return "No se pudo actualizar la vista previa del chat.";
+        }
     }
 
     private void hideHud() {
