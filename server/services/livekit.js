@@ -34,7 +34,7 @@ function createRoomName() {
   return 'pv_' + crypto.randomUUID().replace(/-/g, '');
 }
 
-async function createParticipantToken({ config, identity, name, metadata, roomName, canPublish }) {
+async function createParticipantToken({ config, identity, name, metadata, roomName, canPublish, canPublishSources }) {
   const token = new AccessToken(config.apiKey, config.apiSecret, {
     identity,
     name,
@@ -48,7 +48,7 @@ async function createParticipantToken({ config, identity, name, metadata, roomNa
     canPublish: Boolean(canPublish),
     canSubscribe: true,
     canPublishData: Boolean(canPublish),
-    ...(Array.isArray(arguments) ? {} : {})
+    ...(Array.isArray(canPublishSources) && canPublishSources.length ? { canPublishSources } : {})
   });
   return token.toJwt();
 }
