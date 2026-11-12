@@ -2315,6 +2315,14 @@
                     action.disabled = club.isOwner;
                     action.addEventListener('click', () => club.isMember ? leaveClub(club.id) : joinClub(club.id));
                     card.append(top, description, owner, action);
+                    if (club.isOwner || club.isModerator) {
+                        const manageButton = document.createElement('button');
+                        manageButton.type = 'button';
+                        manageButton.className = 'w-full rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/5 px-3 py-2.5 text-[11px] font-bold text-fuchsia-200';
+                        manageButton.textContent = 'Administrar integrantes';
+                        manageButton.addEventListener('click', () => toggleClubMemberManager(club.id, card, club));
+                        card.appendChild(manageButton);
+                    }
                     if (club.isOwner) {
                         const ownerActions = document.createElement('div');
                         ownerActions.className = 'grid grid-cols-2 gap-2';
@@ -2337,6 +2345,84 @@
                 status.textContent = 'No se pudieron cargar los clubs: ' + error.message;
             }
         }
+        async function toggleClubMemberManager(clubId, card, club) {
+            const existing = card.querySelector('[data-club-member-manager]');
+            if (existing) { existing.remove(); return; }
+            const panel = document.createElement('section');
+            panel.dataset.clubMemberManager = 'true';
+            panel.className = 'space-y-2 rounded-xl border border-fuchsia-500/20 bg-slate-950/60 p-3';
+            const heading = document.createElement('h5');
+            heading.className = 'text-xs font-black text-white';
+            heading.textContent = 'Integrantes y permisos';
+            const status = document.createElement('p');
+            status.className = 'text-[11px] text-slate-400';
+            status.textContent = 'Cargando integrantes…';
+            const list = document.createElement('div');
+            list.className = 'space-y-2';
+            panel.append(heading, status, list);
+            card.appendChild(panel);
+            try {
+                const data = await apiRequest('/api/clubs/' + encodeURIComponent(clubId) + '/members');
+                const members = data.members || [];
+                list.replaceChildren();
+                if (!members.length) { status.textContent = 'No hay integrantes para mostrar.'; return; }
+                status.textContent = members.length + ' integrante(s).';
+                members.forEach(member => {
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center justify-between gap-2 rounded-lg border border-slate-800 p-2';
+                    const identity = document.createElement('div');
+                    identity.className = 'min-w-0';
+                    const username = document.createElement('p');
+                    username.className = 'truncate text-[11px] font-bold text-white';
+                    username.textContent = '@' + member.username;
+                    const role = document.createElement('p');
+                    role.className = 'text-[10px] text-slate-400';
+                    role.textContent = member.role === 'owner' ? 'Propietario' : member.role === 'moderator' ? 'Moderador' : 'Integrante';
+                    identity.append(username, role);
+                    row.appendChild(identity);
+                    if (member.role !== 'owner' && (club.isOwner || member.role === 'member')) {
+                        const actions = document.createElement('div');
+                        actions.className = 'flex shrink-0 flex-wrap justify-end gap-1';
+                        if (club.isOwner) {
+                            const roleButton = document.createElement('button');
+                            roleButton.type = 'button';
+                            roleButton.className = 'rounded border border-slate-700 px-2 py-1 text-[10px] text-slate-300';
+                            roleButton.textContent = member.role === 'moderator' ? 'Quitar mod' : 'Hacer mod';
+                            roleButton.addEventListener('click', () => updateClubMemberRole(clubId, member.userId, member.role === 'moderator' ? 'member' : 'moderator'));
+                            actions.appendChild(roleButton);
+                        }
+                        const removeButton = document.createElement('button');
+                        removeButton.type = 'button';
+                        removeButton.className = 'rounded border border-rose-500/30 px-2 py-1 text-[10px] text-rose-300';
+                        removeButton.textContent = 'Quitar';
+                        removeButton.addEventListener('click', () => removeClubMember(clubId, member.userId));
+                        actions.appendChild(removeButton);
+                        row.appendChild(actions);
+                    }
+                    list.appendChild(row);
+                });
+            } catch (error) { status.textContent = 'No se pudieron cargar los integrantes: ' + error.message; }
+        }
+
+        async function updateClubMemberRole(clubId, userId, role) {
+            try {
+                await apiRequest('/api/clubs/' + encodeURIComponent(clubId) + '/members/' + encodeURIComponent(userId) + '/role', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role })
+                });
+                await loadClubs(document.getElementById('club-search').value.trim());
+            } catch (error) { document.getElementById('clubs-status').textContent = error.message; }
+        }
+
+        async function removeClubMember(clubId, userId) {
+            if (!window.confirm('¿Quitar a este integrante del club?')) return;
+            try {
+                await apiRequest('/api/clubs/' + encodeURIComponent(clubId) + '/members/' + encodeURIComponent(userId), { method: 'DELETE' });
+                await loadClubs(document.getElementById('club-search').value.trim());
+            } catch (error) { document.getElementById('clubs-status').textContent = error.message; }
+        }
+
         function searchClubs(event) {
             event.preventDefault();
             loadClubs(document.getElementById('club-search').value.trim());
