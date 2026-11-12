@@ -2,9 +2,8 @@
 
 ## Development builds versus user updates
 
-- Ordinary source-code pushes run quality checks, but do not build an Android APK.
-- Android test APKs are built only when a maintainer manually starts the `PLAYVERSE Android build (manual)` workflow.
-- Test APK artifacts are not official releases and must not be distributed as production updates.
+- Pull requests targeting `main`, pushes to `main`, and manual workflow dispatches build a debug Android APK and a Windows NSIS installer as GitHub Actions artifacts.
+- These artifacts are short-lived test builds, not official releases; they are not signed with the production release identity and must not be presented as production updates.
 - User-facing releases are grouped into versioned milestones. Do not ask testers to reinstall for every small change.
 
 ## Versioning
@@ -36,4 +35,4 @@ A release is ready only after:
 
 ## Current status
 
-The repository currently has a manual debug-APK workflow. It is a test artifact, not a signed production release channel. The production signing key, Play Console listing, staged rollout, and in-app update experience have not yet been configured.
+The repository currently produces debug Android APK and Windows NSIS installer test artifacts through GitHub Actions. They can be used for controlled device testing, but they are not signed production releases. The production signing keys/certificate, Play Console listing, staged rollout, and in-app update experience have not yet been configured.
