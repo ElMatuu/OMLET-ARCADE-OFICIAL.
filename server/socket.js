@@ -7,7 +7,6 @@ const Block = require('./models/Block');
 const Conversation = require('./models/Conversation');
 const DirectMessage = require('./models/DirectMessage');
 const Friendship = require('./models/Friendship');
-const Block = require('./models/Block');
 const Notification = require('./models/Notification');
 const UserPresence = require('./models/UserPresence');
 
