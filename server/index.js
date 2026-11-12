@@ -3119,7 +3119,7 @@ app.post('/api/game-servers/:serverId/heartbeat', async (req, res, next) => {
       { new: true }
     ).select('-heartbeatTokenHash').lean();
     if (!server) return res.status(404).json({ success: false, message: 'Servidor no encontrado o token revocado.' });
-    const payload = serializeGameServer(server, server.owner);
+    const payload = serializeGameServer(server, null);
     if (httpServer.io) httpServer.io.emit('game_server_updated', payload);
     return res.json({ success: true, server: payload });
   } catch (error) { return next(error); }
@@ -3958,4 +3958,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { app, httpServer, start, shutdown };
+module.exports = { app, httpServer, start, shutdown, serializeGameServer };
