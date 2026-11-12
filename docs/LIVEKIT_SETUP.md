@@ -53,6 +53,10 @@ The browser source polls the authenticated-by-token public overlay endpoint and 
 
 The browser overlay is a separate composition layer. It does not alter the creator's camera/game source. Chat messages and gifts/donations are deliberately not displayed yet because their event sources and moderation/payment integrations are not connected. Their controls remain disabled rather than pretending to work.
 
+## Screen-share audio
+
+The creator's **Audio del sistema** preference is passed to LiveKit's `setScreenShareEnabled` capture options. When enabled, PLAYVERSE requests screen-share audio and asks the browser to include system audio among the available sources. Browser/device support is limited; the picker may omit audio or the capture may fail. The microphone remains a separate published track. This is not a system-wide audio mixer and does not guarantee capture of protected media or every app's sound.
+
 To verify: start a stream with a watermark, equip an overlay cosmetic, open the private URL in a browser, and confirm title, creator, watermark, skin and viewer count. End the stream and confirm the URL stops returning active overlay data.
 
 ## 6. Platform validation still required
