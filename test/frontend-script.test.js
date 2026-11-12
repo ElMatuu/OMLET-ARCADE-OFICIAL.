@@ -20,9 +20,9 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /function leaveClub\(/, 'Players must be able to leave clubs');
   assert.match(html, /function createClub\(/, 'Players must be able to create clubs');
   assert.match(html, /nav-btn-clubs/, 'The main navigation must expose Clubs');
-  assert.match(html, /id="arcade-home-title"/, 'The home screen must open on the PLAYVERSE Arcade hub');
+  assert.match(html, /id="home-live-title"/, 'The home screen must open on the Omlet Arcade live discovery');
   assert.match(html, /id="splash-screen"/, 'The app must render its launch screen before the main interface');
-  assert.match(html, /role="progressbar" aria-label="Cargando PLAYVERSE"/, 'The launch progress indicator must be accessible');
+  assert.match(html, /role="progressbar" aria-label="Cargando Omlet Arcade"/, 'The launch progress indicator must be accessible');
   assert.match(html, /if \(progress\) progress\.style\.width = '100%'/, 'The launch sequence must reach completion before dismissing the splash');
   assert.match(html, /splash\.style\.visibility = 'hidden'/, 'The splash must be dismissed after startup completes');
   assert.match(html, /new AbortController\(\)/, 'Startup session restoration must have an abortable network timeout');
@@ -38,10 +38,16 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /id="stream-overlay-layout"/, 'Creators must be able to choose an overlay layout');
   assert.match(html, /id="stream-welcome-message"/, 'Creators must be able to configure stream welcome messages');
   assert.match(html, /id="stream-farewell-message"/, 'Creators must be able to configure stream farewell messages');
-  assert.match(html, /overlayShowDonations: document\.getElementById\('stream-overlay-show-donations'\)\.checked/, 'Overlay donation panel preference must be persisted');
+  assert.match(html, /id="stream-overlay-show-donations"[^>]*disabled/, 'Donation controls must stay disabled until a real payments and gifts system exists');
+  assert.match(html, /overlayShowDonations: false/, 'Unavailable donation functionality must never be saved as enabled');
 
   assert.match(html, /function joinLiveStream\(/, 'Viewers must be able to join live streams from the UI');
   assert.match(html, /function toggleLiveScreenShare\(/, 'Creators must have a screen-sharing control');
+  assert.match(html, /function startLiveCompositeBroadcast\(/, 'The creator client must compose camera and screen into one outgoing video track');
+  assert.match(html, /canvas\.captureStream\(/, 'The composed camera and screen output must be captured from a canvas stream');
+  assert.match(html, /participant\.publishTrack\(outputTrack/, 'The composed video must be published to LiveKit for viewers');
+  assert.match(html, /function stopLiveCompositeBroadcast\(/, 'Stopping screen share must clean up the composite and restore the camera safely');
+  assert.match(html, /liveCompositeBroadcast\.animationFrame = animationFrame/, 'The active composite animation frame must be tracked so stopping the broadcast cancels it');
   assert.match(html, /RoomEvent\.ParticipantConnected/, 'Live viewers must update the connected participant count');
   assert.match(html, /live-player-participant-count/, 'The live player must expose participant synchronization status');
   assert.match(html, /RoomEvent\.AudioPlaybackStatusChanged/, 'The player must handle browser audio autoplay restrictions');

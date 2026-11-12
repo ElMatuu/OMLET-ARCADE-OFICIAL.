@@ -1,4 +1,4 @@
-name: PLAYVERSE CI
+name: Omlet Arcade CI
 
 on:
   push:
@@ -29,11 +29,11 @@ jobs:
       PLAYVERSE_TEST_MONGODB_URI: mongodb://127.0.0.1:27017/playverse_ci?replicaSet=rs0
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Initialize isolated MongoDB replica set

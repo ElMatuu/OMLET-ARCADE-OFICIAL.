@@ -6,27 +6,27 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
 
-test('PLAYVERSE installation identity is consistent across targets', () => {
+test('Omlet Arcade installation identity is consistent across targets', () => {
   const capacitor = JSON.parse(read('capacitor.config.json'));
   const manifest = JSON.parse(read('manifest.webmanifest'));
   const packageJson = JSON.parse(read('package.json'));
   const html = read('index.html');
-  assert.equal(capacitor.appName, 'PLAYVERSE');
-  assert.equal(manifest.name, 'PLAYVERSE');
-  assert.equal(manifest.short_name, 'PLAYVERSE');
-  assert.equal(packageJson.build.productName, 'PLAYVERSE');
-  assert.ok(html.includes('<title>PLAYVERSE</title>'));
-  assert.ok(html.includes('application-name" content="PLAYVERSE"'));
+  assert.equal(capacitor.appName, 'Omlet Arcade');
+  assert.equal(manifest.name, 'Omlet Arcade');
+  assert.equal(manifest.short_name, 'Omlet');
+  assert.equal(packageJson.build.productName, 'Omlet Arcade');
+  assert.ok(html.includes('<title>Omlet Arcade</title>'));
+  assert.ok(html.includes('application-name" content="Omlet Arcade"'));
 });
 
-test('one official vector logo is the source for Android and Windows native icons', () => {
-  const icon = read('assets/playverse-icon.svg');
+test('one Omlet Arcade vector mark is the source for Android and Windows native icons', () => {
+  const icon = read('assets/omlet-arcade-icon.svg');
   const generator = read('scripts/generate-icons.js');
   const androidSync = read('scripts/sync-android-brand.js');
   const manifest = JSON.parse(read('manifest.webmanifest'));
   const packageJson = JSON.parse(read('package.json'));
   assert.ok(icon.includes('viewBox="0 0 1024 1024"'));
-  assert.equal(manifest.icons[0].src, '/assets/playverse-icon.svg');
+  assert.equal(manifest.icons[0].src, '/assets/omlet-arcade-icon.svg');
   assert.ok(generator.includes('playverse-icon.ico'));
   assert.ok(generator.includes('ic_launcher.png'));
   assert.ok(androidSync.includes('android:icon'));

@@ -8,6 +8,10 @@ const Friendship = require('./models/Friendship');
 const Block = require('./models/Block');
 const Notification = require('./models/Notification');
 const UserPresence = require('./models/UserPresence');
+const LiveStream = require('./models/LiveStream');
+const LiveStreamMessage = require('./models/LiveStreamMessage');
+const User = require('./models/User');
+const Follow = require('./models/Follow');
 
 const PRESENCE_TTL_MS = 70 * 1000;
 
@@ -162,23 +166,44 @@ function attachSocketServer(httpServer, allowedOrigins) {
           readAt: null
         }).sort({ createdAt: 1, _id: 1 }).select('_id').lean();
         const readAt = new Date();
+        let markedReadCount = 0;
         if (unreadMessages.length) {
-          await DirectMessage.updateMany(
-            { conversation: conversationId, recipient: socket.user.sub, readAt: null },
+          const readResult = await DirectMessage.updateMany(
+            {
+              _id: { $in: unreadMessages.map((message) => message._id) },
+              conversation: conversationId,
+              recipient: socket.user.sub,
+              readAt: null
+            },
             { $set: { readAt } }
           );
-          await Conversation.updateOne(
-            { _id: conversationId },
-            { $set: { [String(conversation.participantA) === socket.user.sub ? 'unreadCountA' : 'unreadCountB']: 0 } }
-          );
-          io.to('dm:' + conversationId).emit('direct_messages_read', {
-            conversationId,
-            readerId: String(socket.user.sub),
-            throughMessageId: String(unreadMessages[unreadMessages.length - 1]._id),
-            readAt
-          });
+          markedReadCount = readResult.modifiedCount || 0;
+          if (markedReadCount > 0) {
+            const unreadField = String(conversation.participantA) === socket.user.sub ? 'unreadCountA' : 'unreadCountB';
+            await Conversation.updateOne(
+              { _id: conversationId },
+              [{
+                $set: {
+                  [unreadField]: {
+                    $max: [0, {
+                      $subtract: [
+                        { $ifNull: ['$' + unreadField, 0] },
+                        markedReadCount
+                      ]
+                    }]
+                  }
+                }
+              }]
+            );
+            io.to('dm:' + conversationId).emit('direct_messages_read', {
+              conversationId,
+              readerId: String(socket.user.sub),
+              throughMessageId: String(unreadMessages[unreadMessages.length - 1]._id),
+              readAt
+            });
+          }
         }
-        return acknowledge({ success: true, readCount: unreadMessages.length, readAt });
+        return acknowledge({ success: true, readCount: markedReadCount, readAt });
       } catch {
         return acknowledge({ success: false, message: 'No se pudieron marcar los mensajes como leídos.' });
       }
@@ -263,6 +288,142 @@ function attachSocketServer(httpServer, allowedOrigins) {
         return acknowledge({ success: true, message });
       } catch {
         return acknowledge({ success: false, message: 'No se pudo guardar el mensaje.' });
+      }
+    });
+
+    socket.on('join_stream_chat', async (payload, acknowledge = () => {}) => {
+      const streamId = payload && payload.streamId;
+      if (typeof streamId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(streamId)) {
+        return acknowledge({ success: false, message: 'Transmisión inválida.' });
+      }
+      try {
+        const stream = await LiveStream.findOne({ _id: streamId, status: 'live' }).select('owner').lean();
+        if (!stream) return acknowledge({ success: false, message: 'La transmisión ya no está disponible.' });
+        const isOwner = String(stream.owner) === String(socket.user.sub);
+        if (!isOwner) {
+          const blocked = await Block.exists({
+            $or: [
+              { blocker: socket.user.sub, blocked: stream.owner },
+              { blocker: stream.owner, blocked: socket.user.sub }
+            ]
+          });
+          if (blocked) return acknowledge({ success: false, message: 'No podés acceder al chat de esta transmisión.' });
+        }
+        await socket.join('streamchat:' + streamId);
+        const owner = await User.findById(stream.owner).select('streamingPreferences.whoCanChat streamingPreferences.chatRules').lean();
+        const whoCanChat = owner?.streamingPreferences?.whoCanChat || 'everyone';
+        let canChat = isOwner || whoCanChat === 'everyone';
+        if (!isOwner && whoCanChat === 'followers') {
+          canChat = Boolean(await Follow.exists({ follower: socket.user.sub, following: stream.owner }));
+        } else if (!isOwner && whoCanChat === 'friends') {
+          const pairKey = [String(socket.user.sub), String(stream.owner)].sort().join(':');
+          canChat = Boolean(await Friendship.exists({ pairKey, status: 'accepted' }));
+        } else if (!isOwner && whoCanChat === 'nobody') {
+          canChat = false;
+        }
+        return acknowledge({
+          success: true,
+          isOwner,
+          canChat,
+          whoCanChat,
+          chatRules: owner?.streamingPreferences?.chatRules || ''
+        });
+      } catch {
+        return acknowledge({ success: false, message: 'No se pudo validar el acceso al chat.' });
+      }
+    });
+
+    socket.on('send_stream_chat_message', async (payload, acknowledge = () => {}) => {
+      const streamId = payload && payload.streamId;
+      const body = typeof (payload && payload.message) === 'string' ? payload.message.trim() : '';
+      if (typeof streamId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(streamId) ||
+          !body || body.length > 500 || !socket.rooms.has('streamchat:' + streamId)) {
+        return acknowledge({ success: false, message: 'Mensaje o transmisión inválidos.' });
+      }
+      const now = Date.now();
+      if (now - messageWindowStart >= 60 * 1000) {
+        messageWindowStart = now;
+        messageCount = 0;
+      }
+      if (messageCount >= 30) {
+        return acknowledge({ success: false, message: 'Límite de mensajes alcanzado. Probá en un minuto.' });
+      }
+      messageCount += 1;
+      try {
+        const stream = await LiveStream.findOne({ _id: streamId, status: 'live' }).select('owner').lean();
+        if (!stream) {
+          await socket.leave('streamchat:' + streamId);
+          return acknowledge({ success: false, message: 'La transmisión finalizó.' });
+        }
+        const isOwner = String(stream.owner) === String(socket.user.sub);
+        if (!isOwner) {
+          const [blocked, owner] = await Promise.all([
+            Block.exists({
+              $or: [
+                { blocker: socket.user.sub, blocked: stream.owner },
+                { blocker: stream.owner, blocked: socket.user.sub }
+              ]
+            }),
+            User.findById(stream.owner).select('streamingPreferences.whoCanChat').lean()
+          ]);
+          if (blocked) {
+            await socket.leave('streamchat:' + streamId);
+            return acknowledge({ success: false, message: 'No podés participar en este chat.' });
+          }
+          const access = owner?.streamingPreferences?.whoCanChat || 'everyone';
+          if (access === 'nobody') return acknowledge({ success: false, message: 'El creador cerró el chat.' });
+          if (access === 'followers') {
+            const follows = await Follow.exists({ follower: socket.user.sub, following: stream.owner });
+            if (!follows) return acknowledge({ success: false, message: 'Solo pueden escribir los seguidores del creador.' });
+          }
+          if (access === 'friends') {
+            const pairKey = [String(socket.user.sub), String(stream.owner)].sort().join(':');
+            const friendship = await Friendship.exists({ pairKey, status: 'accepted' });
+            if (!friendship) return acknowledge({ success: false, message: 'Solo pueden escribir los amigos del creador.' });
+          }
+        }
+        const saved = await LiveStreamMessage.create({
+          stream: stream._id,
+          author: socket.user.sub,
+          username: socket.user.username,
+          message: body
+        });
+        const message = {
+          id: String(saved._id),
+          streamId,
+          authorId: String(socket.user.sub),
+          username: saved.username,
+          message: saved.message,
+          createdAt: saved.createdAt
+        };
+        io.to('streamchat:' + streamId).emit('receive_stream_chat_message', message);
+        return acknowledge({ success: true, message });
+      } catch {
+        return acknowledge({ success: false, message: 'No se pudo guardar el mensaje del directo.' });
+      }
+    });
+
+    socket.on('moderate_stream_chat_message', async (payload, acknowledge = () => {}) => {
+      const streamId = payload && payload.streamId;
+      const messageId = payload && payload.messageId;
+      if (typeof streamId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(streamId) ||
+          typeof messageId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(messageId) ||
+          !socket.rooms.has('streamchat:' + streamId)) {
+        return acknowledge({ success: false, message: 'Solicitud de moderación inválida.' });
+      }
+      try {
+        const stream = await LiveStream.findOne({ _id: streamId, owner: socket.user.sub, status: 'live' }).select('_id').lean();
+        if (!stream) return acknowledge({ success: false, message: 'Solo el creador puede moderar este chat.' });
+        const removed = await LiveStreamMessage.findOneAndUpdate(
+          { _id: messageId, stream: stream._id, status: 'visible' },
+          { $set: { status: 'deleted', message: '[Mensaje eliminado por moderación]' } },
+          { new: true }
+        ).select('_id').lean();
+        if (!removed) return acknowledge({ success: false, message: 'El mensaje ya no está disponible.' });
+        io.to('streamchat:' + streamId).emit('stream_chat_message_moderated', { streamId, messageId });
+        return acknowledge({ success: true });
+      } catch {
+        return acknowledge({ success: false, message: 'No se pudo moderar el mensaje.' });
       }
     });
 

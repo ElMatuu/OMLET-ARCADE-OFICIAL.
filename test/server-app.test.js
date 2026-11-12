@@ -6,7 +6,7 @@ process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017/playverse_test_only';
 process.env.JWT_SECRET = 'playverse-test-secret-with-at-least-32-characters';
 process.env.CORS_ORIGIN = 'https://playverse-test.example';
 
-const { app, httpServer } = require('../server/index');
+const { app, httpServer, serializeGameServer, normalizePublicServerAddress } = require('../server/index');
 
 async function withServer(run) {
   const server = http.createServer(app);
@@ -21,6 +21,41 @@ async function withServer(run) {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
 }
+
+test('public game server address validation rejects non-public IPv4 ranges without blocking valid public ranges', () => {
+  for (const address of [
+    '0.0.0.1', '10.0.0.1', '100.64.0.1', '127.0.0.1', '169.254.1.1',
+    '172.16.0.1', '192.0.0.8', '192.0.2.10', '192.168.1.1',
+    '198.18.0.1', '198.51.100.10', '203.0.113.10', '224.0.0.1', '240.0.0.1',
+    '999.1.1.1'
+  ]) assert.equal(normalizePublicServerAddress(address), null, address);
+  assert.equal(normalizePublicServerAddress('8.8.8.8'), '8.8.8.8');
+  assert.equal(normalizePublicServerAddress('192.2.0.8'), '192.2.0.8');
+  assert.equal(normalizePublicServerAddress('play.example.net'), 'play.example.net');
+});
+
+test('heartbeat server payload never grants the owner UI flag to token-authenticated agents', () => {
+  const server = {
+    _id: '507f1f77bcf86cd799439011',
+    owner: '507f191e810c19729de860ea',
+    name: 'Community server',
+    game: 'Minecraft',
+    edition: 'java',
+    address: 'play.example.net',
+    port: 25565,
+    description: '',
+    region: '',
+    version: '1.21.1',
+    ownerUsername: 'Owner',
+    playerCount: 2,
+    maxPlayers: 20,
+    isOnline: true,
+    lastHeartbeatAt: new Date(),
+  };
+  const payload = serializeGameServer(server, null);
+  assert.equal(payload.isOwner, false);
+  assert.equal(serializeGameServer(server, server.owner).isOwner, true);
+});
 
 test('importing the API does not connect to MongoDB or start a listener', () => {
   const mongoose = require('mongoose');
@@ -76,6 +111,65 @@ test('clubs discovery and creation endpoints require an authenticated account', 
       body: JSON.stringify({ name: 'Club de prueba', game: 'Minecraft' })
     });
     assert.equal(create.status, 401);
+  });
+});
+
+
+test('game server heartbeat rejects non-boolean online status before database access', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/game-servers/507f1f77bcf86cd799439011/heartbeat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Server-Token': 'T'.repeat(43)
+      },
+      body: JSON.stringify({ playerCount: 0, maxPlayers: 20, isOnline: 'false' })
+    });
+    const body = await response.json();
+    assert.equal(response.status, 400);
+    assert.equal(body.success, false);
+  });
+});
+
+test('game server heartbeat rejects null and non-object JSON bodies without a server error', async () => {
+  await withServer(async (baseUrl) => {
+    for (const body of ['null', '[]', '"invalid"']) {
+      const response = await fetch(baseUrl + '/api/game-servers/507f1f77bcf86cd799439011/heartbeat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Server-Token': 'T'.repeat(43)
+        },
+        body
+      });
+      const payload = await response.json();
+      assert.equal(response.status, 400, 'body ' + body + ' should be rejected as a client error');
+      assert.equal(payload.success, false);
+    }
+  });
+});
+
+test('game server heartbeat rejects coerced or non-numeric player metrics', async () => {
+  await withServer(async (baseUrl) => {
+    const invalidMetrics = [
+      { playerCount: null, maxPlayers: 20, isOnline: true },
+      { playerCount: '0', maxPlayers: 20, isOnline: true },
+      { playerCount: 0, maxPlayers: '20', isOnline: true },
+      { playerCount: false, maxPlayers: 20, isOnline: true }
+    ];
+    for (const payload of invalidMetrics) {
+      const response = await fetch(baseUrl + '/api/game-servers/507f1f77bcf86cd799439011/heartbeat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Server-Token': 'T'.repeat(43)
+        },
+        body: JSON.stringify(payload)
+      });
+      const body = await response.json();
+      assert.equal(response.status, 400);
+      assert.equal(body.success, false);
+    }
   });
 });
 
@@ -162,6 +256,65 @@ test('creator streaming preferences remain protected by authentication', async (
       body: JSON.stringify({ resolution: '2160p', fps: 60 })
     });
     assert.equal(write.status, 401);
+  });
+});
+
+test('profile publication history rejects malformed pagination cursors before database access', async () => {
+  const jwt = require('jsonwebtoken');
+  const mongoose = require('mongoose');
+  const token = jwt.sign({
+    sub: new mongoose.Types.ObjectId().toString(),
+    username: 'profile_reader',
+    role: 'user'
+  }, process.env.JWT_SECRET, {
+    algorithm: 'HS256',
+    expiresIn: '5m',
+    issuer: 'playverse-api',
+    audience: 'playverse-clients'
+  });
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/me/posts?cursor=not-a-valid-cursor', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    const body = await response.json();
+    assert.equal(response.status, 400);
+    assert.equal(body.success, false);
+  });
+});
+
+test('achievement progress endpoint requires an authenticated account', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/me/achievements');
+    const body = await response.json();
+    assert.equal(response.status, 401);
+    assert.equal(body.success, false);
+  });
+});
+
+test('public player achievements require an authenticated account', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/users/example_player/achievements');
+    const body = await response.json();
+    assert.equal(response.status, 401);
+    assert.equal(body.success, false);
+  });
+});
+
+test('trophy claim endpoint requires an authenticated account', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/me/achievements/first-post/claim', { method: 'POST' });
+    const body = await response.json();
+    assert.equal(response.status, 401);
+    assert.equal(body.success, false);
+  });
+});
+
+test('first purchase experience reward endpoints require an authenticated account', async () => {
+  await withServer(async (baseUrl) => {
+    const read = await fetch(baseUrl + '/api/me/experience-rewards');
+    assert.equal(read.status, 401);
+    const claim = await fetch(baseUrl + '/api/me/experience-rewards/first-purchase/claim', { method: 'POST' });
+    assert.equal(claim.status, 401);
   });
 });
 

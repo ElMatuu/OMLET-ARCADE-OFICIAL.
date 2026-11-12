@@ -1,6 +1,6 @@
 {
   "appId": "com.playverse.app",
-  "appName": "PLAYVERSE",
+  "appName": "Omlet Arcade",
   "webDir": "www",
   "bundledWebRuntime": false,
   "server": {

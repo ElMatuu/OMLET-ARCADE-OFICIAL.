@@ -52,6 +52,13 @@ async function createParticipantToken({ config, identity, name, metadata, roomNa
   return token.toJwt();
 }
 
+function isLiveKitVideoTrack(track) {
+  if (!track || typeof track !== 'object') return false;
+  const type = typeof track.type === 'string' ? track.type.toUpperCase() : '';
+  const kind = typeof track.kind === 'string' ? track.kind.toUpperCase() : '';
+  return type === 'VIDEO' || kind === 'VIDEO';
+}
+
 function createWebhookReceiver(config) {
   return new WebhookReceiver(config.apiKey, config.apiSecret);
 }
@@ -70,5 +77,6 @@ module.exports = {
   createWebhookReceiver,
   createRoomName,
   getLiveKitConfig,
-  isLiveKitConfigured
+  isLiveKitConfigured,
+  isLiveKitVideoTrack
 };

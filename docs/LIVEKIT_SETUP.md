@@ -1,4 +1,4 @@
-# PLAYVERSE — LiveKit setup and validation
+# Omlet Arcade — LiveKit setup and validation
 
 This guide configures the live video service. The repository contains the backend session APIs and web client integration, but streams remain disabled until a real LiveKit project is configured.
 
@@ -8,9 +8,9 @@ This guide configures the live video service. The repository contains the backen
 2. Copy the project's WebSocket URL, API key and API secret.
 3. Keep the API secret private. Never paste it into GitHub source files, frontend code, issue comments or chat messages.
 
-## 2. Configure the PLAYVERSE API
+## 2. Configure the API de Omlet Arcade
 
-In the hosting provider's environment settings for the PLAYVERSE API service, add:
+In the hosting provider's environment settings for the API de Omlet Arcade service, add:
 
 - `LIVEKIT_URL`: the project's secure WebSocket URL, normally `wss://<project>.livekit.cloud`.
 - `LIVEKIT_API_KEY`: the API key from the LiveKit project.
@@ -26,17 +26,17 @@ In LiveKit Cloud, add a webhook destination:
 
 `https://<your-playverse-api-domain>/api/webhooks/livekit`
 
-Subscribe to the `room_finished` event. The endpoint verifies the LiveKit Authorization signature using the server-only API key and secret and marks the matching PLAYVERSE stream as ended. It requires the raw request body and must remain reachable over HTTPS.
+Subscribe to the `track_published` and `room_finished` events. The API keeps a new session in `starting` and only lists it as live after LiveKit reports a published video track. A room-finished event ends either a starting or live session. The endpoint verifies the LiveKit Authorization signature using the server-only API key and secret and marks the matching transmisión de Omlet Arcade as ended. It requires the raw request body and must remain reachable over HTTPS.
 
 ## 4. Validate the real flow
 
-1. Sign in to PLAYVERSE with a creator account.
+1. Sign in to Omlet Arcade con a creator account.
 2. Open **En Vivo**, enter a title and start a stream.
 3. Allow camera and microphone permissions when the browser or desktop app requests them.
 4. From a second account/device, open **En Vivo** and join the published stream.
 5. Verify remote video and audio, then test mute, camera toggle and screen sharing where supported.
 6. End the stream from the creator account.
-7. Confirm the viewer disconnects, the LiveKit room closes, the signed webhook marks the session ended and the stream disappears from the active catalog.
+7. Confirm the viewer disconnects, the LiveKit room closes, the signed webhook marks the session ended and the stream disappears from the active catalog. Before a video track is published, the stream must remain in preparation and must not appear in public discovery.
 
 The API issues role-scoped participant tokens that expire after **10 minutes**; publisher and viewer permissions are restricted to the requested room. Clients must request a fresh token when a new session is needed. The API returns a clear `503 LIVE_STREAMING_NOT_CONFIGURED` response until all three server environment variables are valid.
 
@@ -48,3 +48,12 @@ The API issues role-scoped participant tokens that expire after **10 minutes**; 
 - **Operations:** verify webhook delivery/retries, room cleanup, provider region, quotas, billing, monitoring and load behavior before public launch.
 
 A successful code build or GitHub Actions run does not prove that a LiveKit project is configured or that real devices can stream. Do not announce streaming as production-ready until the complete flow above has been exercised on real devices.
+
+
+## Android native game capture (MediaProjection)
+
+The Android build generator creates a Capacitor `NativeScreenShare` plugin backed by LiveKit Android SDK 2.30.0. The creator first requests a short-lived publisher token from `POST /api/streams/:streamId/token`, then the native plugin launches `MediaProjectionManager.createScreenCaptureIntent()`. Only after the player accepts Android's system confirmation does the plugin connect a separate publisher participant and call `LocalParticipant.setScreenShareEnabled(true, ScreenCaptureParams(resultData))`.
+
+The Android manifest must include `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PROJECTION`, and the LiveKit `ScreenCaptureService` declared with `android:foregroundServiceType="mediaProjection"`. The screen-share foreground notification is controlled by the SDK. Stopping capture unpublishes the screen track, disconnects the dedicated native participant, and releases its room.
+
+The browser/desktop flow continues to use LiveKit JS `setScreenShareEnabled`; Android uses the native plugin and must not fall back to WebView display capture. Android system audio capture is not included in this first native bridge; only the video track is published. Validate on a physical Android device, including app-switching into a game, notification visibility, user cancellation, stop, and reconnect before treating the feature as production-ready.

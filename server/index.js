@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const http = require('http');
+const net = require('node:net');
 const crypto = require('node:crypto');
 const path = require('node:path');
 const express = require('express');
@@ -28,16 +29,19 @@ const Report = require('./models/Report');
 const Notification = require('./models/Notification');
 const UserPresence = require('./models/UserPresence');
 const LiveStream = require('./models/LiveStream');
+const LiveStreamMessage = require('./models/LiveStreamMessage');
 const Conversation = require('./models/Conversation');
 const DirectMessage = require('./models/DirectMessage');
 const Inventory = require('./models/Inventory');
 const TokenTransaction = require('./models/TokenTransaction');
 const MissionClaim = require('./models/MissionClaim');
+const UserAchievement = require('./models/UserAchievement');
+const { ACHIEVEMENTS } = require('./data/achievementCatalog');
 const { STORE_CATALOG } = require('./data/storeCatalog');
 const { AVATAR_CATALOG, AVATAR_BY_ID } = require('./data/avatarCatalog');
 const { requireAuth } = require('./middleware/auth');
 const { attachSocketServer } = require('./socket');
-const { createLiveKitApi, createParticipantToken, createRoomName, createWebhookReceiver, getLiveKitConfig } = require('./services/livekit');
+const { createLiveKitApi, createParticipantToken, createRoomName, createWebhookReceiver, getLiveKitConfig, isLiveKitVideoTrack } = require('./services/livekit');
 
 const app = express();
 // Render terminates the public connection in one trusted proxy hop.
@@ -102,10 +106,16 @@ app.post('/api/webhooks/livekit', express.raw({ type: 'application/webhook+json'
     return res.status(401).json({ success: false, message: 'Firma de webhook inválida.' });
   }
   try {
+    if (event.event === 'track_published' && event.room && event.room.name && isLiveKitVideoTrack(event.track)) {
+      await LiveStream.updateOne(
+        { roomName: event.room.name, status: 'starting' },
+        { $set: { status: 'live' } }
+      );
+    }
     if (event.event === 'room_finished' && event.room && event.room.name) {
       await LiveStream.updateOne(
-        { roomName: event.room.name, status: 'live' },
-        { $set: { status: 'ended', endedAt: new Date() } }
+        { roomName: event.room.name, status: { $in: ['starting', 'live'] } },
+        { $set: { status: 'ended', endedAt: new Date() }, $unset: { activeOwner: 1 } }
       );
     }
     return res.status(200).json({ success: true });
@@ -243,7 +253,7 @@ app.get('/api/streams', async (req, res, next) => {
   try {
     const streams = await LiveStream.find({ status: 'live' })
       .sort({ startedAt: -1 }).limit(50)
-      .select('ownerUsername title description startedAt').lean();
+      .select('ownerUsername title game description startedAt').lean();
     return res.json({
       success: true,
       streamingEnabled: Boolean(getLiveKitConfig()),
@@ -251,9 +261,47 @@ app.get('/api/streams', async (req, res, next) => {
         id: String(stream._id),
         creator: stream.ownerUsername,
         title: stream.title,
+        game: stream.game || 'Otro',
         description: stream.description,
         startedAt: stream.startedAt
       }))
+    });
+  } catch (error) { return next(error); }
+});
+
+app.get('/api/streams/:streamId/messages', requireAuth, streamLimiter, async (req, res, next) => {
+  try {
+    if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
+    const stream = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' })
+      .select('owner').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
+    const isOwner = String(stream.owner) === String(req.auth.sub);
+    if (!isOwner) {
+      const blocked = await Block.exists({
+        $or: [
+          { blocker: req.auth.sub, blocked: stream.owner },
+          { blocker: stream.owner, blocked: req.auth.sub }
+        ]
+      });
+      if (blocked) return res.status(403).json({ success: false, message: 'No podés acceder al chat de esta transmisión.' });
+    }
+    const rawLimit = req.query.limit === undefined ? 50 : Number(req.query.limit);
+    if (!Number.isInteger(rawLimit) || rawLimit < 1 || rawLimit > 100) {
+      return res.status(400).json({ success: false, message: 'El límite debe estar entre 1 y 100.' });
+    }
+    const [messages, owner] = await Promise.all([
+      LiveStreamMessage.find({ stream: stream._id, status: 'visible' })
+        .sort({ createdAt: -1, _id: -1 }).limit(rawLimit)
+        .select('author username message createdAt').lean(),
+      User.findById(stream.owner).select('streamingPreferences.chatRules').lean()
+    ]);
+    return res.json({
+      success: true,
+      messages: messages.reverse().map((item) => ({
+        id: String(item._id), authorId: String(item.author), username: item.username,
+        message: item.message, createdAt: item.createdAt
+      })),
+      chatRules: owner?.streamingPreferences?.chatRules || ''
     });
   } catch (error) { return next(error); }
 });
@@ -269,10 +317,11 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
     const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
     const title = typeof body.title === 'string' ? body.title.trim() : '';
     const description = typeof body.description === 'string' ? body.description.trim() : '';
-    if (!title || title.length > 100 || description.length > 500) {
+    const game = typeof body.game === 'string' ? body.game.trim() : '';
+    if (!title || title.length > 100 || description.length > 500 || !game || game.length > 60) {
       return res.status(400).json({ success: false, message: 'El título es obligatorio (máximo 100 caracteres) y la descripción admite hasta 500.' });
     }
-    const existingStream = await LiveStream.findOne({ owner: req.auth.sub, status: 'live' }).select('_id title').lean();
+    const existingStream = await LiveStream.findOne({ owner: req.auth.sub, status: { $in: ['starting', 'live'] } }).select('_id title status').lean();
     if (existingStream) return res.status(409).json({
       success: false,
       code: 'ACTIVE_STREAM_EXISTS',
@@ -287,12 +336,14 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
     const liveKit = createLiveKitApi(config);
     const session = await LiveStream.create({
       owner: req.auth.sub,
+      activeOwner: req.auth.sub,
       ownerUsername: user.username,
       title,
+      game,
       description,
       roomName,
       overlayTokenHash,
-      status: 'live'
+      status: 'starting'
     });
     try {
       await liveKit.room.createRoom({ name: roomName, emptyTimeout: 60, maxParticipants: 100 });
@@ -307,7 +358,7 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
       });
       return res.status(201).json({
         success: true,
-        stream: { id: String(session._id), title: session.title, description: session.description, status: session.status, startedAt: session.startedAt },
+        stream: { id: String(session._id), title: session.title, game: session.game, description: session.description, status: session.status, startedAt: session.startedAt },
         liveKit: { url: config.clientUrl, token, role: 'publisher', expiresInSeconds: 600 },
         overlay: { url: req.protocol + '://' + req.get('host') + '/overlay/' + overlayAccessToken, refreshIntervalMs: 5000 }
       });
@@ -335,9 +386,10 @@ app.post('/api/streams/:streamId/token', requireAuth, streamLimiter, async (req,
   });
   try {
     if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
-    const session = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).lean();
+    const session = await LiveStream.findOne({ _id: req.params.streamId, status: { $in: ['starting', 'live'] } }).lean();
     if (!session) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
     const isOwner = String(session.owner) === String(req.auth.sub);
+    if (!isOwner && session.status !== 'live') return res.status(425).json({ success: false, code: 'STREAM_NOT_LIVE', message: 'El creador todavía está preparando la emisión. Probá de nuevo en unos segundos.' });
     if (!isOwner) {
       const blocked = await Block.exists({
         $or: [
@@ -361,7 +413,7 @@ app.post('/api/streams/:streamId/token', requireAuth, streamLimiter, async (req,
     });
     return res.json({
       success: true,
-      stream: { id: String(session._id), title: session.title, creator: session.ownerUsername, status: session.status },
+      stream: { id: String(session._id), title: session.title, game: session.game || 'Otro', creator: session.ownerUsername, status: session.status },
       liveKit: { url: config.clientUrl, token, role, expiresInSeconds: 600 }
     });
   } catch (error) { return next(error); }
@@ -376,14 +428,16 @@ app.delete('/api/me/streams/:streamId', requireAuth, streamLimiter, async (req, 
   });
   try {
     if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
-    const session = await LiveStream.findOne({ _id: req.params.streamId, owner: req.auth.sub, status: 'live' });
+    const session = await LiveStream.findOne({ _id: req.params.streamId, owner: req.auth.sub, status: { $in: ['starting', 'live'] } });
     if (!session) return res.status(404).json({ success: false, message: 'No se encontró una transmisión activa propia.' });
     const liveKit = createLiveKitApi(config);
     await liveKit.room.deleteRoom(session.roomName);
-    session.status = 'ended';
-    session.endedAt = new Date();
-    await session.save();
-    return res.json({ success: true, stream: { id: String(session._id), status: session.status, endedAt: session.endedAt } });
+    const endedAt = new Date();
+    await LiveStream.updateOne(
+      { _id: session._id, status: { $in: ['starting', 'live'] } },
+      { $set: { status: 'ended', endedAt }, $unset: { activeOwner: 1 } }
+    );
+    return res.json({ success: true, stream: { id: String(session._id), status: 'ended', endedAt } });
   } catch (error) { return next(error); }
 });
 
@@ -413,6 +467,12 @@ app.get('/api/public/stream-overlay/:token', overlayReadLimiter, async (req, res
       console.error('Unable to read LiveKit overlay participant count:', error.message);
     }
     const preferences = owner.streamingPreferences || {};
+    const showChat = preferences.overlayShowChat !== false;
+    const chatMessages = showChat
+      ? await LiveStreamMessage.find({ stream: stream._id, status: 'visible' })
+          .sort({ createdAt: -1, _id: -1 }).limit(6)
+          .select('username message createdAt').lean()
+      : [];
     return res.set('Cache-Control', 'no-store').json({
       success: true,
       stream: { title: stream.title, creator: stream.ownerUsername },
@@ -420,13 +480,19 @@ app.get('/api/public/stream-overlay/:token', overlayReadLimiter, async (req, res
         theme: preferences.overlayTheme || 'arcade',
         layout: preferences.overlayLayout || 'wide',
         showViewerCount: preferences.overlayShowViewerCount !== false,
+        showChat,
         brandingText: preferences.overlayBrandingText || '',
         socialYouTube: preferences.socialYouTube || '',
         socialTwitch: preferences.socialTwitch || '',
         socialTikTok: preferences.socialTikTok || ''
       },
       viewerCount,
-      capabilities: { viewerCount: viewerCount !== null, chat: false, donations: false }
+      chatMessages: chatMessages.reverse().map((item) => ({
+        username: item.username,
+        message: item.message,
+        createdAt: item.createdAt
+      })),
+      capabilities: { viewerCount: viewerCount !== null, chat: showChat, donations: false }
     });
   } catch (error) { return next(error); }
 });
@@ -451,11 +517,15 @@ app.get('/overlay/:token', (req, res) => {
 #branding{font-size:12px;color:#cbd5e1;margin-top:7px}
 #viewers{white-space:nowrap;padding:10px 14px;border-radius:999px;background:#10152be8;border:1px solid #ffffff35;font-weight:800}
 #social{font-size:11px;color:#dbeafe;margin-top:5px}
+#chat{display:none;max-width:min(38vw,420px);max-height:38vh;overflow:hidden;margin-top:10px;padding:10px 12px;border:1px solid #ffffff30;border-radius:12px;background:#090d1ddd}
+#chat.visible{display:block}#chat-title{font-size:10px;font-weight:900;letter-spacing:.12em;color:#a5b4fc;text-transform:uppercase;margin-bottom:6px}
+.chat-line{font-size:12px;line-height:1.35;overflow-wrap:anywhere;margin-top:4px;color:#f1f5f9}
+.chat-user{font-weight:800;color:#67e8f9;margin-right:5px}
 .theme-neon .panel,.theme-neon #viewers{border-color:#22d3ee99;box-shadow:0 0 22px #22d3ee33}
 .theme-minimal .panel,.theme-minimal #viewers{background:#111c;color:#fff;border-color:#ffffff55;box-shadow:none}
 .theme-esports .panel,.theme-esports #viewers{border-radius:4px;border-left:4px solid #f97316;background:#111827ed}
 .layout-compact .panel{padding:9px 12px}.layout-vertical{flex-direction:column;align-items:flex-start}.layout-vertical .panel{max-width:100%}
-</style></head><body><main id="overlay"><section class="panel"><div id="creator"></div><div id="title">Conectando con la transmisión…</div><div id="branding"></div><div id="social"></div></section><div id="viewers"></div></main>
+</style></head><body><main id="overlay"><section class="panel"><div id="creator"></div><div id="title">Conectando con la transmisión…</div><div id="branding"></div><div id="social"></div><section id="chat"><div id="chat-title">Chat en vivo</div><div id="chat-lines"></div></section></section><div id="viewers"></div></main>
 <script>
 const token=${JSON.stringify(token)};
 const root=document.getElementById('overlay');
@@ -472,6 +542,16 @@ async function refresh(){
   const socials=[p.socialYouTube&&'YouTube '+p.socialYouTube,p.socialTwitch&&'Twitch '+p.socialTwitch,p.socialTikTok&&'TikTok '+p.socialTikTok].filter(Boolean).join('  •  ');
   set('social',socials);
   set('viewers',p.showViewerCount?(Number.isInteger(data.viewerCount)?'● '+data.viewerCount+' espectadores':'● espectadores no disponibles'):'');
+  const chat=document.getElementById('chat');
+  const chatLines=document.getElementById('chat-lines');
+  chat.classList.toggle('visible',p.showChat===true);
+  chatLines.replaceChildren();
+  (Array.isArray(data.chatMessages)?data.chatMessages:[]).forEach((message)=>{
+   const line=document.createElement('div');line.className='chat-line';
+   const user=document.createElement('span');user.className='chat-user';user.textContent='@'+(message.username||'jugador');
+   const body=document.createElement('span');body.textContent=message.message||'';
+   line.append(user,body);chatLines.appendChild(line);
+  });
  }catch{set('title','Reconectando…')}
 }
 refresh();setInterval(refresh,5000);
@@ -709,6 +789,130 @@ app.get('/api/me/profile-summary', requireAuth, async (req, res, next) => {
   }
 });
 
+app.get('/api/me/posts', requireAuth, async (req, res, next) => {
+  try {
+    const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50) return res.status(400).json({ success: false, message: 'El límite debe ser un número entero entre 1 y 50.' });
+    let cursor = null;
+    if (typeof req.query.cursor === 'string' && req.query.cursor) {
+      if (req.query.cursor.length > 256) return res.status(400).json({ success: false, message: 'Cursor de publicaciones inválido.' });
+      try { cursor = JSON.parse(Buffer.from(req.query.cursor, 'base64url').toString('utf8')); }
+      catch { return res.status(400).json({ success: false, message: 'Cursor de publicaciones inválido.' }); }
+      const cursorDate = cursor && typeof cursor.createdAt === 'string' ? new Date(cursor.createdAt) : null;
+      if (!cursor || !mongoose.isValidObjectId(cursor.id) || !cursorDate || !Number.isFinite(cursorDate.getTime()) || cursorDate.toISOString() !== cursor.createdAt) {
+        return res.status(400).json({ success: false, message: 'Cursor de publicaciones inválido.' });
+      }
+    }
+    const filter = { author: req.auth.sub };
+    if (cursor) {
+      const cursorDate = new Date(cursor.createdAt);
+      filter.$or = [
+        { createdAt: { $lt: cursorDate } },
+        { createdAt: cursorDate, _id: { $lt: new mongoose.Types.ObjectId(cursor.id) } }
+      ];
+    }
+    const records = await Post.find(filter).sort({ createdAt: -1, _id: -1 }).limit(limit + 1)
+      .select('authorUsername content likes commentCount createdAt').lean();
+    const hasMore = records.length > limit;
+    const posts = records.slice(0, limit);
+    const last = posts[posts.length - 1];
+    return res.json({
+      success: true,
+      posts: posts.map((post) => ({
+        id: String(post._id), authorUsername: post.authorUsername, content: post.content,
+        likeCount: Array.isArray(post.likes) ? post.likes.length : 0,
+        likedByMe: Array.isArray(post.likes) && post.likes.some((id) => String(id) === req.auth.sub),
+        commentCount: Number(post.commentCount) || 0, createdAt: post.createdAt
+      })),
+      page: { limit, hasMore, nextCursor: hasMore && last ? Buffer.from(JSON.stringify({ createdAt: last.createdAt.toISOString(), id: String(last._id) })).toString('base64url') : null }
+    });
+  } catch (error) { return next(error); }
+});
+
+async function buildAchievementSnapshot(userId) {
+  const [user, posts, comments, rooms, roomMessages, friends, followers, savedPosts, tournaments, tournamentWins, streams] = await Promise.all([
+    User.findById(userId).select('firstStorePurchaseBonusAvailableAt firstStorePurchaseBonusClaimedAt').lean(),
+    Post.countDocuments({ author: userId }),
+    Comment.countDocuments({ author: userId }),
+    Room.countDocuments({ owner: userId }),
+    RoomMessage.countDocuments({ author: userId }),
+    Friendship.countDocuments({ status: 'accepted', $or: [{ requester: userId }, { recipient: userId }] }),
+    Follow.countDocuments({ following: userId }),
+    SavedPost.countDocuments({ user: userId }),
+    Tournament.countDocuments({ entries: { $elemMatch: { $or: [{ captain: userId }, { 'members.user': userId }], status: { $in: ['approved', 'checked-in'] } } } }),
+    Tournament.countDocuments({ entries: { $elemMatch: { $or: [{ captain: userId }, { 'members.user': userId }], placement: 1 } } }),
+    LiveStream.countDocuments({ owner: userId, status: 'ended' })
+  ]);
+  if (!user) return null;
+  const metrics = {
+    posts, comments, rooms, roomMessages, friends, followers, savedPosts, tournaments, tournamentWins, streams,
+    firstPurchaseBonusAvailable: user.firstStorePurchaseBonusAvailableAt ? 1 : 0
+  };
+  const unlocked = ACHIEVEMENTS.filter((item) => (metrics[item.metric] || 0) >= item.target);
+  if (unlocked.length) {
+    await Promise.all(unlocked.map(async (item) => {
+      try {
+        await UserAchievement.updateOne(
+          { user: userId, achievementId: item.id },
+          { $setOnInsert: { user: userId, achievementId: item.id, earnedXP: 0, claimedAt: null, unlockedAt: new Date() } },
+          { upsert: true }
+        );
+      } catch (error) {
+        if (!error || error.code !== 11000) throw error;
+      }
+    }));
+  }
+  const earned = await UserAchievement.find({ user: userId }).select('achievementId earnedXP unlockedAt').lean();
+  const earnedById = new Map(earned.map((item) => [item.achievementId, item]));
+  const achievements = ACHIEVEMENTS.map((item) => {
+    const metricValue = metrics[item.metric] || 0;
+    const record = earnedById.get(item.id);
+    return {
+      id: item.id, title: item.title, description: item.description, category: item.category,
+      tier: item.tier, icon: item.icon, target: item.target,
+      progress: Math.min(metricValue, item.target), metricValue, xp: item.xp,
+      unlocked: Boolean(record),
+      claimed: Boolean(record && Number(record.earnedXP) > 0),
+      claimable: Boolean(record && Number(record.earnedXP) === 0),
+      unlockedAt: record ? record.unlockedAt : null
+    };
+  });
+  const totalXP = earned.reduce((sum, item) => sum + item.earnedXP, 0);
+  return {
+    summary: {
+      unlocked: achievements.filter((item) => item.unlocked).length,
+      total: ACHIEVEMENTS.length,
+      totalXP,
+      level: Math.floor(totalXP / 500) + 1,
+      nextLevelXP: 500 - (totalXP % 500)
+    },
+    metrics,
+    achievements,
+    source: 'persisted-platform-activity'
+  };
+}
+
+app.get('/api/me/achievements', requireAuth, async (req, res, next) => {
+  try {
+    const snapshot = await buildAchievementSnapshot(req.auth.sub);
+    if (!snapshot) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    return res.json({ success: true, ...snapshot });
+  } catch (error) { return next(error); }
+});
+
+app.get('/api/users/:username/achievements', requireAuth, async (req, res, next) => {
+  try {
+    const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
+    const player = await User.findOne({ username }).select('_id').lean();
+    if (!player) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    if (String(player._id) !== req.auth.sub && await hasBlockBetween(req.auth.sub, player._id)) {
+      return res.status(403).json({ success: false, message: 'No podés ver el perfil de este jugador.' });
+    }
+    const snapshot = await buildAchievementSnapshot(player._id);
+    if (!snapshot) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    return res.json({ success: true, username, ...snapshot });
+  } catch (error) { return next(error); }
+});
 
 const ACTIVITY_SOURCES = [
   { model: Post, type: 'post', dateField: 'createdAt', filter: (userId) => ({ author: userId }), title: 'Publicaste en la comunidad', description: 'Nueva publicación' },
@@ -906,7 +1110,17 @@ const DEFAULT_STREAMING_PREFERENCES = {
   socialTwitch: '',
   socialTikTok: '',
   welcomeMessage: '',
-  farewellMessage: ''
+  farewellMessage: '',
+  streamDelay: 'none',
+  streamNotificationsEnabled: true,
+  chatRules: '',
+  whoCanChat: 'everyone',
+  textToSpeechEnabled: false,
+  welcomeMessageEnabled: true,
+  farewellMessageEnabled: true,
+  customThumbnailUrl: '',
+  shieldModeEnabled: false,
+  shieldModeImageUrl: ''
 };
 
 const STREAMING_PREFERENCE_RULES = {
@@ -929,7 +1143,17 @@ const STREAMING_PREFERENCE_RULES = {
   socialTwitch: (value) => typeof value === 'string' && value.trim().length <= 60,
   socialTikTok: (value) => typeof value === 'string' && value.trim().length <= 60,
   welcomeMessage: (value) => typeof value === 'string' && value.trim().length <= 200,
-  farewellMessage: (value) => typeof value === 'string' && value.trim().length <= 200
+  farewellMessage: (value) => typeof value === 'string' && value.trim().length <= 200,
+  streamDelay: (value) => ['none', '5', '10', '15', '30', '60'].includes(value),
+  streamNotificationsEnabled: (value) => typeof value === 'boolean',
+  chatRules: (value) => typeof value === 'string' && value.trim().length <= 1000,
+  whoCanChat: (value) => ['everyone', 'followers', 'friends', 'nobody'].includes(value),
+  textToSpeechEnabled: (value) => typeof value === 'boolean',
+  welcomeMessageEnabled: (value) => typeof value === 'boolean',
+  farewellMessageEnabled: (value) => typeof value === 'boolean',
+  customThumbnailUrl: (value) => typeof value === 'string' && value.length <= 500 && (!value.trim() || /^https:\/\//i.test(value.trim())),
+  shieldModeEnabled: (value) => typeof value === 'boolean',
+  shieldModeImageUrl: (value) => typeof value === 'string' && value.length <= 500 && (!value.trim() || /^https:\/\//i.test(value.trim()))
 };
 
 app.get('/api/me/streaming-preferences', requireAuth, async (req, res, next) => {
@@ -1038,7 +1262,8 @@ app.put('/api/me/app-preferences', requireAuth, profileLimiter, async (req, res,
 app.get('/api/store/catalog', requireAuth, (req, res) => {
   return res.json({
     success: true,
-    currencies: Object.entries(CURRENCY_CONFIG).map(([id, currency]) => ({ id, label: currency.label, icon: currency.icon, symbol: currency.symbol })),
+    currencies: Object.entries(CURRENCY_CONFIG).map(([id, currency]) => ({ id, label: currency.label, icon: currency.icon, symbol: currency.symbol, referenceGoldUnits: currency.referenceGoldUnits })),
+    economyNotice: 'Monedas virtuales exclusivas de PLAYVERSE. Las equivalencias son referencias internas de balance; no representan oro, plata o diamantes reales, no tienen valor monetario y no se pueden comprar con dinero real ni canjear por efectivo.',
     items: STORE_CATALOG.map(({ id, name, category, description, priceTokens, priceCurrency, rarity, animation, assetKey }) => ({
       id, name, category, description, priceTokens, priceCurrency: priceCurrency || 'gold', currencyLabel: getCurrencyLabel(priceCurrency || 'gold'), rarity, animation, assetKey
     }))
@@ -1150,6 +1375,86 @@ app.post('/api/wallet/transfers', requireAuth, storeLimiter, async (req, res, ne
   }
 });
 
+app.post('/api/me/achievements/:achievementId/claim', requireAuth, storeLimiter, async (req, res, next) => {
+  const definition = ACHIEVEMENTS.find((item) => item.id === req.params.achievementId);
+  if (!definition) return res.status(404).json({ success: false, message: 'Trofeo no encontrado.' });
+  try {
+  const snapshot = await buildAchievementSnapshot(req.auth.sub);
+  const progress = snapshot && snapshot.achievements.find((item) => item.id === definition.id);
+  if (!progress || !progress.unlocked) return res.status(409).json({ success: false, message: 'Todavía no cumpliste los requisitos de este trofeo.' });
+  if (progress.claimed) return res.status(409).json({ success: false, message: 'Este trofeo ya fue reclamado.' });
+  const session = await mongoose.startSession();
+  let claimed = false;
+  try {
+    await session.withTransaction(async () => {
+      if (definition.id === 'first-purchase-bonus') {
+        const user = await User.findOneAndUpdate(
+          { _id: req.auth.sub, firstStorePurchaseBonusAvailableAt: { $ne: null }, firstStorePurchaseBonusClaimedAt: null },
+          { $set: { firstStorePurchaseBonusClaimedAt: new Date() } },
+          { new: true, session }
+        ).select('_id');
+        if (!user) return;
+      }
+      const record = await UserAchievement.findOneAndUpdate(
+        { user: req.auth.sub, achievementId: definition.id, earnedXP: 0 },
+        { $set: { earnedXP: definition.xp, claimedAt: new Date() } },
+        { new: true, session }
+      );
+      claimed = Boolean(record);
+    });
+    if (!claimed) return res.status(409).json({ success: false, message: 'Este trofeo ya fue reclamado o no está disponible.' });
+    const updated = await buildAchievementSnapshot(req.auth.sub);
+    return res.json({
+      success: true,
+      message: '¡Trofeo reclamado! Sumaste ' + definition.xp + ' XP.',
+      achievementId: definition.id,
+      xp: definition.xp,
+      summary: updated ? updated.summary : null
+    });
+  } catch (error) { return next(error); }
+  finally { await session.endSession(); }
+  } catch (error) { return next(error); }
+});
+
+app.get('/api/me/experience-rewards', requireAuth, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.auth.sub)
+      .select('firstStorePurchaseBonusAvailableAt firstStorePurchaseBonusClaimedAt').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    const available = Boolean(user.firstStorePurchaseBonusAvailableAt && !user.firstStorePurchaseBonusClaimedAt);
+    return res.json({
+      success: true,
+      rewards: available ? [{ id: 'first-purchase-bonus', title: '¡Tu primera compra!', description: 'Reclamá un bonus de experiencia equivalente al 50% de un nivel.', xp: 250, available: true }] : [],
+      claimed: Boolean(user.firstStorePurchaseBonusClaimedAt)
+    });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/me/experience-rewards/first-purchase/claim', requireAuth, storeLimiter, async (req, res, next) => {
+  const session = await mongoose.startSession();
+  let claimed = false;
+  try {
+    await session.withTransaction(async () => {
+      const user = await User.findOneAndUpdate(
+        { _id: req.auth.sub, firstStorePurchaseBonusAvailableAt: { $ne: null }, firstStorePurchaseBonusClaimedAt: null },
+        { $set: { firstStorePurchaseBonusClaimedAt: new Date() } },
+        { new: true, session }
+      ).select('_id');
+      if (!user) return;
+      await UserAchievement.updateOne(
+        { user: req.auth.sub, achievementId: 'first-purchase-bonus' },
+        { $set: { earnedXP: 250, claimedAt: new Date() }, $setOnInsert: { user: req.auth.sub, achievementId: 'first-purchase-bonus', unlockedAt: new Date() } },
+        { upsert: true, session }
+      );
+      claimed = true;
+    });
+    if (!claimed) return res.status(409).json({ success: false, message: 'La recompensa no está disponible o ya fue reclamada.' });
+    const snapshot = await buildAchievementSnapshot(req.auth.sub);
+    return res.json({ success: true, message: '¡Bonus reclamado! Sumaste 250 XP.', xp: 250, summary: snapshot ? snapshot.summary : null });
+  } catch (error) { return next(error); }
+  finally { await session.endSession(); }
+});
+
 app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next) => {
   const itemId = typeof req.body.itemId === 'string' ? req.body.itemId : '';
   const product = STORE_CATALOG.find((entry) => entry.id === itemId);
@@ -1161,6 +1466,9 @@ app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next
   let result;
   try {
     await session.withTransaction(async () => {
+      const previousPurchases = await TokenTransaction.countDocuments({
+        user: req.auth.sub, type: 'purchase'
+      }).session(session);
       const existing = await Inventory.findOne({ user: req.auth.sub, itemId }).session(session);
       if (existing && product.category !== 'stream-gift') { result = { error: 'ALREADY_OWNED' }; return; }
       const user = await User.findOneAndUpdate(
@@ -1182,11 +1490,26 @@ app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next
         user: req.auth.sub, type: 'purchase', currency, amount: -product.priceTokens, itemId,
         balanceAfter: getWalletBalances(user)[currency]
       }], { session });
-      result = { balances: getWalletBalances(user) };
+      let firstPurchaseBonusAvailable = false;
+      if (previousPurchases === 0) {
+        const bonus = await User.updateOne(
+          { _id: req.auth.sub, firstStorePurchaseBonusAvailableAt: null, firstStorePurchaseBonusClaimedAt: null },
+          { $set: { firstStorePurchaseBonusAvailableAt: new Date() } },
+          { session }
+        );
+        firstPurchaseBonusAvailable = bonus.modifiedCount === 1;
+      }
+      result = { balances: getWalletBalances(user), firstPurchaseBonusAvailable };
     });
     if (result?.error === 'ALREADY_OWNED') return res.status(409).json({ success: false, message: 'Ya tenés este artículo en tu inventario.' });
     if (result?.error === 'INSUFFICIENT_TOKENS') return res.status(409).json({ success: false, code: result.error, message: 'No tenés saldo suficiente de ' + getCurrencyLabel(currency) + '.' });
-    return res.status(201).json({ success: true, message: 'Compra registrada.', wallet: { tokens: result.balances.gold, balances: result.balances } });
+    return res.status(201).json({
+      success: true,
+      message: 'Compra registrada.',
+      wallet: { tokens: result.balances.gold, balances: result.balances },
+      firstPurchaseBonusAvailable: result.firstPurchaseBonusAvailable === true,
+      firstPurchaseBonus: result.firstPurchaseBonusAvailable ? { xp: 250, label: 'Bonus de primera compra: +250 XP (50% de un nivel)' } : null
+    });
   } catch (error) {
     return next(error);
   } finally {
@@ -1655,9 +1978,9 @@ app.delete('/api/stories/:storyId', requireAuth, async (req, res, next) => {
 });
 
 const CURRENCY_CONFIG = {
-  gold: { label: 'Oro PLAYVERSE', shortLabel: 'Oro', field: 'walletTokens', symbol: 'PV', icon: '🟡' },
-  purple: { label: 'Plata PLAYVERSE', shortLabel: 'Plata', field: 'walletPurpleTokens', symbol: 'PV', icon: '🥈' },
-  diamond: { label: 'Diamante PLAYVERSE', shortLabel: 'Diamante', field: 'walletDiamondTokens', symbol: 'PV', icon: '💎' }
+  gold: { label: 'Oro PLAYVERSE', shortLabel: 'Oro', field: 'walletTokens', symbol: 'PV', icon: '🟡', referenceGoldUnits: 1 },
+  purple: { label: 'Cristal Violeta PLAYVERSE', shortLabel: 'Violeta', field: 'walletPurpleTokens', symbol: 'PV', icon: '🟣', referenceGoldUnits: 100 },
+  diamond: { label: 'Diamante PLAYVERSE', shortLabel: 'Diamante', field: 'walletDiamondTokens', symbol: 'PV', icon: '💎', referenceGoldUnits: 1000 }
 };
 function getCurrencyField(currency) {
   return CURRENCY_CONFIG[currency]?.field || null;
@@ -2708,20 +3031,33 @@ app.post('/api/tournaments/:tournamentId/entries/:entryId/score', requireAuth, a
 const GAME_SERVER_HEARTBEAT_MAX_AGE_MS = 90 * 1000;
 const GAME_SERVER_TOKEN_PATTERN = /^[A-Za-z0-9_-]{40,60}$/;
 
+function isNonPublicIPv4(address) {
+  if (net.isIP(address) !== 4) return false;
+  const [a, b, c, d] = address.split('.').map(Number);
+  return a === 0 || a === 10 || a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && ((b === 0 && (c === 0 || c === 2)) || b === 168)) ||
+    (a === 192 && b === 88 && c === 99) ||
+    (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
+    (a === 203 && b === 0 && c === 113) ||
+    a >= 224 || (a === 255 && b === 255 && c === 255 && d === 255);
+}
+
 function normalizePublicServerAddress(value) {
   const address = typeof value === 'string' ? value.trim().toLowerCase() : '';
   if (!address || address.length > 253 || address.includes(' ') ||
       address.includes('/') || address.includes('@') || address.includes('?') ||
       address.includes('#') || address.includes('\\\\')) return null;
   if (address === 'localhost' || address.endsWith('.localhost') || address.endsWith('.local')) return null;
+  if (address.split('.').length === 4 && address.split('.').every((part) => part.length > 0 && [...part].every((char) => char >= '0' && char <= '9'))) {
+    return net.isIP(address) === 4 && !isNonPublicIPv4(address) ? address : null;
+  }
   const labels = address.split('.');
   if (labels.length < 2 || labels.some((label) =>
     !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)
   )) return null;
-  const octets = address.split('.');
-  if (['10', '127', '0', '192'].includes(octets[0]) &&
-      (octets[0] !== '192' || octets[1] === '168')) return null;
-  if (octets[0] === '172' && Number(octets[1]) >= 16 && Number(octets[1]) <= 31) return null;
   return address;
 }
 
@@ -2790,21 +3126,27 @@ app.post('/api/game-servers/:serverId/heartbeat', async (req, res, next) => {
     if (!mongoose.isValidObjectId(req.params.serverId)) return res.status(400).json({ success: false, message: 'Identificador de servidor inválido.' });
     const token = req.get('X-Server-Token') || '';
     if (!GAME_SERVER_TOKEN_PATTERN.test(token)) return res.status(401).json({ success: false, message: 'Token de servidor inválido.' });
-    const playerCount = Number(req.body.playerCount);
-    const maxPlayers = Number(req.body.maxPlayers);
-    const isOnline = req.body.isOnline !== false;
-    if (!Number.isInteger(playerCount) || playerCount < 0 || playerCount > 1000000 ||
-        !Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 1000000 || playerCount > maxPlayers) {
-      return res.status(400).json({ success: false, message: 'Cantidad de jugadores o capacidad inválida.' });
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const playerCount = Number(body.playerCount);
+    const maxPlayers = Number(body.maxPlayers);
+    const isOnline = body.isOnline;
+    const version = typeof body.version === 'string' ? body.version.trim().slice(0, 40) : '';
+    if (typeof isOnline !== 'boolean' ||
+        typeof body.playerCount !== 'number' || !Number.isInteger(playerCount) || playerCount < 0 || playerCount > 1000000 ||
+        typeof body.maxPlayers !== 'number' || !Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 1000000 || playerCount > maxPlayers ||
+        (typeof body.version === 'string' && body.version.trim().length > 40)) {
+      return res.status(400).json({ success: false, message: 'Cantidad de jugadores, capacidad o versión inválida.' });
     }
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const heartbeatUpdate = { playerCount, maxPlayers, isOnline, lastHeartbeatAt: new Date(), updatedAt: new Date() };
+    if (version) heartbeatUpdate.version = version;
     const server = await GameServerListing.findOneAndUpdate(
       { _id: req.params.serverId, heartbeatTokenHash: tokenHash },
-      { $set: { playerCount, maxPlayers, isOnline, lastHeartbeatAt: new Date(), updatedAt: new Date() } },
+      { $set: heartbeatUpdate },
       { new: true }
     ).select('-heartbeatTokenHash').lean();
     if (!server) return res.status(404).json({ success: false, message: 'Servidor no encontrado o token revocado.' });
-    const payload = serializeGameServer(server, server.owner);
+    const payload = serializeGameServer(server, null);
     if (httpServer.io) httpServer.io.emit('game_server_updated', payload);
     return res.json({ success: true, server: payload });
   } catch (error) { return next(error); }
@@ -2947,16 +3289,34 @@ app.get('/api/rooms/:roomId/participation-requests', requireAuth, async (req, re
 app.post('/api/rooms/:roomId/participation-requests', requireAuth, async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.roomId)) return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
-    const room = await Room.findOneAndUpdate({
+    const requestTime = new Date();
+    let room = await Room.findOneAndUpdate({
       _id: req.params.roomId,
       visibility: 'public',
       status: 'open',
       owner: { $ne: req.auth.sub },
       members: { $ne: req.auth.sub },
-      'joinRequests.user': { $ne: req.auth.sub }
+      joinRequests: { $elemMatch: { user: req.auth.sub, status: 'declined' } }
     }, {
-      $push: { joinRequests: { user: req.auth.sub, username: req.auth.username, status: 'pending', requestedAt: new Date() } }
+      $set: {
+        'joinRequests.$.username': req.auth.username,
+        'joinRequests.$.status': 'pending',
+        'joinRequests.$.requestedAt': requestTime,
+        'joinRequests.$.respondedAt': null
+      }
     }, { new: true }).select('name owner ownerUsername').lean();
+    if (!room) {
+      room = await Room.findOneAndUpdate({
+        _id: req.params.roomId,
+        visibility: 'public',
+        status: 'open',
+        owner: { $ne: req.auth.sub },
+        members: { $ne: req.auth.sub },
+        'joinRequests.user': { $ne: req.auth.sub }
+      }, {
+        $push: { joinRequests: { user: req.auth.sub, username: req.auth.username, status: 'pending', requestedAt: requestTime } }
+      }, { new: true }).select('name owner ownerUsername').lean();
+    }
     if (!room) {
       const existing = await Room.findById(req.params.roomId).select('owner members joinRequests status').lean();
       if (!existing) return res.status(404).json({ success: false, message: 'Sala no encontrada.' });
@@ -3330,21 +3690,41 @@ app.get('/api/conversations/:conversationId/messages', requireAuth, async (req, 
     }).sort({ createdAt: 1, _id: 1 }).select('_id').lean();
     const readAt = new Date();
     if (unreadMessages.length) {
-      await DirectMessage.updateMany(
-        { conversation: conversationId, recipient: req.auth.sub, readAt: null },
+      const readResult = await DirectMessage.updateMany(
+        {
+          _id: { $in: unreadMessages.map((message) => message._id) },
+          conversation: conversationId,
+          recipient: req.auth.sub,
+          readAt: null
+        },
         { $set: { readAt } }
       );
-      await Conversation.updateOne(
-        { _id: conversationId },
-        { $set: { [getUnreadCountField(conversation, req.auth.sub)]: 0 } }
-      );
-      const io = req.app.get('io');
-      if (io) io.to('dm:' + String(conversationId)).emit('direct_messages_read', {
-        conversationId: String(conversationId),
-        readerId: String(req.auth.sub),
-        throughMessageId: String(unreadMessages[unreadMessages.length - 1]._id),
-        readAt
-      });
+      const markedReadCount = readResult.modifiedCount || 0;
+      if (markedReadCount > 0) {
+        const unreadField = getUnreadCountField(conversation, req.auth.sub);
+        await Conversation.updateOne(
+          { _id: conversationId },
+          [{
+            $set: {
+              [unreadField]: {
+                $max: [0, {
+                  $subtract: [
+                    { $ifNull: ['$' + unreadField, 0] },
+                    markedReadCount
+                  ]
+                }]
+              }
+            }
+          }]
+        );
+        const io = req.app.get('io');
+        if (io) io.to('dm:' + conversationId).emit('direct_messages_read', {
+          conversationId,
+          readerId: String(req.auth.sub),
+          throughMessageId: String(unreadMessages[unreadMessages.length - 1]._id),
+          readAt
+        });
+      }
     }
     const messages = await DirectMessage.find({ conversation: conversationId })
       .sort({ createdAt: -1, _id: -1 }).limit(100).lean();
@@ -3556,6 +3936,9 @@ app.patch('/api/admin/reports/:reportId', requireAuth, requireModerator, async (
 
 app.use((error, req, res, next) => {
   if (res.headersSent) return next(error);
+  if (error && error.type === 'entity.parse.failed') {
+    return res.status(400).json({ success: false, message: 'El cuerpo JSON no es válido.' });
+  }
   console.error('API error:', error.message);
   return res.status(500).json({ success: false, message: 'Error interno del servidor.' });
 });
@@ -3602,4 +3985,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { app, httpServer, start, shutdown };
+module.exports = { app, httpServer, start, shutdown, serializeGameServer, normalizePublicServerAddress };

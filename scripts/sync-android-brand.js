@@ -56,7 +56,7 @@ let manifest = fs.readFileSync(manifestPath, 'utf8');
 const application = manifest.match(/<application\b[^>]*>/);
 if (!application) throw new Error('AndroidManifest.xml does not contain an application element.');
 let appTag = application[0];
-for (const [attribute, value] of [['android:icon', '@mipmap/ic_launcher'], ['android:roundIcon', '@mipmap/ic_launcher_round'], ['android:label', 'PLAYVERSE']]) {
+for (const [attribute, value] of [['android:icon', '@mipmap/ic_launcher'], ['android:roundIcon', '@mipmap/ic_launcher_round'], ['android:label', 'Omlet Arcade']]) {
   const pattern = new RegExp('\\s' + attribute + '="[^"]*"');
   if (pattern.test(appTag)) appTag = appTag.replace(pattern, ' ' + attribute + '="' + value + '"');
   else appTag = appTag.slice(0, -1) + ' ' + attribute + '="' + value + '">';
@@ -64,6 +64,8 @@ for (const [attribute, value] of [['android:icon', '@mipmap/ic_launcher'], ['and
 manifest = manifest.replace(application[0], appTag);
 
 const permissions = [
+  '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />',
+  '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />',
   '    <uses-permission android:name="android.permission.CAMERA" />',
   '    <uses-permission android:name="android.permission.RECORD_AUDIO" />',
   '    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />',
@@ -141,6 +143,158 @@ let activity = fs.readFileSync(activityPath, 'utf8');
 const packageMatch = activity.match(/^package\s+([\w.]+);/m);
 if (!packageMatch) throw new Error('Could not determine Android application package for overlay permission bridge.');
 const javaPackage = packageMatch[1];
+const nativeScreenSharePath = path.join(path.dirname(activityPath), 'NativeScreenSharePlugin.kt');
+const nativeScreenShareSource = `package ${javaPackage}
+
+import android.app.Activity
+import android.content.Context
+import android.content.Intent
+import android.media.projection.MediaProjectionManager
+import androidx.activity.result.ActivityResult
+import com.getcapacitor.JSObject
+import com.getcapacitor.Plugin
+import com.getcapacitor.PluginCall
+import com.getcapacitor.PluginMethod
+import com.getcapacitor.annotation.ActivityCallback
+import com.getcapacitor.annotation.CapacitorPlugin
+import io.livekit.android.LiveKit
+import io.livekit.android.room.Room
+import io.livekit.android.room.track.screencapture.ScreenCaptureParams
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+
+@CapacitorPlugin(name = "NativeScreenShare")
+class NativeScreenSharePlugin : Plugin() {
+    private val pluginScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var nativeRoom: Room? = null
+
+    @PluginMethod
+    fun start(call: PluginCall) {
+        if (nativeRoom != null) {
+            call.reject("La captura nativa ya está activa.")
+            return
+        }
+        val url = call.getString("url")?.trim().orEmpty()
+        val token = call.getString("token")?.trim().orEmpty()
+        if (url.isBlank() || token.isBlank()) {
+            call.reject("Faltan las credenciales temporales de LiveKit.")
+            return
+        }
+        val manager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        startActivityForResult(call, manager.createScreenCaptureIntent(), "screenCapturePermissionResult")
+    }
+
+    @ActivityCallback
+    private fun screenCapturePermissionResult(call: PluginCall?, result: ActivityResult) {
+        if (call == null) return
+        val data = result.data
+        if (result.resultCode != Activity.RESULT_OK || data == null) {
+            call.reject("Cancelaste el permiso de captura de pantalla.")
+            return
+        }
+        val url = call.getString("url")?.trim().orEmpty()
+        val token = call.getString("token")?.trim().orEmpty()
+        pluginScope.launch {
+            var candidate: Room? = null
+            try {
+                candidate = LiveKit.create(context)
+                candidate.connect(url, token)
+                val published = candidate.localParticipant.setScreenShareEnabled(
+                    true,
+                    ScreenCaptureParams(data)
+                )
+                if (!published) {
+                    candidate.disconnect()
+                    candidate.release()
+                    call.reject("LiveKit no pudo publicar la pantalla.")
+                    return@launch
+                }
+                nativeRoom = candidate
+                val resultData = JSObject()
+                resultData.put("active", true)
+                resultData.put("source", "android-media-projection")
+                call.resolve(resultData)
+            } catch (error: Exception) {
+                try { candidate?.disconnect() } catch (_: Exception) {}
+                try { candidate?.release() } catch (_: Exception) {}
+                call.reject("No se pudo iniciar la captura nativa: \${error.message}", error)
+            }
+        }
+    }
+
+    @PluginMethod
+    fun stop(call: PluginCall) {
+        val active = nativeRoom
+        if (active == null) {
+            val result = JSObject()
+            result.put("active", false)
+            call.resolve(result)
+            return
+        }
+        pluginScope.launch {
+            var stopError: Exception? = null
+            try {
+                active.localParticipant.setScreenShareEnabled(false)
+            } catch (error: Exception) {
+                stopError = error
+            } finally {
+                try { active.disconnect() } catch (error: Exception) { if (stopError == null) stopError = error }
+                try { active.release() } catch (error: Exception) { if (stopError == null) stopError = error }
+                nativeRoom = null
+            }
+            if (stopError != null) {
+                call.reject("La captura se cerró con un aviso de limpieza: \${stopError.message}", stopError)
+            } else {
+                val result = JSObject()
+                result.put("active", false)
+                call.resolve(result)
+            }
+        }
+    }
+
+    override fun handleOnDestroy() {
+        nativeRoom?.let { active ->
+            try { active.disconnect() } catch (_: Exception) {}
+            try { active.release() } catch (_: Exception) {}
+        }
+        nativeRoom = null
+        pluginScope.cancel()
+        super.handleOnDestroy()
+    }
+}
+`;
+fs.writeFileSync(nativeScreenSharePath, nativeScreenShareSource);
+
+const rootGradlePath = path.join(root, 'android', 'build.gradle');
+if (!fs.existsSync(rootGradlePath)) throw new Error('Android root build.gradle was not found.');
+let rootGradle = fs.readFileSync(rootGradlePath, 'utf8');
+if (!rootGradle.includes('kotlin-gradle-plugin')) {
+  const dependenciesBlock = rootGradle.match(/dependencies\s*\{[\s\S]*?\}/);
+  if (!dependenciesBlock) throw new Error('Could not find root Gradle buildscript dependencies.');
+  rootGradle = rootGradle.replace(dependenciesBlock[0], dependenciesBlock[0].replace(/\}\s*$/, "    classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.25'\n}"));
+  fs.writeFileSync(rootGradlePath, rootGradle);
+}
+const appGradlePath = path.join(root, 'android', 'app', 'build.gradle');
+if (!fs.existsSync(appGradlePath)) throw new Error('Android app build.gradle was not found.');
+let appGradle = fs.readFileSync(appGradlePath, 'utf8');
+if (!appGradle.includes("apply plugin: 'kotlin-android'")) {
+  appGradle = appGradle.replace("apply plugin: 'com.android.application'", "apply plugin: 'com.android.application'\napply plugin: 'kotlin-android'");
+}
+if (!appGradle.includes('io.livekit:livekit-android')) {
+  appGradle = appGradle.replace('dependencies {', 'dependencies {\n    implementation "io.livekit:livekit-android:2.30.0"');
+}
+fs.writeFileSync(appGradlePath, appGradle);
+
+if (!rootGradle.includes('https://jitpack.io')) {
+  const repositoriesBlock = rootGradle.match(/allprojects\s*\{\s*repositories\s*\{/);
+  if (!repositoriesBlock) throw new Error('Could not find allprojects repositories in Android root Gradle.');
+  rootGradle = rootGradle.replace(repositoriesBlock[0], repositoriesBlock[0] + "\n        maven { url 'https://jitpack.io' }");
+  fs.writeFileSync(rootGradlePath, rootGradle);
+}
+
 const pluginPath = path.join(path.dirname(activityPath), 'OverlayPermissionPlugin.java');
 const pluginSource = `package ${javaPackage};
 
@@ -260,7 +414,7 @@ public class FloatingControlsService extends Service {
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(CHANNEL, "Controles flotantes PLAYVERSE", NotificationManager.IMPORTANCE_LOW);
+            NotificationChannel channel = new NotificationChannel(CHANNEL, "Controles flotantes Omlet Arcade", NotificationManager.IMPORTANCE_LOW);
             channel.setDescription("Mantiene disponibles los controles flotantes mientras jugás.");
             channel.setShowBadge(false);
             ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(channel);
@@ -273,11 +427,11 @@ public class FloatingControlsService extends Service {
             PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             return new Notification.Builder(this, CHANNEL).setSmallIcon(getApplicationInfo().icon)
-                .setContentTitle("PLAYVERSE está listo").setContentText("Controles flotantes activos · Tocá para volver")
+                .setContentTitle("Omlet Arcade está listo").setContentText("Controles flotantes activos · Tocá para volver")
                 .setContentIntent(pending).setOngoing(true).setCategory(Notification.CATEGORY_SERVICE).build();
         }
         return new Notification.Builder(this).setSmallIcon(getApplicationInfo().icon)
-            .setContentTitle("PLAYVERSE está listo").setContentText("Controles flotantes activos")
+            .setContentTitle("Omlet Arcade está listo").setContentText("Controles flotantes activos")
             .setContentIntent(pending).setOngoing(true).build();
     }
 
@@ -333,12 +487,12 @@ public class FloatingControlsService extends Service {
         if (expanded) { hidePanel(); return; }
         LinearLayout box = new LinearLayout(this); box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(dp(8),dp(8),dp(8),dp(8)); box.setBackground(shape(Color.rgb(13,27,52),22));
-        TextView title = label("PLAYVERSE  ·  ARCADE",12,Color.WHITE);
+        TextView title = label("Omlet Arcade  ·  ARCADE",12,Color.WHITE);
         box.addView(title);
-        TextView chat = label("  CHAT  ·  Abrir PLAYVERSE",13,Color.WHITE);
+        TextView chat = label("  CHAT  ·  Abrir Omlet Arcade",13,Color.WHITE);
         chat.setBackground(shape(Color.rgb(30,64,100),14)); box.addView(chat);
         chat.setOnClickListener(v -> launchApp("chat"));
-        TextView live = label("  EN DIRECTO  ·  Abrir PLAYVERSE",13,Color.WHITE);
+        TextView live = label("  EN DIRECTO  ·  Abrir Omlet Arcade",13,Color.WHITE);
         live.setBackground(shape(Color.rgb(153,61,65),14)); box.addView(live);
         live.setOnClickListener(v -> launchApp("live"));
         TextView rooms = label("  SALAS  ·  Multijugador",13,Color.WHITE);
@@ -375,6 +529,11 @@ public class FloatingControlsService extends Service {
 }
 `;
 fs.writeFileSync(path.join(path.dirname(activityPath), 'FloatingControlsService.java'), serviceSource);
+if (!manifest.includes('io.livekit.android.room.track.screencapture.ScreenCaptureService')) {
+  manifest = manifest.replace('</application>', '        <service android:name="io.livekit.android.room.track.screencapture.ScreenCaptureService" android:enabled="true" android:exported="false" android:foregroundServiceType="mediaProjection" />\\n    </application>');
+  fs.writeFileSync(manifestPath, manifest);
+}
+
 if (!manifest.includes('FloatingControlsService')) {
   manifest = manifest.replace('</application>', '        <service android:name=".FloatingControlsService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="specialUse">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-requested floating in-game controls" />\n        </service>\n    </application>');
   fs.writeFileSync(manifestPath, manifest);
@@ -385,6 +544,7 @@ if (!activity.includes('OverlayPermissionPlugin.class')) {
     @Override
     public void onCreate(android.os.Bundle savedInstanceState) {
         registerPlugin(OverlayPermissionPlugin.class);
+    registerPlugin(NativeScreenSharePlugin.class);
         super.onCreate(savedInstanceState);
     }
 `);
@@ -392,4 +552,4 @@ if (!activity.includes('OverlayPermissionPlugin.class')) {
   fs.writeFileSync(activityPath, activity);
 }
 
-console.log('PLAYVERSE: official icon installed for Android launcher; branded splash and overlay permission bridge configured for Android.');
+console.log('Omlet Arcade: provisional launcher assets, branded splash, floating controls and native LiveKit screen capture configured for Android.');

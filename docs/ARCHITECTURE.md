@@ -1,19 +1,24 @@
-# PLAYVERSE — Architecture and delivery boundaries
+# Omlet Arcade — Architecture and delivery boundaries
 
 ## Product direction
 
-PLAYVERSE is an original gaming and creator-community platform for Android and Windows. It aims to provide a rich social-gaming experience: player profiles, friends, posts, multiplayer rooms, live broadcasts, creator customization, clips, communities, discovery and optional creator monetization. The visual system, code, brand and backend services remain original to PLAYVERSE.
+Omlet Arcade es el producto que se está reconstruyendo para Android y Windows. El objetivo es recuperar la experiencia social gamer histórica: perfiles, amistades, publicaciones, salas, transmisiones, herramientas de creador, clips, comunidades y descubrimiento. La implementación y los servicios se desarrollan para este proyecto; el paquete de identidad oficial autorizado debe mantenerse separado de los recursos temporales.
 
-Feature inspiration does not authorize copying another product's proprietary code, artwork, private APIs or exact protected interface assets.
+El proyecto declara contar con autorización del titular para la marca y el producto. Los recursos oficiales entregados por el titular deben incorporarse con su documentación de uso; no se deben inventar ni sustituir por logos ajenos.
 
 ## Current architecture
+
+- **Self-hosted stack:** `docker-compose.yml` can run the API, MongoDB, LiveKit and Caddy under project control. Optional Minecraft Java/Paper and Bedrock instances are isolated behind the `game-servers` profile; they require explicit EULA acceptance and resource review. See [`docs/SELF_HOSTED_SERVERS.md`](SELF_HOSTED_SERVERS.md).
 
 - **API:** Express over HTTPS in deployment, JWT-authenticated endpoints, rate limits and server-side authorization. Liveness and database-readiness probes are available; graceful shutdown marks the instance unready, closes Socket.IO connections and then disconnects MongoDB.
 - **Database:** MongoDB/Mongoose for accounts, friendships, posts, comments, rooms and room messages.
 - **Realtime:** Socket.IO for authenticated room and private chat, with database-backed presence records. The current deployment is a single API instance; multi-instance fan-out requires a shared Socket.IO adapter and coordinated deployment.
+
+- **Community game servers:** MongoDB stores public listings and hashed heartbeat tokens. The owner-run Node.js agent supports generic TCP reachability, Minecraft Java Server List Ping over TCP, and Minecraft Bedrock RakNet Unconnected Ping over UDP. Java/Bedrock modes report protocol-derived player counts, capacity and game version. The API trusts the authenticated heartbeat; it does not independently probe the remote game port. The directory does not host game worlds or provide arbitrary game-state synchronization.
+
 - **Web client:** current `index.html` interface, local Tailwind build and service-worker update foundation.
-- **Android shell:** Capacitor configuration and generated adaptive launcher resources. Native build and install still require verification.
-- **Windows shell:** Electron with hardened renderer settings. Installer build and real-machine verification remain pending.
+- **Android shell:** Capacitor configuration and generated adaptive launcher resources. CI now produces a debug APK; installation, native permissions and real-device acceptance still require verification.
+- **Windows shell:** Electron with hardened renderer settings. CI produces an NSIS installer; installation, capture permissions and real-machine acceptance still require verification.
 - **Creator settings:** persistent, authenticated stream preference storage. Settings describe user preferences; they do not capture or broadcast media.
 
 ## Live media architecture still required
@@ -33,8 +38,12 @@ A real streaming feature needs a separate media plane; ordinary REST or room-cha
 ## Creator and social feature boundaries
 
 - Profiles, posts, comments, friend requests, public multiplayer rooms and persistent room chat have backend foundations.
-- Private one-to-one chat, online presence, push notifications, invitations and community/server administration still require implementation.
+- Private one-to-one conversations have authenticated REST history/send endpoints plus Socket.IO delivery, typing indicators and read receipts. Access is restricted to accepted friends and rechecked against blocks. This is a backend foundation; end-to-end client UX, reconnect behavior and multi-instance delivery still need acceptance testing.
+- Online presence has authenticated Socket.IO connections, heartbeat refresh and expiring database records. It is best-effort presence, not a push-notification service; mobile background behavior and multi-instance correctness still need device testing.
+- In-app notifications are persisted for selected events. Native push delivery, invitations and full community/server administration are not complete product workflows.
+- Reports, blocks and moderator-gated report handling have backend foundations; moderation staffing, audit/appeal workflows and operational response still need completion.
 - Clips, uploads, favorites, creator pages and stream archives require media storage and processing before being presented as live product features.
+- Offline LAN game discovery, local multiplayer orchestration and cross-device game-state synchronization are not implemented; they require native network discovery and game-specific integration, not just Socket.IO rooms.
 - Store items, gifting, donations, paid subscriptions and creator payouts require a ledger, payment provider, refunds, chargeback and fraud handling, age/legal/tax review and transparent purchase UX. Do not ship a fake wallet or pretend credits have monetary value.
 
 ## Trust, safety and security
