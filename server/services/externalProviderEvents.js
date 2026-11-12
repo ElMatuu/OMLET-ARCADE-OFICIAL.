@@ -101,7 +101,10 @@ async function subscribeProviderEvents(provider, owner, env = process.env) {
   try {
     if (provider === 'twitch') {
       const secret = env.TWITCH_EVENTSUB_SECRET || '';
-      if (secret.length < 10 || secret.length > 100) return { subscribed: false, reason: 'TWITCH_EVENTSUB_SECRET_required' };
+      if (secret.length < 10 || secret.length > 100) {
+        await ExternalProviderConnection.updateOne({ _id: connection._id }, { $set: { chatSyncStatus: 'error', chatSyncError: 'TWITCH_EVENTSUB_SECRET must contain 10 to 100 characters.' } });
+        return { subscribed: false, reason: 'TWITCH_EVENTSUB_SECRET_required' };
+      }
       const token = await getTwitchAppToken(env);
       const credentials = getCredentials('twitch', env);
       const events = [
@@ -125,7 +128,10 @@ async function subscribeProviderEvents(provider, owner, env = process.env) {
       return { subscribed: true, statuses: results };
     }
     if (provider === 'kick') {
-      if (!connection.scopes?.includes('events:subscribe')) return { subscribed: false, reason: 'events:subscribe_scope_missing' };
+      if (!connection.scopes?.includes('events:subscribe')) {
+        await ExternalProviderConnection.updateOne({ _id: connection._id }, { $set: { chatSyncStatus: 'error', chatSyncError: 'Reconnect Kick and grant events:subscribe.' } });
+        return { subscribed: false, reason: 'events:subscribe_scope_missing' };
+      }
       const token = await getAccessToken(connection, env);
       const response = await fetchJson('https://api.kick.com/public/v1/events/subscriptions', {
         method: 'POST',
