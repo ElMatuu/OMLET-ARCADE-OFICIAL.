@@ -1688,14 +1688,14 @@ app.get('/api/me/posts', requireAuth, async (req, res, next) => {
       ];
     }
     const records = await Post.find(filter).sort({ createdAt: -1, _id: -1 }).limit(limit + 1)
-      .select('authorUsername content likes commentCount createdAt').lean();
+      .select('authorUsername content game likes commentCount createdAt').lean();
     const hasMore = records.length > limit;
     const posts = records.slice(0, limit);
     const last = posts[posts.length - 1];
     return res.json({
       success: true,
       posts: posts.map((post) => ({
-        id: String(post._id), authorUsername: post.authorUsername, content: post.content,
+        id: String(post._id), authorUsername: post.authorUsername, content: post.content, game: post.game || '',
         likeCount: Array.isArray(post.likes) ? post.likes.length : 0,
         likedByMe: Array.isArray(post.likes) && post.likes.some((id) => String(id) === req.auth.sub),
         commentCount: Number(post.commentCount) || 0, createdAt: post.createdAt
