@@ -84,8 +84,8 @@ function isValidKickEventPayload(eventType, event) {
   if (!event || !event.broadcaster?.user_id) return false;
   if (eventType === 'chat.message.sent') return typeof event.message_id === 'string' && typeof event.content === 'string' && Boolean(event.sender?.username);
   if (eventType === 'channel.followed') return Boolean(event.follower?.username);
-  if (eventType === 'channel.subscription.new' || eventType === 'channel.subscription.renewal') return Boolean(event.subscriber?.username);
-  if (eventType === 'channel.subscription.gifts') return Boolean(event.gifter?.username) && Array.isArray(event.giftees);
+  if (eventType === 'channel.subscription.new' || eventType === 'channel.subscription.renewal') return Boolean(event.subscriber && (event.subscriber.username || event.subscriber.is_anonymous === true));
+  if (eventType === 'channel.subscription.gifts') return Boolean(event.gifter && (event.gifter.username || event.gifter.is_anonymous === true)) && Array.isArray(event.giftees);
   if (eventType === 'kicks.gifted') return Boolean(event.sender?.username) && Boolean(event.gift && typeof event.gift.amount === 'number');
   if (eventType === 'moderation.banned') return Boolean(event.moderator?.username) && Boolean(event.banned_user?.username);
   if (eventType === 'channel.reward.redemption.updated') return Boolean(event.redeemer?.username) && Boolean(event.reward);
