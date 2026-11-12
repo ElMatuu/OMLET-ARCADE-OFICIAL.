@@ -4550,7 +4550,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             if (!activeLiveStream || !canModerateLiveChat) return;
             try {
                 await apiRequest('/api/streams/' + encodeURIComponent(activeLiveStream.id) + '/messages/' + encodeURIComponent(messageId), { method: 'DELETE' });
-                const item = document.querySelector('[data-message-id="' + CSS.escape(String(messageId)) + '"]');
+                const item = Array.from(document.querySelectorAll('#live-chat-messages [data-message-id]')).find((node) => node.dataset.messageId === String(messageId));
                 if (item) item.remove();
                 renderedStreamChatMessageIds.delete(String(messageId));
                 if (pinnedLiveChatMessage && String(pinnedLiveChatMessage.id) === String(messageId)) renderLiveChatPinnedMessage(null);
@@ -4584,7 +4584,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 });
                 streamChatSocket.on('stream_chat_message_deleted', (payload) => {
                     if (!payload || String(payload.streamId) !== String(streamChatBoundStreamId)) return;
-                    const item = document.querySelector('[data-message-id="' + CSS.escape(String(payload.messageId)) + '"]');
+                    const item = Array.from(document.querySelectorAll('#live-chat-messages [data-message-id]')).find((node) => node.dataset.messageId === String(payload.messageId));
                     if (item) item.remove();
                     renderedStreamChatMessageIds.delete(String(payload.messageId));
                     if (pinnedLiveChatMessage && String(pinnedLiveChatMessage.id) === String(payload.messageId)) renderLiveChatPinnedMessage(null);
@@ -4610,6 +4610,8 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         async function loadLiveChatHistory(streamId) {
             const container = document.getElementById('live-chat-messages');
             if (!container) return;
+            canModerateLiveChat = false;
+            renderLiveChatPinnedMessage(null);
             container.replaceChildren();
             renderedStreamChatMessageIds.clear();
             const loading = document.createElement('p');
