@@ -5,6 +5,7 @@ const liveStreamSchema = new mongoose.Schema({
   ownerUsername: { type: String, required: true, trim: true, maxlength: 24 },
   title: { type: String, required: true, trim: true, maxlength: 100 },
   description: { type: String, default: '', trim: true, maxlength: 500 },
+  customWatermark: { type: String, default: '', trim: true, maxlength: 40 },
   roomName: { type: String, required: true, unique: true, immutable: true },
   overlayTokenHash: { type: String, default: null, select: false },
   status: { type: String, enum: ['live', 'ended'], default: 'live', index: true },

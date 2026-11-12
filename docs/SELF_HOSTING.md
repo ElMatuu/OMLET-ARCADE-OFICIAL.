@@ -5,7 +5,7 @@ Este stack ejecuta el backend, la base de datos, el servidor de medios y el prox
 ## Servicios
 
 - **API PLAYVERSE:** Node.js + Express, empaquetada desde este repositorio.
-- **MongoDB Community 7:** base persistente con autenticación y volumen Docker.
+- **MongoDB Community 7:** base persistente con autenticación, volumen Docker y replica set de un solo nodo (`rs0`) para habilitar transacciones multi-documento. El healthcheck inicializa el replica set y espera a que el nodo sea primary antes de habilitar la API.
 - **LiveKit Server:** SFU WebRTC autohospedado para audio/video en tiempo real.
 - **Caddy:** proxy inverso y certificados HTTPS automáticos para los dominios configurados.
 
@@ -45,7 +45,7 @@ docker compose --env-file .env.selfhost logs --tail=200 api livekit
 docker compose --env-file .env.selfhost exec mongo mongosh -u "$MONGO_ROOT_USERNAME" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin
 ~~~
 
-MongoDB crea una cuenta de aplicación separada con permisos readWrite únicamente sobre playverse; la API no utiliza el usuario administrador. La inicialización se ejecuta solo al crear por primera vez el volumen, así que cambiar credenciales luego requiere un procedimiento de rotación manual. MongoDB persiste en el volumen playverse_mongo_data; Caddy guarda estado y certificados en playverse_caddy_data y playverse_caddy_config. Hacé backups externos periódicos y probá su restauración antes de almacenar datos importantes.
+En el primer arranque del volumen, el contenedor crea la cuenta de aplicación y el healthcheck inicializa `rs0`; la API espera a que el nodo sea primary antes de comenzar. El replica set es de un solo nodo y no proporciona alta disponibilidad. MongoDB crea una cuenta de aplicación separada con permisos readWrite únicamente sobre playverse; la API no utiliza el usuario administrador. La inicialización se ejecuta solo al crear por primera vez el volumen, así que cambiar credenciales luego requiere un procedimiento de rotación manual. MongoDB persiste en el volumen playverse_mongo_data; Caddy guarda estado y certificados en playverse_caddy_data y playverse_caddy_config. Hacé backups externos periódicos y probá su restauración antes de almacenar datos importantes.
 
 ## Límites que deben resolverse antes de una apertura pública
 

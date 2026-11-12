@@ -20,8 +20,21 @@ jobs:
   build-windows:
     runs-on: windows-latest
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      # The repository slug ends in a period, which Windows cannot use in
+      # the default GITHUB_WORKSPACE path. Clone to RUNNER_TEMP with a safe name.
+      - name: Check out repository into a Windows-safe path
+        shell: pwsh
+        run: |
+          $repositoryUrl = "https://github.com/$env:GITHUB_REPOSITORY.git"
+          $destination = Join-Path $env:RUNNER_TEMP "playverse-source"
+          git clone --no-checkout $repositoryUrl $destination
+          if ($env:GITHUB_EVENT_NAME -eq "pull_request") {
+            $pullRequestNumber = "${{ github.event.pull_request.number }}"
+            git -C $destination fetch --depth=1 origin "refs/pull/$pullRequestNumber/merge"
+          } else {
+            git -C $destination fetch --depth=1 origin $env:GITHUB_REF
+          }
+          git -C $destination checkout --detach FETCH_HEAD
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -30,17 +43,20 @@ jobs:
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+        working-directory: ${{ runner.temp }}/playverse-source
 
       - name: Validate project configuration
         run: npm run check:config
+        working-directory: ${{ runner.temp }}/playverse-source
 
       - name: Build Windows installer
         run: npm run build:win
+        working-directory: ${{ runner.temp }}/playverse-source
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
           name: PLAYVERSE-Windows-installer
-          path: release/*.exe
+          path: ${{ runner.temp }}/playverse-source/release/*.exe
           if-no-files-found: error
           retention-days: 14

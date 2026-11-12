@@ -346,12 +346,15 @@
                     <form id="live-stream-create-form" onsubmit="startLiveStream(event)" class="space-y-2">
                         <input id="live-stream-title" maxlength="100" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white" placeholder="Título de tu transmisión">
                         <textarea id="live-stream-description" maxlength="500" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white" placeholder="Descripción (opcional)"></textarea>
+                        <label for="live-stream-watermark" class="block text-xs font-bold text-slate-300">Marca de agua personalizada <span class="font-normal text-slate-500">(hasta 40 caracteres)</span></label>
+                        <input id="live-stream-watermark" maxlength="40" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white" placeholder="Tu nombre o canal">
+                        <p class="text-[10px] text-slate-500">Se muestra como marca visible en la fuente de navegador de PLAYVERSE. No se incrusta en el archivo de video original ni en otras salidas RTMP.</p>
                         <button id="live-stream-start" type="submit" class="PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white w-full">Iniciar transmisión</button>
                     </form>
                     <p id="live-stream-status" class="text-xs text-slate-400" role="status" aria-live="polite">Comprobando disponibilidad del servicio de video…</p>
                     <div id="live-stream-overlay-share" class="hidden rounded-xl border border-cyan-400/30 bg-slate-950/70 p-3 space-y-2">
                         <div class="text-xs font-bold text-cyan-200">Overlay para OBS / software de emisión</div>
-                        <p class="text-[11px] text-slate-400">Enlace privado de tu transmisión. No lo publiques ni lo compartas con espectadores.</p>
+                        <p class="text-[11px] text-slate-400">Agregalo como fuente de navegador en OBS o un emisor compatible. Incluye tu marca de agua, tema, redes, contador de espectadores y el overlay cosmético equipado. No lo compartas con espectadores.</p>
                         <input id="live-stream-overlay-url" type="password" readonly autocomplete="off" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
                         <div class="flex gap-2">
                             <button type="button" onclick="toggleStreamOverlayVisibility()" class="rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold">Mostrar / ocultar</button>
@@ -517,15 +520,40 @@
                     </div>
                     <p id="store-selection-name" class="text-xs text-orange-200 text-center">Elegí un artículo para previsualizarlo.</p>
                 </section>
+                <form id="store-discovery-form" onsubmit="event.preventDefault(); loadStore()" class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2" role="search" aria-label="Buscar artículos en la tienda">
+                    <input id="store-search" type="search" maxlength="80" class="min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-xs text-white" placeholder="Buscar marcos, stickers, regalos y overlays…">
+                    <select id="store-sort" aria-label="Ordenar artículos" onchange="loadStore()" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-xs text-white">
+                        <option value="recommended">Recomendados</option><option value="price-asc">Menor precio</option><option value="price-desc">Mayor precio</option><option value="name">Nombre A–Z</option>
+                    </select>
+                    <button type="submit" class="sm:col-span-2 rounded-xl border border-orange-500/40 bg-orange-500/10 px-3 py-2 text-xs font-bold text-orange-200">Buscar en toda la tienda</button>
+                </form>
                 <div class="flex gap-2 overflow-x-auto pb-1" aria-label="Categorías de la tienda">
-                    <button type="button" data-store-category="avatar-frame" class="store-category-btn shrink-0 rounded-full bg-orange-500 text-white px-4 py-2 text-xs font-bold">Marcos</button>
+                    <button type="button" data-store-category="" class="store-category-btn shrink-0 rounded-full bg-orange-500 text-white px-4 py-2 text-xs font-bold">Todo</button>
+                    <button type="button" data-store-category="avatar-frame" class="store-category-btn shrink-0 rounded-full bg-slate-800 text-slate-300 px-4 py-2 text-xs font-bold">Marcos</button>
                     <button type="button" data-store-category="stream-overlay" class="store-category-btn shrink-0 rounded-full bg-slate-800 text-slate-300 px-4 py-2 text-xs font-bold">Overlays</button>
                     <button type="button" data-store-category="chat-effect" class="store-category-btn shrink-0 rounded-full bg-slate-800 text-slate-300 px-4 py-2 text-xs font-bold">Chat y entrada</button>
                     <button type="button" data-store-category="entrance-effect" class="store-category-btn shrink-0 rounded-full bg-slate-800 text-slate-300 px-4 py-2 text-xs font-bold">VIP Arrival</button>
                     <button type="button" data-store-category="stream-gift" class="store-category-btn shrink-0 rounded-full bg-slate-800 text-slate-300 px-4 py-2 text-xs font-bold">Regalos</button>
                 </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <label class="text-[10px] font-bold text-slate-400">Moneda
+                        <select id="store-currency-filter" onchange="loadStore(1)" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white">
+                            <option value="">Todas las monedas</option><option value="gold">🟡 Oro</option><option value="purple">🥈 Plata</option><option value="diamond">💎 Diamante</option>
+                        </select>
+                    </label>
+                    <label class="text-[10px] font-bold text-slate-400">Rareza
+                        <select id="store-rarity-filter" onchange="loadStore(1)" class="mt-1 w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white">
+                            <option value="">Todas las rarezas</option>
+                        </select>
+                    </label>
+                </div>
                 <p id="store-status" class="text-xs text-slate-400" role="status">Cargando catálogo…</p>
                 <div id="store-items-grid" class="grid grid-cols-2 md:grid-cols-3 gap-3"></div>
+                <nav id="store-pagination" class="flex items-center justify-between gap-2" aria-label="Paginación de la tienda">
+                    <button id="store-page-previous" type="button" onclick="loadStore(Math.max(1, storePagination.page - 1))" class="rounded-lg border border-slate-700 px-3 py-2 text-xs text-white">Anterior</button>
+                    <span id="store-page-label" class="text-[10px] text-slate-400 text-center">Página 1 de 1</span>
+                    <button id="store-page-next" type="button" onclick="loadStore(storePagination.page + 1)" class="rounded-lg border border-slate-700 px-3 py-2 text-xs text-white">Siguiente</button>
+                </nav>
                 <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
                     <div class="flex items-center justify-between"><h4 class="font-bold text-sm">Mi inventario</h4><span id="inventory-count" class="text-[10px] text-slate-400">0 artículos</span></div>
                     <div id="store-inventory-list" class="space-y-2"><p class="text-xs text-slate-400">Todavía no tenés artículos.</p></div>
@@ -764,6 +792,7 @@
                 <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Cámara habilitada<input id="stream-camera" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
                 <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Micrófono habilitado<input id="stream-microphone" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
                 <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Audio del sistema habilitado<input id="stream-system-audio" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
+                <p class="text-[10px] text-slate-500">El audio del sistema se solicita al compartir pantalla; depende de que el navegador y el dispositivo permitan capturarlo. El micrófono se publica por separado.</p>
             </section>
             <section class="space-y-3"><h4 class="text-xs font-black uppercase tracking-wider text-orange-300">Presentación</h4>
                 <div class="grid grid-cols-2 gap-3"><label class="text-xs text-slate-400">Orientación<select id="stream-orientation" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="auto">Automática</option><option value="portrait">Vertical</option><option value="landscape">Horizontal</option></select></label><label class="text-xs text-slate-400">Posición de cámara<select id="stream-camera-position" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="top-left">Arriba izquierda</option><option value="top-right">Arriba derecha</option><option value="bottom-left">Abajo izquierda</option><option value="bottom-right">Abajo derecha</option></select></label></div>
@@ -782,13 +811,20 @@
                     <label class="text-xs text-slate-400">TikTok<input id="stream-social-tiktok" maxlength="60" class="mt-1 w-full min-w-0 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="@usuario"></label>
                 </div>
                 <div class="space-y-2 rounded-xl border border-slate-800 bg-slate-950/50 p-3">
-                    <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Mostrar chat en overlay<input id="stream-overlay-show-chat" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
                     <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Mostrar espectadores<input id="stream-overlay-show-viewers" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
-                    <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Mostrar panel de donaciones/regalos<input id="stream-overlay-show-donations" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
+                    <label class="flex items-center justify-between gap-3 text-sm text-slate-500">Chat integrado (fuente pendiente)<input id="stream-overlay-show-chat" type="checkbox" disabled class="accent-orange-400 w-5 h-5 opacity-50"></label>
+                    <label class="flex items-center justify-between gap-3 text-sm text-slate-500">Panel de regalos (integración pendiente)<input id="stream-overlay-show-donations" type="checkbox" disabled class="accent-orange-400 w-5 h-5 opacity-50"></label>
+                    <p class="text-[11px] text-slate-400">El contador se actualiza desde LiveKit. El chat integrado y los regalos todavía no tienen una fuente de eventos conectada.</p>
                 </div>
                 <label class="block text-xs text-slate-400">Mensaje de bienvenida<input id="stream-welcome-message" maxlength="200" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="¡Bienvenidos al directo!"></label>
                 <label class="block text-xs text-slate-400">Mensaje de despedida<input id="stream-farewell-message" maxlength="200" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="¡Gracias por acompañarme!"></label>
-                <p class="text-[11px] text-amber-300/80">La configuración queda guardada en tu cuenta. La composición visual en tiempo real y los paneles de donaciones conectados a pagos se habilitarán al completar el motor de overlays y sus integraciones.</p>
+                <p class="text-[11px] text-emerald-300/80">El tema, la distribución, la marca y el overlay comprado se aplican a la fuente de navegador privada del directo. El chat y los regalos externos requieren sus integraciones propias.</p>
+            </section>
+            <section class="rounded-2xl border border-cyan-500/30 bg-cyan-950/20 p-4 space-y-2">
+                <div class="flex items-center gap-2"><span class="text-lg">⚡</span><h4 class="text-sm font-black text-cyan-100">Configuración rápida</h4></div>
+                <p class="text-[11px] text-slate-300">Un toque para aplicar y guardar una configuración conservadora según tu dispositivo. Después podés cambiar cualquier ajuste manualmente.</p>
+                <button id="streaming-auto-setup" type="button" onclick="applyAutomaticStreamingSetup()" class="w-full rounded-xl bg-cyan-400 px-4 py-3 text-xs font-black text-slate-950">⚡ Configurar automáticamente</button>
+                <p class="text-[10px] text-slate-400">No solicita permisos ni inicia una transmisión. La captura se autoriza cuando empezás un directo.</p>
             </section>
             <p id="streaming-settings-status" class="text-xs text-slate-400" role="status">Cargando preferencias guardadas…</p>
             <p class="text-[11px] text-amber-300/90">Estas opciones guardan tus preferencias. No activan todavía la captura de pantalla/cámara ni inician una transmisión real.</p>
@@ -2458,18 +2494,33 @@
                     const open = document.createElement('button');
                     open.type = 'button';
                     open.className = 'rounded-xl border border-slate-700 px-3 py-2 text-[11px] font-bold text-white';
-                    open.textContent = 'Abrir Minecraft';
-                    open.addEventListener('click', () => {
-                        if (server.game.toLowerCase() !== 'minecraft') {
-                            status.textContent = 'Abrí ' + server.game + ' y conectate con la dirección copiada.';
+                    const isMinecraft = String(server.game || '').toLowerCase() === 'minecraft';
+                    const isBedrock = isMinecraft && ['bedrock', 'crossplay'].includes(server.edition);
+                    open.textContent = isBedrock ? 'Agregar a Minecraft Bedrock' : (isMinecraft ? 'Abrir instrucciones Java' : 'Copiar y abrir juego');
+                    open.addEventListener('click', async () => {
+                        const serverAddress = server.address + ':' + server.port;
+                        if (!isMinecraft) {
+                            try {
+                                await navigator.clipboard.writeText(serverAddress);
+                                status.textContent = 'Dirección copiada. Abrí ' + server.game + ' y usá la opción multijugador para conectarte.';
+                            } catch {
+                                status.textContent = 'Copiá la dirección ' + serverAddress + ' y conectate desde ' + server.game + '.';
+                            }
                             return;
                         }
-                        if (/Android|iPhone|iPad/i.test(navigator.userAgent)) {
-                            window.location.href = 'minecraft://';
-                        } else {
-                            window.open('https://www.minecraft.net/', '_blank', 'noopener,noreferrer');
+                        if (isBedrock) {
+                            const deepLink = 'minecraft://?addExternalServer=' + encodeURIComponent(server.name) + '|' + server.address + ':' + server.port;
+                            status.textContent = 'Enviando el servidor a Minecraft Bedrock. Si el juego no se abre, copiá la dirección y agregala manualmente.';
+                            try {
+                                window.location.href = deepLink;
+                            } catch {
+                                try { await navigator.clipboard.writeText(serverAddress); } catch {}
+                                status.textContent = 'No se pudo abrir Minecraft automáticamente. Copiá ' + serverAddress + ' y agregalo en Jugar > Servidores > Agregar servidor.';
+                            }
+                            return;
                         }
-                        status.textContent = 'Minecraft se abre en su pantalla principal. Pegá la dirección en Servidores > Agregar servidor; el enlace directo de unión no está garantizado por el proveedor del juego.';
+                        try { await navigator.clipboard.writeText(serverAddress); } catch {}
+                        status.textContent = 'Minecraft Java no ofrece un enlace público y estable para entrar directamente a un servidor. Abrí Java Edition, elegí Multijugador > Conexión directa y pegá ' + serverAddress + '.';
                     });
                     actions.appendChild(open);
                     if (server.isOwner) {
@@ -2728,8 +2779,10 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
 
                 let storeItems = [];
         let inventoryItems = [];
-        let selectedStoreCategory = 'avatar-frame';
+        let selectedStoreCategory = '';
         let selectedStoreItemId = null;
+        let storePagination = { page: 1, pages: 1, total: 0, hasNext: false, hasPrevious: false };
+        let storeLoadGeneration = 0;
         const STORE_CATEGORY_LABELS = {
             'avatar-frame': 'Marcos de avatar',
             'stream-overlay': 'Overlays para stream',
@@ -2737,18 +2790,48 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             'entrance-effect': 'Efectos de entrada',
             'stream-gift': 'Regalos virtuales'
         };
+        const STORE_FRAME_LOOKS = {
+            'frame-neon-pulse': ['#22d3ee', '0 0 18px rgba(34,211,238,.8)', 'solid'],
+            'frame-gamer-rgb': ['#22c55e', '0 0 18px rgba(236,72,153,.8)', 'double'],
+            'frame-cyberpunk': ['#a855f7', '0 0 18px rgba(168,85,247,.8)', 'dashed'],
+            'frame-golden-dragon': ['#fbbf24', '0 0 18px rgba(251,191,36,.8)', 'double'],
+            'frame-seasonal': ['#34d399', '0 0 18px rgba(52,211,153,.7)', 'solid'],
+            'frame-ice-circuit': ['#38bdf8', '0 0 18px rgba(56,189,248,.8)', 'double'],
+            'frame-void-legend': ['#8b5cf6', '0 0 18px rgba(139,92,246,.8)', 'double'],
+            'frame-pixel-hero': ['#f97316', '0 0 18px rgba(249,115,22,.7)', 'dashed'],
+            'frame-aurora': ['#34d399', '0 0 18px rgba(52,211,153,.8)', 'double'],
+            'frame-champion': ['#fbbf24', '0 0 18px rgba(251,191,36,.9)', 'double']
+        };
+        const STORE_ANIMATED_FRAMES = new Set(['frame-gamer-rgb', 'frame-cyberpunk', 'frame-ice-circuit', 'frame-void-legend', 'frame-aurora']);
 
-        async function loadStore() {
+        async function loadStore(page = 1) {
             const status = document.getElementById('store-status');
             if (!authToken) { status.textContent = 'Iniciá sesión para acceder a la tienda.'; return; }
+            const generation = ++storeLoadGeneration;
             status.textContent = 'Cargando catálogo e inventario…';
             try {
+                const storeQuery = new URLSearchParams();
+                const searchTerm = document.getElementById('store-search')?.value.trim() || '';
+                const sortOrder = document.getElementById('store-sort')?.value || 'recommended';
+                const currency = document.getElementById('store-currency-filter')?.value || '';
+                const rarity = document.getElementById('store-rarity-filter')?.value || '';
+                if (selectedStoreCategory) storeQuery.set('category', selectedStoreCategory);
+                if (searchTerm) storeQuery.set('q', searchTerm);
+                if (sortOrder !== 'recommended') storeQuery.set('sort', sortOrder);
+                if (currency) storeQuery.set('currency', currency);
+                if (rarity) storeQuery.set('rarity', rarity);
+                storeQuery.set('page', String(Math.max(1, Number(page) || 1)));
+                storeQuery.set('perPage', '12');
+                const catalogUrl = '/api/store/catalog?' + storeQuery.toString();
                 const [catalog, inventory, walletHistory] = await Promise.all([
-                    apiRequest('/api/store/catalog'),
+                    apiRequest(catalogUrl),
                     apiRequest('/api/me/inventory'),
                     apiRequest('/api/me/wallet/transactions')
                 ]);
+                if (generation !== storeLoadGeneration) return;
                 storeItems = catalog.items || [];
+                storePagination = catalog.pagination || { page: 1, pages: 1, total: storeItems.length, hasNext: false, hasPrevious: false };
+                renderStoreFilterOptions(catalog.filters || {});
                 inventoryItems = inventory.items || [];
                 appState.walletBalances = inventory.wallet?.balances || { gold: Number(inventory.wallet?.tokens || 0), purple: 0, diamond: 0 };
                 appState.walletTokens = Number(appState.walletBalances.gold || 0);
@@ -2759,7 +2842,13 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 renderStoreItems();
                 renderStoreInventory(inventory);
                 renderWalletTransactions(walletHistory.transactions || []);
-                status.textContent = storeItems.length + ' artículos disponibles · ' + (inventoryItems.length) + ' en tu inventario.';
+                status.textContent = storePagination.total + ' artículos encontrados · ' + inventoryItems.length + ' en tu inventario.';
+                const pageLabel = document.getElementById('store-page-label');
+                const previous = document.getElementById('store-page-previous');
+                const next = document.getElementById('store-page-next');
+                if (pageLabel) pageLabel.textContent = 'Página ' + storePagination.page + ' de ' + storePagination.pages + ' · ' + storePagination.total + ' artículos';
+                if (previous) previous.disabled = !storePagination.hasPrevious;
+                if (next) next.disabled = !storePagination.hasNext;
                 const avatar = document.getElementById('profile-avatar');
                 const preview = document.getElementById('store-avatar-preview');
                 const placeholder = document.getElementById('store-avatar-preview-placeholder');
@@ -2774,13 +2863,33 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 }
                 applyEquippedCosmetics(inventory.equipped || {});
             } catch (error) {
+                if (generation !== storeLoadGeneration) return;
                 status.textContent = 'No se pudo cargar la tienda: ' + error.message;
+            }
+        }
+
+        function renderStoreFilterOptions(filters) {
+            const raritySelect = document.getElementById('store-rarity-filter');
+            if (raritySelect) {
+                const selected = raritySelect.value;
+                raritySelect.replaceChildren(new Option('Todas las rarezas', ''));
+                (filters.rarities || []).forEach((rarity) => raritySelect.add(new Option(rarity.charAt(0).toUpperCase() + rarity.slice(1), rarity)));
+                if ([...raritySelect.options].some(option => option.value === selected)) raritySelect.value = selected;
+                else raritySelect.value = '';
+            }
+            const currencySelect = document.getElementById('store-currency-filter');
+            if (currencySelect) {
+                const selected = currencySelect.value;
+                [...currencySelect.options].forEach(option => {
+                    if (option.value) option.hidden = !(filters.currencies || []).includes(option.value);
+                });
+                if (selected && !(filters.currencies || []).includes(selected)) currencySelect.value = '';
             }
         }
 
         function renderStoreItems() {
             const grid = document.getElementById('store-items-grid');
-            const filtered = storeItems.filter(item => item.category === selectedStoreCategory);
+            const filtered = selectedStoreCategory ? storeItems.filter(item => item.category === selectedStoreCategory) : storeItems;
             grid.replaceChildren();
             document.querySelectorAll('[data-store-category]').forEach(button => {
                 const active = button.dataset.storeCategory === selectedStoreCategory;
@@ -2810,19 +2919,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             document.getElementById('store-selection-name').textContent = item.name + ' · ' + STORE_CATEGORY_LABELS[item.category];
             const frame = document.getElementById('store-avatar-preview-frame');
             const overlay = document.getElementById('store-overlay-preview');
-            const frameLooks = {
-                'frame-neon-pulse': ['#22d3ee', '0 0 18px rgba(34,211,238,.8)', 'solid'],
-                'frame-gamer-rgb': ['#22c55e', '0 0 18px rgba(236,72,153,.8)', 'double'],
-                'frame-cyberpunk': ['#a855f7', '0 0 18px rgba(168,85,247,.8)', 'dashed'],
-                'frame-golden-dragon': ['#fbbf24', '0 0 18px rgba(251,191,36,.8)', 'double'],
-                'frame-seasonal': ['#34d399', '0 0 18px rgba(52,211,153,.7)', 'solid'],
-                'frame-ice-circuit': ['#38bdf8', '0 0 18px rgba(56,189,248,.8)', 'double'],
-                'frame-void-legend': ['#8b5cf6', '0 0 18px rgba(139,92,246,.8)', 'double'],
-                'frame-pixel-hero': ['#f97316', '0 0 18px rgba(249,115,22,.7)', 'dashed'],
-                'frame-aurora': ['#34d399', '0 0 18px rgba(52,211,153,.8)', 'double'],
-                'frame-champion': ['#fbbf24', '0 0 18px rgba(251,191,36,.9)', 'double']
-            };
-            const look = frameLooks[item.id];
+            const look = STORE_FRAME_LOOKS[item.id];
             frame.style.borderColor = item.category === 'avatar-frame' && look ? look[0] : '#475569';
             frame.style.boxShadow = item.category === 'avatar-frame' && look ? look[1] : 'none';
             frame.style.borderStyle = item.category === 'avatar-frame' && look ? look[2] : 'solid';
@@ -2939,10 +3036,10 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 if (['avatar-frame', 'stream-overlay'].includes(item.category)) {
                     const button = document.createElement('button');
                     button.type = 'button';
-                    button.className = 'shrink-0 rounded-lg bg-orange-500/15 border border-orange-500/40 px-3 py-2 text-[10px] font-bold text-orange-200';
-                    button.textContent = item.equipped ? 'Equipado' : 'Equipar';
-                    button.disabled = item.equipped;
-                    button.addEventListener('click', () => equipStoreItem(item.id));
+                    button.className = 'shrink-0 rounded-lg border px-3 py-2 text-[10px] font-bold ' + (item.equipped ? 'border-rose-500/40 bg-rose-500/10 text-rose-200' : 'border-orange-500/40 bg-orange-500/15 text-orange-200');
+                    button.textContent = item.equipped ? 'Quitar' : 'Equipar';
+                    button.setAttribute('aria-label', (item.equipped ? 'Quitar ' : 'Equipar ') + item.name);
+                    button.addEventListener('click', () => item.equipped ? unequipStoreCategory(item.category) : equipStoreItem(item.id));
                     row.appendChild(button);
                 }
                 container.appendChild(row);
@@ -2959,23 +3056,39 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             }
         }
 
+        async function unequipStoreCategory(category) {
+            if (!['avatar-frame', 'stream-overlay'].includes(category)) return;
+            try {
+                await apiRequest('/api/me/inventory/' + encodeURIComponent(category) + '/equip', { method: 'DELETE' });
+                document.getElementById('store-status').textContent = category === 'avatar-frame' ? 'Marco retirado del perfil.' : 'Overlay retirado del equipamiento.';
+                await loadStore();
+            } catch (error) {
+                document.getElementById('store-status').textContent = 'No se pudo retirar el artículo: ' + error.message;
+            }
+        }
+
         function applyEquippedCosmetics(equipped) {
             const frame = document.getElementById('profile-avatar')?.parentElement;
             if (frame) {
-                frame.style.boxShadow = equipped.avatarFrame ? '0 0 18px rgba(255,122,24,.65)' : '';
-                frame.style.borderColor = equipped.avatarFrame ? '#ff7a18' : '';
+                const look = equipped.avatarFrame ? STORE_FRAME_LOOKS[equipped.avatarFrame] : null;
+                frame.style.boxShadow = look ? look[1] : '';
+                frame.style.outline = look ? '2px ' + look[2] + ' ' + look[0] : '';
+                frame.style.outlineOffset = look ? '2px' : '';
+                frame.style.borderColor = look ? look[0] : '';
+                frame.classList.toggle('pv-animated-frame', Boolean(look && STORE_ANIMATED_FRAMES.has(equipped.avatarFrame)));
+                frame.dataset.equippedFrame = equipped.avatarFrame || '';
             }
             const overlay = document.getElementById('store-overlay-preview');
-            if (overlay && equipped.streamOverlay) {
-                const product = storeItems.find(item => item.id === equipped.streamOverlay);
-                if (product) overlay.textContent = 'Equipado: ' + product.name;
+            if (overlay) {
+                const product = equipped.streamOverlay ? inventoryItems.find(item => item.id === equipped.streamOverlay) : null;
+                overlay.textContent = product ? 'Equipado: ' + product.name : 'No hay ningún overlay equipado.';
             }
         }
 
         document.querySelectorAll('[data-store-category]').forEach(button => {
             button.addEventListener('click', () => {
                 selectedStoreCategory = button.dataset.storeCategory;
-                renderStoreItems();
+                loadStore(1);
             });
         });
 
@@ -4024,6 +4137,63 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             }
         }
 
+        async function applyAutomaticStreamingSetup() {
+            const button = document.getElementById('streaming-auto-setup');
+            const status = document.getElementById('streaming-settings-status');
+            if (!authToken) {
+                status.textContent = 'Iniciá sesión para guardar tu configuración automática.';
+                return;
+            }
+            const isAndroid = /Android/i.test(navigator.userAgent);
+            const cores = Number(navigator.hardwareConcurrency || 0);
+            const isLowPower = isAndroid || (cores > 0 && cores <= 4);
+            const preset = {
+                resolution: isLowPower ? '720p' : '1080p',
+                fps: 30,
+                bitrateMbps: isLowPower ? 3 : 6,
+                cameraEnabled: false,
+                microphoneEnabled: true,
+                systemAudioEnabled: false,
+                orientation: 'auto',
+                cameraPosition: 'bottom-right',
+                cameraFrame: 'none'
+            };
+            button.disabled = true;
+            button.textContent = 'Aplicando configuración…';
+            status.textContent = 'Guardando un perfil inicial compatible con tu dispositivo…';
+            try {
+                const data = await apiRequest('/api/me/streaming-preferences', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(preset)
+                });
+                const preferences = data.preferences || preset;
+                document.getElementById('stream-resolution').value = preferences.resolution;
+                document.getElementById('stream-fps').value = String(preferences.fps);
+                document.getElementById('stream-bitrate').value = String(preferences.bitrateMbps);
+                document.getElementById('stream-camera').checked = preferences.cameraEnabled === true;
+                document.getElementById('stream-microphone').checked = preferences.microphoneEnabled !== false;
+                document.getElementById('stream-system-audio').checked = preferences.systemAudioEnabled === true;
+                document.getElementById('stream-orientation').value = preferences.orientation || 'auto';
+                document.getElementById('stream-camera-position').value = preferences.cameraPosition || 'bottom-right';
+                document.getElementById('stream-camera-frame').value = preferences.cameraFrame || 'none';
+                activeStreamingPreferences = {
+                    cameraEnabled: preferences.cameraEnabled === true,
+                    microphoneEnabled: preferences.microphoneEnabled !== false,
+                    systemAudioEnabled: preferences.systemAudioEnabled === true,
+                    orientation: preferences.orientation || 'auto',
+                    cameraPosition: preferences.cameraPosition || 'bottom-right',
+                    cameraFrame: preferences.cameraFrame || 'none'
+                };
+                status.textContent = 'Configuración automática guardada (' + (isLowPower ? 'perfil liviano' : 'perfil estándar') + '). Podés ajustar cada opción manualmente cuando quieras.';
+            } catch (error) {
+                status.textContent = 'No se pudo guardar la configuración automática: ' + error.message;
+            } finally {
+                button.disabled = false;
+                button.textContent = '⚡ Configurar automáticamente';
+            }
+        }
+
         async function saveStreamingPreferences(event) {
             event.preventDefault();
             const button = document.getElementById('streaming-settings-save');
@@ -4247,6 +4417,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             const button = document.getElementById('live-stream-start');
             const title = document.getElementById('live-stream-title').value.trim();
             const description = document.getElementById('live-stream-description').value.trim();
+            const customWatermark = document.getElementById('live-stream-watermark').value.trim().slice(0, 40);
             let createdStreamId = null;
             button.disabled = true;
             setLiveStatus('Cargando tus ajustes de cámara y micrófono…');
@@ -4259,7 +4430,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                     activeStreamingPreferences = { cameraEnabled: false, microphoneEnabled: true };
                 }
                 setLiveStatus('Creando sala segura y solicitando acceso de emisión…');
-                const data = await apiRequest('/api/me/streams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description }) });
+                const data = await apiRequest('/api/me/streams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description, customWatermark }) });
                 createdStreamId = data.stream.id;
                 await connectLiveKitSession(data.liveKit, data.stream, 'publisher');
                 const overlayPanel = document.getElementById('live-stream-overlay-share');
@@ -4335,10 +4506,22 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
 
         async function toggleLiveScreenShare() {
             if (!liveKitRoom || activeLiveStreamRole !== 'publisher') return;
+            const enabling = !liveKitRoom.localParticipant.isScreenShareEnabled;
+            const includeSystemAudio = enabling && activeStreamingPreferences.systemAudioEnabled === true;
             try {
-                await liveKitRoom.localParticipant.setScreenShareEnabled(!liveKitRoom.localParticipant.isScreenShareEnabled);
-                document.getElementById('live-player-status').textContent = 'Estado de compartir pantalla actualizado.';
-            } catch (error) { document.getElementById('live-player-status').textContent = 'No se pudo compartir la pantalla: ' + error.message; }
+                await liveKitRoom.localParticipant.setScreenShareEnabled(enabling, {
+                    audio: includeSystemAudio,
+                    systemAudio: includeSystemAudio ? 'include' : 'exclude',
+                    contentHint: 'motion'
+                });
+                document.getElementById('live-player-status').textContent = enabling
+                    ? (includeSystemAudio
+                        ? 'Pantalla compartida. Se solicitó incluir audio del sistema; el navegador puede no ofrecerlo en este dispositivo.'
+                        : 'Pantalla compartida sin audio del sistema.')
+                    : 'Compartir pantalla finalizado.';
+            } catch (error) {
+                document.getElementById('live-player-status').textContent = 'No se pudo compartir la pantalla: ' + error.message;
+            }
         }
 
         async function closeLivePlayer() {

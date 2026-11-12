@@ -88,6 +88,17 @@ test('protected profile endpoint rejects unauthenticated requests', async () => 
   });
 });
 
+test('cosmetic inventory removal endpoint requires an authenticated account', async () => {
+  await withServer(async (baseUrl) => {
+    for (const category of ['avatar-frame', 'stream-overlay']) {
+      const response = await fetch(baseUrl + '/api/me/inventory/' + category + '/equip', { method: 'DELETE' });
+      const body = await response.json();
+      assert.equal(response.status, 401);
+      assert.equal(body.success, false);
+    }
+  });
+});
+
 test('security headers are applied to API responses', async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(baseUrl + '/api/health');
@@ -103,6 +114,21 @@ test('CORS rejects an origin outside the explicit allowlist', async () => {
       headers: { Origin: 'https://untrusted.example' }
     });
     assert.equal(response.headers.get('access-control-allow-origin'), null);
+  });
+});
+
+test('private browser overlay page renders watermark and equipped overlay layers', async () => {
+  await withServer(async (baseUrl) => {
+    const token = 'A'.repeat(43);
+    const response = await fetch(baseUrl + '/overlay/' + token);
+    assert.equal(response.status, 200);
+    const html = await response.text();
+    assert.match(html, /id="watermark"/);
+    assert.match(html, /id="skin"/);
+    assert.match(html, /overlay-cyber-arena/);
+    assert.match(html, /overlay-nebula-live/);
+    assert.match(html, /api\/public\/stream-overlay/);
+    assert.match(response.headers.get('content-security-policy') || '', /frame-ancestors \*/);
   });
 });
 
