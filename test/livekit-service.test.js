@@ -6,7 +6,8 @@ const {
   createRoomName,
   createWebhookReceiver,
   getLiveKitConfig,
-  isLiveKitConfigured
+  isLiveKitConfigured,
+  isLiveKitVideoTrack
 } = require('../server/services/livekit');
 
 const validEnv = {
@@ -89,4 +90,12 @@ test('LiveKit participant tokens are short-lived and role-scoped', async () => {
   assert.equal(viewerClaims.video.canPublish, false);
   assert.equal(viewerClaims.video.canPublishData, false);
   assert.equal(viewerClaims.video.canSubscribe, true);
+});
+
+test('LiveKit stream publication detection requires a video track', () => {
+  assert.equal(isLiveKitVideoTrack({ type: 'VIDEO' }), true);
+  assert.equal(isLiveKitVideoTrack({ kind: 'video' }), true);
+  assert.equal(isLiveKitVideoTrack({ type: 'AUDIO' }), false);
+  assert.equal(isLiveKitVideoTrack({}), false);
+  assert.equal(isLiveKitVideoTrack(null), false);
 });
