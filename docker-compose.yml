@@ -63,6 +63,46 @@ services:
       - "7880"
     networks: [playverse]
 
+  minecraft-java:
+    image: itzg/minecraft-server:java21
+    profiles: ["game-servers"]
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+    environment:
+      EULA: "TRUE"
+      TYPE: PAPER
+      VERSION: ${MINECRAFT_JAVA_VERSION:-LATEST}
+      MEMORY: ${MINECRAFT_JAVA_MEMORY:-2G}
+      MAX_PLAYERS: ${MINECRAFT_JAVA_MAX_PLAYERS:-20}
+      MOTD: "Omlet Arcade · Servidor Java"
+    ports:
+      - "${MINECRAFT_JAVA_PORT:-25565}:25565/tcp"
+    volumes:
+      - omlet_minecraft_java_data:/data
+    mem_limit: ${MINECRAFT_JAVA_MEMORY_LIMIT:-3g}
+    stop_grace_period: 1m
+    networks: [playverse]
+
+  minecraft-bedrock:
+    image: itzg/minecraft-bedrock-server:latest
+    profiles: ["game-servers"]
+    restart: unless-stopped
+    environment:
+      EULA: "TRUE"
+      SERVER_NAME: "Omlet Arcade · Servidor Bedrock"
+      GAMEMODE: ${MINECRAFT_BEDROCK_GAMEMODE:-survival}
+      DIFFICULTY: ${MINECRAFT_BEDROCK_DIFFICULTY:-normal}
+      MAX_PLAYERS: ${MINECRAFT_BEDROCK_MAX_PLAYERS:-20}
+      VERSION: ${MINECRAFT_BEDROCK_VERSION:-LATEST}
+    ports:
+      - "${MINECRAFT_BEDROCK_PORT:-19132}:19132/udp"
+    volumes:
+      - omlet_minecraft_bedrock_data:/data
+    mem_limit: ${MINECRAFT_BEDROCK_MEMORY_LIMIT:-2g}
+    stop_grace_period: 1m
+    networks: [playverse]
+
   caddy:
     image: caddy:2.8
     restart: unless-stopped
@@ -88,6 +128,8 @@ volumes:
   playverse_mongo_data:
   playverse_caddy_data:
   playverse_caddy_config:
+  omlet_minecraft_java_data:
+  omlet_minecraft_bedrock_data:
 
 networks:
   playverse:
