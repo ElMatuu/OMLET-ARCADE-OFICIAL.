@@ -12,7 +12,7 @@ La grabación se ejecuta en el servidor mediante LiveKit Egress. Las claves de a
    - `LIVEKIT_RECORDING_S3_ACCESS_KEY`
    - `LIVEKIT_RECORDING_S3_SECRET`
    - `LIVEKIT_RECORDING_S3_REGION` (si el proveedor lo requiere)
-   - `LIVEKIT_RECORDING_S3_ENDPOINT` (solo para proveedores compatibles con endpoint propio)
+   - `LIVEKIT_RECORDING_S3_ENDPOINT` (solo para proveedores compatibles con endpoint HTTPS propio)
    - `LIVEKIT_RECORDING_S3_FORCE_PATH_STYLE` (usar `true` cuando el proveedor lo requiera)
 
 Sin las credenciales de LiveKit o del bucket, la función permanece deshabilitada y la API devuelve un error explícito de configuración; no simula una grabación.
