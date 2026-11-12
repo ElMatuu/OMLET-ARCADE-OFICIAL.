@@ -13,6 +13,9 @@ function buildPublicStreamOverlay({ stream, preferences = {}, activeStreamOverla
     overlay: {
       theme: preferences.overlayTheme || 'arcade',
       layout: preferences.overlayLayout || 'wide',
+      position: preferences.overlayPosition || 'bottom-left',
+      scale: Number.isInteger(preferences.overlayScale) ? preferences.overlayScale : 100,
+      opacity: Number.isInteger(preferences.overlayOpacity) ? preferences.overlayOpacity : 90,
       showViewerCount: preferences.overlayShowViewerCount !== false,
       brandingText: preferences.overlayBrandingText || '',
       equippedOverlay: equippedOverlay
