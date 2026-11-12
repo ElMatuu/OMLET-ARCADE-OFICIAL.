@@ -83,7 +83,7 @@ jobs:
             const hello = db.hello();
             if (!hello.isWritablePrimary || hello.setName !== \"rs0\") quit(2);
             const database = db.getSiblingDB(\"playverse\");
-            const collection = database.getCollection("__pv_transaction_smoke");
+            const collection = database.getCollection(\"__pv_transaction_smoke\");
             collection.createIndex({marker: 1});
             const marker = \"ci-\" + new Date().getTime();
             const session = db.getMongo().startSession();
