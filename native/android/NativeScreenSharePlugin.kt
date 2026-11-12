@@ -123,6 +123,20 @@ class NativeScreenSharePlugin : Plugin() {
     }
 
     @PluginMethod
+    fun updateHudChat(call: PluginCall) {
+        val messages = call.getString("messages") ?: "[]"
+        val service = Intent(context, ArcadeHudService::class.java)
+            .setAction(ArcadeHudService.ACTION_CHAT_UPDATE)
+            .putExtra("messages", messages)
+        try {
+            if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(service) else context.startService(service)
+            call.resolve(JSObject().apply { put("updated", true) })
+        } catch (error: Exception) {
+            call.reject("No se pudo actualizar el chat flotante: " + (error.message ?: "error desconocido"))
+        }
+    }
+
+    @PluginMethod
     fun toggleMicrophone(call: PluginCall) {
         if (getPermissionState("microphone") != com.getcapacitor.PermissionState.GRANTED) {
             requestPermissionForAlias("microphone", call, "microphonePermissionCallback")
