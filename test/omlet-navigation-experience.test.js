@@ -25,6 +25,8 @@ test('navigation supports browser back and forward', () => {
 test('profile and settings section navigation preserves existing data panels', () => {
   assert.match(navigation, /installProfileSections/);
   assert.match(navigation, /installSettingsSections/);
+  assert.match(navigation, /installStoreSections/);
+  assert.match(navigation, /wallet-transactions-list/);
   assert.match(html, /profile-achievement-list/);
   assert.match(html, /profile-post-list/);
   assert.match(html, /stream-overlay-preview/);
