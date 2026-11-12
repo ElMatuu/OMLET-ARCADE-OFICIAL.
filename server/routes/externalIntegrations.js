@@ -2,7 +2,7 @@ const express = require('express');
 const { rateLimit } = require('express-rate-limit');
 const ExternalProviderConnection = require('../models/ExternalProviderConnection');
 const { requireAuth } = require('../middleware/auth');
-const { PROVIDERS, completeAuthorization, createAuthorization, getCredentials, getEncryptionKey, revokeConnection, toPublicConnection } = require('../services/externalProviders');
+const { PROVIDERS, completeAuthorization, createAuthorization, getCredentials, getEncryptionKey, revokeConnection, subscribeProviderEvents, toPublicConnection } = require('../services/externalProviders');
 
 const router = express.Router();
 const connectLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 8, standardHeaders: 'draft-7', legacyHeaders: false });
@@ -48,7 +48,8 @@ router.get('/:provider/callback', async (req, res) => {
   if (!PROVIDERS[provider]) return res.status(404).send('Proveedor no compatible.');
   if (req.query.error) return res.status(400).send('La autorización externa fue cancelada o rechazada. Podés volver a PLAYVERSE e intentarlo otra vez.');
   try {
-    await completeAuthorization(provider, req.query.code, req.query.state);
+    const connected = await completeAuthorization(provider, req.query.code, req.query.state);
+    try { await subscribeProviderEvents(provider, connected.owner); } catch (error) { console.error('External event subscription setup failed:', provider, error.message); }
     const webBase = (process.env.PLAYVERSE_WEB_URL || (process.env.CORS_ORIGIN || '').split(',')[0] || '/').replace(/\/$/, '');
     const target = new URL(webBase + '/', webBase.startsWith('http') ? undefined : 'http://localhost');
     target.searchParams.set('externalIntegration', provider);
