@@ -69,6 +69,9 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /id="room-voice-mute"/, 'Squad voice must expose an independent microphone mute control');
   assert.match(html, /function toggleRoomVoiceMute\(/, 'Players must be able to mute and unmute without leaving squad voice');
   assert.match(html, /activeRoomId !== joiningRoomId/, 'A pending voice connection must be discarded if its room was closed or changed');
+  assert.match(html, /joiningGeneration !== roomVoiceJoinGeneration/, 'Stale voice join attempts must not attach after a newer room lifecycle');
+  assert.match(html, /roomVoiceJoinGeneration \+= 1/, 'Closing room chat must invalidate any pending voice join attempt');
+
   assert.match(html, /resetRoomVoiceControls\(\);[\s\S]{0,180}if \(roomSocket\)/, 'Closing room chat must reset voice controls even while a connection is pending');
   assert.match(html, /id="room-chat-modal"/, 'Multiplayer rooms must expose the chat interface');
   assert.match(html, /function sendRoomMessage\(event\)/, 'The chat interface must send persistent messages');
