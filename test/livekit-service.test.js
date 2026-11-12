@@ -89,4 +89,17 @@ test('LiveKit participant tokens are short-lived and role-scoped', async () => {
   assert.equal(viewerClaims.video.canPublish, false);
   assert.equal(viewerClaims.video.canPublishData, false);
   assert.equal(viewerClaims.video.canSubscribe, true);
+
+  const screenShare = await createParticipantToken({
+    config: { apiKey: validEnv.LIVEKIT_API_KEY, apiSecret: validEnv.LIVEKIT_API_SECRET },
+    identity: 'user-1:screen:device-1',
+    name: 'player · Pantalla',
+    metadata: { userId: 'user-1', role: 'screen_share' },
+    roomName: 'pv_test_room',
+    canPublish: true,
+    canPublishSources: ['SCREEN_SHARE']
+  });
+  const screenClaims = JSON.parse(Buffer.from(screenShare.split('.')[1], 'base64url').toString('utf8'));
+  assert.equal(screenClaims.sub, 'user-1:screen:device-1');
+  assert.deepEqual(screenClaims.video.canPublishSources, ['SCREEN_SHARE']);
 });
