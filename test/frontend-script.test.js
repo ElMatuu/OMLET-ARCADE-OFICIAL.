@@ -16,6 +16,9 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /\/api\/posts\?before=/, 'Community feed must request subsequent pages with a cursor');
   assert.match(html, /id="tab-friends"/, 'The friends screen must be present');
   assert.match(html, /id="tab-clubs"/, 'The community Clubs screen must be present');
+  assert.match(html, /addExternalServer=/, 'Minecraft Bedrock listings must use the documented external-server deep link');
+  assert.match(html, /Agregar a Minecraft Bedrock/, 'Bedrock listings must expose a direct add-to-game action');
+  assert.match(html, /Minecraft Java no ofrece un enlace público y estable/, 'Java listings must explain the manual connection fallback instead of claiming unsupported auto-join');
   assert.match(html, /function joinClub\(/, 'Players must be able to join public clubs');
   assert.match(html, /function leaveClub\(/, 'Players must be able to leave clubs');
   assert.match(html, /function createClub\(/, 'Players must be able to create clubs');
