@@ -755,10 +755,14 @@ app.post('/api/me/streams/:streamId/recording/start', requireAuth, streamLimiter
       const egress = await startRoomRecording({ egressClient: liveKit.egress, roomName: stream.roomName, output });
       const egressId = egress && (egress.egressId || egress.egress_id);
       if (typeof egressId !== 'string' || !egressId) throw new Error('LiveKit no devolvió un identificador de grabación.');
-      await LiveStream.updateOne(
-        { _id: req.params.streamId, owner: req.auth.sub, recordingStatus: 'starting' },
+      const activated = await LiveStream.updateOne(
+        { _id: req.params.streamId, owner: req.auth.sub, status: 'live', recordingStatus: 'starting' },
         { $set: { recordingEgressId: egressId, recordingStatus: 'active' } }
       );
+      if (!activated.matchedCount) {
+        try { await stopRoomRecording({ egressClient: liveKit.egress, egressId }); } catch {}
+        return res.status(409).json({ success: false, message: 'La transmisión cambió mientras iniciaba la grabación.' });
+      }
       return res.status(202).json({ success: true, recording: { status: 'active', startedAt: now } });
     } catch (error) {
       await LiveStream.updateOne(
@@ -776,13 +780,13 @@ app.post('/api/me/streams/:streamId/recording/stop', requireAuth, streamLimiter,
   if (!config) return res.status(503).json({ success: false, code: 'LIVE_STREAMING_NOT_CONFIGURED', message: 'LiveKit no está configurado.' });
   try {
     if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
-    const stream = await LiveStream.findOne({
+    const stream = await LiveStream.findOneAndUpdate({
       _id: req.params.streamId, owner: req.auth.sub, status: 'live',
-      recordingStatus: { $in: ['starting', 'active', 'stopping'] }
-    }).select('+recordingEgressId roomName recordingStatus').lean();
-    if (!stream || !stream.recordingEgressId) return res.status(409).json({ success: false, message: 'No hay una grabación activa para detener.' });
-    await LiveStream.updateOne({ _id: stream._id, owner: req.auth.sub, recordingEgressId: stream.recordingEgressId },
-      { $set: { recordingStatus: 'stopping' } });
+      recordingStatus: { $in: ['starting', 'active'] },
+      recordingEgressId: { $ne: null }
+    }, { $set: { recordingStatus: 'stopping' } }, { new: true })
+      .select('+recordingEgressId roomName recordingStatus').lean();
+    if (!stream || !stream.recordingEgressId) return res.status(409).json({ success: false, message: 'No hay una grabación activa para detener o ya se está deteniendo.' });
     try {
       const liveKit = createLiveKitApi(config);
       await stopRoomRecording({ egressClient: liveKit.egress, egressId: stream.recordingEgressId });
