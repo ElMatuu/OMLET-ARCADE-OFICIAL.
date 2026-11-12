@@ -147,6 +147,31 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     assert.ok(dailyPostMission);
     const dailyPost = await request(baseUrl, '/api/posts', { method: 'POST', body: { content: 'Progreso diario de integración' } }, charlie.body.token);
     assert.equal(dailyPost.status, 201);
+
+    const initialAchievements = await request(baseUrl, '/api/me/achievements', {}, charlie.body.token);
+    assert.equal(initialAchievements.status, 200);
+    const firstPostAchievement = initialAchievements.body.achievements.find((item) => item.id === 'first-post');
+    assert.ok(firstPostAchievement);
+    assert.equal(firstPostAchievement.unlocked, true);
+    assert.equal(firstPostAchievement.claimable, true);
+
+    const concurrentAchievementClaims = await Promise.all([
+      request(baseUrl, '/api/me/achievements/first-post/claim', { method: 'POST' }, charlie.body.token),
+      request(baseUrl, '/api/me/achievements/first-post/claim', { method: 'POST' }, charlie.body.token)
+    ]);
+    assert.deepEqual(concurrentAchievementClaims.map((result) => result.status).sort(), [200, 409]);
+    const successfulAchievementClaim = concurrentAchievementClaims.find((result) => result.status === 200);
+    assert.equal(successfulAchievementClaim.body.xp, 20);
+    assert.equal(successfulAchievementClaim.body.summary.totalXP, 20);
+
+    const claimedAchievements = await request(baseUrl, '/api/me/achievements', {}, charlie.body.token);
+    assert.equal(claimedAchievements.body.summary.totalXP, 20);
+    const claimedFirstPost = claimedAchievements.body.achievements.find((item) => item.id === 'first-post');
+    assert.equal(claimedFirstPost.claimed, true);
+    assert.equal(claimedFirstPost.claimable, false);
+    const repeatedAchievementClaim = await request(baseUrl, '/api/me/achievements/first-post/claim', { method: 'POST' }, charlie.body.token);
+    assert.equal(repeatedAchievementClaim.status, 409);
+
     const refreshedDaily = await request(baseUrl, '/api/me/missions', {}, charlie.body.token);
     const claimableDaily = refreshedDaily.body.dailyMissions.find((mission) => mission.id === dailyPostMission.id);
     assert.equal(claimableDaily.claimable, true);
