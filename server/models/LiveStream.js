@@ -4,6 +4,7 @@ const liveStreamSchema = new mongoose.Schema({
   owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   ownerUsername: { type: String, required: true, trim: true, maxlength: 24 },
   title: { type: String, required: true, trim: true, maxlength: 100 },
+  game: { type: String, default: 'Otro', trim: true, maxlength: 60 },
   description: { type: String, default: '', trim: true, maxlength: 500 },
   roomName: { type: String, required: true, unique: true, immutable: true },
   overlayTokenHash: { type: String, default: null, select: false },
