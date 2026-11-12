@@ -1,4 +1,4 @@
-name: PLAYVERSE Android test APK
+name: Omlet Arcade Android test APK
 
 on:
   push:
@@ -61,7 +61,7 @@ jobs:
       - name: Upload test APK (not an official release)
         uses: actions/upload-artifact@v4
         with:
-          name: PLAYVERSE-Android-test
+          name: Omlet-Arcade-Android-test
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
