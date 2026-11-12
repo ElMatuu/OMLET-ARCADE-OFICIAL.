@@ -375,6 +375,16 @@
                         <button type="button" onclick="toggleLiveScreenShare()" class="rounded-xl border border-slate-700 px-3 py-2 text-xs">Compartir pantalla</button>
                         <button type="button" onclick="endLiveStream()" class="rounded-xl bg-red-600/20 border border-red-500/40 text-red-200 px-3 py-2 text-xs font-bold">Finalizar transmisión</button>
                     </div>
+                    <section class="rounded-xl border border-slate-800 bg-slate-950/70 p-3 space-y-3" aria-label="Chat de la transmisión">
+                        <div class="flex items-center justify-between gap-2"><div><h5 class="text-sm font-bold">Chat en vivo</h5><p id="live-chat-status" class="text-[11px] text-slate-500" role="status">Conectando al chat…</p></div><span class="text-[10px] text-emerald-300">EN DIRECTO</span></div>
+                        <div id="live-chat-messages" class="h-52 overflow-y-auto space-y-2 pr-1" aria-live="polite" aria-relevant="additions text"><p class="text-xs text-slate-500">Todavía no hay mensajes. ¡Saludá a la comunidad!</p></div>
+                        <form id="live-chat-form" class="flex gap-2" onsubmit="sendLiveChatMessage(event)">
+                            <label class="sr-only" for="live-chat-input">Escribí un mensaje para el chat en vivo</label>
+                            <input id="live-chat-input" name="message" maxlength="500" autocomplete="off" required class="min-w-0 flex-1 rounded-xl bg-slate-900 border border-slate-700 px-3 py-2.5 text-sm text-white" placeholder="Escribí un mensaje…">
+                            <button id="live-chat-send" type="submit" class="rounded-xl bg-orange-500 px-4 py-2.5 text-xs font-bold text-white">Enviar</button>
+                        </form>
+                        <p class="text-[10px] text-slate-500">Respetá a los demás. Máximo 500 caracteres por mensaje.</p>
+                    </section>
                     <p id="live-player-status" class="text-xs text-slate-400" role="status"></p>
                 </section>
                 <section class="PLAYVERSE-card rounded-2xl p-4 space-y-2">
@@ -4433,6 +4443,140 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         let activeLiveStream = null;
         let activeLiveStreamRole = null;
         let activeStreamingPreferences = { cameraEnabled: false, microphoneEnabled: true };
+        let streamChatSocket = null;
+        let streamChatScriptLoading = false;
+        let streamChatBoundStreamId = null;
+        const renderedStreamChatMessageIds = new Set();
+
+        function setLiveChatStatus(message, isError = false) {
+            const status = document.getElementById('live-chat-status');
+            if (!status) return;
+            status.textContent = message;
+            status.className = 'text-[11px] ' + (isError ? 'text-red-300' : 'text-slate-500');
+        }
+
+        function appendLiveChatMessage(message) {
+            if (!message || !message.id || renderedStreamChatMessageIds.has(String(message.id))) return;
+            renderedStreamChatMessageIds.add(String(message.id));
+            const container = document.getElementById('live-chat-messages');
+            if (!container) return;
+            if (container.querySelector('[data-empty-state]')) container.replaceChildren();
+            const item = document.createElement('article');
+            item.className = 'rounded-lg bg-slate-900/80 px-3 py-2';
+            item.dataset.messageId = String(message.id);
+            const header = document.createElement('div');
+            header.className = 'mb-1 flex items-center justify-between gap-2';
+            const username = document.createElement('strong');
+            username.className = 'truncate text-[11px] text-orange-200';
+            username.textContent = String(message.username || 'Jugador');
+            const time = document.createElement('time');
+            time.className = 'shrink-0 text-[10px] text-slate-500';
+            const date = message.sentAt ? new Date(message.sentAt) : new Date();
+            time.dateTime = Number.isNaN(date.getTime()) ? '' : date.toISOString();
+            time.textContent = Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            header.append(username, time);
+            const body = document.createElement('p');
+            body.className = 'whitespace-pre-wrap break-words text-xs text-slate-200';
+            body.textContent = String(message.message || '');
+            item.append(header, body);
+            container.appendChild(item);
+            while (container.children.length > 100) container.firstElementChild.remove();
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function ensureStreamChatSocket() {
+            if (!authToken) { setLiveChatStatus('Iniciá sesión para participar del chat.', true); return; }
+            if (typeof window.io !== 'function') {
+                if (streamChatScriptLoading) return;
+                streamChatScriptLoading = true;
+                const script = document.createElement('script');
+                script.src = API_URL + '/socket.io/socket.io.js';
+                script.onload = () => { streamChatScriptLoading = false; ensureStreamChatSocket(); };
+                script.onerror = () => { streamChatScriptLoading = false; setLiveChatStatus('No se pudo cargar la conexión del chat.', true); };
+                document.head.appendChild(script);
+                return;
+            }
+            if (!streamChatSocket) {
+                streamChatSocket = window.io(API_URL, { auth: { token: authToken }, reconnection: true });
+                streamChatSocket.on('connect', () => {
+                    if (streamChatBoundStreamId) joinStreamChatRoom(streamChatBoundStreamId);
+                });
+                streamChatSocket.on('stream_chat_message', appendLiveChatMessage);
+                streamChatSocket.on('connect_error', () => setLiveChatStatus('Reconectando al chat…', true));
+                streamChatSocket.on('disconnect', () => {
+                    if (activeLiveStream) setLiveChatStatus('Conexión interrumpida. Reconectando…', true);
+                });
+            } else if (!streamChatSocket.connected && !streamChatSocket.active) {
+                streamChatSocket.auth = { token: authToken };
+                streamChatSocket.connect();
+            }
+        }
+
+        function joinStreamChatRoom(streamId) {
+            if (!streamChatSocket || !streamChatSocket.connected || !streamId) return;
+            streamChatSocket.emit('join_stream_chat', { streamId: String(streamId) }, (result) => {
+                if (result && result.success) setLiveChatStatus('Conectado · mensajes en tiempo real.');
+                else setLiveChatStatus((result && result.message) || 'No se pudo ingresar al chat.', true);
+            });
+        }
+
+        async function loadLiveChatHistory(streamId) {
+            const container = document.getElementById('live-chat-messages');
+            if (!container) return;
+            container.replaceChildren();
+            renderedStreamChatMessageIds.clear();
+            const loading = document.createElement('p');
+            loading.className = 'text-xs text-slate-500';
+            loading.textContent = 'Cargando mensajes…';
+            container.appendChild(loading);
+            try {
+                const data = await apiRequest('/api/streams/' + encodeURIComponent(streamId) + '/messages?limit=100');
+                container.replaceChildren();
+                (data.messages || []).forEach(appendLiveChatMessage);
+                if (!container.children.length) {
+                    const empty = document.createElement('p');
+                    empty.className = 'text-xs text-slate-500';
+                    empty.dataset.emptyState = 'true';
+                    empty.textContent = 'Todavía no hay mensajes. ¡Saludá a la comunidad!';
+                    container.appendChild(empty);
+                }
+                setLiveChatStatus('Historial cargado. Conectando en tiempo real…');
+            } catch (error) {
+                container.replaceChildren();
+                const failure = document.createElement('p');
+                failure.className = 'text-xs text-red-300';
+                failure.textContent = error.message;
+                container.appendChild(failure);
+                setLiveChatStatus('No se pudo cargar el historial.', true);
+            }
+            ensureStreamChatSocket();
+            streamChatBoundStreamId = String(streamId);
+            if (streamChatSocket && streamChatSocket.connected) joinStreamChatRoom(streamChatBoundStreamId);
+        }
+
+        async function sendLiveChatMessage(event) {
+            event.preventDefault();
+            const input = document.getElementById('live-chat-input');
+            const button = document.getElementById('live-chat-send');
+            const message = input.value.trim();
+            if (!activeLiveStream || !message || message.length > 500) return;
+            button.disabled = true;
+            try {
+                const data = await apiRequest('/api/streams/' + encodeURIComponent(activeLiveStream.id) + '/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+                appendLiveChatMessage(data.message);
+                input.value = '';
+                setLiveChatStatus('Mensaje enviado.');
+            } catch (error) {
+                setLiveChatStatus(error.message, true);
+            } finally {
+                button.disabled = false;
+                input.focus();
+            }
+        }
 
         function setLiveStatus(message) {
             const status = document.getElementById('live-stream-status');
@@ -4485,6 +4629,8 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             if (initialParticipantCount) initialParticipantCount.textContent = room.numParticipants + (room.numParticipants === 1 ? ' participante conectado' : ' participantes conectados');
             activeLiveStream = stream;
             activeLiveStreamRole = role;
+            streamChatBoundStreamId = String(stream.id);
+            await loadLiveChatHistory(stream.id);
             document.getElementById('live-player-panel').classList.remove('hidden');
             document.getElementById('live-player-title').textContent = stream.title || 'Transmisión PLAYVERSE';
             document.getElementById('live-player-role').textContent = role === 'publisher' ? 'Estás transmitiendo' : 'Estás viendo en vivo';
@@ -4655,6 +4801,11 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             liveKitRoom = null;
             activeLiveStream = null;
             activeLiveStreamRole = null;
+            streamChatBoundStreamId = null;
+            renderedStreamChatMessageIds.clear();
+            const chatMessages = document.getElementById('live-chat-messages');
+            if (chatMessages) chatMessages.replaceChildren();
+            setLiveChatStatus('Saliste del chat.');
             const preview = document.getElementById('live-local-preview');
             preview.pause();
             preview.srcObject = null;
