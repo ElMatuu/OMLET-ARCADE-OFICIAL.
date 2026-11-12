@@ -159,6 +159,13 @@ async function subscribeProviderEvents(provider, owner, env = process.env) {
     await ExternalProviderConnection.updateOne({ _id: connection._id }, { $set: { chatSyncStatus: 'error', chatSyncError: 'Configurá PLAYVERSE_API_URL con una URL HTTPS pública para recibir eventos.' } });
     return { subscribed: false, reason: 'public_https_callback_required' };
   }
+  if (provider === 'twitch') {
+    const callbackPort = new URL(callback).port;
+    if (callbackPort && callbackPort !== '443') {
+      await ExternalProviderConnection.updateOne({ _id: connection._id }, { $set: { chatSyncStatus: 'error', chatSyncError: 'Twitch EventSub requiere HTTPS público por el puerto 443.' } });
+      return { subscribed: false, reason: 'twitch_requires_https_443' };
+    }
+  }
   try {
     if (provider === 'twitch') {
       const secret = env.TWITCH_EVENTSUB_SECRET || '';
