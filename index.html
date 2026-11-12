@@ -4802,6 +4802,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             activeLiveStream = null;
             activeLiveStreamRole = null;
             streamChatBoundStreamId = null;
+            if (streamChatSocket) { streamChatSocket.disconnect(); streamChatSocket = null; }
             renderedStreamChatMessageIds.clear();
             const chatMessages = document.getElementById('live-chat-messages');
             if (chatMessages) chatMessages.replaceChildren();
