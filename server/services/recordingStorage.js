@@ -10,13 +10,14 @@ function hmac(key, value, encoding) {
   return crypto.createHmac('sha256', key).update(value, 'utf8').digest(encoding);
 }
 
-function createPresignedRecordingUrl({ storage, objectKey, expiresInSeconds = 300, now = new Date() }) {
+function createPresignedRecordingUrl({ storage, objectKey, expiresInSeconds = 300, now = new Date(), method = 'GET' }) {
   if (!storage || !storage.accessKey || !storage.secret || !storage.bucket) {
     throw new TypeError('Recording storage credentials are required.');
   }
   if (typeof objectKey !== 'string' || !/^playverse\/[a-fA-F0-9]{24}\/[a-fA-F0-9]{24}\/[0-9]+\.mp4$/.test(objectKey)) {
     throw new TypeError('Invalid private recording object key.');
   }
+  if (!['GET', 'PUT'].includes(method)) throw new TypeError('Unsupported recording storage method.');
   if (!Number.isInteger(expiresInSeconds) || expiresInSeconds < 60 || expiresInSeconds > 900) {
     throw new TypeError('Recording playback URL expiry must be between 60 and 900 seconds.');
   }
@@ -44,7 +45,7 @@ function createPresignedRecordingUrl({ storage, objectKey, expiresInSeconds = 30
     .sort((a, b) => a[0].localeCompare(b[0]));
   const canonicalQuery = query.map(([key, value]) => key + '=' + value).join('&');
   const canonicalRequest = [
-    'GET',
+    method,
     canonicalUri,
     canonicalQuery,
     'host:' + endpoint.host.toLowerCase() + '\n',
