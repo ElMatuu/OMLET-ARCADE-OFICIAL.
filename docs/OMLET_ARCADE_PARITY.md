@@ -119,6 +119,17 @@ Specific defects and gaps:
 - [ ] Replace the current browser-only publisher with native Android gameplay capture and a foreground service.
 - [ ] Implement the real floating HUD and game-specific artwork catalog.
 
+## Native Android HUD implementation status (2026-11-12)
+
+The development branch `feat/native-android-floating-hud` adds a first native HUD slice:
+- Capacitor bridge methods to check overlay permission, open Android's permission screen, start the HUD, and stop it.
+- A foreground Android service with a draggable floating bubble, expandable panel, app-return action, and explicit close action.
+- A persistent notification while the HUD service is active.
+- An Android sync script that installs the native Java sources, registers the Capacitor plugin, and declares the service and permissions in the generated Android project.
+- The Android CI workflow invokes that sync script before building the test APK; Node tests verify the frontend-to-native bridge wiring.
+
+**Scope boundary:** this is a real, limited floating control shell, not the complete Omlet-style streaming HUD. It does not yet capture gameplay, publish media to LiveKit, toggle microphone/camera, or display live chat. The panel intentionally states that a transmission has not started; it must not imply otherwise. Android 14+ special-use foreground-service eligibility and Play distribution policy must be reviewed before release. Physical-device permission, drag, lifecycle, and battery tests remain mandatory.
+
 ## Engineering work required
 
 1. Break the monolithic client into maintainable feature modules and shared components before the visual overhaul becomes harder to test.
