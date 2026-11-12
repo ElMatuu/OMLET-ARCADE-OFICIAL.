@@ -6,7 +6,7 @@ process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017/playverse_test_only';
 process.env.JWT_SECRET = 'playverse-test-secret-with-at-least-32-characters';
 process.env.CORS_ORIGIN = 'https://playverse-test.example';
 
-const { app, httpServer } = require('../server/index');
+const { app, httpServer, serializeGameServer } = require('../server/index');
 
 async function withServer(run) {
   const server = http.createServer(app);
@@ -21,6 +21,29 @@ async function withServer(run) {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
 }
+
+test('heartbeat server payload never grants the owner UI flag to token-authenticated agents', () => {
+  const server = {
+    _id: '507f1f77bcf86cd799439011',
+    owner: '507f191e810c19729de860ea',
+    name: 'Community server',
+    game: 'Minecraft',
+    edition: 'java',
+    address: 'play.example.net',
+    port: 25565,
+    description: '',
+    region: '',
+    version: '1.21.1',
+    ownerUsername: 'Owner',
+    playerCount: 2,
+    maxPlayers: 20,
+    isOnline: true,
+    lastHeartbeatAt: new Date(),
+  };
+  const payload = serializeGameServer(server, null);
+  assert.equal(payload.isOwner, false);
+  assert.equal(serializeGameServer(server, server.owner).isOwner, true);
+});
 
 test('importing the API does not connect to MongoDB or start a listener', () => {
   const mongoose = require('mongoose');
