@@ -411,9 +411,10 @@ app.get('/api/public/stream-overlay/:token', overlayReadLimiter, async (req, res
     let viewerCount = null;
     try {
       const participants = await createLiveKitApi(config).room.listParticipants(stream.roomName);
-      viewerCount = Math.max(0, (participants || []).filter((participant) =>
-        !(participant.identity || '').startsWith(String(stream.owner) + ':')
-      ).length);
+      viewerCount = Math.max(0, (participants || []).filter((participant) => {
+        const identity = participant.identity || '';
+        return !identity.startsWith(String(stream.owner) + ':') && !identity.startsWith('overlay:');
+      }).length);
     } catch (error) {
       console.error('Unable to read LiveKit overlay participant count:', error.message);
     }
