@@ -10,7 +10,7 @@ Follow [SELF_HOSTED_PRODUCTION.md](SELF_HOSTED_PRODUCTION.md) to configure DNS, 
 - `LIVEKIT_INTERNAL_URL=http://livekit:7880` for server-to-server API calls on the private Docker network.
 - `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` only in the backend environment and LiveKit server environment.
 
-The LiveKit server uses TCP 7880 internally behind Caddy, TCP 7881 for RTC/TCP, UDP 3478 for TURN, UDP 50000–50100 for WebRTC media and UDP 50101–50200 for TURN relay. Configure the host firewall and any cloud firewall to match. Do not expose MongoDB or LiveKit API secrets to the public internet.
+The Compose stack also runs a private Redis message bus and a dedicated `livekit-egress:v1.9.0` worker (matched to the pinned LiveKit server release). Both LiveKit and Egress use the same private `redis:6379` bus; the Egress container is not exposed publicly. This is required for the RTMP multi-destination endpoints to work. Egress is resource-intensive; budget at least 4 CPU cores and 4 GB RAM for that worker before expecting stable composite broadcasts. The LiveKit server uses TCP 7880 internally behind Caddy, TCP 7881 for RTC/TCP, UDP 3478 for TURN, UDP 50000–50100 for WebRTC media and UDP 50101–50200 for TURN relay. Configure the host firewall and any cloud firewall to match. Do not expose MongoDB or LiveKit API secrets to the public internet.
 
 ## 2. Signed webhook
 
@@ -21,6 +21,8 @@ The endpoint is:
 The server verifies the LiveKit Authorization signature against the configured API key and secret and handles `room_finished` to mark the matching PLAYVERSE stream as ended. Keep the raw-body handling intact and the endpoint reachable over HTTPS.
 
 ## 3. Validate a real broadcast
+
+Before testing RTMP, run `docker compose --env-file .env.selfhost ps` and confirm `redis`, `livekit`, and `livekit-egress` are running. Inspect `docker compose --env-file .env.selfhost logs --tail=100 livekit-egress` for Redis connection or worker startup errors. The worker and server must use the same Redis instance. The Egress API cannot succeed just because the API container is healthy.
 
 1. Confirm the API readiness endpoint returns HTTP 200 and MongoDB reports `setName: "rs0"` and `isWritablePrimary: true`.
 2. Sign in as a creator, open **En Vivo**, enter a title and start a stream.
