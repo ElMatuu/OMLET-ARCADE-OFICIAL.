@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: playverse-android-build
+  group: playverse-android-build-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
