@@ -61,10 +61,17 @@ async function ingestExternalChatMessage({ provider, externalUserId, externalMes
   if (!text) return { accepted: false, reason: 'empty' };
   const connection = await ExternalProviderConnection.findOne({
     provider, externalUserId, status: 'connected'
-  }).select('owner').lean();
+  }).select('owner externalUsername').lean();
   if (!connection) return { accepted: false, reason: 'unlinked' };
   const stream = await LiveStream.findOne({ owner: connection.owner, status: 'live' }).select('_id owner').lean();
   if (!stream) return { accepted: false, reason: 'offline' };
+  if (String(username || '').toLowerCase() === String(connection.externalUsername || '').toLowerCase()) {
+    const ownRecentMessage = await LiveStreamMessage.exists({
+      stream: stream._id, author: connection.owner, message: text,
+      sentAt: { $gte: new Date(Date.now() - 30000) }
+    });
+    if (ownRecentMessage) return { accepted: false, reason: 'outbound_echo' };
+  }
   const safeUsername = ('[' + provider.toUpperCase() + '] ' + String(username || 'viewer')).slice(0, 24);
   let saved;
   try {
@@ -288,7 +295,7 @@ async function processTwitchWebhook(body, io) {
   if (subscriptionType === 'channel.chat.message') {
     return ingestExternalChatMessage({
       provider: 'twitch', externalUserId, externalMessageId: messageId,
-      username: event.chatter_user_name || event.chatter_user_login || 'Twitch viewer',
+      username: event.chatter_user_login || event.chatter_user_name || 'Twitch viewer',
       message: event.message?.text || '', io
     });
   }
