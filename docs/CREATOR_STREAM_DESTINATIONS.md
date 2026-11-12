@@ -64,3 +64,16 @@ Authenticated endpoints:
 - `DELETE /api/me/external-integrations/:provider` — disconnect and delete stored tokens.
 
 The callback exchanges the authorization code, validates the returned account identity and stores only encrypted tokens. YouTube requests offline access for refresh tokens. Kick uses the required S256 PKCE challenge. The provider's developer application registration and user consent are mandatory; these cannot be fabricated or bypassed. Account linking is distinct from RTMP stream-key relay and does not by itself claim that external chat, donations, or analytics are synchronized.
+
+
+## External chat synchronization
+
+After account linking, PLAYVERSE activates external chat ingestion where the provider supports it:
+
+- **Twitch:** signed EventSub webhooks subscribe to `channel.chat.message`, `stream.online` and `stream.offline`. The Twitch app authorization requests `user:read:chat`, `user:bot` and `channel:bot`. Set `TWITCH_EVENTSUB_SECRET` (10–100 characters) and register the callback `https://YOUR_API_HOST/api/webhooks/twitch`.
+- **Kick:** the app subscribes to `chat.message.sent`, follows, subscriptions and livestream start/end events. In Kick Developer settings, enable webhooks and set `https://YOUR_API_HOST/api/webhooks/kick`. Each delivery is verified using Kick's current public key fetched dynamically.
+- **YouTube:** a background worker checks linked channels for an active broadcast and imports Live Chat messages through the official Live Streaming API. Polling is throttled to at least 60 seconds per channel to protect the free API quota.
+
+Incoming messages are deduplicated by provider message ID and forwarded to the active PLAYVERSE live chat with a provider prefix. Connection status, chat sync state, errors and last activity are exposed by `GET /api/me/external-integrations`. Provider callbacks require a publicly reachable HTTPS API host; localhost alone cannot receive external webhooks.
+
+This is chat/event synchronization, not payment processing. Donations, Twitch Bits, Kick gifts, paid memberships, payouts and financial settlement are not enabled by these integrations and are never simulated.
