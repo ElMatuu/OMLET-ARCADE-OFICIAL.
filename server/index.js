@@ -432,11 +432,12 @@ app.delete('/api/me/streams/:streamId', requireAuth, streamLimiter, async (req, 
     if (!session) return res.status(404).json({ success: false, message: 'No se encontró una transmisión activa propia.' });
     const liveKit = createLiveKitApi(config);
     await liveKit.room.deleteRoom(session.roomName);
-    session.status = 'ended';
-    session.activeOwner = undefined;
-    session.endedAt = new Date();
-    await session.save();
-    return res.json({ success: true, stream: { id: String(session._id), status: session.status, endedAt: session.endedAt } });
+    const endedAt = new Date();
+    await LiveStream.updateOne(
+      { _id: session._id, status: { $in: ['starting', 'live'] } },
+      { $set: { status: 'ended', endedAt }, $unset: { activeOwner: 1 } }
+    );
+    return res.json({ success: true, stream: { id: String(session._id), status: 'ended', endedAt } });
   } catch (error) { return next(error); }
 });
 
