@@ -2,7 +2,7 @@
   'use strict';
   const TAB_LABELS={feed:'Inicio',live:'En vivo',chat:'Mensajes',lobbies:'Juegos',clubs:'Comunidades',tournaments:'Torneos',shop:'Tienda',events:'Misiones',profile:'Perfil',friends:'Amigos',saved:'Guardados',notifications:'Notificaciones',help:'Ayuda'};
   const TAB_ICONS={feed:'fa-house',live:'fa-tower-broadcast',chat:'fa-comments',lobbies:'fa-gamepad',clubs:'fa-users',tournaments:'fa-trophy',shop:'fa-store',events:'fa-calendar-star',profile:'fa-user',friends:'fa-user-group',saved:'fa-bookmark',notifications:'fa-bell'};
-  const DESKTOP_TABS=['feed','live','lobbies','clubs','chat','friends','shop','tournaments','events','saved','profile','notifications'];
+  const DESKTOP_TABS=['feed','live','lobbies','clubs','chat','friends','shop','tournaments','events','saved','profile','notifications','help'];
   const byId=id=>document.getElementById(id);
   let currentTab='feed',historyReady=false,switchingFromHistory=false;
   function addStyles(){
@@ -27,6 +27,8 @@
       '.pv-mobile-primary-nav .pv-create-button{width:52px;height:52px;min-height:52px;margin-top:-16px;border:4px solid #080d18;border-radius:50%;background:linear-gradient(135deg,#ff684b,#ff9b31);color:white;font-size:20px}',
       '.pv-subnav{display:flex;gap:8px;overflow:auto;padding:4px 0 10px;scrollbar-width:none}',
       '.pv-subnav::-webkit-scrollbar{display:none}',
+      '.pv-context-nav{position:sticky;top:0;z-index:12;margin:0 -4px 8px;padding:8px 4px;background:rgba(8,13,25,.94);backdrop-filter:blur(14px);border-bottom:1px solid rgba(51,65,85,.55)}',
+      '.pv-context-nav button{min-height:34px;padding:7px 12px}',
       '.pv-subnav button{white-space:nowrap;border:1px solid #334155;border-radius:999px;padding:8px 13px;font-size:11px;font-weight:750;color:#b9c5d7;background:#0b1220}',
       '.pv-subnav button[aria-current="true"]{border-color:#f08a54;background:rgba(240,138,84,.15);color:#ffd0b4}',
       '.pv-profile-subnav,.pv-settings-subnav{position:sticky;top:0;z-index:10;background:rgba(8,13,25,.94);backdrop-filter:blur(14px);margin:0 -4px;padding:8px 4px}',
@@ -104,6 +106,38 @@
     const heading=form.querySelector(':scope > div');if(heading)heading.insertAdjacentElement('afterend',nav);
   }
   function normalizeBrandCopy(){const label=document.querySelector('#drawer-panel .tracking-\\[\\.2em\\]');if(label&&/Omlet Arcade/i.test(label.textContent))label.textContent='TU ESPACIO PLAYVERSE';}
-  function install(){addStyles();buildMobileNav();buildDesktopRail();installRouter();installProfileSections();installStoreSections();installSettingsSections();normalizeBrandCopy();byId('main-app')?.classList.add('pv-desktop-shell');}
+
+  const CONTEXT_SECTIONS = {
+    feed: { id:'tab-feed', label:'Secciones del inicio', entries:[['highlights-title','Destacados'],['stories-container','Historias'],['community-posts-container','Comunidad']] },
+    live: { id:'tab-live', label:'Secciones de En vivo', entries:[['live-stream-create-form','Crear directo'],['live-streams-container','Directos activos'],['live-player-panel','Reproductor'],['live-chat-messages','Chat en vivo'],['recording-library','Grabaciones'],['live-participant-list-panel','Participantes']] },
+    chat: { id:'tab-chat', label:'Secciones de chat', entries:[['dm-start-form','Nuevo mensaje'],['dm-inbox-list','Conversaciones'],['dm-thread','Chat abierto']] },
+    lobbies: { id:'tab-lobbies', label:'Secciones de juegos', entries:[['game-catalog-title','Catálogo'],['game-detail-panel','Detalles del juego'],['rooms-container','Salas'],['game-servers-container','Servidores']] },
+    friends: { id:'tab-friends', label:'Secciones sociales', entries:[['friends-search-form','Buscar jugadores'],['group-conversations-list','Grupos'],['friends-incoming','Solicitudes recibidas'],['friends-outgoing','Solicitudes enviadas'],['friends-list','Mis amigos'],['followers-list','Seguidores'],['following-list','Siguiendo'],['blocked-users-list','Bloqueados']] },
+    clubs: { id:'tab-clubs', label:'Secciones de comunidades', entries:[['club-search','Buscar clubs'],['clubs-list','Explorar clubs']] },
+    tournaments: { id:'tab-tournaments', label:'Secciones de torneos', entries:[['tournament-create-form','Crear torneo'],['tournaments-list','Disponibles'],['tournament-details','Detalles y llaves']] },
+    events: { id:'tab-events', label:'Secciones de misiones', entries:[['missions-summary','Progreso'],['missions-list','Misiones']] },
+    saved: { id:'tab-saved', label:'Secciones guardadas', entries:[['saved-posts-container','Publicaciones guardadas']] },
+    notifications: { id:'tab-notifications', label:'Secciones de notificaciones', entries:[['notifications-list','Actividad'],['notifications-more','Ver más']] },
+    help: { id:'tab-help', label:'Secciones de ayuda', entries:[['content-report-form','Enviar reporte'],['moderation-queue-panel','Moderación']] }
+  };
+
+  function installContextNavigation(){
+    Object.entries(CONTEXT_SECTIONS).forEach(([key,config])=>{
+      const panel=byId(config.id);
+      const navId='pv-'+key+'-context-nav';
+      if(!panel||byId(navId))return;
+      const entries=config.entries.filter(([target])=>byId(target)).map(([target,label])=>({target,label}));
+      if(entries.length<2)return;
+      const nav=createSubnav('pv-context-nav',entries,entry=>{
+        const target=byId(entry.target);
+        (target?.closest('section')||target?.closest('form')||target)?.scrollIntoView({behavior:'smooth',block:'start'});
+      });
+      nav.id=navId;
+      nav.setAttribute('aria-label',config.label);
+      panel.insertBefore(nav,panel.firstChild);
+    });
+  }
+
+  function install(){addStyles();buildMobileNav();buildDesktopRail();installRouter();installProfileSections();installStoreSections();installSettingsSections();installContextNavigation();normalizeBrandCopy();byId('main-app')?.classList.add('pv-desktop-shell');}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
