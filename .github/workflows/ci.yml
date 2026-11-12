@@ -6,10 +6,12 @@ on:
       - main
       - feat/playverse-brand-foundation
       - fix/livekit-token-ttl-10m
-      - feat/mission-campaign-expansion
+      - feat/mission-campaign-expansion      - feat/native-android-floating-hud
+
   pull_request:
     branches:
-      - main
+      - main      - feat/profile-menu-achievements
+
 
 jobs:
   test:
