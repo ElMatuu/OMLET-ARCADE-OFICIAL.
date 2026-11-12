@@ -34,4 +34,7 @@ test('browser source applies saved camera position and frame preferences', () =>
   assert.match(browserOverlay, /#camera\[data-position="bottom-right"\]/);
   assert.match(browserOverlay, /#camera\[data-frame="cyan"\]/);
   assert.match(browserOverlay, /#camera\[data-frame="violet"\]/);
+  assert.match(browserOverlay, /root\.classList\.toggle\('camera-only',!screenVideo\.srcObject\)/);
+  assert.match(browserOverlay, /if\(response\.status===404\)\{overlayStopped=true/);
+  assert.match(browserOverlay, /if\(!response\.ok\)throw new Error\('Overlay temporalmente no disponible/);
 });
