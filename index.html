@@ -1571,7 +1571,7 @@
                     row.className = 'flex items-start gap-3';
                     const icon = document.createElement('span');
                     icon.className = 'w-9 h-9 shrink-0 rounded-xl bg-slate-800 flex items-center justify-center text-orange-300';
-                    icon.textContent = notification.type === 'friend_request' ? '👥' : notification.type === 'friend_accepted' ? '🤝' : '💬';
+                    icon.textContent = notification.type === 'group_invite' ? '👨‍👩‍👧‍👦' : notification.type === 'friend_request' ? '👥' : notification.type === 'friend_accepted' ? '🤝' : notification.type === 'direct_message' ? '✉️' : '💬';
                     const content = document.createElement('div');
                     content.className = 'min-w-0 flex-1';
                     const title = document.createElement('p');
@@ -1585,6 +1585,17 @@
                     date.textContent = notification.createdAt ? new Date(notification.createdAt).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '';
                     content.append(title, body, date);
                     row.append(icon, content);
+                    if (notification.type === 'group_invite' && notification.entityId) {
+                        const actions = document.createElement('div');
+                        actions.className = 'mt-3 flex flex-wrap gap-2';
+                        const openGroup = document.createElement('button');
+                        openGroup.type = 'button';
+                        openGroup.className = 'rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 py-2 text-[11px] font-bold text-fuchsia-200';
+                        openGroup.textContent = 'Abrir grupo';
+                        openGroup.addEventListener('click', () => openGroupFromNotification(notification.entityId, notification.id));
+                        actions.append(openGroup);
+                        card.append(actions);
+                    }
                     if (!notification.readAt) {
                         const read = document.createElement('button');
                         read.type = 'button';
@@ -1612,6 +1623,25 @@
             } finally {
                 notificationsLoading = false;
                 more.disabled = false;
+            }
+        }
+
+        async function openGroupFromNotification(groupId, notificationId) {
+            const status = document.getElementById('notifications-status');
+            try {
+                await apiRequest('/api/me/notifications/' + encodeURIComponent(notificationId) + '/read', { method: 'PUT' });
+                switchTab('friends');
+                await loadGroupConversations();
+                const groups = await apiRequest('/api/group-conversations');
+                const group = (groups.groups || []).find(item => String(item.id) === String(groupId));
+                if (!group) {
+                    if (status) status.textContent = 'La invitación ya no está disponible o ya no pertenecés a ese grupo.';
+                    return;
+                }
+                await openGroupConversation(group);
+                await refreshNotificationBadge();
+            } catch (error) {
+                if (status) status.textContent = error.message || 'No se pudo abrir el grupo desde la notificación.';
             }
         }
 
