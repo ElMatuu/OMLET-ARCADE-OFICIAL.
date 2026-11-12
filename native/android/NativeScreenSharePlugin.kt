@@ -67,11 +67,13 @@ class NativeScreenSharePlugin : Plugin() {
         val projectionData = result.data!!
         pluginScope.launch {
             var connectedRoom: Room? = null
+            var pendingRoom: Room? = null
             try {
                 val service = Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_CAPTURE_START)
                 if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(service) else context.startService(service)
                 connectedRoom = withContext(Dispatchers.IO) {
                     val created = LiveKit.create(context.applicationContext)
+                    pendingRoom = created
                     created.connect(url, token)
                     val published = created.localParticipant.setScreenShareEnabled(true, ScreenCaptureParams(projectionData))
                     if (!published) throw IllegalStateException("LiveKit no pudo publicar la captura de pantalla.")
@@ -81,7 +83,7 @@ class NativeScreenSharePlugin : Plugin() {
                 screenShareActive = true
                 call.resolve(JSObject().apply { put("active", true); put("screenShare", true) })
             } catch (error: Exception) {
-                try { connectedRoom?.disconnect() } catch (_: Exception) {}
+                try { (connectedRoom ?: pendingRoom)?.disconnect() } catch (_: Exception) {}
                 context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_CAPTURE_STOP))
                 call.reject("No se pudo iniciar la captura nativa: " + (error.message ?: "error desconocido"))
             }
