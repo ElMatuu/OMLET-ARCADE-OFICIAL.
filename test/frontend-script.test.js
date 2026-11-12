@@ -36,6 +36,7 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /generation !== liveKitConnectionGeneration/, 'A late LiveKit connection must not replace a newer session');
   assert.match(html, /if \(liveKitRoom !== room\) return/, 'Events from disconnected LiveKit rooms must not overwrite the active player');
   assert.match(html, /const connected = await connectLiveKitSession/, 'Stream creation and viewing must handle cancelled connections');
+  assert.match(html, /connectLiveKitSession already disconnects its own failed room/, 'A failed older stream start must not close a newer active player session');
   assert.match(html, /liveKitConnectionGeneration \+= 1/, 'Closing the player must invalidate pending LiveKit connections');
   assert.match(html, /playback\.catch\(/, 'Blocked remote audio autoplay must expose the manual audio-enable control');
   assert.match(html, /function connectLiveKitSession\(/, 'The live UI must connect to authenticated LiveKit sessions');
