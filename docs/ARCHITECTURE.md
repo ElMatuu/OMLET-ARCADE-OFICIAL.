@@ -1,10 +1,10 @@
-# PLAYVERSE — Architecture and delivery boundaries
+# Omlet Arcade — Architecture and delivery boundaries
 
 ## Product direction
 
-PLAYVERSE is an original gaming and creator-community platform for Android and Windows. It aims to provide a rich social-gaming experience: player profiles, friends, posts, multiplayer rooms, live broadcasts, creator customization, clips, communities, discovery and optional creator monetization. The visual system, code, brand and backend services remain original to PLAYVERSE.
+Omlet Arcade es el producto que se está reconstruyendo para Android y Windows. El objetivo es recuperar la experiencia social gamer histórica: perfiles, amistades, publicaciones, salas, transmisiones, herramientas de creador, clips, comunidades y descubrimiento. La implementación y los servicios se desarrollan para este proyecto; el paquete de identidad oficial autorizado debe mantenerse separado de los recursos temporales.
 
-Feature inspiration does not authorize copying another product's proprietary code, artwork, private APIs or exact protected interface assets.
+El proyecto declara contar con autorización del titular para la marca y el producto. Los recursos oficiales entregados por el titular deben incorporarse con su documentación de uso; no se deben inventar ni sustituir por logos ajenos.
 
 ## Current architecture
 
