@@ -131,3 +131,17 @@ Cada módulo debe mantener una ficha de estado: `implemented`, `integrated`, `co
 ## 8. Identidad de marca
 
 PLAYVERSE conserva nombre, logotipo de joystick, iconografía, paleta, tipografía, animaciones y lenguaje visual propios. Se puede recuperar la amplitud funcional y los patrones generales de interacción de una plataforma gamer social, pero no se deben reutilizar sin licencia los logotipos, ilustraciones, iconos exclusivos, textos, código, recursos ni la composición visual protegida de Omlet Arcade. Si el titular aporta una licencia verificable para algún activo concreto, se revisa ese activo por separado.
+
+
+## 9. Verificación de versiones históricas solicitadas
+
+La referencia escrita como **1.44.2** no pudo confirmarse en los archivos públicos consultados. Sí hay registros verificables de **1.44.1 (build 691)**, publicada en marzo de 2019. Su registro histórico menciona Hotness Boosts para destacar directos, salto automático al siguiente directo cuando termina el actual, eliminación de notificaciones de solicitudes de chat grupal y destacados de amigos que comienzan a transmitir. No se debe atribuir ese changelog a una supuesta 1.44.2 sin evidencia.
+
+Para la etapa final del producto Android, los archivos públicos consultados registran **1.111.9**, fechada el 16 de agosto de 2023. Esa es una referencia histórica posterior y más completa para el alcance global del producto; no implica que todas las funciones históricas estuvieran presentes simultáneamente ni que los servicios originales sigan activos.
+
+Fuentes públicas de referencia:
+- APKMirror, Omlet Arcade 1.44.1 (build 691), metadatos y ficha de versión: https://www.apkmirror.com/apk/omlet-inc/omlet-arcade-stream-meet-and-play/omlet-arcade-stream-meet-and-play-1-44-1-release/omlet-arcade-stream-meet-play-1-44-1-android-apk-download/
+- APKPure/APK listings, changelog histórico de 1.44.1: https://omlet-arcade.apkcafe.es/
+- Uptodown, archivo de versiones y registro de 1.111.9 (16 de agosto de 2023): https://omlet-arcade.uptodown.com/android/versions
+
+Estas fuentes se usan únicamente para identificar capacidades públicas e historia de versiones. No se extrae ni incorpora código, claves, endpoints privados, SDKs propietarios ni recursos de APKs de terceros.
