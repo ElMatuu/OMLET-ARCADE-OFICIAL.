@@ -25,7 +25,7 @@ function getEncryptionKey(env = process.env) {
 function validateStreamKey(value) {
   if (typeof value !== 'string') return false;
   const key = value.trim();
-  return key.length >= 8 && key.length <= 256 && !/[\\s\\u0000-\\u001f\\u007f]/.test(key);
+  return key.length >= 8 && key.length <= 256 && !/[\s\u0000-\u001f\u007f]/.test(key);
 }
 
 function encryptStreamKey(streamKey, env = process.env) {
