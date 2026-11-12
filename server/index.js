@@ -30,6 +30,7 @@ const UserPresence = require('./models/UserPresence');
 const LiveStream = require('./models/LiveStream');
 const LiveStreamMessage = require('./models/LiveStreamMessage');
 const creatorDestinationsRouter = require('./routes/creatorDestinations');
+const groupConversationsRouter = require('./routes/groupConversations');
 const Conversation = require('./models/Conversation');
 const DirectMessage = require('./models/DirectMessage');
 const Inventory = require('./models/Inventory');
@@ -121,6 +122,7 @@ app.post('/api/webhooks/livekit', express.raw({ type: 'application/webhook+json'
 
 app.use(express.json({ limit: '20kb' }));
 app.use('/api/me/stream-destinations', creatorDestinationsRouter);
+app.use('/api/group-conversations', groupConversationsRouter);
 
 const webRoot = path.join(__dirname, '..', 'www');
 app.use(express.static(webRoot, {
