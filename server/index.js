@@ -462,9 +462,12 @@ app.get('/overlay/:token', (req, res) => {
   if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{40,64}$/.test(token)) {
     return res.status(404).type('text').send('Overlay no disponible.');
   }
+  const liveKitConfig = getLiveKitConfig();
+  const liveKitOrigin = liveKitConfig ? new URL(liveKitConfig.clientUrl).origin : '';
+  const connectSources = liveKitOrigin ? "'self' " + liveKitOrigin : "'self'";
   res.set({
     'Cache-Control': 'no-store',
-    'Content-Security-Policy': "default-src 'none'; connect-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; frame-ancestors *"
+    'Content-Security-Policy': "default-src 'none'; connect-src " + connectSources + "; media-src 'self' blob:; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; frame-ancestors *"
   }).type('html').send(`<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PLAYVERSE Stream Overlay</title>
@@ -497,10 +500,16 @@ app.get('/overlay/:token', (req, res) => {
 .layout-compact .panel{padding:9px 12px}.layout-vertical{flex-direction:column;align-items:flex-start}.layout-vertical .panel{max-width:100%}
 @media(prefers-reduced-motion:no-preference){#overlay[data-product="overlay-flame-rgb"] #skin,#overlay[data-product="overlay-nebula-live"] #skin{animation:skin-pulse 5s ease-in-out infinite alternate}}
 @keyframes skin-pulse{from{filter:brightness(.85)}to{filter:brightness(1.3)}}
-</style></head><body><main id="overlay"><div id="skin" aria-hidden="true"></div><section class="panel"><div id="creator"></div><div id="title">Conectando con la transmisión…</div><div id="branding"></div><div id="social"></div></section><div id="viewers"></div><div id="watermark"></div></main>
+</style></head><body><div id="video-stage" aria-hidden="true"><video id="screen-share" autoplay playsinline></video><video id="camera" autoplay playsinline muted></video><div id="audio-tracks"></div></div><main id="overlay" class="camera-only"><div id="skin" aria-hidden="true"></div><section class="panel"><div id="creator"></div><div id="title">Conectando con la transmisión…</div><div id="branding"></div><div id="social"></div></section><div id="viewers"></div><div id="watermark"></div></main>
+<script src="/livekit-client.umd.js"></script>
 <script>
 const token=${JSON.stringify(token)};
 const root=document.getElementById('overlay');
+const screenVideo=document.getElementById('screen-share');
+const cameraVideo=document.getElementById('camera');
+const audioTracks=document.getElementById('audio-tracks');
+let overlayRoom=null;
+let overlayStopped=false;
 const set=(id,value)=>{document.getElementById(id).textContent=value||''};
 async function refresh(){
  try{
