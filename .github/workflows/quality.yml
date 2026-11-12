@@ -76,6 +76,9 @@ jobs:
           }
           trap cleanup EXIT
           docker compose --env-file .env.selfhost up -d mongo-init-replica-set
+          mongo_init_container="$(docker compose --env-file .env.selfhost ps -aq mongo-init-replica-set)"
+          test -n "$mongo_init_container"
+          test "$(docker wait "$mongo_init_container")" = "0"
           docker compose --env-file .env.selfhost exec -T mongo bash -lc 'mongosh --quiet --username "$MONGO_APP_USERNAME" --password "$MONGO_APP_PASSWORD" --authenticationDatabase playverse --eval "
             const hello = db.hello();
             if (!hello.isWritablePrimary || hello.setName !== \"rs0\") quit(2);
