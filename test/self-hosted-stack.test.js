@@ -14,7 +14,7 @@ test('self-hosted MongoDB enables authenticated transactions through a replica s
   assert.match(compose, /replicaSet=rs0&retryWrites=true&w=majority/);
   assert.match(compose, /mongo-init-replica-set:[\s\S]*service_completed_successfully/);
   assert.match(compose, /init-replica-set\.sh:ro/);
-  assert.match(replicaService, /networks: \\[playverse\\]/);
+  assert.match(replicaService, /networks: \[playverse\]/);
   assert.match(replicaInit, /rs\.initiate/);
   assert.match(replicaInit, /mongo:27017/);
   assert.doesNotMatch(compose, /"27017:27017"/);
