@@ -12,12 +12,14 @@ if (!fs.existsSync(source)) {
 }
 
 fs.mkdirSync(outputDir, { recursive: true });
-fs.copyFileSync(source, output);
+let html = fs.readFileSync(source, 'utf8');
+html = html.replace('</body>', '    <script src="/external-integrations-ui.js" defer></script>\\n</body>');
+fs.writeFileSync(output, html);
 const configuredApiUrl = typeof process.env.PLAYVERSE_API_URL === 'string' ? process.env.PLAYVERSE_API_URL.trim() : '';
 const runtimeConfig = 'window.PLAYVERSE_API_URL = window.PLAYVERSE_API_URL || ' + JSON.stringify(configuredApiUrl) + ';\n';
 fs.writeFileSync(path.join(outputDir, 'config.js'), runtimeConfig);
 
-for (const asset of ['service-worker.js', 'app-update.js', 'manifest.webmanifest']) {
+for (const asset of ['service-worker.js', 'app-update.js', 'manifest.webmanifest', 'external-integrations-ui.js']) {
   const assetSource = path.join(root, asset);
   if (!fs.existsSync(assetSource)) {
     console.error('Required web update asset was not found: ' + asset);
