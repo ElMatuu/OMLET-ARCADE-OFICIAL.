@@ -17,7 +17,8 @@ function getMissingConfiguration(provider, env = process.env) {
   if (!getEncryptionKey(env)) missing.push('APP_INTEGRATION_ENCRYPTION_KEY');
   if (!env[prefix + '_CLIENT_ID']) missing.push(prefix + '_CLIENT_ID');
   if (!env[prefix + '_CLIENT_SECRET']) missing.push(prefix + '_CLIENT_SECRET');
-  const base = (env.PLAYVERSE_API_URL || env.PUBLIC_API_URL || '').replace(/\\/$/, '');
+  const rawBase = env.PLAYVERSE_API_URL || env.PUBLIC_API_URL || '';
+  const base = rawBase.endsWith('/') ? rawBase.slice(0, -1) : rawBase;
   let validBase = false;
   try {
     const parsed = new URL(base);
