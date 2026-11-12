@@ -1,4 +1,5 @@
 log_level: info
 ws_url: ws://livekit:7880
+insecure: true
 redis:
   address: redis:6379
