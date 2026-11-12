@@ -1445,24 +1445,34 @@
         }
 
         async function checkPlayverseOverlayPermission() {
-            const plugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.OverlayPermission;
-            if (!plugin || typeof plugin.check !== 'function') return { supported: false, granted: false };
-            try { return await plugin.check(); } catch { return { supported: false, granted: false }; }
+            const plugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.ArcadeHud;
+            if (!plugin || typeof plugin.hasOverlayPermission !== 'function') return { supported: false, granted: false };
+            try {
+                const result = await plugin.hasOverlayPermission();
+                return { supported: true, granted: Boolean(result.granted) };
+            } catch { return { supported: false, granted: false }; }
         }
 
         async function openPlayverseOverlayPermission() {
             const status = document.getElementById('overlay-permission-status');
             const screen = document.getElementById('overlay-permission-screen');
-            const plugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.OverlayPermission;
-            if (!plugin) { status.textContent = 'El módulo nativo de burbuja todavía no está integrado en esta compilación. No vamos a simular una burbuja funcional.'; return; }
+            const plugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.ArcadeHud;
+            if (!plugin) { status.textContent = 'Los controles nativos no están disponibles en esta compilación. Actualizá la app para usar el HUD.'; return; }
             try {
-                const permission = await plugin.check();
-                if (!permission.granted) { await plugin.request(); status.textContent = 'Android abrió el permiso. Activá Mostrar sobre otras apps y volvé a Omlet Arcade.'; return; }
-                await plugin.startBubble();
-                status.textContent = 'Controles flotantes activados. La burbuja se acopla al borde para no tapar el juego.';
-                screen.classList.add('hidden'); screen.classList.remove('flex');
+                const permission = await plugin.hasOverlayPermission();
+                if (!permission.granted) {
+                    await plugin.openOverlaySettings();
+                    status.textContent = 'Android abrió Ajustes. Permití Mostrar sobre otras apps y volvé a PLAYVERSE.';
+                    return;
+                }
+                await plugin.startHud();
+                status.textContent = 'HUD flotante activo. La transmisión todavía no se inició.';
+                screen.classList.add('hidden');
+                screen.classList.remove('flex');
                 localStorage.setItem('pv-overlay-permission-dismissed', '1');
-            } catch (error) { status.textContent = 'No se pudieron activar los controles: ' + error.message; }
+            } catch (error) {
+                status.textContent = 'No se pudieron activar los controles: ' + (error && error.message ? error.message : 'error desconocido');
+            }
         }
         function setupOverlayPermissionPrompt() {
             if (!window.Capacitor || window.Capacitor.getPlatform() !== 'android') return;
@@ -1473,16 +1483,16 @@
             if (!screen || localStorage.getItem('pv-overlay-permission-dismissed') === '1') return;
             checkPlayverseOverlayPermission().then((permission) => {
                 if (!permission.supported) {
-                    status.textContent = 'La burbuja nativa todavía no está incluida en esta compilación. No se solicitará un permiso hasta integrar el módulo Android real.';
+                    status.textContent = 'El HUD nativo no está disponible en esta compilación. No se solicitarán permisos sin el módulo instalado.';
                     enable.disabled = true;
-                    enable.textContent = 'Pendiente de integración nativa';
+                    enable.textContent = 'HUD no disponible';
                     screen.classList.remove('hidden');
                     screen.classList.add('flex');
                     return;
                 }
                 enable.disabled = false;
-                status.textContent = permission.granted ? 'Permiso concedido. Activá los controles cuando quieras.' : 'Android te pedirá autorización para mostrar la burbuja sobre los juegos.';
-                enable.textContent = permission.granted ? 'Activar burbuja flotante' : 'Habilitar permiso';
+                status.textContent = permission.granted ? 'Permiso concedido. Podés activar el HUD flotante.' : 'El permiso es opcional y Android lo administra desde Ajustes.';
+                enable.textContent = permission.granted ? 'Activar HUD flotante' : 'Habilitar controles flotantes';
                 screen.classList.remove('hidden');
                 screen.classList.add('flex');
             });
@@ -1495,8 +1505,8 @@
             const verifyOnReturn = async () => {
                 const permission = await checkPlayverseOverlayPermission();
                 if (permission.granted) {
-                    status.textContent = 'Permiso habilitado. Tocá Activar burbuja flotante para iniciar los controles.';
-                    enable.textContent = 'Activar burbuja flotante';
+                    status.textContent = 'Permiso habilitado. Tocá Activar HUD flotante para iniciarlo.';
+                    enable.textContent = 'Activar HUD flotante';
                 }
             };
             window.addEventListener('focus', verifyOnReturn);
