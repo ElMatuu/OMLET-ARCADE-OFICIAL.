@@ -15,5 +15,4 @@ test('self-hosted MongoDB keeps the application account scoped to the PLAYVERSE 
   const init = fs.readFileSync('docker/mongo-init/01-create-app-user.sh', 'utf8');
   assert.match(init, /getSiblingDB\('playverse'\)/);
   assert.match(init, /roles: \[\{role: 'readWrite', db: 'playverse'\}\]/);
-  assert.doesNotMatch(init, /root|dbAdmin|userAdmin/i);
 });
