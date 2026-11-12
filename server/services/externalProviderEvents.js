@@ -327,7 +327,72 @@ async function processKickWebhook(body, headers, io) {
   if (!summary) return { accepted: true, type: eventType };
   return ingestExternalChatMessage({ provider: 'kick', externalUserId: broadcasterId, externalMessageId: messageId, username, message: summary, io });
 }
+
+async function sendToLinkedProviders(owner, message, env = process.env) {
+  const text = typeof message === 'string' ? message.trim() : '';
+  if (!text || text.length > 500) return [];
+  const connections = await ExternalProviderConnection.find({ owner, status: 'connected' })
+    .select('provider externalUserId scopes expiresAt +encryptedAccessToken +accessIv +accessAuthTag +encryptedRefreshToken +refreshIv +refreshAuthTag +youtubeLiveChatId').lean();
+  return Promise.all(connections.map(async (connection) => {
+    const provider = connection.provider;
+    try {
+      const token = await getAccessToken(connection, env);
+      if (provider === 'twitch') {
+        if (!connection.scopes?.includes('user:write:chat')) return { provider, status: 'scope_missing' };
+        const credentials = getCredentials('twitch', env);
+        const response = await fetchJson('https://api.twitch.tv/helix/chat/messages', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token, 'Client-Id': credentials.clientId, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            broadcaster_id: connection.externalUserId,
+            sender_id: connection.externalUserId,
+            message: text
+          })
+        });
+        const result = response.data?.[0];
+        return { provider, status: result?.is_sent ? 'sent' : 'rejected', messageId: result?.message_id || null };
+      }
+      if (provider === 'kick') {
+        if (!connection.scopes?.includes('chat:write')) return { provider, status: 'scope_missing' };
+        const broadcasterId = Number(connection.externalUserId);
+        const graphemes = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)].length;
+        if (!Number.isSafeInteger(broadcasterId) || graphemes > 500 || Buffer.byteLength(text, 'utf8') > 2048) {
+          return { provider, status: 'message_not_supported' };
+        }
+        const response = await fetchJson('https://api.kick.com/public/v1/chat', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ broadcaster_user_id: broadcasterId, content: text, type: 'user' })
+        });
+        return { provider, status: response.data?.is_sent ? 'sent' : 'rejected', messageId: response.data?.message_id || null };
+      }
+      if (provider === 'youtube') {
+        if (!connection.scopes?.includes('https://www.googleapis.com/auth/youtube.force-ssl')) return { provider, status: 'scope_missing' };
+        if (!connection.youtubeLiveChatId) return { provider, status: 'no_active_live_chat' };
+        if ([...text].length > 200) return { provider, status: 'message_too_long' };
+        const url = new URL('https://www.googleapis.com/youtube/v3/liveChat/messages');
+        url.searchParams.set('part', 'snippet');
+        const response = await fetchJson(url, {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            snippet: {
+              liveChatId: connection.youtubeLiveChatId,
+              type: 'textMessageEvent',
+              textMessageDetails: { messageText: text }
+            }
+          })
+        });
+        return { provider, status: response.id ? 'sent' : 'rejected', messageId: response.id || null };
+      }
+      return { provider, status: 'unsupported' };
+    } catch (error) {
+      return { provider, status: 'error', message: String(error.message || 'Error del proveedor').slice(0, 160) };
+    }
+  }));
+}
+
 module.exports = {
-  ingestExternalChatMessage, processKickWebhook, processTwitchWebhook,
+  ingestExternalChatMessage, processKickWebhook, processTwitchWebhook, sendToLinkedProviders,
   startYouTubeChatSync, stopYouTubeChatSync, subscribeProviderEvents, verifyKickWebhook, verifyTwitchEventSub
 };
