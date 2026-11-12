@@ -45,6 +45,16 @@ public class ArcadeHudPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void consumePendingAction(PluginCall call) {
+        android.content.SharedPreferences preferences = getContext().getSharedPreferences("arcade_hud", android.content.Context.MODE_PRIVATE);
+        String action = preferences.getString("pending_action", "");
+        preferences.edit().remove("pending_action").apply();
+        JSObject result = new JSObject();
+        result.put("action", action);
+        call.resolve(result);
+    }
+
+    @PluginMethod
     public void stopHud(PluginCall call) {
         Intent intent = new Intent(getContext(), ArcadeHudService.class);
         intent.setAction(ArcadeHudService.ACTION_STOP);
