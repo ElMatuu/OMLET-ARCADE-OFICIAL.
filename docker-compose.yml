@@ -53,18 +53,9 @@ services:
     environment:
       MONGO_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env.selfhost}
       MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env.selfhost}
-    entrypoint: ["/bin/bash", "-lc"]
-    command: |
-      set -euo pipefail
-      mongosh --quiet --host mongo:27017 --username "$$MONGO_ROOT_USERNAME" --password "$$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --eval 'const hello = db.hello(); if (!hello.setName) { rs.initiate({_id: "rs0", members: [{_id: 0, host: "mongo:27017"}]}); }'
-      for attempt in $$(seq 1 30); do
-        if mongosh --quiet --host mongo:27017 --username "$$MONGO_ROOT_USERNAME" --password "$$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --eval 'db.hello().isWritablePrimary' | grep -q true; then
-          exit 0
-        fi
-        sleep 2
-      done
-      echo "MongoDB replica set did not become primary." >&2
-      exit 1
+    entrypoint: ["/bin/bash", "/scripts/init-replica-set.sh"]
+    volumes:
+      - ./docker/mongo-init-replica-set.sh:/scripts/init-replica-set.sh:ro
 
   api:
     build:
