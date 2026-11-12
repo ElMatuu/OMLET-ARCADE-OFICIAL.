@@ -124,6 +124,11 @@ class NativeScreenSharePlugin : Plugin() {
 
     @PluginMethod
     fun updateHudChat(call: PluginCall) {
+        val preferences = context.getSharedPreferences("arcade_hud", Context.MODE_PRIVATE)
+        if (!preferences.getBoolean("hud_enabled", false)) {
+            call.resolve(JSObject().apply { put("updated", false) })
+            return
+        }
         val messages = call.getString("messages") ?: "[]"
         val service = Intent(context, ArcadeHudService::class.java)
             .setAction(ArcadeHudService.ACTION_CHAT_UPDATE)
