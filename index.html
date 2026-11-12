@@ -797,6 +797,11 @@
                     <label class="text-xs text-slate-400">Tema visual<select id="stream-overlay-theme" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="arcade">Arcade clásico</option><option value="neon">Neón</option><option value="minimal">Minimal</option><option value="esports">eSports</option></select></label>
                     <label class="text-xs text-slate-400">Distribución<select id="stream-overlay-layout" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="compact">Compacta</option><option value="wide">Horizontal</option><option value="vertical">Vertical</option></select></label>
                 </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <label class="text-xs text-slate-400">Ubicación del overlay<select id="stream-overlay-position" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white"><option value="top-left">Arriba izquierda</option><option value="top-right">Arriba derecha</option><option value="bottom-left">Abajo izquierda</option><option value="bottom-right">Abajo derecha</option></select></label>
+                    <label class="text-xs text-slate-400">Tamaño <output id="stream-overlay-scale-value">100%</output><input id="stream-overlay-scale" type="range" min="75" max="125" step="5" value="100" class="mt-2 w-full accent-orange-400"></label>
+                    <label class="text-xs text-slate-400">Opacidad <output id="stream-overlay-opacity-value">90%</output><input id="stream-overlay-opacity" type="range" min="40" max="100" step="5" value="90" class="mt-2 w-full accent-orange-400"></label>
+                </div>
                 <label class="block text-xs text-slate-400">Marca / nombre del canal<input id="stream-overlay-branding" maxlength="40" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="Tu nombre de creador"></label>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <label class="text-xs text-slate-400">YouTube<input id="stream-social-youtube" maxlength="60" class="mt-1 w-full min-w-0 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="@canal"></label>
@@ -4287,6 +4292,9 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             };
             const theme = document.getElementById('stream-overlay-theme')?.value || 'arcade';
             const layout = document.getElementById('stream-overlay-layout')?.value || 'wide';
+            const position = document.getElementById('stream-overlay-position')?.value || 'bottom-left';
+            const scale = Number(document.getElementById('stream-overlay-scale')?.value || 100);
+            const opacity = Number(document.getElementById('stream-overlay-opacity')?.value || 90);
             const brand = document.getElementById('stream-overlay-branding')?.value.trim() || 'Tu canal';
             const socials = [
                 ['YouTube', document.getElementById('stream-social-youtube')?.value.trim()],
@@ -4300,6 +4308,13 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             root.style.background = themes[theme] || themes.arcade;
             root.style.flexDirection = layout === 'vertical' ? 'column' : 'row';
             root.style.flexWrap = layout === 'compact' ? 'wrap' : 'nowrap';
+            root.style.justifyContent = position.endsWith('right') ? 'flex-end' : 'flex-start';
+            root.style.alignItems = position.startsWith('top') ? 'flex-start' : 'flex-end';
+            root.style.transform = 'scale(' + (scale / 100) + ')';
+            root.style.transformOrigin = position.replace('-', ' ');
+            root.style.opacity = String(opacity / 100);
+            document.getElementById('stream-overlay-scale-value').textContent = scale + '%';
+            document.getElementById('stream-overlay-opacity-value').textContent = opacity + '%';
             document.getElementById('stream-preview-brand').textContent = brand;
             document.getElementById('stream-preview-title').textContent = 'Vista previa de tu transmisión';
             document.getElementById('stream-preview-viewers').hidden = !showViewers;
@@ -4330,6 +4345,9 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 document.getElementById('stream-camera-frame').value = preferences.cameraFrame || 'none';
                 document.getElementById('stream-overlay-theme').value = preferences.overlayTheme || 'arcade';
                 document.getElementById('stream-overlay-layout').value = preferences.overlayLayout || 'wide';
+                document.getElementById('stream-overlay-position').value = preferences.overlayPosition || 'bottom-left';
+                document.getElementById('stream-overlay-scale').value = String(preferences.overlayScale || 100);
+                document.getElementById('stream-overlay-opacity').value = String(preferences.overlayOpacity || 90);
                 document.getElementById('stream-overlay-branding').value = preferences.overlayBrandingText || '';
                 document.getElementById('stream-social-youtube').value = preferences.socialYouTube || '';
                 document.getElementById('stream-social-twitch').value = preferences.socialTwitch || '';
@@ -4365,6 +4383,9 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 cameraFrame: document.getElementById('stream-camera-frame').value,
                 overlayTheme: document.getElementById('stream-overlay-theme').value,
                 overlayLayout: document.getElementById('stream-overlay-layout').value,
+                overlayPosition: document.getElementById('stream-overlay-position').value,
+                overlayScale: Number(document.getElementById('stream-overlay-scale').value),
+                overlayOpacity: Number(document.getElementById('stream-overlay-opacity').value),
                 overlayBrandingText: document.getElementById('stream-overlay-branding').value.trim(),
                 socialYouTube: document.getElementById('stream-social-youtube').value.trim(),
                 socialTwitch: document.getElementById('stream-social-twitch').value.trim(),
