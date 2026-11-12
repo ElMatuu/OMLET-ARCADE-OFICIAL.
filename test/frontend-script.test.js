@@ -43,6 +43,15 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /id="store-sort"/, 'The store must expose catalog sorting controls');
   assert.match(html, /storeQuery\.set\('q', searchTerm\)/, 'Store search input must be sent to the catalog API');
   assert.match(html, /storeQuery\.set\('sort', sortOrder\)/, 'Store sorting must be sent to the catalog API');
+  assert.match(html, /id="store-currency-filter"/, 'Store discovery must expose a currency filter');
+  assert.match(html, /id="store-rarity-filter"/, 'Store discovery must expose a rarity filter');
+  assert.match(html, /storeQuery\.set\('category', selectedStoreCategory\)/, 'Store category selection must be applied by the catalog API');
+  assert.match(html, /storeQuery\.set\('currency', currency\)/, 'Store currency selection must be applied by the catalog API');
+  assert.match(html, /storeQuery\.set\('rarity', rarity\)/, 'Store rarity selection must be applied by the catalog API');
+  assert.match(html, /storeQuery\.set\('page', String\(/, 'Store pagination must request a specific page from the catalog API');
+  assert.match(html, /id="store-page-previous"/, 'Store pagination must expose a previous-page control');
+  assert.match(html, /id="store-page-next"/, 'Store pagination must expose a next-page control');
+  assert.match(html, /storeLoadGeneration/, 'Store responses must ignore stale requests when filters change quickly');
   assert.match(html, /method: 'PUT',[\s\S]{0,260}body: JSON\.stringify\(preset\)/, 'Automatic streaming setup must save its preset through the authenticated preferences API');
   assert.match(html, /isAndroid \|\| \(cores > 0 && cores <= 4\)/, 'Automatic streaming setup must choose a conservative profile for lower-power devices');
   assert.match(html, /Podés ajustar cada opción manualmente/, 'Automatic setup must preserve the ability to customize settings manually');
