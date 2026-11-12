@@ -33,9 +33,7 @@ Caddy obtains and renews TLS certificates when both DNS names point to the serve
 Check MongoDB's replica-set state from the host:
 
 ```bash
-docker compose --env-file .env.selfhost exec mongo mongosh --quiet \
-  --username "$MONGO_ROOT_USERNAME" --password "$MONGO_ROOT_PASSWORD" \
-  --authenticationDatabase admin --eval 'db.hello()'
+docker compose --env-file .env.selfhost exec mongo bash -lc 'mongosh --quiet --username "$MONGO_INITDB_ROOT_USERNAME" --password "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "db.hello()"'
 ```
 
 The result must show `setName: "rs0"` and `isWritablePrimary: true`. The API readiness endpoint must return HTTP 200:
