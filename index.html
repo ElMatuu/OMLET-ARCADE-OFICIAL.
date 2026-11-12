@@ -905,6 +905,10 @@
                     <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Mostrar espectadores<input id="stream-overlay-show-viewers" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
                     <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Mostrar panel de donaciones/regalos<input id="stream-overlay-show-donations" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
                 </div>
+                <section class="space-y-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-3">
+                    <label class="flex items-center justify-between gap-3 text-sm font-semibold text-sky-100">No molestar mientras transmito<input id="stream-dnd" type="checkbox" class="accent-sky-400 w-5 h-5"></label>
+                    <p class="text-[11px] text-slate-400">Mientras tu directo esté activo, se silencian las alertas en tiempo real de mensajes, regalos, invitaciones y solicitudes. Las notificaciones siguen guardadas en tu bandeja y no se pierden.</p>
+                </section>
                 <label class="block text-xs text-slate-400">Mensaje de bienvenida<input id="stream-welcome-message" maxlength="200" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="¡Bienvenidos al directo!"></label>
                 <label class="block text-xs text-slate-400">Mensaje de despedida<input id="stream-farewell-message" maxlength="200" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="¡Gracias por acompañarme!"></label>
                 <div class="rounded-2xl border border-slate-700 bg-slate-950 p-3 space-y-2" aria-label="Vista previa del overlay">
@@ -4896,6 +4900,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 document.getElementById('stream-overlay-show-chat').checked = preferences.overlayShowChat !== false;
                 document.getElementById('stream-overlay-show-viewers').checked = preferences.overlayShowViewerCount !== false;
                 document.getElementById('stream-overlay-show-donations').checked = preferences.overlayShowDonations !== false;
+                document.getElementById('stream-dnd').checked = preferences.doNotDisturbWhileStreaming === true;
                 document.getElementById('stream-welcome-message').value = preferences.welcomeMessage || '';
                 document.getElementById('stream-farewell-message').value = preferences.farewellMessage || '';
                 renderStreamOverlayPreview();
@@ -4934,6 +4939,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 overlayShowChat: document.getElementById('stream-overlay-show-chat').checked,
                 overlayShowViewerCount: document.getElementById('stream-overlay-show-viewers').checked,
                 overlayShowDonations: document.getElementById('stream-overlay-show-donations').checked,
+                doNotDisturbWhileStreaming: document.getElementById('stream-dnd').checked,
                 welcomeMessage: document.getElementById('stream-welcome-message').value.trim(),
                 farewellMessage: document.getElementById('stream-farewell-message').value.trim()
             };
