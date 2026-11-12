@@ -31,7 +31,6 @@ This repository contains a working backend foundation and a web client that is s
 
 ### Not yet implemented or verified as production features
 
-- Secure creator RTMP destinations for Twitch, YouTube and Kick: authenticated owner-only management, server-side AES-256-GCM encryption at rest, masked key metadata, explicit credential reveal and deletion. Requires a dedicated `STREAM_KEY_ENCRYPTION_KEY`; it does not claim that a platform account is OAuth-linked or that a broadcast is live.
 - LiveKit server integration foundation: persistent live-session records, authenticated room creation, short-lived publisher/viewer JWTs, owner-only stream termination, a signature-verified `room_finished` webhook and a public live-session directory are implemented. The feature remains disabled until valid LiveKit Cloud/self-host credentials are configured.
 - LiveKit browser client is now bundled locally into the web build. The live screen has authenticated publisher/viewer token flows, camera/microphone controls, screen-share control and remote audio/video track rendering. Windows Electron requests explicit camera/microphone approval and provides a screen/window picker. These flows still require real-browser and physical-device end-to-end testing; they are not yet a verified public streaming service.
 - Camera/screen/audio capture on Android and Windows, including device capability detection and permissions.
@@ -51,11 +50,18 @@ No million-user capacity or public production readiness is claimed. Those requir
 
 ## Creator RTMP destinations
 
+The encrypted Twitch, YouTube and Kick destination-management module is implemented and merged. It provides authenticated owner-only storage, AES-256-GCM encryption at rest, masked listings, explicit credential reveal and deletion. It does not provide OAuth linking or a built-in multistream relay.
+
+
 See [`docs/CREATOR_STREAM_DESTINATIONS.md`](docs/CREATOR_STREAM_DESTINATIONS.md) for secure Twitch, YouTube and Kick RTMP key storage and app setup. This feature does not yet provide OAuth linking or direct multistream relay.
 
 ## LiveKit Cloud setup
 
 See [`docs/LIVEKIT_SETUP.md`](docs/LIVEKIT_SETUP.md) for the exact environment variables, webhook endpoint, and end-to-end validation sequence. Do not put LiveKit credentials in source control or client-side settings.
+
+## Historical Omlet Arcade feature-parity audit
+
+See [`docs/OMLET_ARCADE_PARITY_AUDIT.md`](docs/OMLET_ARCADE_PARITY_AUDIT.md) for a source-backed inventory of recovered historical workflows, their current implementation status, and the next engineering gaps. This is a feature-parity roadmap, not a claim that every historical Omlet release or menu has been reproduced.
 
 ## Architecture
 
