@@ -64,6 +64,27 @@ jobs:
             'LIVEKIT_URL=wss://live.example.com' \
             'CORS_ORIGIN=https://api.example.com' > .env.selfhost
           docker compose --env-file .env.selfhost config --quiet
+      - name: Smoke test authenticated self-hosted MongoDB replica set and transactions
+        run: |
+          cleanup() {
+            docker compose --env-file .env.selfhost down --volumes --remove-orphans
+          }
+          trap cleanup EXIT
+          docker compose --env-file .env.selfhost up -d mongo-init-replica-set
+          docker compose --env-file .env.selfhost exec -T mongo bash -lc 'mongosh --quiet --username "$MONGO_APP_USERNAME" --password "$MONGO_APP_PASSWORD" --authenticationDatabase playverse --eval "
+            const hello = db.hello();
+            if (!hello.isWritablePrimary || hello.setName !== \"rs0\") quit(2);
+            const database = db.getSiblingDB(\"playverse\");
+            database.__pv_transaction_smoke.createIndex({marker: 1});
+            const marker = \"ci-\" + new Date().getTime();
+            const session = db.getMongo().startSession();
+            const txdb = session.getDatabase(\"playverse\");
+            session.startTransaction();
+            txdb.__pv_transaction_smoke.insertOne({marker});
+            session.commitTransaction();
+            session.endSession();
+            database.__pv_transaction_smoke.deleteOne({marker});
+          "'
       - name: Run unit and multi-user integration tests
         run: npm test
         env:
