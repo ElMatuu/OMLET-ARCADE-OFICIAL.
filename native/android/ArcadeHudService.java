@@ -21,9 +21,19 @@ import android.widget.TextView;
 public class ArcadeHudService extends Service {
     public static final String ACTION_SHOW = "com.playverse.app.hud.SHOW";
     public static final String ACTION_STOP = "com.playverse.app.hud.STOP";
+    public static final String ACTION_CAPTURE_START = "com.playverse.app.hud.CAPTURE_START";
+    public static final String ACTION_CAPTURE_STOP = "com.playverse.app.hud.CAPTURE_STOP";
+    public static final String ACTION_MICROPHONE_START = "com.playverse.app.hud.MICROPHONE_START";
+    public static final String ACTION_MICROPHONE_STOP = "com.playverse.app.hud.MICROPHONE_STOP";
+    public static final String ACTION_CAMERA_START = "com.playverse.app.hud.CAMERA_START";
+    public static final String ACTION_CAMERA_STOP = "com.playverse.app.hud.CAMERA_STOP";
     private static final String CHANNEL_ID = "playverse_hud";
     private static final int NOTIFICATION_ID = 7411;
 
+    private Notification foregroundNotification;
+    private boolean captureActive;
+    private boolean microphoneActive;
+    private boolean cameraActive;
     private WindowManager windowManager;
     private View bubble;
     private View panel;
@@ -38,27 +48,44 @@ public class ArcadeHudService extends Service {
         Notification.Builder notificationBuilder = Build.VERSION.SDK_INT >= 26
             ? new Notification.Builder(this, CHANNEL_ID)
             : new Notification.Builder(this);
-        Notification notification = notificationBuilder
+        foregroundNotification = notificationBuilder
             .setSmallIcon(getApplicationInfo().icon)
             .setContentTitle("PLAYVERSE HUD activo")
             .setContentText("Controles flotantes disponibles. La transmisión no se inicia automáticamente.")
             .setOngoing(true)
             .build();
-        if (Build.VERSION.SDK_INT >= 34) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
-        } else {
-            startForeground(NOTIFICATION_ID, notification);
-        }
+        refreshForegroundTypes();
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null && ACTION_STOP.equals(intent.getAction())) {
+        String action = intent == null ? null : intent.getAction();
+        if (ACTION_STOP.equals(action)) {
             stopSelf();
             return START_NOT_STICKY;
         }
+        if (ACTION_CAPTURE_START.equals(action)) captureActive = true;
+        if (ACTION_CAPTURE_STOP.equals(action)) captureActive = false;
+        if (ACTION_MICROPHONE_START.equals(action)) microphoneActive = true;
+        if (ACTION_MICROPHONE_STOP.equals(action)) microphoneActive = false;
+        if (ACTION_CAMERA_START.equals(action)) cameraActive = true;
+        if (ACTION_CAMERA_STOP.equals(action)) cameraActive = false;
+        refreshForegroundTypes();
         showBubble();
         return START_STICKY;
+    }
+
+    private void refreshForegroundTypes() {
+        if (foregroundNotification == null) return;
+        if (Build.VERSION.SDK_INT >= 34) {
+            int types = ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE;
+            if (captureActive) types |= ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
+            if (microphoneActive) types |= ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
+            if (cameraActive) types |= ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA;
+            startForeground(NOTIFICATION_ID, foregroundNotification, types);
+        } else {
+            startForeground(NOTIFICATION_ID, foregroundNotification);
+        }
     }
 
     private int overlayType() {
@@ -160,6 +187,11 @@ public class ArcadeHudService extends Service {
             }
         });
         card.addView(returnButton);
+        addActionButton(card, "Capturar juego", "screen_share_toggle");
+        addActionButton(card, "Micrófono", "microphone_toggle");
+        addActionButton(card, "Cámara", "camera_toggle");
+        addActionButton(card, "Finalizar directo", "end_stream");
+        addActionButton(card, "Chat del directo", "stream_chat");
         addActionButton(card, "Chat", "chat");
         addActionButton(card, "Directos", "live");
         addActionButton(card, "Salas", "lobbies");
