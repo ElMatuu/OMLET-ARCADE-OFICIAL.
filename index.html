@@ -2614,6 +2614,15 @@
             banner.classList.remove('hidden');
         }
 
+        function muteRoomMember(userId) {
+            if (!roomSocket || !roomSocketJoined || !activeRoomId) return;
+            roomSocket.emit('mute_room_member', { roomId: activeRoomId, userId }, (result) => {
+                document.getElementById('room-chat-status').textContent = result && result.success
+                    ? 'Participante silenciado durante 15 minutos.'
+                    : (result && result.message) || 'No se pudo silenciar al participante.';
+            });
+        }
+
         function pinRoomMessage(messageId) {
             if (!roomSocket || !roomSocketJoined || !activeRoomId) return;
             roomSocket.emit('pin_room_message', { roomId: activeRoomId, messageId }, (result) => {
@@ -2642,6 +2651,14 @@
             body.className = 'text-sm text-slate-100 whitespace-pre-wrap break-words';
             body.textContent = String(message.message || '');
             item.append(heading, body);
+            if (roomCanModerate && message.authorId) {
+                const mute = document.createElement('button');
+                mute.type = 'button';
+                mute.className = 'mt-2 mr-3 text-[11px] font-bold text-rose-300 underline';
+                mute.textContent = 'Silenciar 15 min';
+                mute.addEventListener('click', () => muteRoomMember(String(message.authorId)));
+                item.appendChild(mute);
+            }
             if (roomCanModerate && message.id) {
                 const pin = document.createElement('button');
                 pin.type = 'button';
