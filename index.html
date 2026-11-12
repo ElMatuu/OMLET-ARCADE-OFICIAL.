@@ -1882,7 +1882,6 @@ const GAME_CATALOG_DETAILS = {
             switchTab('clubs');
             const search = document.getElementById('club-search');
             if (search) search.value = game.name;
-            loadClubs(game.name);
         }
 
         function closeGameDetail() {
@@ -1976,7 +1975,7 @@ const GAME_CATALOG_DETAILS = {
             document.getElementById('tab-' + tabName).classList.remove('hidden');
             if (tabName === 'live') loadLiveStreams();
             if (tabName === 'lobbies') loadRooms();
-            if (tabName === 'clubs') loadClubs();
+            if (tabName === 'clubs') loadClubs(document.getElementById('club-search')?.value || '');
             if (tabName === 'tournaments') loadTournaments();
             if (tabName === 'chat') loadDirectConversations();
             if (tabName === 'feed') { loadCommunityPosts(); loadHomeLiveStreams(); }
