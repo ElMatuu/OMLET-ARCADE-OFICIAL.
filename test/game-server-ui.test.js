@@ -15,7 +15,7 @@ test('community game server cards provide truthful Minecraft Java and Bedrock jo
   assert.match(handler, /edition === 'crossplay'/);
   assert.match(handler, /Multijugador > Añadir servidor/);
   assert.match(handler, /Jugar > Servidores > Añadir servidor/);
-  assert.match(handler, /PLAYVERSE no puede garantizar un enlace directo/);
+  assert.match(handler, /Omlet Arcade no puede garantizar un enlace directo/);
   assert.doesNotMatch(handler, /minecraft:\/\//);
   assert.doesNotMatch(handler, /minecraft\.net/);
 });
