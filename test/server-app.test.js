@@ -144,6 +144,9 @@ test('public stream overlay rejects malformed tokens without querying stream dat
     assert.equal(api.status, 404);
     const body = await api.json();
     assert.equal(body.success, false);
+    const session = await fetch(baseUrl + '/api/public/stream-overlay/not-a-valid-token/session', { method: 'POST' });
+    assert.equal(session.status, 404);
+    assert.equal((await session.json()).success, false);
   });
 });
 
