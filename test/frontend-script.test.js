@@ -67,6 +67,8 @@ test('all inline JavaScript in the main interface parses successfully', () => {
 
   assert.match(html, /function joinLiveStream\(/, 'Viewers must be able to join live streams from the UI');
   assert.match(html, /function toggleLiveScreenShare\(/, 'Creators must have a screen-sharing control');
+  assert.match(html, /systemAudio: includeSystemAudio \? 'include' : 'exclude'/, 'Screen sharing must honor the saved system-audio preference');
+  assert.match(html, /audio: includeSystemAudio/, 'Screen sharing must request audio capture only when enabled');
   assert.match(html, /RoomEvent\.ParticipantConnected/, 'Live viewers must update the connected participant count');
   assert.match(html, /live-player-participant-count/, 'The live player must expose participant synchronization status');
   assert.match(html, /RoomEvent\.AudioPlaybackStatusChanged/, 'The player must handle browser audio autoplay restrictions');
