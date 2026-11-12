@@ -154,4 +154,6 @@ The development branch `feat/native-android-floating-hud` adds a first native HU
 
 ## Game detail slice (2026-11-12)
 
+Validation coverage includes all eight detail entry points, live API discovery/player navigation, stream-composer routing, and game-filtered club discovery. The game-to-club shortcut pre-fills the existing club search and uses the normal tab navigation to issue a single filtered request.
+
 All eight initial catalog entries now open a dedicated detail panel with their local artwork, category, a short game-specific introduction, a direct action to filter live broadcasts, a shortcut to prepare the stream composer, and game-specific club discovery through the existing `/api/clubs?q=` search. The panel fetches `/api/streams`, filters actual active sessions by game, provides loading/empty/error states, and opens the existing live player for a selected session. Club navigation carries the selected game into the existing search field and performs one filtered request. These are game discovery pages, not a full game feed: game-linked community posts, player lists, and club recommendations still require explicit backend relationships and UI.
