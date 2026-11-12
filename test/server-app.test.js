@@ -282,6 +282,40 @@ test('live stream chat moderation rejects malformed identifiers before database 
   });
 });
 
+test('live stream participant mute actions require authentication', async () => {
+  await withServer(async (baseUrl) => {
+    const streamId = '507f1f77bcf86cd799439011';
+    const userId = '507f1f77bcf86cd799439012';
+    const mute = await fetch(baseUrl + '/api/streams/' + streamId + '/participants/' + userId + '/mute', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ durationMinutes: 10 })
+    });
+    const unmute = await fetch(baseUrl + '/api/streams/' + streamId + '/participants/' + userId + '/mute', { method: 'DELETE' });
+    assert.equal(mute.status, 401);
+    assert.equal(unmute.status, 401);
+  });
+});
+
+test('live stream participant mute rejects malformed identifiers and durations before database access', async () => {
+  const jwt = require('jsonwebtoken');
+  const mongoose = require('mongoose');
+  const token = jwt.sign({
+    sub: new mongoose.Types.ObjectId().toString(), username: 'ordinary_player', role: 'user'
+  }, process.env.JWT_SECRET, {
+    algorithm: 'HS256', expiresIn: '5m', issuer: 'playverse-api', audience: 'playverse-clients'
+  });
+  await withServer(async (baseUrl) => {
+    const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+    const badIds = await fetch(baseUrl + '/api/streams/nope/participants/nope/mute', {
+      method: 'POST', headers, body: JSON.stringify({ durationMinutes: 10 })
+    });
+    const badDuration = await fetch(baseUrl + '/api/streams/507f1f77bcf86cd799439011/participants/507f1f77bcf86cd799439012/mute', {
+      method: 'POST', headers, body: JSON.stringify({ durationMinutes: 1441 })
+    });
+    assert.equal(badIds.status, 400);
+    assert.equal(badDuration.status, 400);
+  });
+});
+
 test('live stream chat rejects malformed stream identifiers before database access', async () => {
   const jwt = require('jsonwebtoken');
   const mongoose = require('mongoose');
