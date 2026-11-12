@@ -1239,8 +1239,9 @@ app.delete('/api/me/inventory/:category/equip', requireAuth, storeLimiter, async
   }
   const field = category === 'avatar-frame' ? 'activeAvatarFrame' : 'activeStreamOverlay';
   const itemIds = STORE_CATALOG.filter((item) => item.category === category).map((item) => item.id);
-  const session = await mongoose.startSession();
+  let session;
   try {
+    session = await mongoose.startSession();
     await session.withTransaction(async () => {
       await Inventory.updateMany(
         { user: req.auth.sub, itemId: { $in: itemIds } },
@@ -1253,7 +1254,7 @@ app.delete('/api/me/inventory/:category/equip', requireAuth, storeLimiter, async
   } catch (error) {
     return next(error);
   } finally {
-    await session.endSession();
+    if (session) await session.endSession();
   }
 });
 
