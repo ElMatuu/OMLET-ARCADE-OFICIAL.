@@ -2,6 +2,7 @@ const crypto = require('node:crypto');
 const LiveStream = require('../models/LiveStream');
 const LiveStreamMessage = require('../models/LiveStreamMessage');
 const ExternalProviderConnection = require('../models/ExternalProviderConnection');
+const ExternalWebhookReceipt = require('../models/ExternalWebhookReceipt');
 const { fetchJson, getAccessToken, getCredentials, getProvider } = require('./externalProviders');
 
 let twitchAppToken = null;
@@ -52,6 +53,46 @@ async function verifyKickWebhook({ rawBody, headers, now = Date.now() }) {
     return crypto.verify('RSA-SHA256', signed, rotatedKey, signatureBytes);
   } catch { return false; }
 }
+
+async function claimWebhookReceipt(provider, messageId) {
+  if (!['twitch', 'kick'].includes(provider) || typeof messageId !== 'string' || !messageId || messageId.length > 128) {
+    return { claimed: false, receiptId: null };
+  }
+  const now = new Date();
+  try {
+    const receipt = await ExternalWebhookReceipt.create({ provider, messageId, status: 'processing', receivedAt: now });
+    return { claimed: true, receiptId: receipt._id };
+  } catch (error) {
+    if (error.code !== 11000) throw error;
+    const retry = await ExternalWebhookReceipt.findOneAndUpdate({
+      provider, messageId,
+      $or: [
+        { status: 'failed' },
+        { status: 'processing', receivedAt: { $lt: new Date(now.getTime() - 2 * 60 * 1000) } }
+      ]
+    }, { $set: { status: 'processing', receivedAt: now, lastError: null, expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000) } }, { new: true });
+    return { claimed: Boolean(retry), receiptId: retry?._id || null };
+  }
+}
+async function completeWebhookReceipt(receiptId, error = null) {
+  if (!receiptId) return;
+  await ExternalWebhookReceipt.updateOne({ _id: receiptId }, {
+    $set: { status: error ? 'failed' : 'completed', lastError: error ? String(error.message || error).slice(0, 200) : null }
+  });
+}
+function isValidKickEventPayload(eventType, event) {
+  if (!event || !event.broadcaster?.user_id) return false;
+  if (eventType === 'chat.message.sent') return typeof event.message_id === 'string' && typeof event.content === 'string' && Boolean(event.sender?.username);
+  if (eventType === 'channel.followed') return Boolean(event.follower?.username);
+  if (eventType === 'channel.subscription.new' || eventType === 'channel.subscription.renewal') return Boolean(event.subscriber?.username);
+  if (eventType === 'channel.subscription.gifts') return Boolean(event.gifter?.username) && Array.isArray(event.giftees);
+  if (eventType === 'kicks.gifted') return Boolean(event.sender?.username) && Boolean(event.gift && typeof event.gift.amount === 'number');
+  if (eventType === 'channel.reward.redemption.updated') return Boolean(event.redeemer?.username) && Boolean(event.reward);
+  if (eventType === 'livestream.status.updated') return typeof event.is_live === 'boolean';
+  if (eventType === 'livestream.metadata.updated') return Boolean(event.metadata && typeof event.metadata === 'object');
+  return false;
+}
+
 async function ingestExternalChatMessage({ provider, externalUserId, externalMessageId, username, message, io }) {
   if (!['twitch', 'youtube', 'kick'].includes(provider) ||
       typeof externalUserId !== 'string' || !externalUserId ||
@@ -314,6 +355,7 @@ async function processKickWebhook(body, headers, io) {
   const eventType = headers['kick-event-type'] || '';
   const event = body?.data || body?.event || body || {};
   const broadcasterId = String(event.broadcaster?.user_id || event.broadcaster_user_id || '');
+  if (!isValidKickEventPayload(eventType, event)) return { accepted: false, reason: 'invalid_event_payload' };
   const sender = event.sender || event.follower || event.subscriber || event.gifter || event.redeemer || {};
   const messageId = String(event.message_id || headers['kick-event-message-id'] || '');
   if (eventType === 'chat.message.sent') {
@@ -401,6 +443,6 @@ async function sendToLinkedProviders(owner, message, env = process.env) {
 }
 
 module.exports = {
-  ingestExternalChatMessage, processKickWebhook, processTwitchWebhook, sendToLinkedProviders,
-  startYouTubeChatSync, stopYouTubeChatSync, subscribeProviderEvents, verifyKickWebhook, verifyTwitchEventSub
+  claimWebhookReceipt, completeWebhookReceipt, ingestExternalChatMessage, processKickWebhook, processTwitchWebhook, sendToLinkedProviders,
+  isValidKickEventPayload, startYouTubeChatSync, stopYouTubeChatSync, subscribeProviderEvents, verifyKickWebhook, verifyTwitchEventSub
 };
