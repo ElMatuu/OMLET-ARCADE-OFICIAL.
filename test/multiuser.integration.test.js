@@ -204,7 +204,8 @@ integrationTest('multiple independent accounts can interact concurrently with ow
       owner: alice.body.user.id,
       ownerUsername: 'alice_test',
       title: 'Directo de integración',
-      roomName: 'integration-live-chat-' + Date.now()
+      roomName: 'integration-live-chat-' + Date.now(),
+      status: 'live'
     });
     const ownerLiveSocket = await connectSocket(baseUrl, alice.body.token);
     const viewerLiveSocket = await connectSocket(baseUrl, bob.body.token);
