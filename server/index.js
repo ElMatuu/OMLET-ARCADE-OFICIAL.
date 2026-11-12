@@ -304,6 +304,79 @@ app.delete('/api/me/streams/:streamId/moderators/:userId', requireAuth, streamLi
   } catch (error) { return next(error); }
 });
 
+app.get('/api/streams/:streamId/participants', requireAuth, streamLimiter, async (req, res, next) => {
+  try {
+    if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
+    const stream = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).select('owner moderators roomName').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
+    if (!isLiveStreamModerator(stream, req.auth.sub)) return res.status(403).json({ success: false, message: 'Solo el equipo de moderación puede ver los participantes.' });
+    const config = getLiveKitConfig();
+    if (!config) return res.status(503).json({ success: false, code: 'LIVE_STREAMING_NOT_CONFIGURED', message: 'LiveKit no está configurado.' });
+    const participants = await createLiveKitApi(config).room.listParticipants(stream.roomName);
+    const moderatorIds = new Set((stream.moderators || []).map((entry) => String(entry.user)));
+    const visible = (participants || []).filter((participant) => {
+      const identity = String(participant.identity || '');
+      if (identity.startsWith(String(stream.owner) + ':')) return false;
+      let metadata = {};
+      try { metadata = participant.metadata ? JSON.parse(participant.metadata) : {}; } catch {}
+      return !moderatorIds.has(String(metadata.userId || ''));
+    }).map((participant) => {
+      let metadata = {};
+      try { metadata = participant.metadata ? JSON.parse(participant.metadata) : {}; } catch {}
+      return {
+        identity: String(participant.identity || ''),
+        userId: String(metadata.userId || ''),
+        username: String(participant.name || metadata.username || 'Jugador'),
+        joinedAt: participant.joinedAt || null
+      };
+    });
+    return res.set('Cache-Control', 'no-store').json({ success: true, participants: visible });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/streams/:streamId/participants/kick', requireAuth, streamLimiter, async (req, res, next) => {
+  try {
+    const streamId = req.params.streamId;
+    const identity = typeof (req.body && req.body.identity) === 'string' ? req.body.identity.trim() : '';
+    const durationMinutes = req.body && req.body.durationMinutes === undefined ? 10 : Number(req.body.durationMinutes);
+    if (!isValidObjectId(streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
+    if (!identity || identity.length > 128 || !Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 1440) {
+      return res.status(400).json({ success: false, message: 'Participante o duración inválidos.' });
+    }
+    const stream = await LiveStream.findOne({ _id: streamId, status: 'live' }).select('owner moderators roomName').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
+    if (!isLiveStreamModerator(stream, req.auth.sub)) return res.status(403).json({ success: false, message: 'No tenés permisos para expulsar participantes.' });
+    const config = getLiveKitConfig();
+    if (!config) return res.status(503).json({ success: false, code: 'LIVE_STREAMING_NOT_CONFIGURED', message: 'LiveKit no está configurado.' });
+    const liveKit = createLiveKitApi(config);
+    const participants = await liveKit.room.listParticipants(stream.roomName);
+    const target = (participants || []).find((participant) => String(participant.identity || '') === identity);
+    if (!target) return res.status(404).json({ success: false, message: 'Ese participante ya no está conectado.' });
+    let metadata = {};
+    try { metadata = target.metadata ? JSON.parse(target.metadata) : {}; } catch {}
+    const targetUserId = String(metadata.userId || '');
+    if (!isValidObjectId(targetUserId)) return res.status(409).json({ success: false, message: 'No se pudo verificar la cuenta del participante.' });
+    if (targetUserId === String(stream.owner) || targetUserId === String(req.auth.sub) ||
+        (stream.moderators || []).some((entry) => String(entry.user) === targetUserId)) {
+      return res.status(403).json({ success: false, message: 'No podés expulsar al anfitrión, a otro moderador ni a vos mismo.' });
+    }
+    const expiresAt = new Date(Date.now() + durationMinutes * 60 * 1000);
+    await LiveStream.updateOne({ _id: streamId, status: 'live' }, { $pull: { kickedParticipants: { user: targetUserId } } });
+    await LiveStream.updateOne({ _id: streamId, status: 'live' }, {
+      $push: { kickedParticipants: { user: targetUserId, moderator: req.auth.sub, expiresAt, createdAt: new Date() } }
+    });
+    try {
+      await liveKit.room.removeParticipant(stream.roomName, identity);
+    } catch (error) {
+      await LiveStream.updateOne({ _id: streamId, status: 'live' }, { $pull: { kickedParticipants: { user: targetUserId } } });
+      throw error;
+    }
+    const io = httpServer.io;
+    if (io) io.to('stream-chat:' + streamId).emit('stream_chat_participant_kicked', { streamId, userId: targetUserId, expiresAt });
+    return res.json({ success: true, userId: targetUserId, expiresAt, durationMinutes });
+  } catch (error) { return next(error); }
+});
+
 app.get('/api/streams/:streamId/messages', requireAuth, async (req, res, next) => {
   try {
     if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
@@ -580,6 +653,14 @@ app.post('/api/streams/:streamId/token', requireAuth, streamLimiter, async (req,
     if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
     const session = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).lean();
     if (!session) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
+    const activeKick = await LiveStream.findOne({
+      _id: session._id,
+      kickedParticipants: { $elemMatch: { user: req.auth.sub, expiresAt: { $gt: new Date() } } }
+    }).select('_id').lean();
+    if (activeKick) return res.status(403).json({
+      success: false, code: 'STREAM_TEMPORARILY_REMOVED',
+      message: 'El equipo de moderación te retiró temporalmente de esta transmisión.'
+    });
     const isOwner = String(session.owner) === String(req.auth.sub);
     if (!isOwner) {
       const blocked = await Block.exists({
