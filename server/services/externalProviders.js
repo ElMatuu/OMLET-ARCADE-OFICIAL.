@@ -181,7 +181,7 @@ async function revokeConnection(connection, env = process.env) {
 function toPublicConnection(record) {
   return {
     provider: record.provider, name: getProvider(record.provider).name,
-    connected: record.status === 'connected', username: record.externalUsername,
+    connected: record.status === 'connected', status: record.status, username: record.externalUsername,
     scopes: record.scopes || [], expiresAt: record.expiresAt || null, connectedAt: record.connectedAt,
     chatSyncStatus: record.chatSyncStatus || 'idle', chatSyncLastAt: record.chatSyncLastAt || null, chatSyncError: record.chatSyncError || null
   };
