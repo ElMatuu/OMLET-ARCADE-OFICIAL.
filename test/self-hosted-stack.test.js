@@ -5,6 +5,7 @@ const path = require('node:path');
 
 const compose = fs.readFileSync(path.join(__dirname, '..', 'docker-compose.yml'), 'utf8');
 const replicaInit = fs.readFileSync(path.join(__dirname, '..', 'docker', 'mongo-init-replica-set.sh'), 'utf8');
+const replicaService = compose.split('  mongo-init-replica-set:')[1].split('\n  api:')[0];
 
 test('self-hosted MongoDB enables authenticated transactions through a replica set', () => {
   assert.match(compose, /--replSet", "rs0"/);
@@ -13,6 +14,7 @@ test('self-hosted MongoDB enables authenticated transactions through a replica s
   assert.match(compose, /replicaSet=rs0&retryWrites=true&w=majority/);
   assert.match(compose, /mongo-init-replica-set:[\s\S]*service_completed_successfully/);
   assert.match(compose, /init-replica-set\.sh:ro/);
+  assert.match(replicaService, /networks: \\[playverse\\]/);
   assert.match(replicaInit, /rs\.initiate/);
   assert.match(replicaInit, /mongo:27017/);
   assert.doesNotMatch(compose, /"27017:27017"/);
