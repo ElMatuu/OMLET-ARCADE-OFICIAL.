@@ -56,6 +56,7 @@ services:
     entrypoint: ["/bin/bash", "/scripts/init-replica-set.sh"]
     volumes:
       - ./docker/mongo-init-replica-set.sh:/scripts/init-replica-set.sh:ro
+    networks: [playverse]
 
   api:
     build:
