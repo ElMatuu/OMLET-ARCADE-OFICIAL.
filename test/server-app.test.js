@@ -306,6 +306,36 @@ test('live stream co-host management rejects malformed identifiers before databa
   });
 });
 
+
+test('live stream participant moderation requires authentication', async () => {
+  await withServer(async (baseUrl) => {
+    const streamId = '507f1f77bcf86cd799439011';
+    const list = await fetch(baseUrl + '/api/streams/' + streamId + '/participants');
+    const kick = await fetch(baseUrl + '/api/streams/' + streamId + '/participants/kick', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identity: 'participant:session' })
+    });
+    assert.equal(list.status, 401);
+    assert.equal(kick.status, 401);
+  });
+});
+
+test('live stream participant moderation rejects malformed stream IDs', async () => {
+  const jwt = require('jsonwebtoken');
+  const mongoose = require('mongoose');
+  const token = jwt.sign({ sub: new mongoose.Types.ObjectId().toString(), username: 'stream_owner', role: 'user' },
+    process.env.JWT_SECRET, { algorithm: 'HS256', expiresIn: '5m', issuer: 'playverse-api', audience: 'playverse-clients' });
+  await withServer(async (baseUrl) => {
+    const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+    const list = await fetch(baseUrl + '/api/streams/not-an-id/participants', { headers });
+    const kick = await fetch(baseUrl + '/api/streams/not-an-id/participants/kick', {
+      method: 'POST', headers, body: JSON.stringify({ identity: 'participant:session' })
+    });
+    assert.equal(list.status, 400);
+    assert.equal(kick.status, 400);
+  });
+});
+
 test('live stream chat history and message creation require authentication', async () => {
   await withServer(async (baseUrl) => {
     const streamId = '507f1f77bcf86cd799439011';
