@@ -15,7 +15,7 @@ test('store discovery returns every catalog category and preserves the default f
 test('store discovery filters stickers/chat effects and currencies', () => {
   const result = buildStoreCatalog(STORE_CATALOG, { category: 'chat-effect', currency: 'gold' });
   assert.ok(result.items.length > 0);
-  assert.ok(result.items.every((item) => item.category === 'chat-effect' && (item.priceCurrency || 'gold') === 'gold');
+  assert.ok(result.items.every((item) => item.category === 'chat-effect' && (item.priceCurrency || 'gold') === 'gold'));
 });
 
 test('store discovery searches names, descriptions and stable item identifiers', () => {
