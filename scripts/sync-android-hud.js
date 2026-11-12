@@ -122,20 +122,20 @@ const rootGradlePath = path.join(root, 'android', 'build.gradle');
 if (!fs.existsSync(rootGradlePath)) throw new Error('Android root build.gradle not found.');
 let rootGradle = fs.readFileSync(rootGradlePath, 'utf8');
 if (!rootGradle.includes('kotlin-gradle-plugin')) {
-  if (!/dependencies\\s*\\{/.test(rootGradle)) throw new Error('Cannot locate root Gradle dependencies block.');
-  rootGradle = rootGradle.replace(/dependencies\\s*\\{/, match => match + '\\n        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21"');
+  if (!/dependencies\s*\{/.test(rootGradle)) throw new Error('Cannot locate root Gradle dependencies block.');
+  rootGradle = rootGradle.replace(/dependencies\s*\{/, match => match + '\n        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21"');
 }
 const settingsGradlePath = path.join(root, 'android', 'settings.gradle');
 if (!fs.existsSync(settingsGradlePath)) throw new Error('Android settings.gradle not found.');
 let settingsGradle = fs.readFileSync(settingsGradlePath, 'utf8');
 if (!settingsGradle.includes('jitpack.io')) {
-  const managedRepositories = /dependencyResolutionManagement\\s*\\{[\\s\\S]*?repositories\\s*\\{/;
+  const managedRepositories = /dependencyResolutionManagement\s*\{[\s\S]*?repositories\s*\{/;
   if (managedRepositories.test(settingsGradle)) {
-    settingsGradle = settingsGradle.replace(managedRepositories, match => match + '\\n        maven { url "https://jitpack.io" }');
+    settingsGradle = settingsGradle.replace(managedRepositories, match => match + '\n        maven { url "https://jitpack.io" }');
   } else {
-    const projectRepositories = /allprojects\\s*\\{\\s*repositories\\s*\\{/;
+    const projectRepositories = /allprojects\s*\{\s*repositories\s*\{/;
     if (!projectRepositories.test(rootGradle)) throw new Error('Cannot locate Android dependency repositories for JitPack.');
-    rootGradle = rootGradle.replace(projectRepositories, match => match + '\\n        maven { url "https://jitpack.io" }');
+    rootGradle = rootGradle.replace(projectRepositories, match => match + '\n        maven { url "https://jitpack.io" }');
   }
   fs.writeFileSync(settingsGradlePath, settingsGradle);
 }
@@ -145,13 +145,13 @@ const appGradlePath = path.join(root, 'android', 'app', 'build.gradle');
 if (!fs.existsSync(appGradlePath)) throw new Error('Android app build.gradle not found.');
 let appGradle = fs.readFileSync(appGradlePath, 'utf8');
 if (!appGradle.includes("apply plugin: 'kotlin-android'")) {
-  appGradle = appGradle.replace("apply plugin: 'com.android.application'", "apply plugin: 'com.android.application'\\napply plugin: 'kotlin-android'");
+  appGradle = appGradle.replace("apply plugin: 'com.android.application'", "apply plugin: 'com.android.application'\napply plugin: 'kotlin-android'");
 }
 if (!appGradle.includes('io.livekit:livekit-android')) {
-  appGradle = appGradle.replace(/dependencies\\s*\\{/, match => match + '\\n    implementation "io.livekit:livekit-android:2.30.0"');
+  appGradle = appGradle.replace(/dependencies\s*\{/, match => match + '\n    implementation "io.livekit:livekit-android:2.30.0"');
 }
 if (!appGradle.includes('KotlinCompile).configureEach')) {
-  appGradle += '\\ntasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { kotlinOptions { jvmTarget = "17" } }\\n';
+  appGradle += '\ntasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { kotlinOptions { jvmTarget = "17" } }\n';
 }
 fs.writeFileSync(appGradlePath, appGradle);
 
