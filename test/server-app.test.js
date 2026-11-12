@@ -59,7 +59,7 @@ test('web client and update assets are served by the same HTTPS-ready origin', a
     assert.match(csp, /https:\/\/fonts\.googleapis\.com/);
     assert.match(csp, /wss:\/\/playverse-test\.example/);
 
-    for (const asset of ['/service-worker.js', '/app-update.js', '/manifest.webmanifest', '/styles.css']) {
+    for (const asset of ['/service-worker.js', '/app-update.js', '/external-integrations-ui.js', '/manifest.webmanifest', '/styles.css']) {
       const response = await fetch(baseUrl + asset);
       assert.equal(response.status, 200, asset + ' should be served');
     }
@@ -76,6 +76,15 @@ test('clubs discovery and creation endpoints require an authenticated account', 
       body: JSON.stringify({ name: 'Club de prueba', game: 'Minecraft' })
     });
     assert.equal(create.status, 401);
+  });
+});
+
+test('external provider account linking endpoints require an authenticated PLAYVERSE session', async () => {
+  await withServer(async (baseUrl) => {
+    const list = await fetch(baseUrl + '/api/me/external-integrations');
+    const connect = await fetch(baseUrl + '/api/me/external-integrations/twitch/connect', { method: 'POST' });
+    assert.equal(list.status, 401);
+    assert.equal(connect.status, 401);
   });
 });
 
