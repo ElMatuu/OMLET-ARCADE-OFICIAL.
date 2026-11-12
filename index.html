@@ -385,6 +385,17 @@
                             <p id="live-cohost-status" class="text-[11px] text-slate-400" role="status" aria-live="polite"></p>
                             <ul id="live-cohost-list" class="space-y-2" aria-live="polite"><li class="text-xs text-slate-500">Cargando equipo…</li></ul>
                         </section>
+                        <section id="live-recording-controls" class="hidden basis-full rounded-xl border border-rose-500/30 bg-slate-950/70 p-3 space-y-2" aria-label="Grabación de la transmisión">
+                            <div class="flex items-center justify-between gap-2">
+                                <div><h5 class="text-sm font-bold text-rose-100">Grabación de la transmisión</h5><p class="text-[11px] text-slate-400">Guardá una copia MP4 privada de esta emisión.</p></div>
+                                <span class="rounded-full border border-rose-500/20 bg-rose-500/10 px-2 py-1 text-[10px] font-bold text-rose-200">Solo anfitrión</span>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <button id="live-recording-start" type="button" onclick="startLiveRecording()" class="rounded-lg bg-rose-500 px-3 py-2 text-xs font-bold text-white">Iniciar grabación</button>
+                                <button id="live-recording-stop" type="button" onclick="stopLiveRecording()" class="hidden rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-200">Detener grabación</button>
+                            </div>
+                            <p id="live-recording-status" class="text-[11px] text-slate-400" role="status" aria-live="polite">Consultando estado de grabación…</p>
+                        </section>
                     </div>
                     <section id="live-participant-moderation" class="hidden rounded-xl border border-cyan-500/30 bg-slate-950/70 p-3 space-y-3" aria-label="Moderación de participantes">
                         <div class="flex items-center justify-between gap-2">
@@ -5473,6 +5484,9 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             if (initialParticipantCount) initialParticipantCount.textContent = room.numParticipants + (room.numParticipants === 1 ? ' participante conectado' : ' participantes conectados');
             activeLiveStream = stream;
             activeLiveStreamRole = role;
+            const recordingPanel = document.getElementById('live-recording-controls');
+            if (recordingPanel) recordingPanel.classList.toggle('hidden', role !== 'publisher');
+            if (role === 'publisher') await loadLiveRecordingStatus(stream.id);
             streamChatBoundStreamId = String(stream.id);
             await loadLiveChatHistory(stream.id);
             document.getElementById('live-player-panel').classList.remove('hidden');
@@ -5540,6 +5554,69 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 empty.className = 'text-xs text-red-300';
                 empty.textContent = error.message;
                 container.appendChild(empty);
+            }
+        }
+
+        async function loadLiveRecordingStatus(streamId) {
+            const startButton = document.getElementById('live-recording-start');
+            const stopButton = document.getElementById('live-recording-stop');
+            const status = document.getElementById('live-recording-status');
+            if (!startButton || !stopButton || !status || !streamId) return;
+            try {
+                const data = await apiRequest('/api/me/streams/' + encodeURIComponent(streamId) + '/recording');
+                const recording = data.recording || {};
+                const active = ['starting', 'active', 'stopping'].includes(recording.status);
+                startButton.classList.toggle('hidden', active);
+                stopButton.classList.toggle('hidden', !active);
+                startButton.disabled = recording.storageConfigured !== true;
+                if (recording.storageConfigured !== true) {
+                    status.textContent = 'Grabación deshabilitada: el servidor necesita configurar LiveKit Egress y un bucket S3 privado.';
+                } else if (recording.status === 'active') {
+                    status.textContent = 'Grabando en el servidor · archivo MP4 privado en proceso.';
+                } else if (recording.status === 'starting') {
+                    status.textContent = 'Solicitando inicio de grabación…';
+                } else if (recording.status === 'stopping') {
+                    status.textContent = 'Finalizando y guardando la grabación…';
+                } else if (recording.status === 'ended') {
+                    status.textContent = 'Grabación finalizada. La reproducción VOD se integrará en la biblioteca multimedia.';
+                } else if (recording.status === 'failed') {
+                    status.textContent = 'La grabación anterior falló. Podés volver a intentarlo.';
+                } else {
+                    status.textContent = 'La grabación todavía no comenzó.';
+                }
+            } catch (error) {
+                status.textContent = 'No se pudo consultar la grabación: ' + error.message;
+                startButton.disabled = true;
+            }
+        }
+
+        async function startLiveRecording() {
+            if (!activeLiveStream || activeLiveStreamRole !== 'publisher') return;
+            const button = document.getElementById('live-recording-start');
+            const status = document.getElementById('live-recording-status');
+            button.disabled = true;
+            status.textContent = 'Iniciando grabación segura en el servidor…';
+            try {
+                await apiRequest('/api/me/streams/' + encodeURIComponent(activeLiveStream.id) + '/recording/start', { method: 'POST' });
+                await loadLiveRecordingStatus(activeLiveStream.id);
+            } catch (error) {
+                status.textContent = 'No se pudo iniciar la grabación: ' + error.message;
+                button.disabled = false;
+            }
+        }
+
+        async function stopLiveRecording() {
+            if (!activeLiveStream || activeLiveStreamRole !== 'publisher') return;
+            const button = document.getElementById('live-recording-stop');
+            const status = document.getElementById('live-recording-status');
+            button.disabled = true;
+            status.textContent = 'Deteniendo la grabación y guardando el archivo…';
+            try {
+                await apiRequest('/api/me/streams/' + encodeURIComponent(activeLiveStream.id) + '/recording/stop', { method: 'POST' });
+                await loadLiveRecordingStatus(activeLiveStream.id);
+            } catch (error) {
+                status.textContent = 'No se pudo detener la grabación: ' + error.message;
+                button.disabled = false;
             }
         }
 
