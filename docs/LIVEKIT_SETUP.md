@@ -48,3 +48,12 @@ The API issues role-scoped participant tokens that expire after **10 minutes**; 
 - **Operations:** verify webhook delivery/retries, room cleanup, provider region, quotas, billing, monitoring and load behavior before public launch.
 
 A successful code build or GitHub Actions run does not prove that a LiveKit project is configured or that real devices can stream. Do not announce streaming as production-ready until the complete flow above has been exercised on real devices.
+
+
+## Android native game capture (MediaProjection)
+
+The Android build generator creates a Capacitor `NativeScreenShare` plugin backed by LiveKit Android SDK 2.30.0. The creator first requests a short-lived publisher token from `POST /api/streams/:streamId/token`, then the native plugin launches `MediaProjectionManager.createScreenCaptureIntent()`. Only after the player accepts Android's system confirmation does the plugin connect a separate publisher participant and call `LocalParticipant.setScreenShareEnabled(true, ScreenCaptureParams(resultData))`.
+
+The Android manifest must include `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PROJECTION`, and the LiveKit `ScreenCaptureService` declared with `android:foregroundServiceType="mediaProjection"`. The screen-share foreground notification is controlled by the SDK. Stopping capture unpublishes the screen track, disconnects the dedicated native participant, and releases its room.
+
+The browser/desktop flow continues to use LiveKit JS `setScreenShareEnabled`; Android uses the native plugin and must not fall back to WebView display capture. Android system audio capture is not included in this first native bridge; only the video track is published. Validate on a physical Android device, including app-switching into a game, notification visibility, user cancellation, stop, and reconnect before treating the feature as production-ready.
