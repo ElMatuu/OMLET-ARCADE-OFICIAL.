@@ -15,6 +15,7 @@ message LiveChatMessageListRequest {
 }
 
 message LiveChatMessageListResponse {
+  optional string offline_at = 2;
   optional string next_page_token = 100602;
   repeated LiveChatMessage items = 1007;
 }
