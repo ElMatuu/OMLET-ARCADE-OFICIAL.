@@ -107,10 +107,10 @@ const appGradlePath = path.join(root, 'android', 'app', 'build.gradle');
 if (!fs.existsSync(appGradlePath)) throw new Error('Android app build.gradle not found.');
 let appGradle = fs.readFileSync(appGradlePath, 'utf8');
 if (!appGradle.includes("apply plugin: 'kotlin-android'")) {
-  appGradle = appGradle.replace("apply plugin: 'com.android.application'", "apply plugin: 'com.android.application'\\napply plugin: 'kotlin-android'");
+  appGradle = appGradle.replace("apply plugin: 'com.android.application'", "apply plugin: 'com.android.application'\napply plugin: 'kotlin-android'");
 }
 if (!appGradle.includes('io.livekit:livekit-android')) {
-  appGradle = appGradle.replace(/dependencies\\s*\\{/, match => match + '\\n    implementation "io.livekit:livekit-android:2.30.0"');
+  appGradle = appGradle.replace(/dependencies\s*\{/, match => match + '\n    implementation "io.livekit:livekit-android:2.30.0"');
 }
 fs.writeFileSync(appGradlePath, appGradle);
 
