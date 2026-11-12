@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#080b16">
     <link rel="manifest" href="/manifest.webmanifest">
-    <meta name="application-name" content="PLAYVERSE">
-    <meta name="apple-mobile-web-app-title" content="PLAYVERSE">
-    <meta name="description" content="PLAYVERSE: tu comunidad gamer para jugar, conectar y compartir.">
+    <meta name="application-name" content="Omlet Arcade">
+    <meta name="apple-mobile-web-app-title" content="Omlet Arcade">
+    <meta name="description" content="Omlet Arcade: tu comunidad gamer para jugar, conectar y compartir.">
     <link rel="icon" type="image/svg+xml" href="/assets/playverse-icon.svg">
     <link rel="shortcut icon" href="/assets/playverse-icon.svg">
-    <title>PLAYVERSE</title>
+    <title>Omlet Arcade</title>
     <link href="/styles.css" rel="stylesheet">
     <!-- FontAwesome Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -123,15 +123,15 @@
 </head>
 <body class="h-screen w-screen flex flex-col justify-between relative">
 
-    <!-- PLAYVERSE arcade launch: original artwork, independent of Omlet Arcade assets -->
+    <!-- Omlet Arcade arcade launch: original artwork, independent of Omlet Arcade assets -->
     <div id="splash-screen" class="pv-boot fixed inset-0 z-[100] flex flex-col items-center justify-center text-white">
         <button id="splash-sound-toggle" class="pv-boot-sound" type="button" aria-pressed="false" aria-label="Activar música de inicio">♫ Activar sonido</button>
         <div class="pv-boot-stars" aria-hidden="true"></div>
         <div class="pv-boot-orbit" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
         <div class="pv-boot-emblem"><i class="fa-solid fa-gamepad" aria-hidden="true"></i><span class="pv-boot-spark pv-spark-one">✦</span><span class="pv-boot-spark pv-spark-two">✧</span></div>
-        <h1 class="pv-boot-wordmark">PLAYVERSE</h1>
+        <h1 class="pv-boot-wordmark">Omlet Arcade</h1>
         <p class="pv-boot-tagline">JUGÁ · CONECTÁ · TRANSMITÍ</p>
-        <div class="pv-boot-loader" role="progressbar" aria-label="Cargando PLAYVERSE" aria-valuemin="0" aria-valuemax="100" aria-valuenow="1"><span id="splash-progress"></span></div>
+        <div class="pv-boot-loader" role="progressbar" aria-label="Cargando Omlet Arcade" aria-valuemin="0" aria-valuemax="100" aria-valuenow="1"><span id="splash-progress"></span></div>
         <p id="splash-percent" class="pv-boot-status" aria-live="off">1%</p>
         <p id="splash-status" class="pv-boot-status" aria-live="polite">Preparando tu universo gamer…</p>
         <span class="pv-boot-version">ARCADE COMMUNITY PLATFORM</span>
@@ -143,8 +143,8 @@
                 <i class="fa-solid fa-gamepad text-5xl text-white"></i>
             </div>
             <p class="mb-2 text-[10px] font-black tracking-[.22em] text-sky-200">FUNCIONES ARCADE</p>
-            <h2 class="text-xl font-black text-white">Activá la ventana flotante de PLAYVERSE</h2>
-            <p class="mt-3 text-sm leading-6 text-slate-300">Este permiso permite mostrar los controles flotantes de PLAYVERSE mientras jugás, cuando esa función esté disponible. Android te va a llevar a su pantalla oficial de permisos.</p>
+            <h2 class="text-xl font-black text-white">Activá la ventana flotante de Omlet Arcade</h2>
+            <p class="mt-3 text-sm leading-6 text-slate-300">Este permiso permite mostrar los controles flotantes de Omlet Arcade mientras jugás, cuando esa función esté disponible. Android te va a llevar a su pantalla oficial de permisos.</p>
             <p id="overlay-permission-status" class="mt-3 text-xs text-sky-200" aria-live="polite">Es opcional. Podés continuar sin activarlo.</p>
             <button id="overlay-permission-enable" type="button" class="mt-5 w-full rounded-xl bg-gradient-to-r from-orange-400 to-rose-500 px-4 py-3.5 text-sm font-black text-white shadow-lg">Habilitar permiso</button>
             <button id="overlay-permission-later" type="button" class="mt-2 w-full rounded-xl border border-white/10 px-4 py-3 text-sm font-bold text-slate-300">Ahora no</button>
@@ -158,7 +158,7 @@
                 <div class="w-16 h-16 PLAYVERSE-gradient rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg neon-border">
                     <i class="fa-solid fa-gamepad text-2xl text-white"></i>
                 </div>
-                <h2 id="auth-title" class="text-2xl font-black tracking-tight text-white">Iniciar Sesión en PLAYVERSE</h2>
+                <h2 id="auth-title" class="text-2xl font-black tracking-tight text-white">Iniciar Sesión en Omlet Arcade</h2>
                 <p id="auth-subtitle" class="text-xs text-slate-400 mt-1">Tu universo gamer comienza aquí</p>
             </div>
 
@@ -192,7 +192,7 @@
                 <div class="flex items-center space-x-2.5">
                     <div class="w-9 h-9 PLAYVERSE-gradient rounded-xl flex items-center justify-center font-bold text-white shadow-md"><i class="fa-solid fa-gamepad text-lg"></i></div>
                     <div>
-                        <span class="font-black text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-amber-300">PLAYVERSE</span>
+                        <span class="font-black text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-amber-300">Omlet Arcade</span>
                         <span class="text-[10px] block font-mono text-orange-500/80 -mt-1 font-bold">GAMING · COMMUNITY · LIVE</span>
                     </div>
                 </div>
@@ -202,7 +202,7 @@
                     <i class="fa-solid fa-bell"></i>
                     <span id="notifications-badge" class="hidden absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-[9px] font-black text-white items-center justify-center">0</span>
                 </button>
-                <button type="button" onclick="switchTab('shop')" aria-label="Abrir tienda y monedero PLAYVERSE" class="flex items-center space-x-1.5 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-full hover:border-amber-500/50">
+                <button type="button" onclick="switchTab('shop')" aria-label="Abrir tienda y monedero Omlet Arcade" class="flex items-center space-x-1.5 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-full hover:border-amber-500/50">
                     <i class="fa-solid fa-coins text-amber-400 animate-pulse"></i>
                     <span id="header-créditos" class="text-xs font-bold text-amber-300">0</span>
                 </button>
@@ -224,7 +224,7 @@
                             <img id="drawer-avatar" class="hidden h-full w-full object-cover" alt="Tu avatar">
                         </div>
                         <div class="min-w-0 flex-1">
-                            <span class="block text-[9px] font-bold uppercase tracking-[.2em] text-slate-300">Tu espacio PLAYVERSE</span>
+                            <span class="block text-[9px] font-bold uppercase tracking-[.2em] text-slate-300">Tu espacio Omlet Arcade</span>
                             <strong id="drawer-username" class="mt-1 block truncate text-base font-black text-white">Tu perfil</strong>
                             <span id="drawer-profile-subtitle" class="mt-0.5 block truncate text-[11px] text-slate-300">Comunidad gamer</span>
                             <span class="mt-2 inline-flex items-center gap-1 rounded-full border border-slate-500/70 bg-slate-950/70 px-2 py-1 text-[9px] font-bold text-slate-200">Ver perfil completo <i class="fa-solid fa-arrow-up-right-from-square"></i></span>
@@ -268,7 +268,7 @@
                     <div class="max-w-xl">
                         <span class="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-[9px] font-black tracking-[.18em] text-emerald-200"><span class="h-1.5 w-1.5 rounded-full bg-emerald-300"></span> ARCADE HUB</span>
                         <h2 id="arcade-home-title" class="mt-3 text-2xl font-black leading-tight text-white sm:text-3xl">Tu universo gamer, <span class="text-orange-300">en un solo lugar.</span></h2>
-                        <p class="mt-2 max-w-lg text-xs leading-5 text-slate-300">Encontrá jugadores, descubrí directos, armá salas y compartí tus mejores partidas con la comunidad PLAYVERSE.</p>
+                        <p class="mt-2 max-w-lg text-xs leading-5 text-slate-300">Encontrá jugadores, descubrí directos, armá salas y compartí tus mejores partidas con la comunidad Omlet Arcade.</p>
                     </div>
                     <div class="relative flex shrink-0 gap-2">
                         <button type="button" onclick="switchTab('live')" class="rounded-xl bg-rose-500 px-4 py-3 text-xs font-black text-white shadow-lg"><i class="fa-solid fa-tower-broadcast mr-1"></i> Ver directos</button>
@@ -279,7 +279,7 @@
                 <section aria-labelledby="highlights-title" class="space-y-3">
                     <div class="flex items-center justify-between">
                         <div>
-                            <h3 id="highlights-title" class="font-black text-base text-white">Highlights de PLAYVERSE</h3>
+                            <h3 id="highlights-title" class="font-black text-base text-white">Highlights de Omlet Arcade</h3>
                             <p class="text-[11px] text-slate-400">Accesos rápidos para entrar en acción</p>
                         </div>
                         <span class="text-[10px] font-bold tracking-wide text-orange-300">EXPLORAR</span>
@@ -343,7 +343,7 @@
             <!-- TAB LIVE -->
             <div id="tab-live" class="space-y-6 hidden">
                 <section class="space-y-2">
-                    <div class="grid grid-cols-2 gap-2" role="group" aria-label="Descubrimiento de PLAYVERSE">
+                    <div class="grid grid-cols-2 gap-2" role="group" aria-label="Descubrimiento de Omlet Arcade">
                         <button type="button" aria-current="page" class="rounded-xl border border-rose-500/40 bg-rose-500/10 text-rose-200 px-3 py-3 text-xs font-black"><i class="fa-solid fa-tower-broadcast mr-1"></i> Live Now</button>
                         <button type="button" onclick="switchTab('lobbies')" class="rounded-xl border border-slate-700 bg-slate-900 text-slate-200 px-3 py-3 text-xs font-bold"><i class="fa-solid fa-gamepad mr-1"></i> Viewer Games</button>
                     </div>
@@ -461,14 +461,14 @@
                     </div>
                     <p id="game-servers-status" class="text-xs text-slate-400" role="status">Cargando servidores…</p>
                     <div id="game-servers-container" class="grid gap-3 md:grid-cols-2" aria-live="polite"></div>
-                    <p class="text-[10px] leading-relaxed text-slate-500">PLAYVERSE no aloja mundos de terceros. El propietario mantiene el servidor y configura un heartbeat seguro para mostrar jugadores reales. La compatibilidad y el acceso dependen del juego, edición, versión y dispositivo.</p>
+                    <p class="text-[10px] leading-relaxed text-slate-500">Omlet Arcade no aloja mundos de terceros. El propietario mantiene el servidor y configura un heartbeat seguro para mostrar jugadores reales. La compatibilidad y el acceso dependen del juego, edición, versión y dispositivo.</p>
                 </section>
             </div>
 
             <!-- TAB FRIENDS -->
             <div id="tab-friends" class="space-y-6 hidden">
                 <div class="space-y-2">
-                    <h3 class="font-black text-lg">Amigos de PLAYVERSE</h3>
+                    <h3 class="font-black text-lg">Amigos de Omlet Arcade</h3>
                     <p class="text-xs text-slate-400">Buscá jugadores por su nombre de usuario y conectá con la comunidad.</p>
                 </div>
                 <form id="friends-search-form" class="flex gap-2">
@@ -509,22 +509,22 @@
             <div id="tab-shop" class="space-y-5 hidden">
                 <div id="creator-monetization-status" class="rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4">
                     <div class="flex items-center gap-3"><span class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-300"><i class="fa-solid fa-hourglass-half"></i></span><div><p class="text-[10px] font-black uppercase tracking-widest text-amber-300">Herramientas para creadores</p><h3 class="text-sm font-black text-white">Monetización · En desarrollo</h3></div></div>
-                    <p class="mt-2 text-xs leading-relaxed text-slate-300">PLAYVERSE es gratuita en esta etapa. No hay cobros, recargas, suscripciones ni reparto de ingresos activos. Estamos evaluando los requisitos legales, técnicos y de proveedores antes de habilitar cualquier opción futura.</p>
+                    <p class="mt-2 text-xs leading-relaxed text-slate-300">Omlet Arcade es gratuita en esta etapa. No hay cobros, recargas, suscripciones ni reparto de ingresos activos. Estamos evaluando los requisitos legales, técnicos y de proveedores antes de habilitar cualquier opción futura.</p>
                 </div>
                 <section class="PLAYVERSE-card rounded-2xl p-4 space-y-2">
                     <div class="flex items-center justify-between gap-3">
-                        <div><p class="text-[10px] font-bold uppercase tracking-widest text-orange-300">PLAYVERSE STORE</p><h3 class="font-black text-xl">Tienda y personalización</h3></div>
+                        <div><p class="text-[10px] font-bold uppercase tracking-widest text-orange-300">Omlet Arcade STORE</p><h3 class="font-black text-xl">Tienda y personalización</h3></div>
                         <div class="grid grid-cols-3 gap-2 w-full sm:w-auto">
 <div class="rounded-xl bg-slate-950 border border-amber-400/30 px-2 py-2 text-center"><span class="pv-coin pv-coin-gold">PV</span><strong id="wallet-gold-balance" class="block text-xs text-amber-300">0</strong><span class="text-[9px] text-slate-500">ORO</span></div>
 <div class="rounded-xl bg-slate-950 border border-fuchsia-400/30 px-2 py-2 text-center"><span class="pv-coin pv-coin-purple">PV</span><strong id="wallet-purple-balance" class="block text-xs text-fuchsia-300">0</strong><span class="text-[9px] text-slate-500">VIOLETA</span></div>
 <div class="rounded-xl bg-slate-950 border border-cyan-300/30 px-2 py-2 text-center"><span class="pv-coin pv-coin-diamond">PV</span><strong id="wallet-diamond-balance" class="block text-xs text-cyan-200">0</strong><span class="text-[9px] text-slate-500">DIAMANTE</span></div>
 </div>
                     </div>
-                    <p class="text-xs text-slate-400">Tres monedas virtuales independientes con identidad PLAYVERSE. Se consiguen jugando, completando misiones y participando en la comunidad; no se compran con dinero real.</p>
+                    <p class="text-xs text-slate-400">Tres monedas virtuales independientes con identidad Omlet Arcade. Se consiguen jugando, completando misiones y participando en la comunidad; no se compran con dinero real.</p>
                     <p class="text-[10px] leading-relaxed text-slate-500">Referencia interna de balance: 1 Cristal Violeta = 100 Oro; 1 Diamante = 1.000 Oro. Son equivalencias ficticias de la economía del juego: no representan metales ni gemas reales, no tienen valor monetario, no se convierten y no se canjean por efectivo.</p>
                 </section>
                 <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
-<div><h4 class="font-bold text-sm">Enviar monedas a otro jugador</h4><p class="text-[10px] text-slate-400">Transferencia entre billeteras PLAYVERSE. Se descuenta de tu saldo y se acredita al destinatario en una sola operación.</p></div>
+<div><h4 class="font-bold text-sm">Enviar monedas a otro jugador</h4><p class="text-[10px] text-slate-400">Transferencia entre billeteras Omlet Arcade. Se descuenta de tu saldo y se acredita al destinatario en una sola operación.</p></div>
 <form id="wallet-gift-form" class="grid grid-cols-2 gap-2">
 <input id="wallet-gift-recipient" maxlength="24" minlength="3" pattern="[A-Za-z0-9_]+" required class="col-span-2 min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-xs text-white" placeholder="Nombre de usuario destinatario">
 <select id="wallet-gift-currency" class="min-w-0 bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-xs text-white"><option value="gold">🟡 Oro</option><option value="purple">🟣 Plata</option><option value="diamond">💎 Diamante</option></select>
@@ -589,7 +589,7 @@
             <!-- TAB TOURNAMENTS -->
             <div id="tab-tournaments" class="space-y-5 hidden">
                 <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
-                    <div><p class="text-[10px] font-bold uppercase tracking-widest text-amber-300">COMPETENCIA PLAYVERSE</p><h3 class="font-black text-xl">Torneos</h3><p class="text-xs text-slate-400">Creá competencias, inscribite y seguí los resultados desde la plataforma.</p></div>
+                    <div><p class="text-[10px] font-bold uppercase tracking-widest text-amber-300">COMPETENCIA Omlet Arcade</p><h3 class="font-black text-xl">Torneos</h3><p class="text-xs text-slate-400">Creá competencias, inscribite y seguí los resultados desde la plataforma.</p></div>
                     <form id="tournament-create-form" class="grid gap-2 sm:grid-cols-2" onsubmit="createTournament(event)">
                         <input id="tournament-title" required minlength="3" maxlength="80" class="sm:col-span-2 rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm" placeholder="Nombre del torneo">
                         <input id="tournament-game" required minlength="2" maxlength="40" class="rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm" placeholder="Juego (Free Fire, Roblox…)">
@@ -612,7 +612,7 @@
             <div id="tab-events" class="space-y-4 hidden max-w-lg mx-auto">
                 <section class="PLAYVERSE-card rounded-2xl p-5 space-y-2">
                     <div class="flex items-center justify-between gap-3">
-                        <h3 class="font-black text-xl">Misiones de PLAYVERSE</h3>
+                        <h3 class="font-black text-xl">Misiones de Omlet Arcade</h3>
                         <span id="missions-summary" class="text-xs text-orange-300 font-bold">0/23 campaña · Diarias: 0/4</span>
                     </div>
                     <p id="missions-status" class="text-xs text-slate-400" role="status">El progreso se calcula con la actividad real de tu cuenta.</p>
@@ -685,20 +685,20 @@
                     <div class="relative -mx-6 -mt-6 mb-2 h-32 overflow-hidden rounded-t-3xl bg-gradient-to-r from-orange-600 via-fuchsia-700 to-indigo-700">
                         <img id="profile-banner-image" class="hidden h-full w-full object-cover" alt="Portada del perfil">
                         <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent"></div>
-                        <span class="absolute bottom-3 left-4 text-[10px] font-black uppercase tracking-[.2em] text-white/80">PLAYVERSE PLAYER CARD</span>
+                        <span class="absolute bottom-3 left-4 text-[10px] font-black uppercase tracking-[.2em] text-white/80">Omlet Arcade PLAYER CARD</span>
                     </div>
                     <div class="w-24 h-24 mx-auto rounded-full PLAYVERSE-gradient p-1 shadow-2xl flex items-center justify-center text-4xl overflow-hidden">
                         <span id="profile-avatar-placeholder">🎮</span>
                         <img id="profile-avatar" class="hidden w-full h-full object-cover rounded-full" alt="Avatar del perfil">
                     </div>
                     <div>
-                        <h3 id="profile-display-name" class="font-black text-xl text-white">Jugador PLAYVERSE</h3>
+                        <h3 id="profile-display-name" class="font-black text-xl text-white">Jugador Omlet Arcade</h3>
                         <p id="profile-username" class="text-xs text-orange-400 font-mono mt-0.5">@usuario</p>
                         <p id="profile-bio" class="text-sm text-slate-300 mt-3 whitespace-pre-wrap break-words">Todavía no agregaste una biografía.</p>
                     </div>
                     <div id="profile-favorite-games" class="flex flex-wrap justify-center gap-2" aria-label="Juegos favoritos"></div>
                     <section class="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-left">
-                        <div class="flex items-center justify-between gap-2"><div><h4 class="text-xs font-black uppercase tracking-wider text-slate-200">Medallero y logros</h4><p class="mt-1 text-[10px] text-slate-500">Objetivos reales de tu actividad en PLAYVERSE</p></div><span id="achievement-summary" class="rounded-full border border-slate-700 px-2.5 py-1 text-[10px] font-bold text-slate-300">Cargando…</span></div>
+                        <div class="flex items-center justify-between gap-2"><div><h4 class="text-xs font-black uppercase tracking-wider text-slate-200">Medallero y logros</h4><p class="mt-1 text-[10px] text-slate-500">Objetivos reales de tu actividad en Omlet Arcade</p></div><span id="achievement-summary" class="rounded-full border border-slate-700 px-2.5 py-1 text-[10px] font-bold text-slate-300">Cargando…</span></div>
                         <div class="grid grid-cols-3 gap-2">
                             <div class="rounded-xl bg-slate-900 p-2.5"><span class="block text-[9px] font-bold text-slate-500">NIVEL</span><strong id="achievement-level" class="text-lg font-black text-white">—</strong></div>
                             <div class="rounded-xl bg-slate-900 p-2.5"><span class="block text-[9px] font-bold text-slate-500">XP TOTAL</span><strong id="achievement-xp" class="text-lg font-black text-white">—</strong></div>
@@ -733,7 +733,7 @@
                             <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="block text-[10px] text-slate-500 font-bold">PUBLICACIONES GUARDADAS</span><span id="profile-stat-saved" class="text-xl font-black text-white">—</span></div>
                             <div class="bg-slate-950 p-3 rounded-xl border border-slate-800"><span class="block text-[10px] text-slate-500 font-bold">VISUALIZACIONES</span><span id="profile-stat-views" class="text-sm font-bold text-amber-300">No disponible</span></div>
                         </div>
-                        <p class="text-[10px] text-slate-500">Las estadísticas se calculan con la actividad guardada en PLAYVERSE. Visualizaciones y experiencia estarán disponibles cuando se implemente su seguimiento.</p>
+                        <p class="text-[10px] text-slate-500">Las estadísticas se calculan con la actividad guardada en Omlet Arcade. Visualizaciones y experiencia estarán disponibles cuando se implemente su seguimiento.</p>
                     </section>
                     <section class="text-left space-y-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
                         <div class="flex items-center justify-between gap-3">
@@ -750,7 +750,7 @@
                 </div>
             </div>
         </main>
-        <!-- NAVEGACIÓN PRINCIPAL PLAYVERSE -->
+        <!-- NAVEGACIÓN PRINCIPAL Omlet Arcade -->
         <nav aria-label="Navegación principal" class="h-[4.5rem] bg-slate-900/95 backdrop-blur-md border-t border-slate-800 grid grid-cols-5 items-center shrink-0 z-30 pb-[env(safe-area-inset-bottom)]">
             <button type="button" onclick="switchTab('feed')" id="nav-btn-feed" aria-current="page" class="flex flex-col items-center justify-center gap-1 text-orange-400"><i class="fa-solid fa-house text-lg"></i><span class="text-[10px] font-semibold">Inicio</span></button>
             <button type="button" onclick="switchTab('live')" id="nav-btn-live" class="flex flex-col items-center justify-center gap-1 text-slate-400"><i class="fa-solid fa-tower-broadcast text-lg"></i><span class="text-[10px] font-semibold">Descubrir</span></button>
@@ -763,7 +763,7 @@
     <!-- MODAL POST -->
     <div id="action-selector-modal" class="fixed inset-0 z-[60] bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 hidden" role="dialog" aria-modal="true" aria-labelledby="action-selector-title">
         <section class="PLAYVERSE-card rounded-3xl w-full max-w-md p-5 space-y-4 border border-orange-500/30">
-            <div class="flex items-center justify-between"><div><h3 id="action-selector-title" class="font-black text-lg">Crear en PLAYVERSE</h3><p class="text-xs text-slate-400">Elegí qué querés hacer</p></div><button type="button" onclick="closeActionSelector()" class="p-2 text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button></div>
+            <div class="flex items-center justify-between"><div><h3 id="action-selector-title" class="font-black text-lg">Crear en Omlet Arcade</h3><p class="text-xs text-slate-400">Elegí qué querés hacer</p></div><button type="button" onclick="closeActionSelector()" class="p-2 text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button></div>
             <div class="grid grid-cols-2 gap-3">
                 <button type="button" onclick="closeActionSelector(); openStreamStudio();" class="PLAYVERSE-card rounded-2xl p-4 text-left space-y-2"><i class="fa-solid fa-tower-broadcast text-xl text-rose-400"></i><strong class="block text-sm">Transmitir</strong><span class="block text-[10px] text-slate-400">Configurar emisión</span></button>
                 <button type="button" disabled class="PLAYVERSE-card rounded-2xl p-4 text-left space-y-2 opacity-60 cursor-not-allowed"><i class="fa-solid fa-record-vinyl text-xl text-slate-300"></i><strong class="block text-sm">Grabar</strong><span class="block text-[10px] text-amber-300">En desarrollo</span></button>
@@ -790,7 +790,7 @@
     <div id="post-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
         <div class="PLAYVERSE-card rounded-3xl w-full max-w-md p-6 space-y-4 border border-slate-800">
             <div class="flex items-center justify-between pb-3 border-b border-slate-800"><h3 class="font-black text-base text-white">Crear Publicación</h3><button onclick="closePostModal()" class="text-slate-400"><i class="fa-solid fa-xmark text-lg"></i></button></div>
-            <textarea id="post-text-input" rows="4" maxlength="2000" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-sm text-white focus:outline-none focus:border-orange-500 resize-none" placeholder="¿Qué quieres compartir con la comunidad de PLAYVERSE?..."></textarea>
+            <textarea id="post-text-input" rows="4" maxlength="2000" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-sm text-white focus:outline-none focus:border-orange-500 resize-none" placeholder="¿Qué quieres compartir con la comunidad de Omlet Arcade?..."></textarea>
             <p id="post-form-status" class="text-xs text-slate-400" role="status">Máximo 2000 caracteres.</p>
             <div class="flex justify-end pt-2"><button id="post-submit-btn" onclick="submitPost()" class="PLAYVERSE-gradient text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md">Publicar</button></div>
         </div>
@@ -799,7 +799,7 @@
     <!-- MODAL SETTINGS: PREFERENCIAS DE CREADOR PERSISTIDAS EN LA API -->
     <div id="settings-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
         <form id="streaming-settings-form" onsubmit="saveStreamingPreferences(event)" class="PLAYVERSE-card rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-5 border border-slate-800">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-800"><div><h3 class="font-black text-lg text-white">Ajustes de PLAYVERSE</h3><p class="text-xs text-slate-400">Accesibilidad y preferencias de creador</p></div><button type="button" onclick="closeSettingsModal()" class="text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800"><div><h3 class="font-black text-lg text-white">Ajustes de Omlet Arcade</h3><p class="text-xs text-slate-400">Accesibilidad y preferencias de creador</p></div><button type="button" onclick="closeSettingsModal()" class="text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark text-lg"></i></button></div>
             <section class="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
                 <div><h4 class="text-xs font-black uppercase tracking-wider text-orange-300">Accesibilidad de la aplicación</h4><p class="text-[11px] text-slate-400 mt-1">Se guardan en tu cuenta y se aplican a esta interfaz.</p></div>
                 <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Reducir animaciones<input id="app-reduce-motion" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
@@ -1130,7 +1130,7 @@
                     claim.textContent = 'Reclamar · +' + Number(achievement.xp).toLocaleString('es-AR') + ' XP';
                     claim.addEventListener('click', () => showPlayverseRewardModal({
                         title: '¡Trofeo desbloqueado!',
-                        description: 'Completaste «' + achievement.title + '». Reclamá tu experiencia para que se sume a tu nivel de PLAYVERSE.',
+                        description: 'Completaste «' + achievement.title + '». Reclamá tu experiencia para que se sume a tu nivel de Omlet Arcade.',
                         xp: achievement.xp,
                         onClaim: () => apiRequest('/api/me/achievements/' + encodeURIComponent(achievement.id) + '/claim', { method: 'POST' })
                     }));
@@ -1244,7 +1244,7 @@
                     item.className = 'rounded-xl border border-slate-800 bg-slate-900/70 p-3';
                     const title = document.createElement('p');
                     title.className = 'text-xs font-bold text-white';
-                    title.textContent = activity.title || 'Actividad de PLAYVERSE';
+                    title.textContent = activity.title || 'Actividad de Omlet Arcade';
                     const description = document.createElement('p');
                     description.className = 'mt-1 text-[11px] text-slate-400';
                     description.textContent = activity.description || '';
@@ -1299,7 +1299,7 @@
             presenceSocket = window.io(API_URL, { auth: { token: authToken } });
             presenceSocket.on('connect', () => {
                 presenceSocket.emit('presence_heartbeat', {}, (result) => {
-                    if (!result || !result.success) console.warn('PLAYVERSE presence heartbeat was not accepted.');
+                    if (!result || !result.success) console.warn('Omlet Arcade presence heartbeat was not accepted.');
                 });
                 if (!presenceHeartbeatTimer) {
                     presenceHeartbeatTimer = setInterval(() => {
@@ -1371,7 +1371,7 @@
                 if (response.status === 401 || response.status === 403) {
                     authToken = null;
                     sessionStorage.removeItem(SESSION_KEY);
-                    if (subtitle) subtitle.textContent = 'Tu sesión venció. Iniciá sesión para volver a PLAYVERSE.';
+                    if (subtitle) subtitle.textContent = 'Tu sesión venció. Iniciá sesión para volver a Omlet Arcade.';
                     return false;
                 }
                 if (!response.ok) throw new Error('SERVER_UNAVAILABLE');
@@ -1385,7 +1385,7 @@
                 await showAuthenticatedApp(data.user);
                 return true;
             } catch (error) {
-                if (subtitle) subtitle.textContent = 'No pudimos conectar con PLAYVERSE. Revisá tu conexión e intentá iniciar sesión; conservamos tu sesión para reintentar.';
+                if (subtitle) subtitle.textContent = 'No pudimos conectar con Omlet Arcade. Revisá tu conexión e intentá iniciar sesión; conservamos tu sesión para reintentar.';
                 return false;
             } finally {
                 clearTimeout(timeout);
@@ -1405,7 +1405,7 @@
             if (!plugin) { status.textContent = 'El módulo nativo de burbuja todavía no está integrado en esta compilación. No vamos a simular una burbuja funcional.'; return; }
             try {
                 const permission = await plugin.check();
-                if (!permission.granted) { await plugin.request(); status.textContent = 'Android abrió el permiso. Activá Mostrar sobre otras apps y volvé a PLAYVERSE.'; return; }
+                if (!permission.granted) { await plugin.request(); status.textContent = 'Android abrió el permiso. Activá Mostrar sobre otras apps y volvé a Omlet Arcade.'; return; }
                 await plugin.startBubble();
                 status.textContent = 'Controles flotantes activados. La burbuja se acopla al borde para no tapar el juego.';
                 screen.classList.add('hidden'); screen.classList.remove('flex');
@@ -1451,7 +1451,7 @@
             document.addEventListener('visibilitychange', () => { if (!document.hidden) verifyOnReturn(); });
         }
 
-        // Original PLAYVERSE startup theme, synthesized locally (no third-party track or network dependency).
+        // Original Omlet Arcade startup theme, synthesized locally (no third-party track or network dependency).
         let pvBootAudioContext = null;
         let pvBootAudioNodes = [];
         let pvBootAudioPlayed = false;
@@ -1490,7 +1490,7 @@
                 distance.connect(context.destination);
                 pvBootAudioNodes.push(master, distance);
                 const start = context.currentTime + 0.12;
-                // PLAYVERSE original arcade signature: melodic lead, warm pad, pulsing bass and restrained electronic percussion.
+                // Omlet Arcade original arcade signature: melodic lead, warm pad, pulsing bass and restrained electronic percussion.
                 const notes = [261.63, 329.63, 392.00, 493.88, 392.00, 329.63, 293.66, 349.23, 440.00, 523.25, 440.00, 392.00, 329.63, 392.00, 493.88, 587.33];
                 notes.forEach((frequency, index) => {
                     const at = start + index * 0.32;
@@ -1607,7 +1607,7 @@
                 if (progress) progress.style.width = currentProgress.toFixed(1) + '%';
                 if (percentLabel) percentLabel.textContent = Math.floor(currentProgress) + '%';
                 if (progressTrack) progressTrack.setAttribute('aria-valuenow', String(Math.floor(currentProgress)));
-                if (status) status.textContent = currentProgress < 24 ? 'Despertando el universo PLAYVERSE…' :
+                if (status) status.textContent = currentProgress < 24 ? 'Despertando el universo Omlet Arcade…' :
                     currentProgress < 48 ? 'Preparando juegos y comunidad…' :
                     currentProgress < 72 ? 'Sincronizando servicios…' : 'Restaurando tu sesión…';
             }, 120);
@@ -1655,7 +1655,7 @@
         let isRegisterMode = false;
         function toggleAuthMode() {
             isRegisterMode = !isRegisterMode;
-            document.getElementById('auth-title').innerText = isRegisterMode ? 'Crear Cuenta en PLAYVERSE' : 'Iniciar Sesión en PLAYVERSE';
+            document.getElementById('auth-title').innerText = isRegisterMode ? 'Crear Cuenta en Omlet Arcade' : 'Iniciar Sesión en Omlet Arcade';
             document.getElementById('auth-submit-btn').innerText = isRegisterMode ? 'Registrarse' : 'Iniciar Sesión';
             document.getElementById('input-password').setAttribute('minlength', isRegisterMode ? '12' : '1');
             document.getElementById('auth-subtitle').innerText = isRegisterMode ? 'Usá una contraseña de al menos 12 caracteres' : 'Tu universo gamer comienza aquí';
@@ -1670,7 +1670,7 @@
             const endpoint = isRegisterMode ? '/api/register' : '/api/login';
             button.disabled = true;
             button.textContent = isRegisterMode ? 'Creando cuenta…' : 'Ingresando…';
-            setAuthMessage('Conectando con PLAYVERSE…', false);
+            setAuthMessage('Conectando con Omlet Arcade…', false);
             try {
                 const response = await fetch(API_URL + endpoint, {
                     method: 'POST',
@@ -1802,7 +1802,7 @@
                     content.className = 'min-w-0 flex-1';
                     const title = document.createElement('p');
                     title.className = 'text-sm font-bold text-white';
-                    title.textContent = notification.title || 'Notificación PLAYVERSE';
+                    title.textContent = notification.title || 'Notificación Omlet Arcade';
                     const body = document.createElement('p');
                     body.className = 'text-xs text-slate-300 mt-1 break-words';
                     body.textContent = notification.body || '';
@@ -2850,7 +2850,7 @@
                     open.addEventListener('click', () => {
                         const gameName = String(server.game || 'este juego');
                         if (gameName.trim().toLowerCase() !== 'minecraft') {
-                            status.textContent = 'Para conectarte: abrí ' + gameName + ' por separado y usá la dirección copiada en su buscador o menú de servidores. PLAYVERSE no puede garantizar un enlace directo de unión para este juego.';
+                            status.textContent = 'Para conectarte: abrí ' + gameName + ' por separado y usá la dirección copiada en su buscador o menú de servidores. Omlet Arcade no puede garantizar un enlace directo de unión para este juego.';
                             return;
                         }
                         const edition = String(server.edition || 'other').toLowerCase();
@@ -2871,7 +2871,7 @@
                         remove.className = 'rounded-xl border border-rose-500/30 px-3 py-2 text-[11px] font-bold text-rose-300';
                         remove.textContent = 'Quitar publicación';
                         remove.addEventListener('click', async () => {
-                            if (!confirm('¿Quitar este servidor de PLAYVERSE?')) return;
+                            if (!confirm('¿Quitar este servidor de Omlet Arcade?')) return;
                             try { await apiRequest('/api/game-servers/' + encodeURIComponent(server.id), { method: 'DELETE' }); await loadCommunityGameServers(); }
                             catch (error) { status.textContent = error.message; }
                         });
@@ -3033,7 +3033,7 @@
 
         async function openRoomChat(roomId, roomName) {
             activeRoomId = roomId;
-            activeRoomName = roomName || 'Sala PLAYVERSE';
+            activeRoomName = roomName || 'Sala Omlet Arcade';
             document.getElementById('room-chat-title').textContent = activeRoomName;
             document.getElementById('room-chat-status').textContent = 'Cargando mensajes…';
             document.getElementById('room-chat-modal').classList.remove('hidden');
@@ -3843,7 +3843,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                         claim.addEventListener('click', () => {
                             showPlayverseRewardModal({
                                 title: '¡Misión completada!',
-                                description: 'Cumpliste el objetivo de «' + mission.title + '». Reclamá tu recompensa para acreditarla en la billetera PLAYVERSE.',
+                                description: 'Cumpliste el objetivo de «' + mission.title + '». Reclamá tu recompensa para acreditarla en la billetera Omlet Arcade.',
                                 rewardLabel: Number(mission.rewardTokens || 0).toLocaleString('es-AR') + ' ' + (mission.rewardCurrency === 'diamond' ? '💎 Diamantes' : mission.rewardCurrency === 'purple' ? '🟣 Cristales Violetas' : '🟡 Oro'),
                                 onClaim: async () => {
                                     const result = await apiRequest('/api/me/missions/' + encodeURIComponent(mission.id) + '/claim', { method: 'POST' });
@@ -4700,7 +4700,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                     body: JSON.stringify(preferences)
                 });
                 applyApplicationPreferences(data.preferences || preferences);
-                status.textContent = 'Ajustes guardados en tu cuenta PLAYVERSE.';
+                status.textContent = 'Ajustes guardados en tu cuenta Omlet Arcade.';
             } catch (error) {
                 status.textContent = 'No se pudieron guardar los ajustes: ' + error.message;
             } finally {
@@ -5031,7 +5031,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             activeLiveStreamRole = role;
             document.getElementById('live-player-panel').classList.remove('hidden');
             connectStreamChat(stream);
-            document.getElementById('live-player-title').textContent = stream.title || 'Transmisión PLAYVERSE';
+            document.getElementById('live-player-title').textContent = stream.title || 'Transmisión Omlet Arcade';
             document.getElementById('live-player-role').textContent = role === 'publisher' ? 'Estás transmitiendo' : 'Estás viendo en vivo';
             document.getElementById('live-host-controls').classList.toggle('hidden', role !== 'publisher');
             document.getElementById('live-player-tracks').replaceChildren();
