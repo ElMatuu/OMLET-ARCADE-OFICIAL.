@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const {
-  isValidKickEventPayload, verifyKickWebhook, verifyTwitchEventSub
+  isValidKickEventPayload, isYouTubeStreamListAvailable, verifyKickWebhook, verifyTwitchEventSub
 } = require('../server/services/externalProviderEvents');
 
 test('Twitch EventSub signature validates exact raw body and rejects stale or altered payloads', () => {
@@ -53,4 +53,8 @@ test('Kick event type headers must match the signed event body shape', () => {
   assert.equal(isValidKickEventPayload('kicks.gifted', { ...base, sender: { username: 'viewer' }, gift: { amount: 500 } }), true);
   assert.equal(isValidKickEventPayload('livestream.status.updated', { ...base, is_live: true }), true);
   assert.equal(isValidKickEventPayload('livestream.status.updated', { ...base, metadata: { title: 'spoofed' } }), false);
+});
+
+test('YouTube Live Chat is wired to the low-latency gRPC streamList method', () => {
+  assert.equal(isYouTubeStreamListAvailable(), true);
 });
