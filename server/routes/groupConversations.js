@@ -52,6 +52,28 @@ router.get('/:groupId/messages', async (req, res, next) => {
   } catch (error) { return next(error); }
 });
 
+router.get('/:groupId/members', async (req, res, next) => {
+  try {
+    if (!validId(req.params.groupId)) return res.status(400).json({ success: false, message: 'Grupo inválido.' });
+    const group = await GroupConversation.findOne({
+      _id: req.params.groupId,
+      'members.user': req.auth.sub,
+      status: 'active'
+    }).lean();
+    if (!group) return res.status(404).json({ success: false, message: 'Grupo no encontrado o sin acceso.' });
+    return res.json({
+      success: true,
+      ownerId: String(group.owner),
+      members: group.members.map(member => ({
+        userId: String(member.user),
+        username: member.username,
+        role: member.role,
+        joinedAt: member.joinedAt
+      }))
+    });
+  } catch (error) { return next(error); }
+});
+
 router.post('/:groupId/messages', limiter, async (req, res, next) => {
   try {
     if (!validId(req.params.groupId)) return res.status(400).json({ success: false, message: 'Grupo inválido.' });
