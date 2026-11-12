@@ -5664,6 +5664,8 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 startButton.classList.toggle('hidden', active);
                 stopButton.classList.toggle('hidden', !active);
                 startButton.disabled = recording.storageConfigured !== true;
+                stopButton.disabled = recording.status === 'starting' || recording.status === 'stopping';
+                stopButton.textContent = recording.status === 'stopping' ? 'Finalizando…' : 'Detener grabación';
                 if (recording.storageConfigured !== true) {
                     status.textContent = 'Grabación deshabilitada: el servidor necesita configurar LiveKit Egress y un bucket S3 privado.';
                 } else if (recording.status === 'active') {
