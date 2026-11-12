@@ -28,6 +28,8 @@ test('post composer can tag one of the catalog games without requiring a tag', (
 
 test('each game detail loads its own community posts and reuses social actions', () => {
   assert.match(html, /async function loadGameDetailPosts\(\)/);
+  assert.match(html, /if \(activeGameDetailKey !== gameKey\) return/);
+  assert.match(html, /if \(activeGameDetailKey === gameKey\) status\.textContent/);
   assert.match(html, /apiRequest\('\/api\/posts\?game=' \+ encodeURIComponent\(game\.name\)\)/);
   assert.match(html, /posts\.forEach\(post => container\.appendChild\(renderCommunityPost\(post\)\)\)/);
   assert.match(html, /function openGamePostComposer\(\)/);
