@@ -111,13 +111,14 @@ Specific defects and gaps:
 - [x] Persist the selected game on live-stream records and return it in live discovery.
 - [x] Add a game choice to the creator flow.
 - [x] Remove the OBS overlay URL from the default mobile creator experience.
-- [x] Add an initial eight-game catalog, local vector artwork, search, live filters and game-to-stream shortcuts. These first illustrations are not the official game publisher logos; the catalog still needs the approved game art package and full game detail/feed pages.
+- [x] Add an initial eight-game catalog, local vector artwork, search, live filters and game-to-stream shortcuts. These first illustrations are not the official game publisher logos.
+- [x] Add dedicated detail panels for all eight catalog entries, with game-specific descriptions, artwork, a working route into the stream composer, and live listings fetched from `/api/streams` that open the existing player.
 - [x] Replace the generic home hero with a live-session carousel and game shortcuts backed by the stream API.
 - [x] Refine private chat with participant avatar header and distinct incoming/outgoing message bubbles.
 - [x] Add optional self-hosted Minecraft Java/Paper and Bedrock server templates behind the explicit `game-servers` profile and EULA gate.
 - [ ] Replace the temporary Omlet Arcade icon adaptation with the rights holder's official brand package before public distribution.
 - [ ] Replace the current browser-only publisher with native Android gameplay capture and a foreground service.
-- [ ] Implement the real floating HUD and game-specific artwork catalog.
+- [ ] Implement the full streaming HUD controls and game-specific publisher-approved artwork package.
 
 ## Native Android HUD implementation status (2026-11-12)
 
@@ -128,7 +129,7 @@ The development branch `feat/native-android-floating-hud` adds a first native HU
 - An Android sync script that installs the native Java sources, registers the Capacitor plugin, and declares the service and permissions in the generated Android project.
 - The Android CI workflow invokes that sync script before building the test APK; Node tests verify the frontend-to-native bridge wiring.
 
-**Scope boundary:** this is a real, limited floating control shell, not the complete Omlet-style streaming HUD. It does not yet capture gameplay, publish media to LiveKit, toggle microphone/camera, or display live chat. The panel intentionally states that a transmission has not started; it must not imply otherwise. Android 14+ special-use foreground-service eligibility and Play distribution policy must be reviewed before release. Physical-device permission, drag, lifecycle, and battery tests remain mandatory.
+**Scope boundary:** this is a real, limited floating control shell, not the complete Omlet-style streaming HUD. It does not yet capture gameplay, publish media to LiveKit, toggle microphone/camera, or display live chat. The current native panel must not be represented as a stream-control HUD. The panel intentionally states that a transmission has not started; it must not imply otherwise. Android 14+ special-use foreground-service eligibility and Play distribution policy must be reviewed before release. Physical-device permission, drag, lifecycle, and battery tests remain mandatory.
 
 ## Engineering work required
 
@@ -149,3 +150,8 @@ The development branch `feat/native-android-floating-hud` adds a first native HU
 - Windows must be installed and tested on a real Windows machine.
 - CI must pass after each implementation batch.
 - Keep this work on the existing feature branch and draft PR. Do not merge or deploy without explicit approval.
+
+
+## Game detail slice (2026-11-12)
+
+All eight initial catalog entries now open a dedicated detail panel with their local artwork, category, a short game-specific introduction, a direct action to filter live broadcasts, and a shortcut to prepare the stream composer. The panel fetches `/api/streams`, filters actual active sessions by game, provides loading/empty/error states, and opens the existing live player for a selected session. These are game discovery pages, not a full game feed: game-linked community posts, player lists, and club recommendations still require explicit backend relationships and UI.
