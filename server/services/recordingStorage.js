@@ -25,7 +25,7 @@ function createPresignedRecordingUrl({ storage, objectKey, expiresInSeconds = 30
   const region = storage.region || 'us-east-1';
   if (!/^[a-z0-9-]{1,64}$/.test(region)) throw new TypeError('Invalid S3 region.');
   const endpoint = storage.endpoint ? new URL(storage.endpoint) : new URL('https://s3.' + region + '.amazonaws.com');
-  if (!['http:', 'https:'].includes(endpoint.protocol) || !endpoint.host || endpoint.username || endpoint.password || endpoint.search || endpoint.hash) {
+  if (endpoint.protocol !== 'https:' || !endpoint.host || endpoint.username || endpoint.password || endpoint.search || endpoint.hash) {
     throw new TypeError('Invalid S3 endpoint.');
   }
 
