@@ -4313,7 +4313,8 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 setLiveStatus('No se pudo iniciar la transmisión: ' + error.message);
                 if (createdStreamId) {
                     try { await apiRequest('/api/me/streams/' + encodeURIComponent(createdStreamId), { method: 'DELETE' }); } catch {}
-                    await closeLivePlayer();
+                    // connectLiveKitSession already disconnects its own failed room.
+                    // Do not close a newer session that may have replaced it meanwhile.
                 }
             } finally { button.disabled = false; }
         }
