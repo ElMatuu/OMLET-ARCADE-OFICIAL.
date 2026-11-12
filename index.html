@@ -2788,6 +2788,19 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             'entrance-effect': 'Efectos de entrada',
             'stream-gift': 'Regalos virtuales'
         };
+        const STORE_FRAME_LOOKS = {
+            'frame-neon-pulse': ['#22d3ee', '0 0 18px rgba(34,211,238,.8)', 'solid'],
+            'frame-gamer-rgb': ['#22c55e', '0 0 18px rgba(236,72,153,.8)', 'double'],
+            'frame-cyberpunk': ['#a855f7', '0 0 18px rgba(168,85,247,.8)', 'dashed'],
+            'frame-golden-dragon': ['#fbbf24', '0 0 18px rgba(251,191,36,.8)', 'double'],
+            'frame-seasonal': ['#34d399', '0 0 18px rgba(52,211,153,.7)', 'solid'],
+            'frame-ice-circuit': ['#38bdf8', '0 0 18px rgba(56,189,248,.8)', 'double'],
+            'frame-void-legend': ['#8b5cf6', '0 0 18px rgba(139,92,246,.8)', 'double'],
+            'frame-pixel-hero': ['#f97316', '0 0 18px rgba(249,115,22,.7)', 'dashed'],
+            'frame-aurora': ['#34d399', '0 0 18px rgba(52,211,153,.8)', 'double'],
+            'frame-champion': ['#fbbf24', '0 0 18px rgba(251,191,36,.9)', 'double']
+        };
+        const STORE_ANIMATED_FRAMES = new Set(['frame-gamer-rgb', 'frame-cyberpunk', 'frame-ice-circuit', 'frame-void-legend', 'frame-aurora']);
 
         async function loadStore(page = 1) {
             const status = document.getElementById('store-status');
@@ -2903,19 +2916,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             document.getElementById('store-selection-name').textContent = item.name + ' · ' + STORE_CATEGORY_LABELS[item.category];
             const frame = document.getElementById('store-avatar-preview-frame');
             const overlay = document.getElementById('store-overlay-preview');
-            const frameLooks = {
-                'frame-neon-pulse': ['#22d3ee', '0 0 18px rgba(34,211,238,.8)', 'solid'],
-                'frame-gamer-rgb': ['#22c55e', '0 0 18px rgba(236,72,153,.8)', 'double'],
-                'frame-cyberpunk': ['#a855f7', '0 0 18px rgba(168,85,247,.8)', 'dashed'],
-                'frame-golden-dragon': ['#fbbf24', '0 0 18px rgba(251,191,36,.8)', 'double'],
-                'frame-seasonal': ['#34d399', '0 0 18px rgba(52,211,153,.7)', 'solid'],
-                'frame-ice-circuit': ['#38bdf8', '0 0 18px rgba(56,189,248,.8)', 'double'],
-                'frame-void-legend': ['#8b5cf6', '0 0 18px rgba(139,92,246,.8)', 'double'],
-                'frame-pixel-hero': ['#f97316', '0 0 18px rgba(249,115,22,.7)', 'dashed'],
-                'frame-aurora': ['#34d399', '0 0 18px rgba(52,211,153,.8)', 'double'],
-                'frame-champion': ['#fbbf24', '0 0 18px rgba(251,191,36,.9)', 'double']
-            };
-            const look = frameLooks[item.id];
+            const look = STORE_FRAME_LOOKS[item.id];
             frame.style.borderColor = item.category === 'avatar-frame' && look ? look[0] : '#475569';
             frame.style.boxShadow = item.category === 'avatar-frame' && look ? look[1] : 'none';
             frame.style.borderStyle = item.category === 'avatar-frame' && look ? look[2] : 'solid';
@@ -3066,13 +3067,17 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         function applyEquippedCosmetics(equipped) {
             const frame = document.getElementById('profile-avatar')?.parentElement;
             if (frame) {
-                frame.style.boxShadow = equipped.avatarFrame ? '0 0 18px rgba(255,122,24,.65)' : '';
-                frame.style.borderColor = equipped.avatarFrame ? '#ff7a18' : '';
+                const look = equipped.avatarFrame ? STORE_FRAME_LOOKS[equipped.avatarFrame] : null;
+                frame.style.boxShadow = look ? look[1] : '';
+                frame.style.outline = look ? '2px ' + look[2] + ' ' + look[0] : '';
+                frame.style.outlineOffset = look ? '2px' : '';
+                frame.style.borderColor = look ? look[0] : '';
+                frame.classList.toggle('pv-animated-frame', Boolean(look && STORE_ANIMATED_FRAMES.has(equipped.avatarFrame)));
                 frame.dataset.equippedFrame = equipped.avatarFrame || '';
             }
             const overlay = document.getElementById('store-overlay-preview');
             if (overlay) {
-                const product = equipped.streamOverlay ? storeItems.find(item => item.id === equipped.streamOverlay) : null;
+                const product = equipped.streamOverlay ? inventoryItems.find(item => item.id === equipped.streamOverlay) : null;
                 overlay.textContent = product ? 'Equipado: ' + product.name : 'No hay ningún overlay equipado.';
             }
         }
