@@ -2279,6 +2279,106 @@ app.post('/api/me/missions/:missionId/claim', requireAuth, storeLimiter, async (
   } finally { await session.endSession(); }
 });
 
+const PREMIUM_PLUS_PLANS = Object.freeze({
+  'plus-7d': { id: 'plus-7d', name: 'PLAYVERSE Plus · 7 días', days: 7, price: 80 },
+  'plus-30d': { id: 'plus-30d', name: 'PLAYVERSE Plus · 30 días', days: 30, price: 280 },
+  'plus-90d': { id: 'plus-90d', name: 'PLAYVERSE Plus · 90 días', days: 90, price: 720 }
+});
+
+app.get('/api/me/plus', requireAuth, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.auth.sub).select('walletPlusTokens').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    const records = await PremiumPlusTransaction.find({ user: req.auth.sub })
+      .sort({ createdAt: -1, _id: -1 }).limit(30).lean();
+    return res.json({
+      success: true,
+      currency: { id: 'plus', name: 'PLAYVERSE Plus', symbol: '✦', transferable: false, purchasableWithMoney: false, cashValue: false },
+      balance: Number(user.walletPlusTokens) || 0,
+      plans: Object.values(PREMIUM_PLUS_PLANS),
+      transactions: records.map((record) => ({
+        id: String(record._id), type: record.type, amount: record.amount,
+        description: record.description, balanceAfter: record.balanceAfter, createdAt: record.createdAt
+      }))
+    });
+  } catch (error) { return next(error); }
+});
+
+app.get('/api/me/subscription', requireAuth, async (req, res, next) => {
+  try {
+    const subscription = await PremiumSubscription.findOne({ user: req.auth.sub }).lean();
+    const now = new Date();
+    const active = Boolean(subscription && new Date(subscription.endsAt) > now);
+    return res.json({
+      success: true,
+      active,
+      plan: active ? PREMIUM_PLUS_PLANS[subscription.planId] : null,
+      startedAt: active ? subscription.startedAt : null,
+      endsAt: active ? subscription.endsAt : (subscription ? subscription.endsAt : null),
+      remainingMs: active ? Math.max(0, new Date(subscription.endsAt).getTime() - now.getTime()) : 0,
+      renewal: 'manual_plus_only',
+      cashPaymentsEnabled: false,
+      autoRenewEnabled: false
+    });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/me/subscription/redeem', requireAuth, storeLimiter, async (req, res, next) => {
+  const plan = typeof req.body.planId === 'string' ? PREMIUM_PLUS_PLANS[req.body.planId] : null;
+  if (!plan) return res.status(400).json({ success: false, message: 'Elegí un plan PLAYVERSE Plus válido.' });
+  try { await Promise.all([PremiumPlusTransaction.init(), PremiumSubscription.init()]); }
+  catch (error) { return next(error); }
+  const session = await mongoose.startSession();
+  let result;
+  try {
+    await session.withTransaction(async () => {
+      const user = await User.findOneAndUpdate(
+        { _id: req.auth.sub, walletPlusTokens: { $gte: plan.price } },
+        { $inc: { walletPlusTokens: -plan.price } },
+        { new: true, session }
+      ).select('walletPlusTokens');
+      if (!user) {
+        const exists = await User.exists({ _id: req.auth.sub }).session(session);
+        result = { error: exists ? 'INSUFFICIENT_PLUS' : 'USER_NOT_FOUND' };
+        return;
+      }
+      const now = new Date();
+      const current = await PremiumSubscription.findOne({ user: req.auth.sub }).session(session);
+      const currentEnd = current && new Date(current.endsAt) > now ? new Date(current.endsAt) : now;
+      const nextEnd = new Date(currentEnd.getTime() + plan.days * 86400000);
+      const totalDaysPurchased = (current && new Date(current.endsAt) > now ? Number(current.totalDaysPurchased) || 0 : 0) + plan.days;
+      if (totalDaysPurchased > 3650) { result = { error: 'MAX_DURATION' }; throw Object.assign(new Error('Subscription duration limit reached.'), { code: 'PLAYVERSE_MAX_SUBSCRIPTION_DURATION' }); }
+      const subscription = await PremiumSubscription.findOneAndUpdate(
+        { user: req.auth.sub },
+        { $set: { planId: plan.id, startedAt: current && new Date(current.endsAt) > now ? current.startedAt : now, endsAt: nextEnd, totalDaysPurchased, updatedAt: now } },
+        { new: true, upsert: true, setDefaultsOnInsert: true, session }
+      );
+      await PremiumPlusTransaction.create([{
+        user: req.auth.sub, type: 'spend', amount: plan.price,
+        sourceKey: 'subscription:' + String(subscription._id) + ':' + now.toISOString(),
+        description: 'Canje de ' + plan.name,
+        balanceAfter: Number(user.walletPlusTokens) || 0
+      }], { session });
+      result = { balance: Number(user.walletPlusTokens) || 0, subscription };
+    });
+    if (result?.error === 'INSUFFICIENT_PLUS') return res.status(409).json({ success: false, code: result.error, message: 'No tenés suficientes créditos PLAYVERSE Plus. Podés conseguirlos completando actividades verificadas.' });
+    if (result?.error === 'USER_NOT_FOUND') return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    if (result?.error === 'MAX_DURATION') return res.status(409).json({ success: false, code: result.error, message: 'Alcanzaste el máximo de duración acumulada permitido.' });
+    return res.status(201).json({
+      success: true, message: 'PLAYVERSE Plus activado con créditos virtuales. No se realizó ningún cobro de dinero real.',
+      balance: result.balance, subscription: {
+        active: true, plan: PREMIUM_PLUS_PLANS[result.subscription.planId],
+        startedAt: result.subscription.startedAt, endsAt: result.subscription.endsAt
+      }
+    });
+  } catch (error) {
+    if (error?.code === 'PLAYVERSE_MAX_SUBSCRIPTION_DURATION') {
+      return res.status(409).json({ success: false, code: 'MAX_DURATION', message: 'Alcanzaste el máximo de duración acumulada permitido.' });
+    }
+    return next(error);
+  } finally { await session.endSession(); }
+});
+
 app.get('/api/me/saved-posts', requireAuth, async (req, res, next) => {
   try {
     const savedRecords = await SavedPost.find({ user: req.auth.sub })
