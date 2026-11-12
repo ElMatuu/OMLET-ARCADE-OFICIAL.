@@ -5,6 +5,7 @@ const RoomMessage = require('./models/RoomMessage');
 const LiveStream = require('./models/LiveStream');
 const Block = require('./models/Block');
 const Conversation = require('./models/Conversation');
+const GroupConversation = require('./models/GroupConversation');
 const DirectMessage = require('./models/DirectMessage');
 const Friendship = require('./models/Friendship');
 const Notification = require('./models/Notification');
@@ -97,6 +98,21 @@ function attachSocketServer(httpServer, allowedOrigins) {
         return acknowledge({ success: true });
       } catch {
         return acknowledge({ success: false, message: 'No se pudo validar el acceso al chat.' });
+      }
+    });
+
+    socket.on('join_group_conversation', async (payload, acknowledge = () => {}) => {
+      const groupId = payload && payload.groupId;
+      if (typeof groupId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(groupId)) {
+        return acknowledge({ success: false, message: 'Grupo inválido.' });
+      }
+      try {
+        const group = await GroupConversation.exists({ _id: groupId, 'members.user': socket.user.sub, status: 'active' });
+        if (!group) return acknowledge({ success: false, message: 'No tenés acceso a este grupo.' });
+        await socket.join('group:' + groupId);
+        return acknowledge({ success: true });
+      } catch {
+        return acknowledge({ success: false, message: 'No se pudo validar el acceso al grupo.' });
       }
     });
 
