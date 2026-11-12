@@ -33,6 +33,8 @@ El puerto 7880 queda interno a la red Docker y no se publica directamente. La IP
 
 ## Servidores dedicados de juegos
 
+El stack incluye plantillas opcionales para instancias propias de **Minecraft Java (Paper)** y **Minecraft Bedrock**, bajo el perfil Docker Compose `game-servers`. No se inician con el despliegue principal; requieren aceptar EULA, revisar recursos/puertos y habilitarlas expresamente con `docker compose --env-file .env.selfhost --profile game-servers up -d`. Cada instancia conserva su mundo en un volumen independiente.
+
 Los mundos de Minecraft u otros juegos no se alojan automáticamente dentro de la API ni de LiveKit. Cada nodo de juego necesita su proceso/imagen dedicada, puertos de juego, límites de CPU/RAM, almacenamiento persistente, backups, firewall y una identidad de agente independiente.
 
 El agente existente `scripts/game-server-agent.js` informa latido autenticado y consulta protocolos Minecraft Java/Bedrock o TCP genérico. El servidor de Omlet Arcade guarda el listado; no crea mundos ni ejecuta procesos de juego remotos por sí solo.
