@@ -102,6 +102,14 @@ Specific defects and gaps:
 - Avoid generic gradient hero panels and dashboard cards where the reference uses compact social-feed or game-first patterns.
 - Every screen must be compared side-by-side against its reference before acceptance.
 
+## Implementation progress
+
+- [x] Persist the selected game on live-stream records and return it in live discovery.
+- [x] Add a game choice to the creator flow.
+- [x] Remove the OBS overlay URL from the default mobile creator experience.
+- [ ] Replace the current browser-only publisher with native Android gameplay capture and a foreground service.
+- [ ] Implement the real floating HUD and game-specific artwork catalog.
+
 ## Engineering work required
 
 1. Break the monolithic client into maintainable feature modules and shared components before the visual overhaul becomes harder to test.
