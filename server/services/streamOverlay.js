@@ -3,6 +3,7 @@ function buildPublicStreamOverlay({ stream, preferences = {}, activeStreamOverla
     item.id === activeStreamOverlay && item.category === 'stream-overlay'
   ) || null;
 
+  const showChat = preferences.overlayShowChat !== false;
   return {
     success: true,
     stream: {
@@ -17,6 +18,7 @@ function buildPublicStreamOverlay({ stream, preferences = {}, activeStreamOverla
       scale: Number.isInteger(preferences.overlayScale) ? preferences.overlayScale : 100,
       opacity: Number.isInteger(preferences.overlayOpacity) ? preferences.overlayOpacity : 90,
       showViewerCount: preferences.overlayShowViewerCount !== false,
+      showChat,
       brandingText: preferences.overlayBrandingText || '',
       equippedOverlay: equippedOverlay
         ? { id: equippedOverlay.id, name: equippedOverlay.name, animation: equippedOverlay.animation }
@@ -30,7 +32,7 @@ function buildPublicStreamOverlay({ stream, preferences = {}, activeStreamOverla
       viewerCount: viewerCount !== null,
       watermark: Boolean(stream.watermark),
       equippedOverlay: Boolean(equippedOverlay),
-      chat: false,
+      chat: showChat,
       donations: false
     }
   };
