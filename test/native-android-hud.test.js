@@ -85,3 +85,8 @@ test('Android HUD panel motion resources are generated and used by the native se
   assert.match(service, /AnimationUtils\.loadAnimation\(this, R\.anim\.playverse_panel_exit\)/);
   assert.match(service, /removePanelAnimated\(\)/);
 });
+
+
+test('Android HUD sync validates the generated platform before creating animation resources', () => {
+  assert.ok(sync.indexOf("if (!fs.existsSync(androidRoot))") < sync.indexOf("fs.mkdirSync(animationDirectory"));
+});
