@@ -1585,15 +1585,16 @@
                     date.textContent = notification.createdAt ? new Date(notification.createdAt).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '';
                     content.append(title, body, date);
                     row.append(icon, content);
-                    if (notification.type === 'group_invite' && notification.entityId) {
+                    const notificationAction = getNotificationAction(notification.type);
+                    if (notificationAction) {
                         const actions = document.createElement('div');
                         actions.className = 'mt-3 flex flex-wrap gap-2';
-                        const openGroup = document.createElement('button');
-                        openGroup.type = 'button';
-                        openGroup.className = 'rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 py-2 text-[11px] font-bold text-fuchsia-200';
-                        openGroup.textContent = 'Abrir grupo';
-                        openGroup.addEventListener('click', () => openGroupFromNotification(notification.entityId, notification.id));
-                        actions.append(openGroup);
+                        const action = document.createElement('button');
+                        action.type = 'button';
+                        action.className = 'rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 py-2 text-[11px] font-bold text-fuchsia-200';
+                        action.textContent = notificationAction.label;
+                        action.addEventListener('click', () => openNotificationDestination(notification));
+                        actions.append(action);
                         card.append(actions);
                     }
                     if (!notification.readAt) {
@@ -1626,10 +1627,54 @@
             }
         }
 
-        async function openGroupFromNotification(groupId, notificationId) {
+        function getNotificationAction(type) {
+            const actions = {
+                group_invite: { label: 'Abrir grupo' },
+                direct_message: { label: 'Abrir chat' },
+                friend_request: { label: 'Ver solicitud' },
+                friend_accepted: { label: 'Ver amigos' },
+                room_participation_request: { label: 'Ver salas' },
+                room_participation_accepted: { label: 'Ver salas' },
+                room_participation_declined: { label: 'Ver salas' }
+            };
+            return actions[type] || null;
+        }
+
+        async function openNotificationDestination(notification) {
+            try {
+                await apiRequest('/api/me/notifications/' + encodeURIComponent(notification.id) + '/read', { method: 'PUT' });
+                if (notification.type === 'group_invite' && notification.entityId) {
+                    await openGroupFromNotification(notification.entityId, notification.id, true);
+                    return;
+                }
+                if (notification.type === 'direct_message' && notification.entityId) {
+                    switchTab('chat');
+                    const data = await apiRequest('/api/me/conversations');
+                    const conversation = (data.conversations || []).find(item => String(item.id) === String(notification.entityId));
+                    if (conversation) {
+                        await openDirectConversation(conversation.id, conversation.participant);
+                    } else {
+                        const status = document.getElementById('dm-inbox-status');
+                        if (status) status.textContent = 'Esta conversación ya no está disponible.';
+                    }
+                } else if (['friend_request', 'friend_accepted'].includes(notification.type)) {
+                    switchTab('friends');
+                    await loadFriends();
+                } else if (notification.type.startsWith('room_participation_')) {
+                    switchTab('lobbies');
+                    await loadRooms();
+                }
+                await refreshNotificationBadge();
+            } catch (error) {
+                const status = document.getElementById('notifications-status');
+                if (status) status.textContent = error.message || 'No se pudo abrir el destino de la notificación.';
+            }
+        }
+
+        async function openGroupFromNotification(groupId, notificationId, alreadyMarkedRead = false) {
             const status = document.getElementById('notifications-status');
             try {
-                await apiRequest('/api/me/notifications/' + encodeURIComponent(notificationId) + '/read', { method: 'PUT' });
+                if (!alreadyMarkedRead) await apiRequest('/api/me/notifications/' + encodeURIComponent(notificationId) + '/read', { method: 'PUT' });
                 switchTab('friends');
                 const groups = await loadGroupConversations();
                 const group = groups.find(item => String(item.id) === String(groupId));

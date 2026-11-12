@@ -6,9 +6,9 @@ const path = require('node:path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
 test('group invitation notifications expose an explicit open-group action', () => {
-  assert.match(html, /notification\.type === 'group_invite' && notification\.entityId/);
-  assert.match(html, /openGroup\.textContent = 'Abrir grupo'/);
-  assert.match(html, /openGroup\.addEventListener\('click', \(\) => openGroupFromNotification\(notification\.entityId, notification\.id\)\)/);
+  assert.match(html, /group_invite: \{ label: 'Abrir grupo' \}/);
+  assert.match(html, /notificationAction = getNotificationAction\(notification\.type\)/);
+  assert.match(html, /action\.addEventListener\('click', \(\) => openNotificationDestination\(notification\)\)/);
 });
 
 test('opening a group invitation marks it read and resolves membership from the authenticated group list', () => {
