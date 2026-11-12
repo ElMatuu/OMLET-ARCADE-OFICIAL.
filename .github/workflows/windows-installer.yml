@@ -23,10 +23,12 @@ jobs:
       run:
         working-directory: D:/a/playverse-source
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-        with:
-          path: ../playverse-source
+      - name: Check out source into a Windows-safe directory
+        shell: pwsh
+        working-directory: D:/a
+        run: |
+          $branch = if ($env:GITHUB_HEAD_REF) { $env:GITHUB_HEAD_REF } else { $env:GITHUB_REF_NAME }
+          git clone --depth 1 --branch $branch https://github.com/$env:GITHUB_REPOSITORY.git D:/a/playverse-source
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
