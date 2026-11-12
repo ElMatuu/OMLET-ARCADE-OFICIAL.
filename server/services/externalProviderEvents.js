@@ -119,7 +119,8 @@ async function ingestExternalChatMessage({ provider, externalUserId, externalMes
   try {
     saved = await LiveStreamMessage.create({
       stream: stream._id, author: connection.owner, username: safeUsername, message: text,
-      externalProvider: provider, externalMessageId: externalMessageId.slice(0, 200)
+      externalProvider: provider, externalMessageId: externalMessageId.slice(0, 200),
+      externalExpiresAt: provider === 'kick' ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null
     });
   } catch (error) {
     if (error && error.code === 11000) return { accepted: false, reason: 'duplicate' };
@@ -284,6 +285,22 @@ async function pollYouTubeConnection(connection, io, env = process.env) {
     }
   });
 }
+
+let lastRetentionCleanupAt = 0;
+async function cleanupExpiredKickMessages() {
+  if (Date.now() - lastRetentionCleanupAt < 15 * 60 * 1000) return;
+  lastRetentionCleanupAt = Date.now();
+  const expired = await LiveStreamMessage.find({
+    externalProvider: 'kick', externalExpiresAt: { $lte: new Date() }
+  }).select('_id stream').limit(500).lean();
+  if (!expired.length) return;
+  const ids = expired.map(item => item._id);
+  await LiveStream.updateMany({ pinnedMessage: { $in: ids } }, {
+    $set: { pinnedMessage: null, pinnedBy: null, pinnedAt: null }
+  });
+  await LiveStreamMessage.deleteMany({ _id: { $in: ids } });
+}
+
 let youtubePollTimer = null;
 let youtubePollInFlight = false;
 function startYouTubeChatSync(io, env = process.env) {
@@ -292,6 +309,7 @@ function startYouTubeChatSync(io, env = process.env) {
     if (youtubePollInFlight) return;
     youtubePollInFlight = true;
     try {
+      await cleanupExpiredKickMessages();
       const due = await ExternalProviderConnection.find({
         provider: 'youtube', status: 'connected',
         $or: [{ youtubeNextPollAt: null }, { youtubeNextPollAt: { $lte: new Date() } }]
@@ -455,6 +473,6 @@ async function sendToLinkedProviders(owner, message, env = process.env) {
 }
 
 module.exports = {
-  claimWebhookReceipt, completeWebhookReceipt, ingestExternalChatMessage, processKickWebhook, processTwitchWebhook, sendToLinkedProviders,
+  claimWebhookReceipt, cleanupExpiredKickMessages, completeWebhookReceipt, ingestExternalChatMessage, processKickWebhook, processTwitchWebhook, sendToLinkedProviders,
   isValidKickEventPayload, startYouTubeChatSync, stopYouTubeChatSync, subscribeProviderEvents, verifyKickWebhook, verifyTwitchEventSub
 };
