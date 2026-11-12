@@ -4,7 +4,7 @@ const ExternalProviderConnection = require('../models/ExternalProviderConnection
 const LiveStream = require('../models/LiveStream');
 const LiveStreamMessage = require('../models/LiveStreamMessage');
 const { requireAuth } = require('../middleware/auth');
-const { PROVIDERS, completeAuthorization, createAuthorization, getCredentials, getEncryptionKey, revokeConnection, subscribeProviderEvents, toPublicConnection } = require('../services/externalProviders');
+const { PROVIDERS, completeAuthorization, createAuthorization, getCredentials, getEncryptionKey, getMissingConfiguration, revokeConnection, subscribeProviderEvents, toPublicConnection } = require('../services/externalProviders');
 
 const router = express.Router();
 const connectLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 8, standardHeaders: 'draft-7', legacyHeaders: false });
@@ -17,7 +17,7 @@ router.get('/', requireAuth, async (req, res, next) => {
       success: true,
       integrations: Object.keys(PROVIDERS).map(provider => ({
         provider, name: PROVIDERS[provider].name,
-        configured: Boolean(getCredentials(provider) && getEncryptionKey()),
+        configured: getMissingConfiguration(provider).length === 0,\n        missingConfiguration: getMissingConfiguration(provider),
         connection: byProvider.has(provider) ? toPublicConnection(byProvider.get(provider)) : null
       }))
     });
