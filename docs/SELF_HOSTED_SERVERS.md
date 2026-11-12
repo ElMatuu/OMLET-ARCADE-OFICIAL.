@@ -33,7 +33,7 @@ El puerto 7880 queda interno a la red Docker y no se publica directamente. La IP
 
 ## Servidores dedicados de juegos
 
-El stack incluye plantillas opcionales para instancias propias de **Minecraft Java (Paper)** y **Minecraft Bedrock**, bajo el perfil Docker Compose `game-servers`. No se inician con el despliegue principal; requieren aceptar EULA, revisar recursos/puertos y habilitarlas expresamente con `docker compose --env-file .env.selfhost --profile game-servers up -d`. Cada instancia conserva su mundo en un volumen independiente.
+El stack incluye plantillas opcionales para instancias propias de **Minecraft Java (Paper)** y **Minecraft Bedrock**, bajo el perfil Docker Compose `game-servers`. No se inician con el despliegue principal; por defecto `MINECRAFT_EULA=FALSE`. Leé y aceptá las condiciones de Minecraft, cambiá esa variable a `TRUE`, revisá recursos/puertos y habilitalas expresamente con `docker compose --env-file .env.selfhost --profile game-servers up -d`. Cada instancia conserva su mundo en un volumen independiente.
 
 Los mundos de Minecraft u otros juegos no se alojan automáticamente dentro de la API ni de LiveKit. Cada nodo de juego necesita su proceso/imagen dedicada, puertos de juego, límites de CPU/RAM, almacenamiento persistente, backups, firewall y una identidad de agente independiente.
 
@@ -72,4 +72,4 @@ Tomar los nombres y validaciones de `.env.selfhost.example` y `docker-compose.ym
 9. Probar dos cuentas y dos dispositivos: autenticación, chat, comunidad, emisión, reproducción, desconexión y cierre.
 10. Probar backup y restauración antes de aceptar datos reales.
 
-No se desplegó ningún servidor ni se consumió infraestructura en esta tarea. No activar servicios pagos ni modificar proveedores sin autorización explícita.
+No se desplegó ningún servidor ni se consumió infraestructura en esta tarea. El proyecto contiene plantillas de instancias Java/Bedrock opcionales; no hay todavía mundos creados, nodos dedicados externos ni disponibilidad pública verificada. No activar servicios pagos ni modificar proveedores sin autorización explícita.
