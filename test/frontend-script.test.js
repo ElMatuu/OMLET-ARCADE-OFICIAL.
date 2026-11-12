@@ -85,6 +85,9 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /function unequipStoreCategory\(category\)/, 'The inventory must expose a working unequip action');
   assert.match(html, /item\.equipped \? 'Quitar' : 'Equipar'/, 'Equipped cosmetics must offer a remove action instead of an inert disabled state');
   assert.match(html, /No hay ningún overlay equipado\./, 'The overlay preview must clear when the equipped overlay is removed');
+  assert.match(html, /const STORE_FRAME_LOOKS =/, 'Equipped avatar frames must map to distinct visual styles');
+  assert.match(html, /frame\.style\.outline = look \?/, 'Equipped frame styles must render on the actual profile avatar');
+  assert.match(html, /inventoryItems\.find\(item => item\.id === equipped\.streamOverlay\)/, 'Equipped overlay preview must resolve from the full owned inventory, not the current catalog page');
   assert.match(html, /id="room-capacity"/, 'Room creation must let the host choose capacity');
   assert.match(html, /function leaveRoom\(roomId\)/, 'Room members must have a leave action');
   assert.match(html, /function closeRoom\(roomId\)/, 'Room hosts must have a close action');
