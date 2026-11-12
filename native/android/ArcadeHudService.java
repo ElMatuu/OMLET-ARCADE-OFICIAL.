@@ -10,6 +10,7 @@ import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.os.Build;
 import android.os.IBinder;
+import android.provider.Settings;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
@@ -84,7 +85,15 @@ public class ArcadeHudService extends Service {
             if (chatPreview != null) chatPreview.setText(chatPreviewText);
         }
         refreshForegroundTypes();
-        if (!getSharedPreferences("arcade_hud", MODE_PRIVATE).getBoolean("hud_hidden", false)) showBubble();
+        if (!Settings.canDrawOverlays(this)) {
+            hideHud();
+            if (!captureActive && !microphoneActive && !cameraActive) {
+                stopSelf();
+                return START_NOT_STICKY;
+            }
+        } else if (!getSharedPreferences("arcade_hud", MODE_PRIVATE).getBoolean("hud_hidden", false)) {
+            showBubble();
+        }
         return START_STICKY;
     }
 
@@ -167,7 +176,7 @@ public class ArcadeHudService extends Service {
 
     private void togglePanel() {
         if (panel != null) {
-            windowManager.removeView(panel);
+            try { windowManager.removeView(panel); } catch (IllegalArgumentException ignored) {}
             panel = null;
             return;
         }
@@ -271,7 +280,7 @@ public class ArcadeHudService extends Service {
             panel = null;
         }
         if (bubble != null) {
-            windowManager.removeView(bubble);
+            try { windowManager.removeView(bubble); } catch (IllegalArgumentException ignored) {}
             bubble = null;
         }
     }
