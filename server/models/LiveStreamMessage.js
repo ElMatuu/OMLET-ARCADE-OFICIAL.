@@ -7,6 +7,7 @@ const liveStreamMessageSchema = new mongoose.Schema({
   message: { type: String, required: true, trim: true, minlength: 1, maxlength: 500 },
   externalProvider: { type: String, enum: ['twitch', 'youtube', 'kick'], default: undefined },
   externalMessageId: { type: String, default: undefined, maxlength: 200 },
+  externalExpiresAt: { type: Date, default: null, index: true },
   sentAt: { type: Date, default: Date.now, index: true }
 }, { versionKey: false });
 
