@@ -186,7 +186,7 @@ class NativeScreenSharePlugin : Plugin() {
                     throw IllegalStateException("LiveKit no pudo cambiar la cámara.")
                 }
                 if (!enabled) context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_CAMERA_STOP))
-                call.resolve(JSObject().put("enabled", enabled))
+                call.resolve(JSObject().apply { put("enabled", enabled) })
             } catch (error: Exception) {
                 call.reject("No se pudo cambiar la cámara: " + (error.message ?: "error desconocido"))
             }
