@@ -71,6 +71,7 @@ test('Android game capture uses MediaProjection and the native LiveKit SDK', () 
   assert.match(generator, /io\.livekit:livekit-android:2\.30\.0/);
   assert.match(generator, /FOREGROUND_SERVICE_MEDIA_PROJECTION/);
   assert.match(generator, /ScreenCaptureService/);
+  assert.match(generator, /https:\\/\\/jitpack\\.io/);
   assert.match(generator, /\\\$\{error\.message\}/);
   assert.match(generator, /\\\$\{stopError\.message\}/);
   assert.match(html, /Plugins\.NativeScreenShare/);
