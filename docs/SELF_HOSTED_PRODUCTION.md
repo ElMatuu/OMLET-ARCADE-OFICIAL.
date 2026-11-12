@@ -16,6 +16,8 @@ This is the preferred deployment path when PLAYVERSE should operate its own appl
 3. Set `API_DOMAIN`, `LIVE_DOMAIN`, `LIVEKIT_URL=wss://<LIVE_DOMAIN>`, `PLAYVERSE_API_URL` and `CORS_ORIGIN` to the real public origins.
 4. Keep `.env.selfhost` private. Never commit secrets or paste them into frontend settings.
 
+The Compose stack also starts Redis on the private Docker network and a separate LiveKit Egress worker. `livekit.yaml` and `egress.yaml` both point to `redis:6379`; the worker uses the same LiveKit API credentials and is required for RTMP multistream and room recording. Redis has persistent AOF storage and is not published to the host. The Egress worker is CPU/memory intensive (plan for at least 4 CPU cores and 4 GB RAM for the worker alone); do not expect reliable composite streaming on an underpowered free shared host.
+
 The Compose stack creates a private MongoDB keyfile in a persistent Docker volume, restricts it to the MongoDB container user, starts MongoDB with authentication and a single-node replica set, initializes `rs0`, and only then starts the API. The API connection string includes `replicaSet=rs0`, `retryWrites=true` and `w=majority`, which are required for the transaction-backed wallet, inventory, moderation and subscription flows.
 
 The replica set has one member. This enables MongoDB transactions but is **not** database high availability: a server or disk failure can still take the database offline. For resilient production, migrate to a properly secured multi-node replica set across failure domains and configure tested off-host backups before serving a large public audience.
@@ -54,3 +56,8 @@ Confirm LiveKit is reachable over WSS and test an actual creator-to-viewer strea
 ## Production launch gate
 
 Do not call the platform production-ready until secrets and DNS are configured, backups have been restored in a drill, the single-node or multi-node database topology is chosen intentionally, all firewall rules are tested, two-device streaming and reconnect tests pass, and Android/Windows clients have been tested on physical devices. This stack supplies self-hosted infrastructure; it does not itself prove capacity, global availability or operational support.
+
+
+## Creator RTMP broadcast secrets
+
+Set `STREAM_KEY_ENCRYPTION_KEY` to a dedicated 32-byte key encoded as 64 hexadecimal characters. Compose passes it only to the backend. Do not reuse JWT, MongoDB or LiveKit secrets. Back it up securely; losing it makes saved RTMP keys unreadable. The optional `LIVEKIT_RECORDING_S3_*` variables are passed through to the API for private recording storage and remain unset until a private bucket is provisioned.
