@@ -1706,7 +1706,6 @@
             async function runFloatingAction(action) {
                 if (!action) return;
                 if (!authToken) { pendingFloatingAction = action; return; }
-                const nativeShare = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.NativeScreenShare;
                 if (action === 'chat') { switchTab('chat'); return; }
                 if (action === 'live' || action === 'lobbies' || action === 'clubs') { switchTab(action); return; }
                 if (action === 'stream_chat') {
@@ -1722,12 +1721,13 @@
                 }
                 if (action === 'microphone_toggle' || action === 'camera_toggle') {
                     switchTab('live');
-                    if (!nativeShare) { setLiveStatus('El control nativo de medios no está disponible en esta compilación.'); return; }
+                    if (activeLiveStreamRole !== 'publisher') {
+                        setLiveStatus('Primero iniciá tu transmisión para controlar el micrófono o la cámara.');
+                        return;
+                    }
                     try {
-                        const result = action === 'microphone_toggle'
-                            ? await nativeShare.toggleMicrophone()
-                            : await nativeShare.toggleCamera();
-                        setLiveStatus((action === 'microphone_toggle' ? 'Micrófono ' : 'Cámara ') + (result.enabled ? 'activado.' : 'desactivado.'));
+                        if (action === 'microphone_toggle') await toggleLiveMicrophone();
+                        else await toggleLiveCamera();
                     } catch (error) { setLiveStatus('No se pudo cambiar el control: ' + error.message); }
                     return;
                 }
