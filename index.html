@@ -4794,6 +4794,9 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 input.value = '';
                 document.getElementById('post-game-input').value = '';
                 closePostModal();
+                if (game && activeGameDetailKey && GAME_CATALOG_DETAILS[activeGameDetailKey]?.name === game) {
+                    await loadGameDetailPosts();
+                }
             } catch (error) {
                 status.textContent = error.message;
             } finally {
