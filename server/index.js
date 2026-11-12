@@ -35,6 +35,7 @@ const TokenTransaction = require('./models/TokenTransaction');
 const MissionClaim = require('./models/MissionClaim');
 const { STORE_CATALOG } = require('./data/storeCatalog');
 const { buildStoreCatalog } = require('./services/storeCatalog');
+const { buildPublicStreamOverlay } = require('./services/streamOverlay');
 const { AVATAR_CATALOG, AVATAR_BY_ID } = require('./data/avatarCatalog');
 const { requireAuth } = require('./middleware/auth');
 const { attachSocketServer } = require('./socket');
@@ -416,26 +417,14 @@ app.get('/api/public/stream-overlay/:token', overlayReadLimiter, async (req, res
     } catch (error) {
       console.error('Unable to read LiveKit overlay participant count:', error.message);
     }
-    const preferences = owner.streamingPreferences || {};
-    const equippedOverlay = STORE_CATALOG.find((item) =>
-      item.id === owner.activeStreamOverlay && item.category === 'stream-overlay'
-    ) || null;
-    return res.set('Cache-Control', 'no-store').json({
-      success: true,
+    const payload = buildPublicStreamOverlay({
       stream: { title: stream.title, creator: stream.ownerUsername, watermark: stream.customWatermark || '' },
-      overlay: {
-        theme: preferences.overlayTheme || 'arcade',
-        layout: preferences.overlayLayout || 'wide',
-        showViewerCount: preferences.overlayShowViewerCount !== false,
-        brandingText: preferences.overlayBrandingText || '',
-        equippedOverlay: equippedOverlay ? { id: equippedOverlay.id, name: equippedOverlay.name, animation: equippedOverlay.animation } : null,
-        socialYouTube: preferences.socialYouTube || '',
-        socialTwitch: preferences.socialTwitch || '',
-        socialTikTok: preferences.socialTikTok || ''
-      },
+      preferences: owner.streamingPreferences || {},
+      activeStreamOverlay: owner.activeStreamOverlay,
       viewerCount,
-      capabilities: { viewerCount: viewerCount !== null, watermark: Boolean(stream.customWatermark), equippedOverlay: Boolean(equippedOverlay), chat: false, donations: false }
+      catalog: STORE_CATALOG
     });
+    return res.set('Cache-Control', 'no-store').json(payload);
   } catch (error) { return next(error); }
 });
 
