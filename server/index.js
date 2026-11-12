@@ -511,7 +511,7 @@ app.get('/overlay/:token', (req, res) => {
 .layout-compact .panel{padding:9px 12px}.layout-vertical{flex-direction:column;align-items:flex-start}.layout-vertical .panel{max-width:100%}
 @media(prefers-reduced-motion:no-preference){#overlay[data-product="overlay-flame-rgb"] #skin,#overlay[data-product="overlay-nebula-live"] #skin{animation:skin-pulse 5s ease-in-out infinite alternate}}
 @keyframes skin-pulse{from{filter:brightness(.85)}to{filter:brightness(1.3)}}
-</style></head><body><div id="video-stage" aria-hidden="true"><video id="screen-share" autoplay playsinline></video><video id="camera" autoplay playsinline muted></video><div id="audio-tracks"></div></div><main id="overlay" class="camera-only"><div id="skin" aria-hidden="true"></div><section class="panel"><div id="creator"></div><div id="title">Conectando con la transmisión…</div><div id="branding"></div><div id="social"></div></section><div id="viewers"></div><div id="watermark"></div></main>
+</style></head><body><div id="video-stage" aria-hidden="true"><video id="screen-share" autoplay playsinline></video><video id="camera" data-position="bottom-right" data-frame="none" autoplay playsinline muted></video><div id="audio-tracks"></div></div><main id="overlay" class="camera-only"><div id="skin" aria-hidden="true"></div><section class="panel"><div id="creator"></div><div id="title">Conectando con la transmisión…</div><div id="branding"></div><div id="social"></div></section><div id="viewers"></div><div id="watermark"></div></main>
 <script src="/livekit-client.umd.js"></script>
 <script>
 const token=${JSON.stringify(token)};
@@ -529,7 +529,7 @@ function attachOverlayTrack(track,publication){
   track.attach(screenVideo);screenVideo.style.display='block';root.classList.remove('camera-only');
  }else if(source===LivekitClient.Track.Source.Camera){
   track.attach(cameraVideo);cameraVideo.style.display='block';
-  if(!screenVideo.srcObject)root.classList.add('camera-only');
+  root.classList.toggle('camera-only',!screenVideo.srcObject);
  }else if(track.kind==='audio'){
   const audio=track.attach();audio.autoplay=true;audio.controls=false;audioTracks.appendChild(audio);audio.play().catch(()=>{});
  }
@@ -537,7 +537,7 @@ function attachOverlayTrack(track,publication){
 function detachOverlayTrack(track){
  track.detach().forEach(element=>{
   if(element===screenVideo){screenVideo.srcObject=null;screenVideo.style.display='none';root.classList.toggle('camera-only',Boolean(cameraVideo.srcObject));}
-  else if(element===cameraVideo){cameraVideo.srcObject=null;cameraVideo.style.display='none';root.classList.add('camera-only');}
+  else if(element===cameraVideo){cameraVideo.srcObject=null;cameraVideo.style.display='none';root.classList.toggle('camera-only',!screenVideo.srcObject);}
   else if(element&&element.tagName==='AUDIO')element.remove();
  });
 }
@@ -567,7 +567,8 @@ async function connectOverlayRoom(){
 async function refresh(){
  try{
   const response=await fetch('/api/public/stream-overlay/'+encodeURIComponent(token),{cache:'no-store'});
-  if(!response.ok){overlayStopped=true;if(overlayRoom){const oldRoom=overlayRoom;overlayRoom=null;oldRoom.disconnect()}set('title','Transmisión finalizada');set('creator','PLAYVERSE');set('viewers','');set('watermark','');root.removeAttribute('data-product');return}
+  if(response.status===404){overlayStopped=true;if(overlayRoom){const oldRoom=overlayRoom;overlayRoom=null;oldRoom.disconnect()}set('title','Transmisión finalizada');set('creator','PLAYVERSE');set('viewers','');set('watermark','');root.removeAttribute('data-product');return}
+  if(!response.ok)throw new Error('Overlay temporalmente no disponible ('+response.status+')');
   const data=await response.json();const p=data.overlay||{};
   root.className='theme-'+(p.theme||'arcade')+' layout-'+(p.layout||'wide')+(screenVideo.srcObject?'':' camera-only');
   cameraVideo.dataset.position=p.cameraPosition||'bottom-right';
