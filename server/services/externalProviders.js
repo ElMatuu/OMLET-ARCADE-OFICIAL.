@@ -19,7 +19,7 @@ function getCredentials(provider, env = process.env) {
   if (!clientId || !clientSecret || !base) return null;
   let parsed;
   try { parsed = new URL(base); } catch { return null; }
-  if (parsed.protocol !== 'https:' && parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1') return null;
+  if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(parsed.hostname))) return null;
   return { clientId, clientSecret, redirectUri: base + '/api/external-integrations/' + provider + '/callback' };
 }
 function getEncryptionKey(env = process.env) {
@@ -61,7 +61,7 @@ async function createAuthorization(provider, owner, env = process.env) {
   const pkce = createPkce();
   await ExternalOAuthState.create({
     stateHash: crypto.createHash('sha256').update(state).digest('hex'),
-    owner, provider, codeVerifier: pkce.verifier, expiresAt: new Date(Date.now() + 10 * 60 * 1000)
+    owner, provider, ...(() => { const verifier = encryptSecret(pkce.verifier, env); return { encryptedVerifier: verifier.encrypted, verifierIv: verifier.iv, verifierAuthTag: verifier.authTag }; })(), expiresAt: new Date(Date.now() + 10 * 60 * 1000)
   });
   const url = new URL(config.authorize);
   url.searchParams.set('client_id', credentials.clientId);
@@ -116,9 +116,9 @@ async function completeAuthorization(provider, code, state, env = process.env) {
   const stateHash = crypto.createHash('sha256').update(state).digest('hex');
   const record = await ExternalOAuthState.findOneAndDelete({
     stateHash, provider, expiresAt: { $gt: new Date() }
-  }).select('+codeVerifier').lean();
+  }).select('+encryptedVerifier +verifierIv +verifierAuthTag').lean();
   if (!record) throw new Error('El estado OAuth venció, ya fue usado o no coincide.');
-  const token = await exchangeCode(provider, code, record.codeVerifier, env);
+  const token = await exchangeCode(provider, code, decryptSecret(record.encryptedVerifier, record.verifierIv, record.verifierAuthTag, env), env);
   if (!token.access_token) throw new Error('El proveedor no entregó un token de acceso.');
   const identity = await fetchProfile(provider, token.access_token, env);
   const access = encryptSecret(token.access_token, env);
