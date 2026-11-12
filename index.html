@@ -5157,6 +5157,15 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 videoCaptureDefaults: getLiveCameraCaptureOptions()
             });
             liveKitRoom = room;
+            room.on(LivekitClient.RoomEvent.LocalTrackPublished, (publication) => {
+                const kind = String(publication && publication.kind || '').toLowerCase();
+                if (kind === 'video') {
+                    const status = document.getElementById('live-player-status');
+                    if (status) status.textContent = 'Video publicado. Tu emisión ya puede aparecer en En Vivo.';
+                    const roleLabel = document.getElementById('live-player-role');
+                    if (roleLabel && activeLiveStreamRole === 'publisher') roleLabel.textContent = 'Estás transmitiendo';
+                }
+            });
             room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
                 attachLiveTrack(track, participant);
                 const status = document.getElementById('live-player-status');
@@ -5186,7 +5195,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             document.getElementById('live-player-panel').classList.remove('hidden');
             connectStreamChat(stream);
             document.getElementById('live-player-title').textContent = stream.title || 'Transmisión Omlet Arcade';
-            document.getElementById('live-player-role').textContent = role === 'publisher' ? 'Estás transmitiendo' : 'Estás viendo en vivo';
+            document.getElementById('live-player-role').textContent = role === 'publisher' ? 'Preparando tu emisión' : 'Estás viendo en vivo';
             document.getElementById('live-host-controls').classList.toggle('hidden', role !== 'publisher');
             document.getElementById('live-player-tracks').replaceChildren();
             document.getElementById('live-player-status').textContent = 'Conectado a la sala. Esperando pistas multimedia…';
@@ -5475,7 +5484,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 createdStreamId = data.stream.id;
                 await connectLiveKitSession(data.liveKit, data.stream, 'publisher');
                 document.getElementById('live-stream-create-form').reset();
-                setLiveStatus('Transmisión iniciada. Compartí tu emisión desde esta sala.');
+                setLiveStatus('Sala preparada. Publicá una pista de video para que tu directo aparezca en En Vivo.');
                 await loadLiveStreams();
             } catch (error) {
                 setLiveStatus('No se pudo iniciar la transmisión: ' + error.message);
