@@ -884,10 +884,23 @@ app.delete('/api/me/streams/:streamId', requireAuth, streamLimiter, async (req, 
     if (!session) return res.status(404).json({ success: false, message: 'No se encontró una transmisión activa propia.' });
     const liveKit = createLiveKitApi(config);
     if (session.recordingEgressId && ['starting', 'active', 'stopping'].includes(session.recordingStatus)) {
-      await stopRoomRecording({ egressClient: liveKit.egress, egressId: session.recordingEgressId });
-      session.recordingStatus = 'stopping';
-      await StreamRecording.updateOne({ egressId: session.recordingEgressId, owner: req.auth.sub },
-        { $set: { status: 'stopping' } });
+      await Promise.all([
+        LiveStream.updateOne({ _id: session._id, owner: req.auth.sub, recordingEgressId: session.recordingEgressId },
+          { $set: { recordingStatus: 'stopping' } }),
+        StreamRecording.updateOne({ egressId: session.recordingEgressId, owner: req.auth.sub },
+          { $set: { status: 'stopping' } })
+      ]);
+      try {
+        await stopRoomRecording({ egressClient: liveKit.egress, egressId: session.recordingEgressId });
+      } catch (recordingError) {
+        await Promise.all([
+          LiveStream.updateOne({ _id: session._id, owner: req.auth.sub, recordingEgressId: session.recordingEgressId, recordingStatus: 'stopping' },
+            { $set: { recordingStatus: 'active' } }),
+          StreamRecording.updateOne({ egressId: session.recordingEgressId, owner: req.auth.sub, status: 'stopping' },
+            { $set: { status: 'active' } })
+        ]);
+        throw recordingError;
+      }
     }
     await liveKit.room.deleteRoom(session.roomName);
     session.status = 'ended';
