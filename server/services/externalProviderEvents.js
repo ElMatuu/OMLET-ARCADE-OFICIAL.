@@ -1,9 +1,20 @@
 const crypto = require('node:crypto');
+const path = require('node:path');
+const grpc = require('@grpc/grpc-js');
+const protoLoader = require('@grpc/proto-loader');
 const LiveStream = require('../models/LiveStream');
 const LiveStreamMessage = require('../models/LiveStreamMessage');
 const ExternalProviderConnection = require('../models/ExternalProviderConnection');
 const ExternalWebhookReceipt = require('../models/ExternalWebhookReceipt');
 const { fetchJson, getAccessToken, getCredentials, getProvider } = require('./externalProviders');
+
+const youtubeProtoDefinition = protoLoader.loadSync(path.join(__dirname, '../proto/stream_list.proto'), {
+  keepCase: false, longs: String, enums: String, defaults: true, oneofs: true
+});
+const youtubeProto = grpc.loadPackageDefinition(youtubeProtoDefinition);
+const YouTubeLiveChatClient = youtubeProto.youtube.api.v3.V3DataLiveChatMessageService;
+const youtubeGrpcClient = new YouTubeLiveChatClient('youtube.googleapis.com:443', grpc.credentials.createSsl());
+
 
 let twitchAppToken = null;
 let twitchAppTokenExpiresAt = 0;
@@ -239,60 +250,116 @@ async function subscribeProviderEvents(provider, owner, env = process.env) {
     return { subscribed: false, reason: 'provider_rejected_subscription' };
   }
 }
-async function pollYouTubeConnection(connection, io, env = process.env) {
-  const token = await getAccessToken(connection, env);
-  const headers = { Authorization: 'Bearer ' + token };
-  let liveChatId = connection.youtubeLiveChatId;
-  let pageToken = connection.youtubePageToken || '';
-  if (!liveChatId) {
-    const active = await fetchJson('https://www.googleapis.com/youtube/v3/liveBroadcasts?part=id,snippet,status&broadcastStatus=active&mine=true', { headers });
-    const broadcast = active.items?.[0];
-    liveChatId = broadcast?.snippet?.liveChatId || '';
-    if (!liveChatId) {
-      await ExternalProviderConnection.updateOne({ _id: connection._id }, {
-        $set: { youtubeLiveChatId: null, youtubePageToken: null, youtubeNextPollAt: new Date(Date.now() + 60000), chatSyncStatus: 'idle', chatSyncError: null, chatSyncLastAt: new Date() }
-      });
-      return;
+function cleanupYouTubeStreamEntry(connectionId, entry) {
+  clearInterval(entry.leaseTimer);
+  clearTimeout(entry.refreshTimer);
+  if (youtubeStreams.get(connectionId) === entry) youtubeStreams.delete(connectionId);
+}
+async function finishYouTubeStream(connectionId, entry, error = null) {
+  if (entry.intentionalClose) return cleanupYouTubeStreamEntry(connectionId, entry);
+  cleanupYouTubeStreamEntry(connectionId, entry);
+  const now = new Date();
+  const ended = error && (error.code === grpc.status.NOT_FOUND || error.code === grpc.status.FAILED_PRECONDITION);
+  const unauthorized = error && (error.code === grpc.status.UNAUTHENTICATED || error.code === grpc.status.PERMISSION_DENIED);
+  await ExternalProviderConnection.updateOne({ _id: connectionId, youtubePollLockUntil: { $gt: now } }, {
+    $set: {
+      ...(ended ? { youtubeLiveChatId: null, youtubePageToken: null } : {}),
+      chatSyncStatus: error ? (unauthorized ? 'error' : 'error') : 'idle',
+      chatSyncError: error ? String(error.details || error.message || 'YouTube Live Chat stream ended').slice(0, 240) : null,
+      youtubeNextPollAt: new Date(Date.now() + (unauthorized ? 120000 : 60000)),
+      youtubePollLockUntil: null,
+      chatSyncLastAt: now
     }
-    pageToken = '';
-  }
-  const url = new URL('https://www.googleapis.com/youtube/v3/liveChat/messages');
-  url.searchParams.set('part', 'snippet,authorDetails');
-  url.searchParams.set('liveChatId', liveChatId);
-  url.searchParams.set('maxResults', '200');
-  if (pageToken) url.searchParams.set('pageToken', pageToken);
-  const result = await fetchJson(url, { headers });
-  for (const item of result.items || []) {
-    const snippet = item.snippet || {};
-    const author = item.authorDetails || {};
-    const superChat = snippet.superChatDetails;
-    const superSticker = snippet.superStickerDetails;
-    const newSponsor = snippet.newSponsorDetails;
-    const milestone = snippet.memberMilestoneChatDetails;
-    const giftMemberships = snippet.membershipGiftingDetails;
-    const giftReceived = snippet.giftMembershipReceivedDetails;
-    let message = snippet.textMessageDetails?.messageText || snippet.displayMessage || '';
-    if (superChat) message = 'envió un Super Chat de ' + String(superChat.amountDisplayString || '') + (superChat.userComment ? ': ' + superChat.userComment : '');
-    else if (superSticker) message = 'envió un Super Sticker de ' + String(superSticker.amountDisplayString || '') + (superSticker.superStickerMetadata?.altText ? ': ' + superSticker.superStickerMetadata.altText : '');
-    else if (newSponsor) message = 'se hizo miembro del canal' + (newSponsor.memberLevelName ? ' (' + newSponsor.memberLevelName + ')' : '');
-    else if (milestone) message = 'celebró ' + Number(milestone.memberMonth || 0) + ' meses como miembro' + (milestone.userComment ? ': ' + milestone.userComment : '');
-    else if (giftMemberships) message = 'regaló ' + Number(giftMemberships.giftMembershipsCount || 1) + ' membresía(s)';
-    else if (giftReceived) message = 'recibió una membresía regalada por ' + String(giftReceived.gifterChannelName || 'un miembro');
-    else if (snippet.giftDetails) message = 'envió el regalo ' + String(snippet.giftDetails.giftName || snippet.giftDetails.altText || 'de YouTube');
-    if (!message) continue;
-    await ingestExternalChatMessage({
-      provider: 'youtube', externalUserId: connection.externalUserId,
-      externalMessageId: item.id, username: author.displayName || 'YouTube viewer',
-      message, io
+  });
+}
+async function openYouTubeChatStream(connection, io, env = process.env) {
+  const connectionId = String(connection._id);
+  if (youtubeStreams.has(connectionId)) return;
+  const token = await getAccessToken(connection, env);
+  const active = await fetchJson('https://www.googleapis.com/youtube/v3/liveBroadcasts?part=id,snippet,status&broadcastStatus=active&mine=true', {
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  const liveChatId = active.items?.[0]?.snippet?.liveChatId || '';
+  if (!liveChatId) {
+    await ExternalProviderConnection.updateOne({ _id: connection._id }, {
+      $set: {
+        youtubeLiveChatId: null, youtubePageToken: null,
+        youtubeNextPollAt: new Date(Date.now() + 60000), chatSyncStatus: 'idle',
+        chatSyncError: null, youtubePollLockUntil: null, chatSyncLastAt: new Date()
+      }
     });
+    return;
   }
-  const interval = Math.max(60000, Number(result.pollingIntervalMillis) || 60000);
+  const pageToken = connection.youtubeLiveChatId === liveChatId ? (connection.youtubePageToken || '') : '';
   await ExternalProviderConnection.updateOne({ _id: connection._id }, {
     $set: {
-      youtubeLiveChatId: liveChatId, youtubePageToken: result.nextPageToken || pageToken || null,
-      youtubeNextPollAt: new Date(Date.now() + interval), chatSyncStatus: 'subscribed',
-      chatSyncError: null, chatSyncLastAt: new Date()
+      youtubeLiveChatId: liveChatId, youtubeNextPollAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      chatSyncStatus: 'subscribed', chatSyncError: null, chatSyncLastAt: new Date()
     }
+  });
+  const metadata = new grpc.Metadata();
+  metadata.add('authorization', 'Bearer ' + token);
+  const request = { liveChatId, part: ['snippet', 'authorDetails'] };
+  if (pageToken) request.pageToken = pageToken;
+  const stream = youtubeGrpcClient.streamList(request, metadata);
+  const entry = { stream, intentionalClose: false, leaseTimer: null, refreshTimer: null };
+  youtubeStreams.set(connectionId, entry);
+  entry.leaseTimer = setInterval(async () => {
+    try {
+      const lease = await ExternalProviderConnection.updateOne({
+        _id: connection._id, youtubePollLockUntil: { $gt: new Date() }
+      }, { $set: { youtubePollLockUntil: new Date(Date.now() + 60000) } });
+      if (!lease.modifiedCount) {
+        entry.intentionalClose = true;
+        stream.cancel();
+        cleanupYouTubeStreamEntry(connectionId, entry);
+      }
+    } catch (error) {
+      console.error('YouTube chat lease renewal failed:', error.message);
+    }
+  }, 30000);
+  entry.leaseTimer.unref?.();
+  if (connection.expiresAt) {
+    const refreshIn = Math.max(30000, new Date(connection.expiresAt).getTime() - Date.now() - 60000);
+    entry.refreshTimer = setTimeout(async () => {
+      entry.intentionalClose = true;
+      stream.cancel();
+      cleanupYouTubeStreamEntry(connectionId, entry);
+      await ExternalProviderConnection.updateOne({ _id: connection._id }, {
+        $set: { youtubeNextPollAt: new Date(), youtubePollLockUntil: null }
+      });
+    }, Math.min(refreshIn, 2147480000));
+    entry.refreshTimer.unref?.();
+  }
+  stream.on('data', async (response) => {
+    if (response.nextPageToken) {
+      await ExternalProviderConnection.updateOne({ _id: connection._id }, { $set: { youtubePageToken: response.nextPageToken } }).catch(() => {});
+    }
+    for (const item of response.items || []) {
+      const snippet = item.snippet || {};
+      const author = item.authorDetails || {};
+      const message = snippet.textMessageDetails?.messageText || snippet.displayMessage || '';
+      if (!message || ['CHAT_ENDED_EVENT', 'TOMBSTONE', 'INVALID_TYPE'].includes(snippet.type)) continue;
+      try {
+        await ingestExternalChatMessage({
+          provider: 'youtube', externalUserId: connection.externalUserId,
+          externalMessageId: item.id, username: author.displayName || 'YouTube viewer',
+          message, io
+        });
+      } catch (error) {
+        console.error('YouTube Live Chat message import failed:', error.message);
+      }
+    }
+  });
+  stream.on('error', (error) => {
+    finishYouTubeStream(connectionId, entry, error).catch((finishError) => {
+      console.error('YouTube Live Chat stream cleanup failed:', finishError.message);
+    });
+  });
+  stream.on('end', () => {
+    finishYouTubeStream(connectionId, entry).catch((error) => {
+      console.error('YouTube Live Chat stream cleanup failed:', error.message);
+    });
   });
 }
 
@@ -311,6 +378,7 @@ async function cleanupExpiredKickMessages() {
   await LiveStreamMessage.deleteMany({ _id: { $in: ids } });
 }
 
+const youtubeStreams = new Map();
 let youtubePollTimer = null;
 let youtubePollInFlight = false;
 function startYouTubeChatSync(io, env = process.env) {
@@ -325,25 +393,23 @@ function startYouTubeChatSync(io, env = process.env) {
         $or: [{ youtubeNextPollAt: null }, { youtubeNextPollAt: { $lte: new Date() } }]
       }).select('_id youtubeNextPollAt').limit(50).lean();
       for (const candidate of due) {
+        const connectionId = String(candidate._id);
+        if (youtubeStreams.has(connectionId)) continue;
         const connection = await ExternalProviderConnection.findOneAndUpdate({
           _id: candidate._id, provider: 'youtube', status: 'connected',
           $or: [{ youtubePollLockUntil: null }, { youtubePollLockUntil: { $lte: new Date() } }]
         }, { $set: { youtubePollLockUntil: new Date(Date.now() + 60000) } }, { new: true })
-          .select('+encryptedAccessToken +accessIv +accessAuthTag +encryptedRefreshToken +refreshIv +refreshAuthTag +youtubeLiveChatId +youtubePageToken +youtubeNextPollAt').lean();
+          .select('+encryptedAccessToken +accessIv +accessAuthTag +encryptedRefreshToken +refreshIv +refreshAuthTag +youtubeLiveChatId +youtubePageToken +youtubeNextPollAt expiresAt externalUserId').lean();
         if (!connection) continue;
-        try { await pollYouTubeConnection(connection, io, env); }
+        try { await openYouTubeChatStream(connection, io, env); }
         catch (error) {
-          const endedChat = error.status === 404 || (error.status === 403 && /liveChatEnded|liveChatNotFound/i.test(error.message));
           await ExternalProviderConnection.updateOne({ _id: connection._id }, {
             $set: {
-              chatSyncStatus: endedChat ? 'idle' : 'error',
-              chatSyncError: endedChat ? null : String(error.message).slice(0, 240),
-              ...(endedChat ? { youtubeLiveChatId: null, youtubePageToken: null } : {}),
-              youtubeNextPollAt: new Date(Date.now() + (endedChat ? 60000 : 120000)), chatSyncLastAt: new Date()
+              chatSyncStatus: 'error', chatSyncError: String(error.message).slice(0, 240),
+              youtubeNextPollAt: new Date(Date.now() + 120000), youtubePollLockUntil: null,
+              chatSyncLastAt: new Date()
             }
           });
-        } finally {
-          await ExternalProviderConnection.updateOne({ _id: connection._id }, { $set: { youtubePollLockUntil: null } });
         }
       }
     } catch (error) { console.error('YouTube live chat sync failed:', error.message); }
@@ -357,7 +423,14 @@ function startYouTubeChatSync(io, env = process.env) {
 function stopYouTubeChatSync() {
   if (youtubePollTimer) clearInterval(youtubePollTimer);
   youtubePollTimer = null;
+  for (const [connectionId, entry] of youtubeStreams.entries()) {
+    entry.intentionalClose = true;
+    streamCancel(entry.stream);
+    cleanupYouTubeStreamEntry(connectionId, entry);
+  }
+  youtubeGrpcClient.close();
 }
+function streamCancel(stream) { try { stream.cancel(); } catch {} }
 async function processTwitchWebhook(body, io) {
   const type = body?.metadata?.message_type;
   if (type === 'revocation') {
