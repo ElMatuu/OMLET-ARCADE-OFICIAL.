@@ -20,9 +20,9 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /function leaveClub\(/, 'Players must be able to leave clubs');
   assert.match(html, /function createClub\(/, 'Players must be able to create clubs');
   assert.match(html, /nav-btn-clubs/, 'The main navigation must expose Clubs');
-  assert.match(html, /id="arcade-home-title"/, 'The home screen must open on the PLAYVERSE Arcade hub');
+  assert.match(html, /id="home-live-title"/, 'The home screen must open on the Omlet Arcade live discovery');
   assert.match(html, /id="splash-screen"/, 'The app must render its launch screen before the main interface');
-  assert.match(html, /role="progressbar" aria-label="Cargando PLAYVERSE"/, 'The launch progress indicator must be accessible');
+  assert.match(html, /role="progressbar" aria-label="Cargando Omlet Arcade"/, 'The launch progress indicator must be accessible');
   assert.match(html, /if \(progress\) progress\.style\.width = '100%'/, 'The launch sequence must reach completion before dismissing the splash');
   assert.match(html, /splash\.style\.visibility = 'hidden'/, 'The splash must be dismissed after startup completes');
   assert.match(html, /new AbortController\(\)/, 'Startup session restoration must have an abortable network timeout');
