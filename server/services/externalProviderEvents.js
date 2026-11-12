@@ -109,6 +109,9 @@ async function subscribeProviderEvents(provider, owner, env = process.env) {
       const credentials = getCredentials('twitch', env);
       const events = [
         { type: 'channel.chat.message', version: '1', condition: { broadcaster_user_id: connection.externalUserId, user_id: connection.externalUserId } },
+        { type: 'channel.bits.use', version: '1', condition: { broadcaster_user_id: connection.externalUserId } },
+        { type: 'channel.subscribe', version: '1', condition: { broadcaster_user_id: connection.externalUserId } },
+        { type: 'channel.subscription.gift', version: '1', condition: { broadcaster_user_id: connection.externalUserId } },
         { type: 'stream.online', version: '1', condition: { broadcaster_user_id: connection.externalUserId } },
         { type: 'stream.offline', version: '1', condition: { broadcaster_user_id: connection.externalUserId } }
       ];
@@ -142,9 +145,13 @@ async function subscribeProviderEvents(provider, owner, env = process.env) {
           events: [
             { name: 'chat.message.sent', version: 1 },
             { name: 'channel.followed', version: 1 },
-            { name: 'channel.subscribed', version: 1 },
-            { name: 'livestream.started', version: 1 },
-            { name: 'livestream.ended', version: 1 }
+            { name: 'channel.subscription.new', version: 1 },
+            { name: 'channel.subscription.renewal', version: 1 },
+            { name: 'channel.subscription.gifts', version: 1 },
+            { name: 'channel.reward.redemption.updated', version: 1 },
+            { name: 'livestream.status.updated', version: 1 },
+            { name: 'livestream.metadata.updated', version: 1 },
+            { name: 'kicks.gifted', version: 1 }
           ]
         })
       });
@@ -244,27 +251,50 @@ async function processTwitchWebhook(body, io) {
   const type = body?.metadata?.message_type;
   if (type !== 'notification') return { accepted: true, type };
   const subscriptionType = body.payload?.subscription?.type;
-  if (subscriptionType !== 'channel.chat.message') return { accepted: true, type: subscriptionType };
   const event = body.payload?.event || {};
-  return ingestExternalChatMessage({
-    provider: 'twitch', externalUserId: String(event.broadcaster_user_id || ''),
-    externalMessageId: String(event.message_id || body.metadata?.message_id || ''),
-    username: event.chatter_user_name || event.chatter_user_login || 'Twitch viewer',
-    message: event.message?.text || '', io
-  });
+  const externalUserId = String(event.broadcaster_user_id || '');
+  const messageId = String(event.message_id || body.metadata?.message_id || '');
+  if (subscriptionType === 'channel.chat.message') {
+    return ingestExternalChatMessage({
+      provider: 'twitch', externalUserId, externalMessageId: messageId,
+      username: event.chatter_user_name || event.chatter_user_login || 'Twitch viewer',
+      message: event.message?.text || '', io
+    });
+  }
+  let username = event.user_name || event.user_login || 'Twitch';
+  let summary = '';
+  if (subscriptionType === 'channel.bits.use') summary = 'envió ' + Number(event.bits || 0) + ' Bits' + (event.message ? ': ' + event.message : '');
+  else if (subscriptionType === 'channel.subscribe') summary = 'se suscribió al canal (' + String(event.tier || 'nuevo nivel') + ')';
+  else if (subscriptionType === 'channel.subscription.gift') summary = 'regaló ' + Number(event.total || 1) + ' suscripción(es)';
+  else if (subscriptionType === 'stream.online') summary = 'inició una transmisión en Twitch';
+  else if (subscriptionType === 'stream.offline') summary = 'finalizó su transmisión en Twitch';
+  if (!summary) return { accepted: true, type: subscriptionType };
+  return ingestExternalChatMessage({ provider: 'twitch', externalUserId, externalMessageId: messageId, username, message: summary, io });
 }
 async function processKickWebhook(body, headers, io) {
   const eventType = headers['kick-event-type'] || '';
-  if (eventType !== 'chat.message.sent') return { accepted: true, type: eventType };
   const event = body?.data || body?.event || body || {};
   const broadcasterId = String(event.broadcaster?.user_id || event.broadcaster_user_id || '');
-  const sender = event.sender || event.user || {};
-  return ingestExternalChatMessage({
-    provider: 'kick', externalUserId: broadcasterId,
-    externalMessageId: String(event.message_id || headers['kick-event-message-id'] || ''),
-    username: sender.username || sender.name || sender.slug || 'Kick viewer',
-    message: event.content || event.message?.content || event.message || '', io
-  });
+  const sender = event.sender || event.follower || event.subscriber || event.gifter || event.redeemer || {};
+  const messageId = String(event.message_id || headers['kick-event-message-id'] || '');
+  if (eventType === 'chat.message.sent') {
+    return ingestExternalChatMessage({
+      provider: 'kick', externalUserId: broadcasterId, externalMessageId: messageId,
+      username: sender.username || sender.name || 'Kick viewer', message: event.content || '', io
+    });
+  }
+  let username = sender.username || sender.name || 'Kick';
+  let summary = '';
+  if (eventType === 'channel.followed') summary = 'empezó a seguir el canal';
+  else if (eventType === 'channel.subscription.new') summary = 'se suscribió al canal';
+  else if (eventType === 'channel.subscription.renewal') summary = 'renovó su suscripción';
+  else if (eventType === 'channel.subscription.gifts') summary = 'regaló ' + ((event.giftees || []).length || 1) + ' suscripción(es)';
+  else if (eventType === 'kicks.gifted') summary = 'envió ' + Number(event.gift?.amount || 0) + ' KICKs' + (event.gift?.message ? ': ' + event.gift.message : '');
+  else if (eventType === 'channel.reward.redemption.updated') summary = 'canjeó la recompensa ' + String(event.reward?.title || '');
+  else if (eventType === 'livestream.status.updated') summary = event.is_live ? 'inició su transmisión en Kick' : 'finalizó su transmisión en Kick';
+  else if (eventType === 'livestream.metadata.updated') summary = 'actualizó los datos de su transmisión en Kick';
+  if (!summary) return { accepted: true, type: eventType };
+  return ingestExternalChatMessage({ provider: 'kick', externalUserId: broadcasterId, externalMessageId: messageId, username, message: summary, io });
 }
 module.exports = {
   ingestExternalChatMessage, processKickWebhook, processTwitchWebhook,
