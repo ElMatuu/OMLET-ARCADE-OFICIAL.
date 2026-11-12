@@ -91,22 +91,31 @@ class NativeScreenSharePlugin : Plugin() {
     @PluginMethod
     fun stop(call: PluginCall) {
         pluginScope.launch {
+            var failure: Exception? = null
             try {
                 val current = room
                 if (current != null) {
                     withContext(Dispatchers.IO) {
-                        if (screenShareActive) current.localParticipant.setScreenShareEnabled(false)
-                        current.disconnect()
+                        try {
+                            if (screenShareActive) current.localParticipant.setScreenShareEnabled(false)
+                        } finally {
+                            current.disconnect()
+                        }
                     }
                 }
+            } catch (error: Exception) {
+                failure = error
+            } finally {
                 room = null
                 screenShareActive = false
                 context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_CAPTURE_STOP))
                 context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_MICROPHONE_STOP))
                 context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_CAMERA_STOP))
+            }
+            if (failure != null) {
+                call.reject("No se pudo detener la captura nativa: " + (failure.message ?: "error desconocido"))
+            } else {
                 call.resolve(JSObject().apply { put("active", false) })
-            } catch (error: Exception) {
-                call.reject("No se pudo detener la captura nativa: " + (error.message ?: "error desconocido"))
             }
         }
     }
