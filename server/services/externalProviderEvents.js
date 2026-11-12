@@ -337,7 +337,9 @@ async function openYouTubeChatStream(connection, io, env = process.env) {
     if (response.nextPageToken) {
       await ExternalProviderConnection.updateOne({ _id: connection._id }, { $set: { youtubePageToken: response.nextPageToken } }).catch(() => {});
     }
-    for (const item of response.items || []) {
+    const items = response.items || [];
+    const chatEnded = Boolean(response.offlineAt) || items.some(item => item.snippet?.type === 'CHAT_ENDED_EVENT');
+    for (const item of items) {
       const snippet = item.snippet || {};
       const author = item.authorDetails || {};
       const message = snippet.textMessageDetails?.messageText || snippet.displayMessage || '';
@@ -351,6 +353,18 @@ async function openYouTubeChatStream(connection, io, env = process.env) {
       } catch (error) {
         console.error('YouTube Live Chat message import failed:', error.message);
       }
+    }
+    if (chatEnded && youtubeStreams.get(connectionId) === entry) {
+      entry.intentionalClose = true;
+      stream.cancel();
+      cleanupYouTubeStreamEntry(connectionId, entry);
+      await ExternalProviderConnection.updateOne({ _id: connection._id }, {
+        $set: {
+          youtubeLiveChatId: null, youtubePageToken: null,
+          youtubeNextPollAt: new Date(Date.now() + 60000), youtubePollLockUntil: null,
+          chatSyncStatus: 'idle', chatSyncError: null, chatSyncLastAt: new Date()
+        }
+      });
     }
   });
   stream.on('error', (error) => {
