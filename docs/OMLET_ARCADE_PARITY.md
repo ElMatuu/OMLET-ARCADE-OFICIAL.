@@ -118,7 +118,7 @@ Specific defects and gaps:
 - [x] Add optional self-hosted Minecraft Java/Paper and Bedrock server templates behind the explicit `game-servers` profile and EULA gate.
 - [ ] Replace the temporary Omlet Arcade icon adaptation with the rights holder's official brand package before public distribution.
 - [x] Add a native Android MediaProjection/LiveKit screen-share plugin and foreground service, with mic/camera controls; physical-device validation, system/game audio and picture-in-picture remain open.
-- [x] Implement a draggable floating HUD with capture, mic, camera, end-stream and open-chat actions; in-panel chat rendering and physical-device lifecycle validation remain open.
+- [x] Implement a draggable floating HUD with capture, mic, camera, end-stream and open-chat actions; in-panel chat preview is implemented (last six messages); inline message composition and physical-device lifecycle validation remain open.
 
 ## Engineering work required
 
@@ -145,14 +145,15 @@ Specific defects and gaps:
 - [x] Capacitor `ArcadeHud` bridge for overlay permission, service start/stop and pending navigation actions.
 - [x] Android foreground service with draggable overlay bubble, compact panel, persistent hide preference and hide-without-stopping-active-capture behavior.
 - [x] HUD actions for game capture, microphone, camera, ending the stream and opening the live chat in PLAYVERSE.
+- [x] Render the latest six live-chat messages in the native HUD when the user has explicitly enabled it; chat events cannot start or reveal a hidden HUD.
 - [x] Native `NativeScreenShare` Capacitor plugin: Android MediaProjection consent flow, LiveKit Android SDK connection using short-lived server-issued publisher credentials, screen-share track publication and stop/disconnect.
 - [x] Native LiveKit microphone/camera toggles with runtime permission requests and matching Android foreground-service type changes.
 - [x] Idempotent Android sync script that installs the Kotlin plugin, registers it in MainActivity, adds the LiveKit Android SDK and declares MediaProjection/microphone/camera service permissions and types.
-- [ ] Verify Android compilation and all CI workflows on the latest commit.
+- [x] Verify Android compilation and all CI workflows on commit `77f3bc9` (the latest validated commit before the native HUD chat-preview changes); rerun all workflows after the current changes.
 - [ ] Test consent, capture after leaving PLAYVERSE, mic/camera controls, hide HUD, stop capture and finalizing the server stream on physical Android devices (including Android 14+).
 - [ ] Confirm viewers on a second device receive the native screen-share track and the webhook transitions the stream to live.
 
-Important scope limits: system/game audio capture is not wired yet. Camera is published as a separate LiveKit camera track; picture-in-picture composition with gameplay still needs implementation. The “Chat del directo” HUD action opens the in-app live chat; the chat is not yet rendered inside the floating native panel. The service uses Android's special-use foreground-service type for the persistent overlay; Play distribution still requires policy eligibility/review. Do not mark this feature production-ready until device tests and distribution review are complete.
+Important scope limits: system/game audio capture is not wired yet. Camera is published as a separate LiveKit camera track; picture-in-picture composition with gameplay still needs implementation. The floating native panel now renders a live preview of the latest six chat messages while the HUD is explicitly enabled; the reply action opens the in-app live chat, because message composition is not yet embedded in the native panel. The service uses Android's special-use foreground-service type for the persistent overlay; Play distribution still requires policy eligibility/review. Do not mark this feature production-ready until device tests and distribution review are complete.
 
 ## Game detail and social discovery slice (2026-11-12)
 
