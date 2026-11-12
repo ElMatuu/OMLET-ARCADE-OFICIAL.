@@ -89,7 +89,7 @@ jobs:
             const session = db.getMongo().startSession();
             const txdb = session.getDatabase(\"playverse\");
             session.startTransaction();
-            txdb.getCollection("__pv_transaction_smoke").insertOne({marker});
+            txdb.getCollection(\"__pv_transaction_smoke\").insertOne({marker});
             session.commitTransaction();
             session.endSession();
             collection.deleteOne({marker});
