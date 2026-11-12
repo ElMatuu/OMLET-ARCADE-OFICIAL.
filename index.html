@@ -377,6 +377,7 @@
                     </div>
                     <section class="rounded-xl border border-slate-800 bg-slate-950/70 p-3 space-y-3" aria-label="Chat de la transmisión">
                         <div class="flex items-center justify-between gap-2"><div><h5 class="text-sm font-bold">Chat en vivo</h5><p id="live-chat-status" class="text-[11px] text-slate-500" role="status">Conectando al chat…</p></div><span class="text-[10px] text-emerald-300">EN DIRECTO</span></div>
+                        <div id="live-chat-pinned" class="hidden rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100" aria-live="polite"></div>
                         <div id="live-chat-messages" class="h-52 overflow-y-auto space-y-2 pr-1" aria-live="polite" aria-relevant="additions text"><p class="text-xs text-slate-500">Todavía no hay mensajes. ¡Saludá a la comunidad!</p></div>
                         <form id="live-chat-form" class="flex gap-2" onsubmit="sendLiveChatMessage(event)">
                             <label class="sr-only" for="live-chat-input">Escribí un mensaje para el chat en vivo</label>
@@ -4446,6 +4447,8 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         let streamChatSocket = null;
         let streamChatScriptLoading = false;
         let streamChatBoundStreamId = null;
+        let canModerateLiveChat = false;
+        let pinnedLiveChatMessage = null;
         const renderedStreamChatMessageIds = new Set();
 
         function setLiveChatStatus(message, isError = false) {
@@ -4479,9 +4482,80 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             body.className = 'whitespace-pre-wrap break-words text-xs text-slate-200';
             body.textContent = String(message.message || '');
             item.append(header, body);
+            if (canModerateLiveChat) {
+                const actions = document.createElement('div');
+                actions.className = 'mt-2 flex gap-2';
+                const pinButton = document.createElement('button');
+                pinButton.type = 'button';
+                pinButton.className = 'text-[10px] font-semibold text-amber-300 hover:text-amber-200';
+                pinButton.textContent = pinnedLiveChatMessage && String(pinnedLiveChatMessage.id) === String(message.id) ? 'Fijado' : 'Fijar';
+                pinButton.disabled = Boolean(pinnedLiveChatMessage && String(pinnedLiveChatMessage.id) === String(message.id));
+                pinButton.addEventListener('click', () => pinLiveChatMessage(message.id));
+                const deleteButton = document.createElement('button');
+                deleteButton.type = 'button';
+                deleteButton.className = 'text-[10px] font-semibold text-red-300 hover:text-red-200';
+                deleteButton.textContent = 'Eliminar';
+                deleteButton.addEventListener('click', () => deleteLiveChatMessage(message.id));
+                actions.append(pinButton, deleteButton);
+                item.appendChild(actions);
+            }
             container.appendChild(item);
             while (container.children.length > 100) container.firstElementChild.remove();
             container.scrollTop = container.scrollHeight;
+        }
+
+        function renderLiveChatPinnedMessage(message) {
+            pinnedLiveChatMessage = message || null;
+            const banner = document.getElementById('live-chat-pinned');
+            if (!banner) return;
+            banner.replaceChildren();
+            if (!message) { banner.classList.add('hidden'); return; }
+            banner.classList.remove('hidden');
+            const label = document.createElement('strong');
+            label.textContent = 'Mensaje fijado · ' + String(message.username || 'Jugador') + ': ';
+            const body = document.createElement('span');
+            body.textContent = String(message.message || '');
+            banner.append(label, body);
+            if (canModerateLiveChat) {
+                const unpin = document.createElement('button');
+                unpin.type = 'button';
+                unpin.className = 'ml-2 font-bold underline';
+                unpin.textContent = 'Quitar';
+                unpin.addEventListener('click', unpinLiveChatMessage);
+                banner.appendChild(unpin);
+            }
+        }
+
+        async function pinLiveChatMessage(messageId) {
+            if (!activeLiveStream || !canModerateLiveChat) return;
+            try {
+                const data = await apiRequest('/api/streams/' + encodeURIComponent(activeLiveStream.id) + '/messages/' + encodeURIComponent(messageId) + '/pin', { method: 'POST' });
+                renderLiveChatPinnedMessage(data.pinnedMessage);
+                setLiveChatStatus('Mensaje fijado.');
+                await loadLiveChatHistory(activeLiveStream.id);
+            } catch (error) { setLiveChatStatus(error.message, true); }
+        }
+
+        async function unpinLiveChatMessage() {
+            if (!activeLiveStream || !canModerateLiveChat) return;
+            try {
+                await apiRequest('/api/streams/' + encodeURIComponent(activeLiveStream.id) + '/pin', { method: 'DELETE' });
+                renderLiveChatPinnedMessage(null);
+                setLiveChatStatus('Se quitó el mensaje fijado.');
+                await loadLiveChatHistory(activeLiveStream.id);
+            } catch (error) { setLiveChatStatus(error.message, true); }
+        }
+
+        async function deleteLiveChatMessage(messageId) {
+            if (!activeLiveStream || !canModerateLiveChat) return;
+            try {
+                await apiRequest('/api/streams/' + encodeURIComponent(activeLiveStream.id) + '/messages/' + encodeURIComponent(messageId), { method: 'DELETE' });
+                const item = Array.from(document.querySelectorAll('#live-chat-messages [data-message-id]')).find((node) => node.dataset.messageId === String(messageId));
+                if (item) item.remove();
+                renderedStreamChatMessageIds.delete(String(messageId));
+                if (pinnedLiveChatMessage && String(pinnedLiveChatMessage.id) === String(messageId)) renderLiveChatPinnedMessage(null);
+                setLiveChatStatus('Mensaje eliminado.');
+            } catch (error) { setLiveChatStatus(error.message, true); }
         }
 
         function ensureStreamChatSocket() {
@@ -4502,6 +4576,19 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                     if (streamChatBoundStreamId) joinStreamChatRoom(streamChatBoundStreamId);
                 });
                 streamChatSocket.on('stream_chat_message', appendLiveChatMessage);
+                streamChatSocket.on('stream_chat_pinned', (payload) => {
+                    if (payload && String(payload.streamId) === String(streamChatBoundStreamId)) renderLiveChatPinnedMessage(payload.pinnedMessage);
+                });
+                streamChatSocket.on('stream_chat_unpinned', (payload) => {
+                    if (payload && String(payload.streamId) === String(streamChatBoundStreamId)) renderLiveChatPinnedMessage(null);
+                });
+                streamChatSocket.on('stream_chat_message_deleted', (payload) => {
+                    if (!payload || String(payload.streamId) !== String(streamChatBoundStreamId)) return;
+                    const item = Array.from(document.querySelectorAll('#live-chat-messages [data-message-id]')).find((node) => node.dataset.messageId === String(payload.messageId));
+                    if (item) item.remove();
+                    renderedStreamChatMessageIds.delete(String(payload.messageId));
+                    if (pinnedLiveChatMessage && String(pinnedLiveChatMessage.id) === String(payload.messageId)) renderLiveChatPinnedMessage(null);
+                });
                 streamChatSocket.on('connect_error', () => setLiveChatStatus('Reconectando al chat…', true));
                 streamChatSocket.on('disconnect', () => {
                     if (activeLiveStream) setLiveChatStatus('Conexión interrumpida. Reconectando…', true);
@@ -4523,6 +4610,8 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         async function loadLiveChatHistory(streamId) {
             const container = document.getElementById('live-chat-messages');
             if (!container) return;
+            canModerateLiveChat = false;
+            renderLiveChatPinnedMessage(null);
             container.replaceChildren();
             renderedStreamChatMessageIds.clear();
             const loading = document.createElement('p');
@@ -4531,6 +4620,8 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             container.appendChild(loading);
             try {
                 const data = await apiRequest('/api/streams/' + encodeURIComponent(streamId) + '/messages?limit=100');
+                canModerateLiveChat = data.canModerate === true;
+                renderLiveChatPinnedMessage(data.pinnedMessage);
                 container.replaceChildren();
                 (data.messages || []).forEach(appendLiveChatMessage);
                 if (!container.children.length) {
@@ -4802,6 +4893,8 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             activeLiveStream = null;
             activeLiveStreamRole = null;
             streamChatBoundStreamId = null;
+            canModerateLiveChat = false;
+            renderLiveChatPinnedMessage(null);
             if (streamChatSocket) { streamChatSocket.disconnect(); streamChatSocket = null; }
             renderedStreamChatMessageIds.clear();
             const chatMessages = document.getElementById('live-chat-messages');
