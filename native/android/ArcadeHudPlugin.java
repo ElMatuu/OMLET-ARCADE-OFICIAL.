@@ -63,7 +63,8 @@ public class ArcadeHudPlugin extends Plugin {
             call.resolve(result);
             return;
         }
-        String messages = call.getString("messages", "[]");
+        String messages = call.getString("messages");
+        if (messages == null) messages = "[]";
         Intent intent = new Intent(getContext(), ArcadeHudService.class);
         intent.setAction(ArcadeHudService.ACTION_CHAT_UPDATE);
         intent.putExtra("messages", messages);
