@@ -4,7 +4,7 @@ const ExternalProviderConnection = require('../models/ExternalProviderConnection
 
 const PROVIDERS = Object.freeze({
   twitch: { name: 'Twitch', authorize: 'https://id.twitch.tv/oauth2/authorize', token: 'https://id.twitch.tv/oauth2/token', profile: 'https://api.twitch.tv/helix/users', scopes: ['user:read:email', 'user:read:chat', 'chat:read', 'chat:edit'] },
-  youtube: { name: 'YouTube', authorize: 'https://accounts.google.com/o/oauth2/v2/auth', token: 'https://oauth2.googleapis.com/token', profile: 'https://www.googleapis.com/oauth2/v2/userinfo', scopes: ['openid', 'email', 'profile', 'https://www.googleapis.com/auth/youtube.readonly', 'https://www.googleapis.com/auth/youtube.force-ssl'] },
+  youtube: { name: 'YouTube', authorize: 'https://accounts.google.com/o/oauth2/v2/auth', token: 'https://oauth2.googleapis.com/token', profile: 'https://openidconnect.googleapis.com/v1/userinfo', scopes: ['openid', 'email', 'profile', 'https://www.googleapis.com/auth/youtube.readonly', 'https://www.googleapis.com/auth/youtube.force-ssl'] },
   kick: { name: 'Kick', authorize: 'https://id.kick.com/oauth/authorize', token: 'https://id.kick.com/oauth/token', profile: 'https://api.kick.com/public/v1/users', scopes: ['user:read', 'channel:read', 'events:subscribe', 'chat:write'] }
 });
 
@@ -19,7 +19,7 @@ function getCredentials(provider, env = process.env) {
   if (!clientId || !clientSecret || !base) return null;
   let parsed;
   try { parsed = new URL(base); } catch { return null; }
-  if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(parsed.hostname))) return null;
+  if ((parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(parsed.hostname))) || parsed.username || parsed.password || parsed.search || parsed.hash || (parsed.pathname && parsed.pathname !== '/')) return null;
   return { clientId, clientSecret, redirectUri: base + '/api/external-integrations/' + provider + '/callback' };
 }
 function getEncryptionKey(env = process.env) {
@@ -69,8 +69,10 @@ async function createAuthorization(provider, owner, env = process.env) {
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('scope', config.scopes.join(' '));
   url.searchParams.set('state', state);
-  url.searchParams.set('code_challenge', pkce.challenge);
-  url.searchParams.set('code_challenge_method', 'S256');
+  if (provider !== 'twitch') {
+    url.searchParams.set('code_challenge', pkce.challenge);
+    url.searchParams.set('code_challenge_method', 'S256');
+  }
   if (provider === 'youtube') {
     url.searchParams.set('access_type', 'offline');
     url.searchParams.set('prompt', 'consent');
@@ -93,8 +95,9 @@ async function exchangeCode(provider, code, verifier, env = process.env) {
   const credentials = getCredentials(provider, env);
   const body = new URLSearchParams({
     client_id: credentials.clientId, client_secret: credentials.clientSecret,
-    code, code_verifier: verifier, grant_type: 'authorization_code', redirect_uri: credentials.redirectUri
+    code, grant_type: 'authorization_code', redirect_uri: credentials.redirectUri
   });
+  if (provider !== 'twitch') body.set('code_verifier', verifier);
   return fetchJson(config.token, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
 }
 async function fetchProfile(provider, accessToken, env = process.env) {
@@ -139,6 +142,41 @@ async function completeAuthorization(provider, code, state, env = process.env) {
   );
   return { owner: record.owner, provider, username: identity.username };
 }
+
+async function revokeConnection(connection, env = process.env) {
+  const credentials = getCredentials(connection.provider, env);
+  if (!credentials) return false;
+  try {
+    const token = connection.encryptedRefreshToken && connection.refreshIv && connection.refreshAuthTag
+      ? decryptSecret(connection.encryptedRefreshToken, connection.refreshIv, connection.refreshAuthTag, env)
+      : decryptSecret(connection.encryptedAccessToken, connection.accessIv, connection.accessAuthTag, env);
+    let url;
+    let body;
+    if (connection.provider === 'twitch') {
+      url = new URL('https://id.twitch.tv/oauth2/revoke');
+      url.searchParams.set('client_id', credentials.clientId);
+      url.searchParams.set('token', token);
+      const response = await fetch(url, { method: 'POST', signal: AbortSignal.timeout(10000) });
+      return response.ok;
+    }
+    if (connection.provider === 'youtube') {
+      url = 'https://oauth2.googleapis.com/revoke';
+      body = new URLSearchParams({ token });
+    } else {
+      url = new URL('https://id.kick.com/oauth/revoke');
+      url.searchParams.set('token', token);
+      url.searchParams.set('token_hint_type', connection.encryptedRefreshToken ? 'refresh_token' : 'access_token');
+    }
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      ...(body ? { body } : {}),
+      signal: AbortSignal.timeout(10000)
+    });
+    return response.ok;
+  } catch { return false; }
+}
+
 function toPublicConnection(record) {
   return {
     provider: record.provider, name: getProvider(record.provider).name,
@@ -172,5 +210,5 @@ async function getAccessToken(connection, env = process.env) {
 }
 module.exports = {
   PROVIDERS, completeAuthorization, createAuthorization, decryptSecret, encryptSecret,
-  fetchJson, fetchProfile, getAccessToken, getCredentials, getEncryptionKey, getProvider, toPublicConnection
+  fetchJson, fetchProfile, getAccessToken, getCredentials, getEncryptionKey, getProvider, revokeConnection, toPublicConnection
 };
