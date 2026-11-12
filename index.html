@@ -1323,7 +1323,8 @@
             if (pendingFloatingAction) {
                 const action = pendingFloatingAction;
                 pendingFloatingAction = '';
-                runFloatingAction(action).catch((error) => setLiveStatus('No se pudo ejecutar el control flotante: ' + error.message));
+                if (['chat', 'live', 'lobbies', 'clubs'].includes(action)) switchTab(action);
+                else runFloatingAction(action).catch((error) => setLiveStatus('No se pudo ejecutar el control flotante: ' + error.message));
             }
             if (!friendsPresenceTimer) {
                 friendsPresenceTimer = setInterval(() => {
@@ -1445,7 +1446,7 @@
             const allowed = ['chat', 'live', 'lobbies', 'clubs', 'stream_chat', 'screen_share_toggle', 'microphone_toggle', 'camera_toggle', 'end_stream'];
             if (!allowed.includes(action)) return;
             if (!authToken) { pendingFloatingAction = action; return; }
-            if (action === 'chat' || action === 'live' || action === 'lobbies' || action === 'clubs') {
+            if (['chat', 'live', 'lobbies', 'clubs'].includes(action)) {
                 switchTab(action);
                 return;
             }
