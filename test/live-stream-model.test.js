@@ -21,6 +21,7 @@ test('LiveStream starts in preparation and supports live and ended lifecycle sta
     roomName: 'pv_test_room'
   });
   assert.equal(stream.status, 'starting');
+  assert.equal(stream.activeOwner, undefined);
   assert.ok(stream.startedAt instanceof Date);
   stream.status = 'live';
   assert.equal(stream.status, 'live');
@@ -33,8 +34,11 @@ test('LiveStream starts in preparation and supports live and ended lifecycle sta
 test('LiveStream enforces at most one active session per creator at the database index level', () => {
   const indexes = LiveStream.schema.indexes();
   assert.ok(indexes.some(([keys, options]) =>
-    keys.owner === 1 && options.unique === true && options.partialFilterExpression?.status?.$in?.includes('starting') && options.partialFilterExpression?.status?.$in?.includes('live')
-  ));
+    keys.owner === 1 && options.unique === true && options.partialFilterExpression?.status === 'live'
+  ), 'preserve the existing live-only index for safe rollout');
+  assert.ok(indexes.some(([keys, options]) =>
+    keys.activeOwner === 1 && options.unique === true && options.partialFilterExpression?.activeOwner?.$exists === true
+  ), 'reserve starting and live sessions with a separate unique owner key');
   assert.equal(indexes.some(([keys, options]) =>
     Object.keys(keys).length === 1 && keys.owner === 1 && options.unique !== true
   ), false, 'do not create a duplicate non-unique owner index');
