@@ -28,6 +28,8 @@ const Report = require('./models/Report');
 const Notification = require('./models/Notification');
 const UserPresence = require('./models/UserPresence');
 const LiveStream = require('./models/LiveStream');
+const { createRealtimeNotificationPolicy } = require('./services/notificationDelivery');
+const shouldDeliverRealtimeNotification = createRealtimeNotificationPolicy({ UserModel: User, LiveStreamModel: LiveStream });
 const StreamRecording = require('./models/StreamRecording');
 const { createPresignedRecordingUrl } = require('./services/recordingStorage');
 const LiveStreamMessage = require('./models/LiveStreamMessage');
@@ -1478,6 +1480,7 @@ const DEFAULT_STREAMING_PREFERENCES = {
   overlayShowChat: true,
   overlayShowViewerCount: true,
   overlayShowDonations: true,
+  doNotDisturbWhileStreaming: false,
   overlayBrandingText: '',
   socialYouTube: '',
   socialTwitch: '',
@@ -1504,6 +1507,7 @@ const STREAMING_PREFERENCE_RULES = {
   overlayShowChat: (value) => typeof value === 'boolean',
   overlayShowViewerCount: (value) => typeof value === 'boolean',
   overlayShowDonations: (value) => typeof value === 'boolean',
+  doNotDisturbWhileStreaming: (value) => typeof value === 'boolean',
   overlayBrandingText: (value) => typeof value === 'string' && value.trim().length <= 40,
   socialYouTube: (value) => typeof value === 'string' && value.trim().length <= 60,
   socialTwitch: (value) => typeof value === 'string' && value.trim().length <= 60,
@@ -1721,7 +1725,7 @@ app.post('/api/wallet/transfers', requireAuth, storeLimiter, async (req, res, ne
     if (result?.error === 'SELF_TRANSFER') return res.status(400).json({ success: false, message: 'No podés enviarte monedas a vos mismo.' });
     if (result?.error === 'BLOCKED') return res.status(403).json({ success: false, message: 'No se pueden transferir monedas entre cuentas con un bloqueo activo.' });
     if (result?.error === 'INSUFFICIENT_FUNDS') return res.status(409).json({ success: false, message: 'No tenés saldo suficiente de ' + getCurrencyLabel(currency) + '.' });
-    if (httpServer.io && result.notification) httpServer.io.to('user:' + String(result.notification.recipient)).emit('new_notification', { id: String(result.notification._id), type: result.notification.type, title: result.notification.title, body: result.notification.body, createdAt: result.notification.createdAt });
+    if (httpServer.io && result.notification && await shouldDeliverRealtimeNotification(result.notification.recipient)) httpServer.io.to('user:' + String(result.notification.recipient)).emit('new_notification', { id: String(result.notification._id), type: result.notification.type, title: result.notification.title, body: result.notification.body, createdAt: result.notification.createdAt });
     return res.status(201).json({ success: true, message: 'Regalo enviado a ' + result.recipientUsername + '.', recipientUsername: result.recipientUsername, currency, amount, wallet: { balances: result.balances } });
   } catch (error) {
     return next(error);
@@ -3751,7 +3755,7 @@ app.post('/api/rooms/:roomId/participation-requests', requireAuth, async (req, r
         entityId: req.params.roomId
       });
       const io = httpServer.io;
-      if (io) io.to('user:' + String(room.owner)).emit('new_notification', {
+      if (io && await shouldDeliverRealtimeNotification(room.owner)) io.to('user:' + String(room.owner)).emit('new_notification', {
         id: String(notification._id), type: notification.type, title: notification.title,
         body: notification.body, entityId: String(req.params.roomId), createdAt: notification.createdAt
       });
@@ -4251,12 +4255,14 @@ app.post('/api/conversations/:conversationId/messages', requireAuth, directMessa
     const io = req.app.get('io');
     if (io) {
       io.to('dm:' + String(conversation._id)).emit('receive_direct_message', message);
-      io.to('user:' + String(recipientId)).emit('direct_message_notification', {
-        conversationId: String(conversation._id),
-        senderUsername: req.auth.username,
-        body,
-        createdAt: saved.createdAt
-      });
+      if (await shouldDeliverRealtimeNotification(recipientId)) {
+        io.to('user:' + String(recipientId)).emit('direct_message_notification', {
+          conversationId: String(conversation._id),
+          senderUsername: req.auth.username,
+          body,
+          createdAt: saved.createdAt
+        });
+      }
     }
     return res.status(201).json({ success: true, message });
   } catch (error) { return next(error); }
