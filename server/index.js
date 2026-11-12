@@ -915,7 +915,11 @@ app.get('/api/me', requireAuth, async (req, res, next) => {
       .select('username role displayName bio profileBannerUrl profileTheme favoriteGames socialYouTubeUrl socialTwitchUrl socialTikTokUrl avatarUrl avatarPreset createdAt')
       .lean();
     if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    const subscription = await PremiumSubscription.findOne({ user: req.auth.sub }).select('endsAt').lean();
+    const plusMembershipActive = Boolean(subscription && new Date(subscription.endsAt) > new Date());
     return res.json({ success: true, user: {
+      plusMembershipActive,
+      plusMembershipEndsAt: plusMembershipActive ? subscription.endsAt : null,
       id: String(user._id),
       username: user.username,
       role: user.role,
