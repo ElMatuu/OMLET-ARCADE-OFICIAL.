@@ -33,7 +33,7 @@ test('each game detail loads its own community posts and reuses social actions',
   assert.match(html, /apiRequest\('\/api\/posts\?game=' \+ encodeURIComponent\(game\.name\)\)/);
   assert.match(html, /posts\.forEach\(post => container\.appendChild\(renderCommunityPost\(post\)\)\)/);
   assert.match(html, /function openGamePostComposer\(\)/);
-  assert.match(html, /gameSelect\.value = game\.name/);
+  assert.match(html, /openPostModal\(game\.name\)/);
   assert.match(html, /post\.game\)/);
   assert.match(html, /game-detail-post-status/);
 });
