@@ -120,16 +120,17 @@ app.post('/api/webhooks/livekit', express.raw({ type: 'application/webhook+json'
       const egressInfo = event.egressInfo || event.egress_info || {};
       const egressId = egressInfo.egressId || egressInfo.egress_id;
       if (typeof egressId === 'string' && egressId) {
+        const failedStatus = [4, 5, 6, 'EGRESS_FAILED', 'EGRESS_ABORTED', 'EGRESS_LIMIT_REACHED'].includes(egressInfo.status);
+        const failed = Boolean(egressInfo.error) || failedStatus;
+        const finalStatus = failed ? 'failed' : 'ended';
+        const endedAt = new Date();
         await LiveStream.updateOne(
           { recordingEgressId: egressId },
-          { $set: {
-            recordingStatus: egressInfo.error ? 'failed' : 'ended',
-            recordingEndedAt: new Date()
-          } }
+          { $set: { recordingStatus: finalStatus, recordingEndedAt: endedAt } }
         );
         await StreamRecording.updateOne(
           { egressId },
-          { $set: { status: egressInfo.error ? 'failed' : 'ended', endedAt: new Date() } }
+          { $set: { status: finalStatus, endedAt } }
         );
       }
     }
