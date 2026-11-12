@@ -13,15 +13,17 @@ test('LiveStream requires an owner, creator name, title and unique room name', (
   assert.ok(error.errors.roomName);
 });
 
-test('LiveStream records a live session and supports an ended lifecycle', () => {
+test('LiveStream starts in preparation and supports live and ended lifecycle states', () => {
   const stream = new LiveStream({
     owner: new mongoose.Types.ObjectId(),
     ownerUsername: 'creator',
     title: 'Test stream',
     roomName: 'pv_test_room'
   });
-  assert.equal(stream.status, 'live');
+  assert.equal(stream.status, 'starting');
   assert.ok(stream.startedAt instanceof Date);
+  stream.status = 'live';
+  assert.equal(stream.status, 'live');
   stream.status = 'ended';
   stream.endedAt = new Date();
   assert.equal(stream.status, 'ended');
@@ -31,7 +33,7 @@ test('LiveStream records a live session and supports an ended lifecycle', () => 
 test('LiveStream enforces at most one active session per creator at the database index level', () => {
   const indexes = LiveStream.schema.indexes();
   assert.ok(indexes.some(([keys, options]) =>
-    keys.owner === 1 && options.unique === true && options.partialFilterExpression?.status === 'live'
+    keys.owner === 1 && options.unique === true && options.partialFilterExpression?.status?.$in?.includes('starting') && options.partialFilterExpression?.status?.$in?.includes('live')
   ));
   assert.equal(indexes.some(([keys, options]) =>
     Object.keys(keys).length === 1 && keys.owner === 1 && options.unique !== true
