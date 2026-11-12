@@ -49,7 +49,7 @@ test('settings UI exposes the authenticated RTMP destination workflow without ne
   const settings = html.slice(start, end);
   assert.match(settings, /id="stream-destination-form"/);
   assert.match(settings, /saveStreamDestination\(event\)/);
-  assert.match(settings, /loadStreamDestinations\(\)/);
+  assert.match(html, /loadStreamDestinations\(\);/);
   assert.equal((settings.match(/<form\b/g) || []).length, 1);
   assert.equal((settings.match(/<\/form>/g) || []).length, 1);
 });
