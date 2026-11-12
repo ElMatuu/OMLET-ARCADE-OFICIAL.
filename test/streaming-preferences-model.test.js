@@ -46,3 +46,30 @@ test('streaming preference message and image fields enforce model limits', async
     return true;
   });
 });
+
+
+test('live stream model stores a game identity for game-first discovery', () => {
+  const LiveStream = require('../server/models/LiveStream');
+  const stream = new LiveStream({
+    owner: new (require('mongoose').Types.ObjectId)(),
+    ownerUsername: 'streamtester',
+    title: 'Probando Minecraft',
+    game: 'Minecraft',
+    roomName: 'test-room-game-identity'
+  });
+  assert.equal(stream.game, 'Minecraft');
+});
+
+test('live stream model rejects missing or oversized game identity', async () => {
+  const LiveStream = require('../server/models/LiveStream');
+  const base = {
+    owner: new (require('mongoose').Types.ObjectId)(),
+    ownerUsername: 'streamtester',
+    title: 'Test stream',
+    roomName: 'test-room-game-validation'
+  };
+  const missing = new LiveStream(base);
+  await assert.rejects(missing.validate(), (error) => Boolean(error.errors.game));
+  const oversized = new LiveStream({ ...base, roomName: 'test-room-game-oversized', game: 'x'.repeat(61) });
+  await assert.rejects(oversized.validate(), (error) => Boolean(error.errors.game));
+});
