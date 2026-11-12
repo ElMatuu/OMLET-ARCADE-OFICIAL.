@@ -1090,6 +1090,10 @@ app.get('/overlay/:token', (req, res) => {
 #camera[data-frame="violet"]{border:3px double #a78bfa;box-shadow:0 0 22px #8b5cf688}
 #overlay.camera-only #camera{inset:0;width:100%;height:100%;border:0;border-radius:0;box-shadow:none;object-fit:contain}
 #overlay{position:absolute;z-index:5;left:3%;right:3%;bottom:4%;display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+#overlay.position-top-left{top:4%;bottom:auto;justify-content:flex-start;align-items:flex-start;transform-origin:top left}
+#overlay.position-top-right{top:4%;bottom:auto;justify-content:flex-end;align-items:flex-start;transform-origin:top right}
+#overlay.position-bottom-left{bottom:4%;top:auto;justify-content:flex-start;align-items:flex-end;transform-origin:bottom left}
+#overlay.position-bottom-right{bottom:4%;top:auto;justify-content:flex-end;align-items:flex-end;transform-origin:bottom right}
 .panel{max-width:75%;padding:14px 18px;border:1px solid #ffffff35;border-radius:16px;background:linear-gradient(110deg,#10152be8,#1c2345d9);box-shadow:0 8px 30px #0006;backdrop-filter:blur(10px)}
 #creator{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#9da9ff}
 #title{font-size:clamp(16px,2.4vw,28px);font-weight:900;line-height:1.15;margin-top:4px}
@@ -1195,6 +1199,11 @@ async function refresh(){
   if(!response.ok)throw new Error('Overlay temporalmente no disponible ('+response.status+')');
   const data=await response.json();const p=data.overlay||{};
   root.className='theme-'+(p.theme||'arcade')+' layout-'+(p.layout||'wide')+(screenVideo.srcObject?'':' camera-only');
+  const position=p.position||'bottom-left';
+  root.classList.add('position-'+position);
+  root.style.transform='scale('+(Number.isInteger(p.scale)?p.scale:100)/100+')';
+  root.style.transformOrigin=position.replace('-', ' ');
+  root.style.opacity=String((Number.isInteger(p.opacity)?p.opacity:90)/100);
   cameraVideo.dataset.position=p.cameraPosition||'bottom-right';
   cameraVideo.dataset.frame=p.cameraFrame||'none';
   if(p.equippedOverlay&&/^overlay-[a-z0-9-]+$/.test(p.equippedOverlay.id||''))root.dataset.product=p.equippedOverlay.id;else root.removeAttribute('data-product');
