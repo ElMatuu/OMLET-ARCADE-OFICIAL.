@@ -374,6 +374,17 @@
                         <button type="button" onclick="toggleLiveMicrophone()" class="rounded-xl border border-slate-700 px-3 py-2 text-xs">Micrófono</button>
                         <button type="button" onclick="toggleLiveScreenShare()" class="rounded-xl border border-slate-700 px-3 py-2 text-xs">Compartir pantalla</button>
                         <button type="button" onclick="endLiveStream()" class="rounded-xl bg-red-600/20 border border-red-500/40 text-red-200 px-3 py-2 text-xs font-bold">Finalizar transmisión</button>
+                        <button type="button" onclick="toggleLiveCoHostPanel()" class="rounded-xl border border-violet-500/40 bg-violet-500/10 text-violet-200 px-3 py-2 text-xs font-bold">Administrar coanfitriones</button>
+                        <section id="live-cohost-panel" class="hidden basis-full rounded-xl border border-violet-500/30 bg-slate-950/70 p-3 space-y-3" aria-label="Administrar coanfitriones">
+                            <div><h5 class="text-sm font-bold text-violet-100">Equipo de moderación</h5><p class="text-[11px] text-slate-400">Asigná personas de confianza para moderar el chat. Solo vos podés agregar o quitar coanfitriones.</p></div>
+                            <form id="live-cohost-form" class="flex gap-2" onsubmit="addLiveCoHost(event)">
+                                <label class="sr-only" for="live-cohost-username">Nombre de usuario del coanfitrión</label>
+                                <input id="live-cohost-username" maxlength="24" pattern="[A-Za-z0-9_]{3,24}" required class="min-w-0 flex-1 rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-xs text-white" placeholder="Nombre de usuario">
+                                <button id="live-cohost-add" type="submit" class="rounded-lg bg-violet-500 px-3 py-2 text-xs font-bold text-white">Agregar</button>
+                            </form>
+                            <p id="live-cohost-status" class="text-[11px] text-slate-400" role="status" aria-live="polite"></p>
+                            <ul id="live-cohost-list" class="space-y-2" aria-live="polite"><li class="text-xs text-slate-500">Cargando equipo…</li></ul>
+                        </section>
                     </div>
                     <section class="rounded-xl border border-slate-800 bg-slate-950/70 p-3 space-y-3" aria-label="Chat de la transmisión">
                         <div class="flex items-center justify-between gap-2"><div><h5 class="text-sm font-bold">Chat en vivo</h5><p id="live-chat-status" class="text-[11px] text-slate-500" role="status">Conectando al chat…</p></div><span class="text-[10px] text-emerald-300">EN DIRECTO</span></div>
@@ -4451,6 +4462,98 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         let pinnedLiveChatMessage = null;
         const renderedStreamChatMessageIds = new Set();
 
+        function toggleLiveCoHostPanel() {
+            const panel = document.getElementById('live-cohost-panel');
+            if (!panel || !activeLiveStream || activeLiveStreamRole !== 'publisher') return;
+            const opening = panel.classList.contains('hidden');
+            panel.classList.toggle('hidden', !opening);
+            if (opening) loadLiveCoHosts();
+        }
+
+        function setLiveCoHostStatus(message, isError = false) {
+            const status = document.getElementById('live-cohost-status');
+            if (!status) return;
+            status.textContent = message;
+            status.className = 'text-[11px] ' + (isError ? 'text-red-300' : 'text-slate-400');
+        }
+
+        async function loadLiveCoHosts() {
+            if (!activeLiveStream || activeLiveStreamRole !== 'publisher') return;
+            const list = document.getElementById('live-cohost-list');
+            if (!list) return;
+            list.replaceChildren();
+            const loading = document.createElement('li');
+            loading.className = 'text-xs text-slate-500';
+            loading.textContent = 'Cargando coanfitriones…';
+            list.appendChild(loading);
+            try {
+                const data = await apiRequest('/api/me/streams/' + encodeURIComponent(activeLiveStream.id) + '/moderators');
+                list.replaceChildren();
+                if (!data.moderators || !data.moderators.length) {
+                    const empty = document.createElement('li');
+                    empty.className = 'text-xs text-slate-500';
+                    empty.textContent = 'Todavía no agregaste coanfitriones.';
+                    list.appendChild(empty);
+                    return;
+                }
+                data.moderators.forEach((moderator) => {
+                    const item = document.createElement('li');
+                    item.className = 'flex items-center justify-between gap-2 rounded-lg bg-slate-900 px-3 py-2';
+                    const name = document.createElement('span');
+                    name.className = 'min-w-0 truncate text-xs text-slate-200';
+                    name.textContent = '@' + String(moderator.username || 'usuario');
+                    const remove = document.createElement('button');
+                    remove.type = 'button';
+                    remove.className = 'shrink-0 rounded-md border border-red-500/30 px-2 py-1 text-[10px] font-semibold text-red-300';
+                    remove.textContent = 'Quitar';
+                    remove.addEventListener('click', () => removeLiveCoHost(moderator.userId, moderator.username));
+                    item.append(name, remove);
+                    list.appendChild(item);
+                });
+            } catch (error) {
+                list.replaceChildren();
+                const failure = document.createElement('li');
+                failure.className = 'text-xs text-red-300';
+                failure.textContent = error.message || 'No se pudo cargar el equipo.';
+                list.appendChild(failure);
+            }
+        }
+
+        async function addLiveCoHost(event) {
+            event.preventDefault();
+            if (!activeLiveStream || activeLiveStreamRole !== 'publisher') return;
+            const input = document.getElementById('live-cohost-username');
+            const button = document.getElementById('live-cohost-add');
+            const username = input.value.trim();
+            if (!/^[A-Za-z0-9_]{3,24}$/.test(username)) {
+                setLiveCoHostStatus('El usuario debe tener entre 3 y 24 letras, números o guiones bajos.', true);
+                return;
+            }
+            button.disabled = true;
+            try {
+                await apiRequest('/api/me/streams/' + encodeURIComponent(activeLiveStream.id) + '/moderators', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                input.value = '';
+                setLiveCoHostStatus('@' + username + ' ya puede moderar el chat.');
+                await loadLiveCoHosts();
+            } catch (error) {
+                setLiveCoHostStatus(error.message, true);
+            } finally { button.disabled = false; }
+        }
+
+        async function removeLiveCoHost(userId, username) {
+            if (!activeLiveStream || activeLiveStreamRole !== 'publisher' || !userId) return;
+            if (!window.confirm('¿Quitar a @' + String(username || 'este usuario') + ' del equipo de moderación?')) return;
+            try {
+                await apiRequest('/api/me/streams/' + encodeURIComponent(activeLiveStream.id) + '/moderators/' + encodeURIComponent(userId), { method: 'DELETE' });
+                setLiveCoHostStatus('Se quitó a @' + String(username || 'usuario') + ' del equipo.');
+                await loadLiveCoHosts();
+            } catch (error) { setLiveCoHostStatus(error.message, true); }
+        }
+
         function setLiveChatStatus(message, isError = false) {
             const status = document.getElementById('live-chat-status');
             if (!status) return;
@@ -4622,6 +4725,11 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                     if (streamChatBoundStreamId) joinStreamChatRoom(streamChatBoundStreamId);
                 });
                 streamChatSocket.on('stream_chat_message', appendLiveChatMessage);
+                streamChatSocket.on('stream_chat_moderators_changed', (payload) => {
+                    if (!payload || String(payload.streamId) !== String(streamChatBoundStreamId)) return;
+                    if (activeLiveStream) loadLiveChatHistory(activeLiveStream.id);
+                    if (activeLiveStreamRole === 'publisher' && !document.getElementById('live-cohost-panel')?.classList.contains('hidden')) loadLiveCoHosts();
+                });
                 streamChatSocket.on('stream_chat_pinned', (payload) => {
                     if (payload && String(payload.streamId) === String(streamChatBoundStreamId)) renderLiveChatPinnedMessage(payload.pinnedMessage);
                 });
@@ -4772,6 +4880,8 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             document.getElementById('live-player-title').textContent = stream.title || 'Transmisión PLAYVERSE';
             document.getElementById('live-player-role').textContent = role === 'publisher' ? 'Estás transmitiendo' : 'Estás viendo en vivo';
             document.getElementById('live-host-controls').classList.toggle('hidden', role !== 'publisher');
+            const coHostPanel = document.getElementById('live-cohost-panel');
+            if (coHostPanel) coHostPanel.classList.add('hidden');
             document.getElementById('live-player-tracks').replaceChildren();
             document.getElementById('live-player-status').textContent = 'Conectado a la sala. Esperando pistas multimedia…';
             if (role === 'publisher') {
