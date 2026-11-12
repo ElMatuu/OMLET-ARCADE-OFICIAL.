@@ -22,7 +22,7 @@ test('floating HUD is draggable and its visible actions work', () => {
   assert.match(service, /windowManager\.updateViewLayout/);
   assert.match(service, /getLaunchIntentForPackage/);
   assert.match(service, /setOnClickListener\(v -> stopSelf\(\)\)/);
-  assert.match(service, /transmisión no iniciada/);
+  assert.match(service, /Controles de directo y comunidad/);
   for (const action of ['screen_share_toggle', 'microphone_toggle', 'camera_toggle', 'end_stream', 'stream_chat']) {
     assert.ok(service.includes(action), 'HUD must expose ' + action);
   }
