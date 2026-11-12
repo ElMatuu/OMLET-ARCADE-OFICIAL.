@@ -30,8 +30,8 @@ test('self-hosted Mongo keyfile is persistent and permission-restricted', () => 
 
 
 test('self-hosted LiveKit includes its shared Redis bus and a matching Egress worker', () => {
-  assert.match(compose, /  redis:[\s\S]*image: redis:7\\.4-alpine/);
-  assert.match(compose, /  livekit-egress:[\s\S]*livekit\\/egress:v1\\.9\\.0/);
+  assert.match(compose, /  redis:[\s\S]*image: redis:7\.4-alpine/);
+  assert.match(compose, /  livekit-egress:[\s\S]*livekit\\/egress:v1\.9\.0/);
   assert.match(compose, /EGRESS_CONFIG_FILE: \/etc\/egress\.yaml/);
   assert.match(compose, /playverse_redis_data:\/data/);
   assert.match(livekitConfig, /redis:\n  address: redis:6379/);
