@@ -29,6 +29,6 @@ test('game detail actions reuse the existing stream composer and live filter', (
   assert.match(html, /openGameDirects\(key\)/);
   assert.match(html, /filterGameCatalog\(document\.getElementById\('game-catalog-search'\)/);
   assert.match(html, /function openGameDetailClubs\(\)/);
-  assert.match(html, /loadClubs\(game\.name\)/);
+  assert.match(html, /if \(tabName === 'clubs'\) loadClubs\(document\.getElementById\('club-search'\)/);
   assert.match(html, /id="game-detail-clubs-action"/);
 });
