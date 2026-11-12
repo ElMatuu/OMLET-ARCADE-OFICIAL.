@@ -129,7 +129,7 @@ class NativeScreenSharePlugin : Plugin() {
             .setAction(ArcadeHudService.ACTION_CHAT_UPDATE)
             .putExtra("messages", messages)
         try {
-            if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(service) else context.startService(service)
+            context.startService(service)
             call.resolve(JSObject().apply { put("updated", true) })
         } catch (error: Exception) {
             call.reject("No se pudo actualizar el chat flotante: " + (error.message ?: "error desconocido"))
