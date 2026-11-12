@@ -14,7 +14,7 @@ function createPresignedRecordingUrl({ storage, objectKey, expiresInSeconds = 30
   if (!storage || !storage.accessKey || !storage.secret || !storage.bucket) {
     throw new TypeError('Recording storage credentials are required.');
   }
-  if (typeof objectKey !== 'string' || !/^playverse\/[a-fA-F0-9]{24}\/[a-fA-F0-9]{24}\/[0-9]+\.mp4$/.test(objectKey)) {
+  if (typeof objectKey !== 'string' || !/^playverse\\/[a-fA-F0-9]{24}\\/[a-fA-F0-9]{24}\\/(?:[0-9]+\\.mp4|clips\\/[a-fA-F0-9]{24}\\.mp4)$/.test(objectKey)) {
     throw new TypeError('Invalid private recording object key.');
   }
   if (!['GET', 'PUT'].includes(method)) throw new TypeError('Unsupported recording storage method.');
