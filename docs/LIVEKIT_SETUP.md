@@ -44,14 +44,17 @@ The API issues role-scoped participant tokens that expire after **10 minutes**; 
 
 When the creator starts a stream, PLAYVERSE returns a private URL at `/overlay/<token>`. Add it to OBS or another compatible encoder as a **Browser Source**. The URL is a bearer secret: do not post it in public chat, screenshots, or support tickets. It is revoked when the stream ends.
 
-The browser source polls the authenticated-by-token public overlay endpoint and renders:
+The browser source uses a short-lived, read-only LiveKit participant token and composes the creator's live tracks:
+- Screen-share video fills the scene when the creator shares a screen/window.
+- Camera video is rendered as picture-in-picture in the configured corner, with the configured cyan/violet frame.
+- Microphone audio and supported screen-share audio are attached as browser audio tracks. In OBS, enable browser-source audio capture if you want this audio in the encoder.
 - Stream title and creator name.
 - The custom watermark entered when starting the stream (visible in the browser composition; it is **not burned into the original video or automatically added to other RTMP outputs**).
 - Theme, layout, channel branding and configured social handles.
-- LiveKit participant count when the LiveKit API can retrieve it.
+- LiveKit participant count when the LiveKit API can retrieve it; the private overlay participant is excluded from that count.
 - The equipped and owned stream-overlay cosmetic, using PLAYVERSE's built-in CSS skin.
 
-The browser overlay is a separate composition layer. It does not alter the creator's camera/game source. Chat messages and gifts/donations are deliberately not displayed yet because their event sources and moderation/payment integrations are not connected. Their controls remain disabled rather than pretending to work.
+The browser overlay is a separate composition layer intended for OBS or a compatible encoder. It does not modify the original LiveKit camera/screen tracks or automatically create RTMP destinations. Chat messages and gifts/donations are deliberately not displayed yet because their event sources and moderation/payment integrations are not connected. Their controls remain disabled rather than pretending to work.
 
 ## Screen-share audio
 
