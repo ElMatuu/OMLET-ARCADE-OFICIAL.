@@ -88,6 +88,17 @@ test('protected profile endpoint rejects unauthenticated requests', async () => 
   });
 });
 
+test('cosmetic inventory removal endpoint requires an authenticated account', async () => {
+  await withServer(async (baseUrl) => {
+    for (const category of ['avatar-frame', 'stream-overlay']) {
+      const response = await fetch(baseUrl + '/api/me/inventory/' + category + '/equip', { method: 'DELETE' });
+      const body = await response.json();
+      assert.equal(response.status, 401);
+      assert.equal(body.success, false);
+    }
+  });
+});
+
 test('security headers are applied to API responses', async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(baseUrl + '/api/health');
