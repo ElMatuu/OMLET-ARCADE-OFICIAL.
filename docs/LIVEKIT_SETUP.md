@@ -1,50 +1,43 @@
-# PLAYVERSE — LiveKit setup and validation
+# PLAYVERSE LiveKit self-hosted setup and validation
 
-This guide configures the live video service. The repository contains the backend session APIs and web client integration, but streams remain disabled until a real LiveKit project is configured.
+PLAYVERSE includes a self-hosted LiveKit SFU in `docker-compose.yml`. The operator controls the LiveKit server, API credentials, signaling endpoint and media network. A LiveKit Cloud account is not required for this deployment path.
 
-## 1. Create the LiveKit project
+## 1. Configure the self-hosted stack
 
-1. Create a LiveKit Cloud project in the LiveKit dashboard.
-2. Copy the project's WebSocket URL, API key and API secret.
-3. Keep the API secret private. Never paste it into GitHub source files, frontend code, issue comments or chat messages.
+Follow [SELF_HOSTED_PRODUCTION.md](SELF_HOSTED_PRODUCTION.md) to configure DNS, secrets, the MongoDB replica set, Caddy TLS and the LiveKit server. Set:
 
-## 2. Configure the PLAYVERSE API
+- `LIVEKIT_URL=wss://<LIVE_DOMAIN>` for Android, Windows and browser clients.
+- `LIVEKIT_INTERNAL_URL=http://livekit:7880` for server-to-server API calls on the private Docker network.
+- `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` only in the backend environment and LiveKit server environment.
 
-In the hosting provider's environment settings for the PLAYVERSE API service, add:
+The LiveKit server uses TCP 7880 internally behind Caddy, TCP 7881 for RTC/TCP, UDP 3478 for TURN, UDP 50000–50100 for WebRTC media and UDP 50101–50200 for TURN relay. Configure the host firewall and any cloud firewall to match. Do not expose MongoDB or LiveKit API secrets to the public internet.
 
-- `LIVEKIT_URL`: the project's secure WebSocket URL, normally `wss://<project>.livekit.cloud`.
-- `LIVEKIT_API_KEY`: the API key from the LiveKit project.
-- `LIVEKIT_API_SECRET`: the matching API secret.
+## 2. Signed webhook
 
-The backend accepts `ws://`, `wss://`, `http://` and `https://` service URLs, but public production must use TLS/WSS. Do not add these values to `.env.example`; that file intentionally contains placeholders only.
+The endpoint is:
 
-After setting the variables, restart/redeploy the API service through the hosting dashboard. No deployment was performed as part of this code change.
+`https://<API_DOMAIN>/api/webhooks/livekit`
 
-## 3. Configure the signed webhook
+The server verifies the LiveKit Authorization signature against the configured API key and secret and handles `room_finished` to mark the matching PLAYVERSE stream as ended. Keep the raw-body handling intact and the endpoint reachable over HTTPS.
 
-In LiveKit Cloud, add a webhook destination:
+## 3. Validate a real broadcast
 
-`https://<your-playverse-api-domain>/api/webhooks/livekit`
+1. Confirm the API readiness endpoint returns HTTP 200 and MongoDB reports `setName: "rs0"` and `isWritablePrimary: true`.
+2. Sign in as a creator, open **En Vivo**, enter a title and start a stream.
+3. From a second account on a separate device or network, open **En Vivo** and join the stream.
+4. Verify remote video and audio, mute, camera toggle and screen sharing where supported.
+5. Test reconnect after switching networks, briefly disabling connectivity and returning the app from background.
+6. End the stream. Confirm the viewer disconnects, the room closes, the signed webhook marks the session ended and the stream disappears from the active catalog.
+7. Verify host/co-host moderation and participant removal, including the temporary rejoin block.
 
-Subscribe to the `room_finished` event. The endpoint verifies the LiveKit Authorization signature using the server-only API key and secret and marks the matching PLAYVERSE stream as ended. It requires the raw request body and must remain reachable over HTTPS.
+The API issues role-scoped participant tokens that expire after 10 minutes. Publisher and viewer permissions are restricted to the requested room. Clients must request a fresh token when a new session is needed. The API returns a clear 503 response until all required server environment variables are valid.
 
-## 4. Validate the real flow
+## 4. Platform and operations checks
 
-1. Sign in to PLAYVERSE with a creator account.
-2. Open **En Vivo**, enter a title and start a stream.
-3. Allow camera and microphone permissions when the browser or desktop app requests them.
-4. From a second account/device, open **En Vivo** and join the published stream.
-5. Verify remote video and audio, then test mute, camera toggle and screen sharing where supported.
-6. End the stream from the creator account.
-7. Confirm the viewer disconnects, the LiveKit room closes, the signed webhook marks the session ended and the stream disappears from the active catalog.
+- **Web:** current Chrome/Edge/Firefox over HTTPS; permissions, autoplay, reconnects, network interruption and audio routing.
+- **Windows:** signed installer, explicit camera/microphone permission, screen/window picker, sleep/wake and device switching.
+- **Android:** physical-device installation, native camera/microphone runtime permissions, app background/foreground, battery optimization, screen capture behavior and reconnects.
+- **Network:** test from networks with UDP restrictions; confirm TURN fallback works and media packets are not blocked.
+- **Operations:** verify webhook delivery/retries, room cleanup, server restarts, logs, disk/CPU/network capacity, abuse controls and concurrent participant load.
 
-The API issues role-scoped participant tokens that expire after **10 minutes**; publisher and viewer permissions are restricted to the requested room. Clients must request a fresh token when a new session is needed. The API returns a clear `503 LIVE_STREAMING_NOT_CONFIGURED` response until all three server environment variables are valid.
-
-## 5. Platform validation still required
-
-- **Web:** test on current Chrome/Edge/Firefox over HTTPS, including permissions, reconnects, autoplay behavior and network interruptions.
-- **Windows:** build the Electron installer, test the explicit camera/microphone permission prompt and choose a screen/window in the capture picker.
-- **Android:** run `npm run android:add` or `npm run android:sync`, open Android Studio, install on a physical device, and verify the runtime camera/microphone permission prompts. Screen sharing support depends on the Android WebView/device and is not claimed as verified.
-- **Operations:** verify webhook delivery/retries, room cleanup, provider region, quotas, billing, monitoring and load behavior before public launch.
-
-A successful code build or GitHub Actions run does not prove that a LiveKit project is configured or that real devices can stream. Do not announce streaming as production-ready until the complete flow above has been exercised on real devices.
+A successful code build, running container or green CI check does not prove that real devices can stream or that the server can handle a public audience. Do not announce streaming as production-ready until the full creator-to-viewer flow has been exercised on physical devices and the deployment's capacity and recovery procedures have been tested.

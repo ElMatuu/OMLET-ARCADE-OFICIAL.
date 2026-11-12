@@ -17,7 +17,8 @@ This repository contains a working backend foundation and a web client that is s
 - Private one-to-one conversations for accepted friends, persisted message history, authenticated Socket.IO delivery, unread counters, read receipts, ephemeral typing indicators and connected-device notification events.
 - Player block/unblock controls. Blocking removes the friendship and both follow directions, hides the conversation from the inbox and prevents new friend requests, follows and private messages.
 - Saved posts, profile statistics and a 22-mission campaign across five chapters. Mission progress is calculated from persisted posts, rooms, room chat, saved posts, comments, accepted friendships, follows, reactions and private messages. Completed missions award one-time Tokens through a server-validated, transaction-backed claim flow. There are no real-money top-ups.
-- Persistent store catalog, inventory, token ledger and server-validated purchases/equipping for supported cosmetic categories. Token top-ups and real-money purchases are not enabled.
+- Persistent store catalog, inventory, Gold/Plata/Diamante token ledger and server-validated purchases/equipping for supported cosmetic categories.
+- Separate PLAYVERSE Plus virtual wallet and append-only ledger. Plus rewards are credited only through server-verified, one-time mission claims; 7/30/90-day digital membership is redeemed manually with Plus credits. Plus cannot be bought, transferred or cashed out and has no real-money value.
 - Account-backed accessibility preferences (reduced motion and high contrast).
 - Persistent account notification center for incoming friend requests, accepted requests and private messages, with unread counts, cursor pagination and read-state controls.
 - Authenticated online friend presence using expiring per-connection heartbeats, a TTL-backed presence collection and online indicators in the friends list. Status is best-effort and currently refreshed while the friends screen is open; multi-instance real-time fan-out is not yet configured.
@@ -31,7 +32,7 @@ This repository contains a working backend foundation and a web client that is s
 
 ### Not yet implemented or verified as production features
 
-- LiveKit server integration foundation: persistent live-session records, authenticated room creation, short-lived publisher/viewer JWTs, owner-only stream termination, a signature-verified `room_finished` webhook and a public live-session directory are implemented. The feature remains disabled until valid LiveKit Cloud/self-host credentials are configured.
+- LiveKit server integration foundation: persistent live-session records, authenticated room creation, short-lived publisher/viewer JWTs, owner-only stream termination, a signature-verified `room_finished` webhook and a public live-session directory are implemented. The repository includes a self-hosted LiveKit SFU deployment; real streaming remains disabled until the operator configures its own server, public DNS, secrets and network ports and completes end-to-end device tests.
 - LiveKit browser client is now bundled locally into the web build. The live screen has authenticated publisher/viewer token flows, camera/microphone controls, screen-share control and remote audio/video track rendering. Windows Electron requests explicit camera/microphone approval and provides a screen/window picker. These flows still require real-browser and physical-device end-to-end testing; they are not yet a verified public streaming service.
 - Camera/screen/audio capture on Android and Windows, including device capability detection and permissions.
 - 8K capture or any guaranteed 4K/120 FPS mode. Stored preferences are requests, not proof that a device or encoder can deliver them.
@@ -40,7 +41,7 @@ This repository contains a working backend foundation and a web client that is s
 - Android native camera/microphone permission and capture validation, Electron desktop capture validation, synchronized participant counts, stream lifecycle webhooks, recording/egress, adaptive playback delivery and a media CDN.
 - Full communities/servers with roles, moderation tools and membership management beyond multiplayer rooms.
 - User reporting, moderator queues, moderation actions, appeals and operational trust-and-safety tooling beyond player blocking.
-- Store top-ups, real-money checkout, gifting, donations, paid subscriptions, creator payouts, fraud controls and legal/tax workflows.
+- Real-money checkout, cashouts, physical prizes and creator payouts are intentionally not part of the current product economy. Premium benefits beyond the active profile badge still need implementation and access-control tests.
 - Native Android OTA updater integration and a verified installed APK.
 - Signed and tested Windows installer, production monitoring, load testing and scale validation.
 - A complete UI-to-API integration for every screen. A backend route or visual control alone does not mean its user flow is complete.
@@ -55,9 +56,9 @@ The encrypted Twitch, YouTube and Kick destination-management module is implemen
 
 See [`docs/CREATOR_STREAM_DESTINATIONS.md`](docs/CREATOR_STREAM_DESTINATIONS.md) for secure Twitch, YouTube and Kick RTMP key storage and app setup. This feature does not yet provide OAuth linking or direct multistream relay.
 
-## LiveKit Cloud setup
+## Self-hosted LiveKit setup
 
-See [`docs/LIVEKIT_SETUP.md`](docs/LIVEKIT_SETUP.md) for the exact environment variables, webhook endpoint, and end-to-end validation sequence. Do not put LiveKit credentials in source control or client-side settings.
+See [`docs/SELF_HOSTED_PRODUCTION.md`](docs/SELF_HOSTED_PRODUCTION.md) for the self-hosted API, MongoDB replica set, LiveKit SFU and Caddy stack, and [`docs/LIVEKIT_SETUP.md`](docs/LIVEKIT_SETUP.md) for stream configuration and end-to-end validation. Do not put LiveKit credentials in source control or client-side settings.
 
 ## Historical Omlet Arcade feature-parity audit
 

@@ -20,3 +20,6 @@ release/
 android/.gradle/
 android/local.properties
 android/app/build/
+
+# Local self-hosted secrets and generated credentials
+secrets/

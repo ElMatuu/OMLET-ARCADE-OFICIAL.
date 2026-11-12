@@ -1,8 +1,27 @@
 services:
+  mongo-keyfile-init:
+    image: alpine:3.20
+    restart: "no"
+    command:
+      - sh
+      - -ec
+      - |
+        mkdir -p /keydata
+        if [ ! -s /keydata/mongo-keyfile ]; then
+          head -c 756 /dev/urandom | base64 | tr -d '\n' > /keydata/mongo-keyfile
+        fi
+        chown 999:999 /keydata/mongo-keyfile
+        chmod 0400 /keydata/mongo-keyfile
+    volumes:
+      - playverse_mongo_keyfile:/keydata
+
   mongo:
     image: mongo:7.0
     restart: unless-stopped
-    command: ["mongod", "--bind_ip_all", "--auth"]
+    command: ["mongod", "--bind_ip_all", "--auth", "--replSet", "rs0", "--keyFile", "/run/secrets/mongo-keyfile"]
+    depends_on:
+      mongo-keyfile-init:
+        condition: service_completed_successfully
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env.selfhost}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env.selfhost}
@@ -10,12 +29,33 @@ services:
       MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?Set MONGO_APP_PASSWORD in .env.selfhost}
     volumes:
       - playverse_mongo_data:/data/db
+      - playverse_mongo_keyfile:/run/secrets:ro
       - ./docker/mongo-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test:
+        - CMD-SHELL
+        - >-
+          mongosh --quiet --username "$$MONGO_INITDB_ROOT_USERNAME"
+          --password "$$MONGO_INITDB_ROOT_PASSWORD"
+          --authenticationDatabase admin
+          --eval "db.adminCommand('ping').ok" | grep -q 1
       interval: 10s
       timeout: 5s
       retries: 10
+    networks: [playverse]
+
+  mongo-init-replica-set:
+    image: mongo:7.0
+    restart: "no"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env.selfhost}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env.selfhost}
+    entrypoint: ["/bin/bash", "/scripts/init-replica-set.sh"]
+    volumes:
+      - ./docker/mongo-init-replica-set.sh:/scripts/init-replica-set.sh:ro
     networks: [playverse]
 
   api:
@@ -26,7 +66,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      MONGODB_URI: mongodb://${MONGO_APP_USERNAME}:${MONGO_APP_PASSWORD}@mongo:27017/playverse?authSource=playverse
+      MONGODB_URI: mongodb://${MONGO_APP_USERNAME}:${MONGO_APP_PASSWORD}@mongo:27017/playverse?authSource=playverse&replicaSet=rs0&retryWrites=true&w=majority
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.selfhost}
       CORS_ORIGIN: ${CORS_ORIGIN:?Set CORS_ORIGIN in .env.selfhost}
       LIVEKIT_URL: ${LIVEKIT_URL:?Set LIVEKIT_URL in .env.selfhost}
@@ -34,8 +74,8 @@ services:
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:?Set LIVEKIT_API_KEY in .env.selfhost}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?Set LIVEKIT_API_SECRET in .env.selfhost}
     depends_on:
-      mongo:
-        condition: service_healthy
+      mongo-init-replica-set:
+        condition: service_completed_successfully
       livekit:
         condition: service_started
     healthcheck:
@@ -86,6 +126,7 @@ services:
 
 volumes:
   playverse_mongo_data:
+  playverse_mongo_keyfile:
   playverse_caddy_data:
   playverse_caddy_config:
 
