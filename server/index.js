@@ -2222,7 +2222,7 @@ app.get('/api/me/saved-posts', requireAuth, async (req, res, next) => {
       .lean();
     if (!savedRecords.length) return res.json({ success: true, posts: [] });
     const posts = await Post.find({ _id: { $in: savedRecords.map((item) => item.post) } })
-      .select('authorUsername content likes commentCount createdAt')
+      .select('authorUsername content game likes commentCount createdAt')
       .lean();
     const postById = new Map(posts.map((post) => [String(post._id), post]));
     return res.json({
