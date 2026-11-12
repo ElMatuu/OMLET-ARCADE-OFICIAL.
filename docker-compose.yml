@@ -70,7 +70,7 @@ services:
     tty: true
     stdin_open: true
     environment:
-      EULA: "TRUE"
+      EULA: ${MINECRAFT_EULA:-FALSE}
       TYPE: PAPER
       VERSION: ${MINECRAFT_JAVA_VERSION:-LATEST}
       MEMORY: ${MINECRAFT_JAVA_MEMORY:-2G}
