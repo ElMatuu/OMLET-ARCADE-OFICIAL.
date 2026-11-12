@@ -3103,10 +3103,10 @@ app.post('/api/rooms/:roomId/members/:userId/remove', requireAuth, async (req, r
     const room = await Room.findOneAndUpdate({
       _id: roomId, $or: [{ owner: req.auth.sub }, { moderators: req.auth.sub }], status: 'open', members: userId, memberCount: { $gt: 1 }
     }, {
-      $pull: { members: userId, mutedMembers: { user: userId } }, $inc: { memberCount: -1 }
+      $pull: { members: userId, moderators: userId, mutedMembers: { user: userId } }, $inc: { memberCount: -1 }
     }, { new: true, runValidators: true }).select('name memberCount capacity').lean();
     if (!room) {
-      const existing = await Room.findById(roomId).select('owner status members').lean();
+      const existing = await Room.findById(roomId).select('owner status members moderators').lean();
       if (!existing) return res.status(404).json({ success: false, message: 'Sala no encontrada.' });
       if (String(existing.owner) !== String(req.auth.sub) && !(existing.moderators || []).some((id) => String(id) === String(req.auth.sub))) {
         return res.status(403).json({ success: false, message: 'No tenés permisos para expulsar participantes.' });
@@ -3148,7 +3148,7 @@ app.post('/api/rooms/:roomId/leave', requireAuth, async (req, res, next) => {
         owner: { $ne: req.auth.sub },
         memberCount: { $gt: 1 }
       },
-      { $pull: { members: req.auth.sub }, $inc: { memberCount: -1 } },
+      { $pull: { members: req.auth.sub, moderators: req.auth.sub }, $inc: { memberCount: -1 } },
       { new: true, runValidators: true }
     ).select('name memberCount capacity').lean();
     if (!room) {
