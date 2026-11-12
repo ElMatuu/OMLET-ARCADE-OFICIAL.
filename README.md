@@ -27,7 +27,7 @@ This repository contains a working backend foundation and a web client that is s
 - Authenticated creator streaming-preference storage (resolution preference up to 2160p/4K, FPS presets, bitrate, camera, microphone, system audio, orientation and camera overlay position/frame).
 - Health liveness/readiness endpoints.
 - Web asset build, service-worker update foundation, Android Capacitor configuration and Windows Electron packaging configuration.
-- Omlet Arcade install name and adapted vector icon. See `docs/BRAND_ASSETS.md` for source, attribution and the pending delivery of the rights holder's official brand package.
+- Omlet Arcade install name and provisional test icon (not the official logo). See `docs/BRAND_ASSETS.md` for the pending delivery of the rights holder's official brand package.
 
 ### Not yet implemented or verified as production features
 
