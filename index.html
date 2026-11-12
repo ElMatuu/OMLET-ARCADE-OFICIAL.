@@ -881,6 +881,12 @@
                 <div class="min-w-0"><h3 id="room-chat-title" class="font-black text-base text-white truncate">Chat de sala</h3><p id="room-chat-status" class="text-xs text-slate-400" role="status">Conectando…</p></div>
                 <button type="button" onclick="closeRoomChat()" class="text-slate-400 p-2" aria-label="Cerrar chat"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
+            <div class="flex items-center gap-2 border-b border-slate-800 py-2">
+                <button id="room-voice-toggle" type="button" onclick="toggleRoomVoice()" class="rounded-xl border border-cyan-400/40 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-200">🎙️ Unirse a voz</button>
+                <button id="room-voice-mute" type="button" onclick="toggleRoomVoiceMute()" disabled class="hidden rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 disabled:opacity-40" aria-pressed="false">Silenciar micrófono</button>
+                <p id="room-voice-status" class="min-w-0 text-[11px] text-slate-400" role="status" aria-live="polite">Voz grupal disponible para miembros cuando LiveKit esté configurado.</p>
+                <div id="room-voice-audio" class="hidden"></div>
+            </div>
             <div id="room-chat-messages" class="flex-1 overflow-y-auto py-3 space-y-2" aria-live="polite"></div>
             <form id="room-chat-form" onsubmit="sendRoomMessage(event)" class="flex gap-2 border-t border-slate-800 pt-3">
                 <input id="room-chat-input" maxlength="1000" required autocomplete="off" class="min-w-0 flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-sm text-white" placeholder="Escribí un mensaje…">
@@ -900,6 +906,9 @@
         let appState = { username: '', walletTokens: 0, walletBalances: { gold: 0, purple: 0, diamond: 0 }, profile: null };
         let activeRoomId = null;
         let activeRoomName = '';
+        let activeVoiceRoom = null;
+        let activeVoiceMuted = false;
+        let roomVoiceJoinGeneration = 0;
         let roomSocket = null;
         let roomSocketJoined = false;
         let socketScriptLoading = false;
@@ -2647,8 +2656,132 @@
             }
         }
 
+        function setRoomVoiceStatus(message, isError = false) {
+            const status = document.getElementById('room-voice-status');
+            if (!status) return;
+            status.textContent = message;
+            status.className = isError ? 'min-w-0 text-[11px] text-red-300' : 'min-w-0 text-[11px] text-slate-400';
+        }
+
+        function resetRoomVoiceControls() {
+            const muteButton = document.getElementById('room-voice-mute');
+            const joinButton = document.getElementById('room-voice-toggle');
+            activeVoiceMuted = false;
+            if (muteButton) {
+                muteButton.disabled = true;
+                muteButton.classList.add('hidden');
+                muteButton.textContent = 'Silenciar micrófono';
+                muteButton.setAttribute('aria-pressed', 'false');
+            }
+            if (joinButton) {
+                joinButton.disabled = false;
+                joinButton.textContent = '🎙️ Unirse a voz';
+            }
+        }
+
+        async function toggleRoomVoiceMute() {
+            if (!activeVoiceRoom) return;
+            const muteButton = document.getElementById('room-voice-mute');
+            if (!muteButton) return;
+            muteButton.disabled = true;
+            try {
+                const nextMuted = !activeVoiceMuted;
+                await activeVoiceRoom.localParticipant.setMicrophoneEnabled(!nextMuted);
+                activeVoiceMuted = nextMuted;
+                muteButton.textContent = activeVoiceMuted ? 'Activar micrófono' : 'Silenciar micrófono';
+                muteButton.setAttribute('aria-pressed', String(activeVoiceMuted));
+                setRoomVoiceStatus(activeVoiceMuted ? 'Estás conectado con el micrófono silenciado.' : 'Micrófono activo en el canal de voz.');
+            } catch (error) {
+                setRoomVoiceStatus(error.message || 'No se pudo cambiar el estado del micrófono.', true);
+            } finally {
+                muteButton.disabled = !activeVoiceRoom;
+            }
+        }
+
+        async function toggleRoomVoice() {
+            const button = document.getElementById('room-voice-toggle');
+            if (activeVoiceRoom) {
+                const currentRoom = activeVoiceRoom;
+                activeVoiceRoom = null;
+                try { await currentRoom.disconnect(); } catch {}
+                document.getElementById('room-voice-audio').replaceChildren();
+                resetRoomVoiceControls();
+                setRoomVoiceStatus('Te desconectaste del canal de voz.');
+                return;
+            }
+            if (!activeRoomId) return;
+            const joiningRoomId = activeRoomId;
+            const joiningGeneration = ++roomVoiceJoinGeneration;
+            const sdk = window.LivekitClient;
+            if (!sdk || !sdk.Room || !sdk.RoomEvent) {
+                setRoomVoiceStatus('No se pudo cargar el módulo de voz. Recargá la aplicación e intentá otra vez.', true);
+                return;
+            }
+            button.disabled = true;
+            button.textContent = 'Conectando…';
+            setRoomVoiceStatus('Solicitando acceso seguro al canal de voz…');
+            let voiceRoom = null;
+            try {
+                const data = await apiRequest('/api/rooms/' + encodeURIComponent(activeRoomId) + '/voice-token', { method: 'POST' });
+                voiceRoom = new sdk.Room({ adaptiveStream: true, dynacast: true });
+                voiceRoom.on(sdk.RoomEvent.TrackSubscribed, (track) => {
+                    const element = track.attach();
+                    if (element && element.tagName === 'AUDIO') {
+                        element.autoplay = true;
+                        element.playsInline = true;
+                        document.getElementById('room-voice-audio').appendChild(element);
+                    }
+                });
+                voiceRoom.on(sdk.RoomEvent.TrackUnsubscribed, (track) => {
+                    track.detach().forEach((element) => element.remove());
+                });
+                voiceRoom.on(sdk.RoomEvent.Disconnected, () => {
+                    if (activeVoiceRoom === voiceRoom) {
+                        activeVoiceRoom = null;
+                        document.getElementById('room-voice-audio').replaceChildren();
+                        resetRoomVoiceControls();
+                        setRoomVoiceStatus('La conexión de voz se cerró.');
+                    }
+                });
+                await voiceRoom.connect(data.liveKit.url, data.liveKit.token);
+                await voiceRoom.localParticipant.setMicrophoneEnabled(true);
+                if (activeRoomId !== joiningRoomId || joiningGeneration !== roomVoiceJoinGeneration) {
+                    await voiceRoom.disconnect();
+                    return;
+                }
+                activeVoiceRoom = voiceRoom;
+                activeVoiceMuted = false;
+                const muteButton = document.getElementById('room-voice-mute');
+                muteButton.disabled = false;
+                muteButton.classList.remove('hidden');
+                muteButton.textContent = 'Silenciar micrófono';
+                muteButton.setAttribute('aria-pressed', 'false');
+                button.textContent = 'Salir de voz';
+                setRoomVoiceStatus('Conectado al canal de voz de ' + data.room.name + '. Micrófono activo.');
+            } catch (error) {
+                if (voiceRoom) { try { await voiceRoom.disconnect(); } catch {} }
+                if (joiningGeneration === roomVoiceJoinGeneration) {
+                    activeVoiceRoom = null;
+                    resetRoomVoiceControls();
+                    setRoomVoiceStatus(error.message || 'No se pudo conectar a la voz grupal.', true);
+                }
+            } finally {
+                if (joiningGeneration === roomVoiceJoinGeneration) button.disabled = false;
+            }
+        }
+
         function closeRoomChat() {
+            roomVoiceJoinGeneration += 1;
             document.getElementById('room-chat-modal').classList.add('hidden');
+            if (activeVoiceRoom) {
+                const currentVoiceRoom = activeVoiceRoom;
+                activeVoiceRoom = null;
+                currentVoiceRoom.disconnect().catch(() => {});
+                document.getElementById('room-voice-audio').replaceChildren();
+                resetRoomVoiceControls();
+                setRoomVoiceStatus('Canal de voz desconectado.');
+            }
+            resetRoomVoiceControls();
             if (roomSocket) roomSocket.disconnect();
             roomSocket = null;
             roomSocketJoined = false;

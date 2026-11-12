@@ -16,7 +16,7 @@ async function withServer(run) {
   });
   const address = server.address();
   try {
-    await run('http://127.0.0.1:' + address.port);
+    return await run('http://127.0.0.1:' + address.port);
   } finally {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
@@ -162,6 +162,35 @@ test('creator streaming preferences remain protected by authentication', async (
       body: JSON.stringify({ resolution: '2160p', fps: 60 })
     });
     assert.equal(write.status, 401);
+  });
+});
+
+test('squad voice token endpoint requires membership authentication and fails closed without LiveKit', async () => {
+  const unauthenticated = await withServer(async (baseUrl) => {
+    return fetch(baseUrl + '/api/rooms/507f1f77bcf86cd799439011/voice-token', { method: 'POST' });
+  });
+  assert.equal(unauthenticated.status, 401);
+
+  const jwt = require('jsonwebtoken');
+  const token = jwt.sign({
+    sub: '507f1f77bcf86cd799439012',
+    username: 'voice_player',
+    role: 'user'
+  }, process.env.JWT_SECRET, {
+    algorithm: 'HS256',
+    expiresIn: '5m',
+    issuer: 'playverse-api',
+    audience: 'playverse-clients'
+  });
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/rooms/507f1f77bcf86cd799439011/voice-token', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    const body = await response.json();
+    assert.equal(response.status, 503);
+    assert.equal(body.success, false);
+    assert.equal(body.code, 'ROOM_VOICE_NOT_CONFIGURED');
   });
 });
 
