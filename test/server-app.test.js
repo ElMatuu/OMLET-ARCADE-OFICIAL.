@@ -481,3 +481,17 @@ test('PLAYVERSE Plus redemption rejects unknown plans before database access', a
     assert.equal(body.success, false);
   });
 });
+
+test('recording library and playback endpoints require the authenticated owner', async () => {
+  await withServer(async (baseUrl) => {
+    const requests = [
+      fetch(baseUrl + '/api/me/recordings'),
+      fetch(baseUrl + '/api/me/recordings/507f1f77bcf86cd799439011/playback'),
+      fetch(baseUrl + '/api/me/streams/507f1f77bcf86cd799439011/recording'),
+      fetch(baseUrl + '/api/me/streams/507f1f77bcf86cd799439011/recording/start', { method: 'POST' }),
+      fetch(baseUrl + '/api/me/streams/507f1f77bcf86cd799439011/recording/stop', { method: 'POST' })
+    ];
+    const responses = await Promise.all(requests);
+    assert.deepEqual(responses.map(response => response.status), [401, 401, 401, 401, 401]);
+  });
+});
