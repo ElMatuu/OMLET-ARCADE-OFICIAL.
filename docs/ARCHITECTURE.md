@@ -8,6 +8,8 @@ El proyecto declara contar con autorización del titular para la marca y el prod
 
 ## Current architecture
 
+- **Self-hosted stack:** `docker-compose.yml` can run the API, MongoDB, LiveKit and Caddy under project control. Optional Minecraft Java/Paper and Bedrock instances are isolated behind the `game-servers` profile; they require explicit EULA acceptance and resource review. See [`docs/SELF_HOSTED_SERVERS.md`](SELF_HOSTED_SERVERS.md).
+
 - **API:** Express over HTTPS in deployment, JWT-authenticated endpoints, rate limits and server-side authorization. Liveness and database-readiness probes are available; graceful shutdown marks the instance unready, closes Socket.IO connections and then disconnects MongoDB.
 - **Database:** MongoDB/Mongoose for accounts, friendships, posts, comments, rooms and room messages.
 - **Realtime:** Socket.IO for authenticated room and private chat, with database-backed presence records. The current deployment is a single API instance; multi-instance fan-out requires a shared Socket.IO adapter and coordinated deployment.
