@@ -1,7 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const path = require('node:path');
 const { STORE_CATALOG } = require('../server/data/storeCatalog');
+const indexHtml = fs.readFileSync('index.html', 'utf8');
 
 const serverSource = fs.readFileSync('server/index.js', 'utf8');
 const overlayStart = serverSource.indexOf("app.get('/overlay/:token'");
@@ -31,4 +33,19 @@ test('overlay renders safe chat text, custom watermark and equipped cosmetic wit
   assert.match(browserOverlay, /set\('watermark',data\.stream\.watermark\)/);
   assert.match(browserOverlay, /root\.dataset\.product=p\.equippedOverlay\.id/);
   assert.match(serverSource, /donations: false/);
+});
+
+
+test('browser overlay bundle is served from the installed LiveKit client package', () => {
+  const bundlePath = path.resolve(__dirname, '..', 'node_modules', 'livekit-client', 'dist', 'livekit-client.umd.js');
+  assert.match(serverSource, /app\.get\('\/livekit-client\.umd\.js'/);
+  assert.ok(fs.existsSync(bundlePath), 'LiveKit UMD browser bundle must exist in the installed dependency');
+  assert.match(indexHtml, /id="live-stream-watermark"/);
+  assert.match(indexHtml, /customWatermark/);
+});
+
+test('overlay applies saved position, scale and opacity preferences', () => {
+  assert.match(browserOverlay, /root\.classList\.add\('position-'\+position\)/);
+  assert.match(browserOverlay, /root\.style\.transform='scale\('/);
+  assert.match(browserOverlay, /root\.style\.opacity=String\(/);
 });
