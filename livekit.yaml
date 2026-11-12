@@ -6,6 +6,9 @@ rtc:
   port_range_end: 50100
   use_external_ip: true
 
+redis:
+  address: redis:6379
+
 log_level: info
 
 turn:
