@@ -230,3 +230,38 @@ test('CORS preflight allows authenticated moderator PATCH actions', async () => 
     assert.match(response.headers.get('access-control-allow-methods') || '', /PATCH/);
   });
 });
+
+test('live stream chat history and message creation require authentication', async () => {
+  await withServer(async (baseUrl) => {
+    const streamId = '507f1f77bcf86cd799439011';
+    const history = await fetch(baseUrl + '/api/streams/' + streamId + '/messages');
+    const send = await fetch(baseUrl + '/api/streams/' + streamId + '/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Hola, chat' })
+    });
+    assert.equal(history.status, 401);
+    assert.equal(send.status, 401);
+  });
+});
+
+test('live stream chat rejects malformed stream identifiers before database access', async () => {
+  const jwt = require('jsonwebtoken');
+  const mongoose = require('mongoose');
+  const token = jwt.sign({
+    sub: new mongoose.Types.ObjectId().toString(),
+    username: 'ordinary_player',
+    role: 'user'
+  }, process.env.JWT_SECRET, {
+    algorithm: 'HS256',
+    expiresIn: '5m',
+    issuer: 'playverse-api',
+    audience: 'playverse-clients'
+  });
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/streams/not-an-id/messages', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    assert.equal(response.status, 400);
+  });
+});
