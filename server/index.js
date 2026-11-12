@@ -491,10 +491,12 @@ app.get('/api/streams/:streamId/messages', requireAuth, async (req, res, next) =
     }
     const parsedLimit = Number(req.query.limit);
     const limit = Number.isInteger(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 50;
-    const messages = await LiveStreamMessage.find({ stream: stream._id })
+    const messageFilter = { stream: stream._id };
+    if (String(stream.owner) !== String(req.auth.sub)) messageFilter.externalProvider = { $ne: 'kick' };
+    const messages = await LiveStreamMessage.find(messageFilter)
       .sort({ sentAt: -1, _id: -1 }).limit(limit).lean();
     const pinned = stream.pinnedMessage
-      ? await LiveStreamMessage.findOne({ _id: stream.pinnedMessage, stream: stream._id }).lean()
+      ? await LiveStreamMessage.findOne({ _id: stream.pinnedMessage, stream: stream._id, ...(String(stream.owner) !== String(req.auth.sub) ? { externalProvider: { $ne: 'kick' } } : {}) }).lean()
       : null;
     return res.set('Cache-Control', 'no-store').json({
       success: true,
