@@ -183,7 +183,8 @@ function toPublicConnection(record) {
     provider: record.provider, name: getProvider(record.provider).name,
     connected: record.status === 'connected', status: record.status, username: record.externalUsername,
     scopes: record.scopes || [], expiresAt: record.expiresAt || null, connectedAt: record.connectedAt,
-    chatSyncStatus: record.chatSyncStatus || 'idle', chatSyncLastAt: record.chatSyncLastAt || null, chatSyncError: record.chatSyncError || null
+    chatSyncStatus: record.chatSyncStatus || 'idle', chatSyncLastAt: record.chatSyncLastAt || null, chatSyncError: record.chatSyncError || null,
+    canSend: record.provider === 'twitch' ? (record.scopes || []).includes('user:write:chat') : record.provider === 'kick' ? (record.scopes || []).includes('chat:write') : (record.scopes || []).includes('https://www.googleapis.com/auth/youtube.force-ssl')
   };
 }
 async function getAccessToken(connection, env = process.env) {
