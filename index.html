@@ -6003,3 +6003,14 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 document.getElementById('live-stream-overlay-url').value = '';
                 setLiveStatus('Transmisión finalizada y sala cerrada.');
                 await loadLiveStreams();
+            } catch (error) { document.getElementById('live-player-status').textContent = 'No se pudo cerrar la transmisión en el servidor: ' + error.message; }
+        }
+        function openStreamStudio() {
+            switchTab('live');
+            document.getElementById('live-stream-title').focus();
+            loadLiveStreams();
+        }
+    </script>
+    <script src="/app-update.js" defer></script>
+</body>
+</html>
