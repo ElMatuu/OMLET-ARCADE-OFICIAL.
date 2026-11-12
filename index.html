@@ -5659,13 +5659,14 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         }
 
         async function toggleLiveCamera() {
-            if (!liveKitRoom || activeLiveStreamRole !== 'publisher') return;
+            if (activeLiveStreamRole !== 'publisher') return;
             try {
                 if (nativeScreenShareActive && window.Capacitor?.Plugins?.NativeScreenShare) {
                     const result = await window.Capacitor.Plugins.NativeScreenShare.toggleCamera();
                     document.getElementById('live-player-status').textContent = 'Cámara nativa ' + (result.enabled ? 'activada.' : 'desactivada.');
                     return;
                 }
+                if (!liveKitRoom) return;
                 if (liveCompositeBroadcast) {
                     const enabled = !liveCompositeBroadcast.cameraTrack.mediaStreamTrack.enabled;
                     liveCompositeBroadcast.cameraTrack.mediaStreamTrack.enabled = enabled;
@@ -5711,13 +5712,14 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         }
 
         async function toggleLiveMicrophone() {
-            if (!liveKitRoom || activeLiveStreamRole !== 'publisher') return;
+            if (activeLiveStreamRole !== 'publisher') return;
             try {
                 if (nativeScreenShareActive && window.Capacitor?.Plugins?.NativeScreenShare) {
                     const result = await window.Capacitor.Plugins.NativeScreenShare.toggleMicrophone();
                     document.getElementById('live-player-status').textContent = 'Micrófono nativo ' + (result.enabled ? 'activado.' : 'desactivado.');
                     return;
                 }
+                if (!liveKitRoom) return;
                 await liveKitRoom.localParticipant.setMicrophoneEnabled(!liveKitRoom.localParticipant.isMicrophoneEnabled);
             } catch (error) { document.getElementById('live-player-status').textContent = error.message; }
         }
