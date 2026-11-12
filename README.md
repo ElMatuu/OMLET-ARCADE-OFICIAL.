@@ -31,6 +31,7 @@ This repository contains a working backend foundation and a web client that is s
 
 ### Not yet implemented or verified as production features
 
+- Secure creator RTMP destinations for Twitch, YouTube and Kick: authenticated owner-only management, server-side AES-256-GCM encryption at rest, masked key metadata, explicit credential reveal and deletion. Requires a dedicated `STREAM_KEY_ENCRYPTION_KEY`; it does not claim that a platform account is OAuth-linked or that a broadcast is live.
 - LiveKit server integration foundation: persistent live-session records, authenticated room creation, short-lived publisher/viewer JWTs, owner-only stream termination, a signature-verified `room_finished` webhook and a public live-session directory are implemented. The feature remains disabled until valid LiveKit Cloud/self-host credentials are configured.
 - LiveKit browser client is now bundled locally into the web build. The live screen has authenticated publisher/viewer token flows, camera/microphone controls, screen-share control and remote audio/video track rendering. Windows Electron requests explicit camera/microphone approval and provides a screen/window picker. These flows still require real-browser and physical-device end-to-end testing; they are not yet a verified public streaming service.
 - Camera/screen/audio capture on Android and Windows, including device capability detection and permissions.
@@ -62,7 +63,7 @@ See [`docs/LIVEKIT_SETUP.md`](docs/LIVEKIT_SETUP.md) for the exact environment v
 - `scripts/` — web build and platform asset preparation.
 - `assets/playverse-icon.svg` — original vector application icon.
 
-The API uses MongoDB. LiveKit requires `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` to enable live-session endpoints; API secrets must exist only in backend environment settings. The current backend issues 10-minute role-scoped tokens and never sends the API secret to clients. The web client SDK and camera/screen playback UI are integrated; Android native permissions and device-level verification remain pending. Multi-document operations that need transactions require a MongoDB replica set. Configure a real HTTPS origin, production database, exact CORS allowlist, secrets, backups, monitoring and rate limits before public release.
+Creator RTMP destinations require `STREAM_KEY_ENCRYPTION_KEY`, a dedicated 32-byte hex or base64 key stored only in backend environment settings. Generate one with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`. Changing or losing this key makes previously stored stream keys unreadable; rotate it only with a planned re-encryption migration. The API uses MongoDB. LiveKit requires `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` to enable live-session endpoints; API secrets must exist only in backend environment settings. The current backend issues 10-minute role-scoped tokens and never sends the API secret to clients. The web client SDK and camera/screen playback UI are integrated; Android native permissions and device-level verification remain pending. Multi-document operations that need transactions require a MongoDB replica set. Configure a real HTTPS origin, production database, exact CORS allowlist, secrets, backups, monitoring and rate limits before public release.
 
 ## Development requirements
 
