@@ -3053,6 +3053,50 @@ app.patch('/api/rooms/:roomId/participation-requests/:userId', requireAuth, asyn
   } catch (error) { return next(error); }
 });
 
+app.post('/api/rooms/:roomId/members/:userId/remove', requireAuth, async (req, res, next) => {
+  try {
+    const { roomId, userId } = req.params;
+    if (!mongoose.isValidObjectId(roomId) || !mongoose.isValidObjectId(userId)) {
+      return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    }
+    if (String(userId) === String(req.auth.sub)) {
+      return res.status(400).json({ success: false, message: 'El anfitrión no puede expulsarse a sí mismo.' });
+    }
+    const room = await Room.findOneAndUpdate({
+      _id: roomId, owner: req.auth.sub, status: 'open', members: userId, memberCount: { $gt: 1 }
+    }, {
+      $pull: { members: userId, mutedMembers: { user: userId } }, $inc: { memberCount: -1 }
+    }, { new: true, runValidators: true }).select('name memberCount capacity').lean();
+    if (!room) {
+      const existing = await Room.findById(roomId).select('owner status members').lean();
+      if (!existing) return res.status(404).json({ success: false, message: 'Sala no encontrada.' });
+      if (String(existing.owner) !== String(req.auth.sub)) {
+        return res.status(403).json({ success: false, message: 'Solo el anfitrión puede expulsar participantes.' });
+      }
+      return res.status(409).json({ success: false, message: 'El participante ya no pertenece a la sala o la sala está cerrada.' });
+    }
+    const io = httpServer.io;
+    if (io) {
+      try {
+        const sockets = await io.in(String(roomId)).fetchSockets();
+        await Promise.all(sockets.filter((socket) => socket.data && String(socket.data.userId) === String(userId))
+          .map(async (socket) => {
+            socket.emit('room_member_removed', { roomId: String(roomId), userId: String(userId) });
+            await socket.leave(String(roomId));
+          }));
+        io.to(String(roomId)).emit('room_member_removed', { roomId: String(roomId), userId: String(userId) });
+      } catch (socketError) {
+        console.warn('Unable to remove participant from room sockets:', socketError.message);
+      }
+    }
+    return res.json({ success: true, removedUserId: String(userId), room: {
+      id: String(roomId), name: room.name, memberCount: room.memberCount, capacity: room.capacity
+    } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.post('/api/rooms/:roomId/leave', requireAuth, async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.roomId)) {
