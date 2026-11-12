@@ -21,6 +21,15 @@ const clubSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 }, { versionKey: false });
 
+clubSchema.pre('validate', function validateOwnerMembership(next) {
+  const owners = this.members.filter(member => member.role === 'owner');
+  const ownerIsMember = this.members.some(member => String(member.user) === String(this.owner));
+  if (!ownerIsMember || owners.length !== 1 || String(owners[0].user) !== String(this.owner)) {
+    this.invalidate('owner', 'A club must have exactly one owner who is also a member.');
+  }
+  next();
+});
+
 clubSchema.index({ visibility: 1, status: 1, updatedAt: -1 });
 clubSchema.index({ 'members.user': 1, status: 1 });
 
