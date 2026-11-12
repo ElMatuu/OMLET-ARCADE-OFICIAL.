@@ -70,7 +70,7 @@ The callback exchanges the authorization code, validates the returned account id
 
 After account linking, PLAYVERSE activates external chat ingestion where the provider supports it:
 
-- **Twitch:** signed EventSub webhooks subscribe to `channel.chat.message`, `channel.bits.use`, `channel.subscribe`, `channel.subscription.gift`, `stream.online` and `stream.offline`. The Twitch app authorization requests `user:read:chat`, `user:bot`, `channel:bot`, `bits:read`, `channel:read:subscriptions` and `user:write:chat`. Set `TWITCH_EVENTSUB_SECRET` (10–100 characters) and register the callback `https://YOUR_API_HOST/api/webhooks/twitch`.
+- **Twitch:** signed EventSub webhooks subscribe to `channel.chat.message`, `channel.bits.use`, `channel.subscribe`, `channel.subscription.gift`, `stream.online`, `stream.offline` and `channel.raid`. The Twitch app authorization requests `user:read:chat`, `user:bot`, `channel:bot`, `bits:read`, `channel:read:subscriptions` and `user:write:chat`. Set `TWITCH_EVENTSUB_SECRET` (10–100 characters) and register the callback `https://YOUR_API_HOST/api/webhooks/twitch`.
 - **Kick:** the app subscribes to `chat.message.sent`, follows, subscriptions and livestream start/end events. In Kick Developer settings, enable webhooks and set `https://YOUR_API_HOST/api/webhooks/kick`. Each delivery is verified using Kick's current public key fetched dynamically.
 - **YouTube:** a background worker checks linked channels for an active broadcast and imports Live Chat messages through the official Live Streaming API. Polling is throttled to at least 60 seconds per channel to protect the free API quota.
 
