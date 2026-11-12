@@ -56,7 +56,7 @@ let manifest = fs.readFileSync(manifestPath, 'utf8');
 const application = manifest.match(/<application\b[^>]*>/);
 if (!application) throw new Error('AndroidManifest.xml does not contain an application element.');
 let appTag = application[0];
-for (const [attribute, value] of [['android:icon', '@mipmap/ic_launcher'], ['android:roundIcon', '@mipmap/ic_launcher_round'], ['android:label', 'PLAYVERSE']]) {
+for (const [attribute, value] of [['android:icon', '@mipmap/ic_launcher'], ['android:roundIcon', '@mipmap/ic_launcher_round'], ['android:label', 'Omlet Arcade']]) {
   const pattern = new RegExp('\\s' + attribute + '="[^"]*"');
   if (pattern.test(appTag)) appTag = appTag.replace(pattern, ' ' + attribute + '="' + value + '"');
   else appTag = appTag.slice(0, -1) + ' ' + attribute + '="' + value + '">';
@@ -260,7 +260,7 @@ public class FloatingControlsService extends Service {
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(CHANNEL, "Controles flotantes PLAYVERSE", NotificationManager.IMPORTANCE_LOW);
+            NotificationChannel channel = new NotificationChannel(CHANNEL, "Controles flotantes Omlet Arcade", NotificationManager.IMPORTANCE_LOW);
             channel.setDescription("Mantiene disponibles los controles flotantes mientras jugás.");
             channel.setShowBadge(false);
             ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(channel);
@@ -273,11 +273,11 @@ public class FloatingControlsService extends Service {
             PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             return new Notification.Builder(this, CHANNEL).setSmallIcon(getApplicationInfo().icon)
-                .setContentTitle("PLAYVERSE está listo").setContentText("Controles flotantes activos · Tocá para volver")
+                .setContentTitle("Omlet Arcade está listo").setContentText("Controles flotantes activos · Tocá para volver")
                 .setContentIntent(pending).setOngoing(true).setCategory(Notification.CATEGORY_SERVICE).build();
         }
         return new Notification.Builder(this).setSmallIcon(getApplicationInfo().icon)
-            .setContentTitle("PLAYVERSE está listo").setContentText("Controles flotantes activos")
+            .setContentTitle("Omlet Arcade está listo").setContentText("Controles flotantes activos")
             .setContentIntent(pending).setOngoing(true).build();
     }
 
@@ -333,12 +333,12 @@ public class FloatingControlsService extends Service {
         if (expanded) { hidePanel(); return; }
         LinearLayout box = new LinearLayout(this); box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(dp(8),dp(8),dp(8),dp(8)); box.setBackground(shape(Color.rgb(13,27,52),22));
-        TextView title = label("PLAYVERSE  ·  ARCADE",12,Color.WHITE);
+        TextView title = label("Omlet Arcade  ·  ARCADE",12,Color.WHITE);
         box.addView(title);
-        TextView chat = label("  CHAT  ·  Abrir PLAYVERSE",13,Color.WHITE);
+        TextView chat = label("  CHAT  ·  Abrir Omlet Arcade",13,Color.WHITE);
         chat.setBackground(shape(Color.rgb(30,64,100),14)); box.addView(chat);
         chat.setOnClickListener(v -> launchApp("chat"));
-        TextView live = label("  EN DIRECTO  ·  Abrir PLAYVERSE",13,Color.WHITE);
+        TextView live = label("  EN DIRECTO  ·  Abrir Omlet Arcade",13,Color.WHITE);
         live.setBackground(shape(Color.rgb(153,61,65),14)); box.addView(live);
         live.setOnClickListener(v -> launchApp("live"));
         TextView rooms = label("  SALAS  ·  Multijugador",13,Color.WHITE);
@@ -392,4 +392,4 @@ if (!activity.includes('OverlayPermissionPlugin.class')) {
   fs.writeFileSync(activityPath, activity);
 }
 
-console.log('PLAYVERSE: official icon installed for Android launcher; branded splash and overlay permission bridge configured for Android.');
+console.log('Omlet Arcade: official icon installed for Android launcher; branded splash and overlay permission bridge configured for Android.');
