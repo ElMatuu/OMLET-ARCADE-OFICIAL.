@@ -1739,7 +1739,7 @@ async function loadProfileSummary() {
                 if (panel) panel.classList.toggle('hidden', !canModerate);
                 if (canModerate) loadModerationReports();
             }
-            if (tabName === 'profile') { loadMyProfile(); loadProfileSummary(); loadProfileActivity(true); }
+            if (tabName === 'profile') { loadMyProfile(); loadProfileSummary(); loadProfileActivity(true); loadProfileAchievements(); loadProfilePosts(true); }
             if (tabName === 'shop') loadStore();
             ['feed', 'live', 'chat', 'clubs', 'shop', 'events', 'friends', 'profile', 'notifications'].forEach(t => {
                 const btn = document.getElementById('nav-btn-' + t);
