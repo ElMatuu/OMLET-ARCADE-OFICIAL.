@@ -75,3 +75,13 @@ test('Android sync scripts are part of both add and sync build paths', () => {
   assert.match(packageJson.scripts['android:sync'], /sync-android-hud\.js/);
   assert.match(packageJson.scripts['check:syntax'], /sync-android-hud\.js/);
 });
+
+
+test('Android HUD panel motion resources are generated and used by the native service', () => {
+  assert.match(sync, /playverse_panel_enter/);
+  assert.match(sync, /playverse_panel_exit/);
+  assert.match(sync, /res', 'anim/);
+  assert.match(service, /AnimationUtils\.loadAnimation\(this, R\.anim\.playverse_panel_enter\)/);
+  assert.match(service, /AnimationUtils\.loadAnimation\(this, R\.anim\.playverse_panel_exit\)/);
+  assert.match(service, /removePanelAnimated\(\)/);
+});
