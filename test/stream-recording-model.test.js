@@ -18,7 +18,7 @@ test('stream recording stores private object and egress identifiers and a valid 
     owner: new mongoose.Types.ObjectId(),
     stream: new mongoose.Types.ObjectId(),
     title: 'Gameplay en vivo',
-    objectKey: 'playverse/private/recording.mp4',
+    objectKey: 'playverse/0123456789abcdef01234567/abcdef0123456789abcdef01/1700000000000.mp4',
     egressId: 'EG_test123',
     status: 'active'
   });
