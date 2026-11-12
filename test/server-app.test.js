@@ -275,6 +275,37 @@ test('CORS preflight allows authenticated moderator PATCH actions', async () => 
   });
 });
 
+
+test('live stream co-host management requires authentication', async () => {
+  await withServer(async (baseUrl) => {
+    const streamId = '507f1f77bcf86cd799439011';
+    const list = await fetch(baseUrl + '/api/me/streams/' + streamId + '/moderators');
+    const add = await fetch(baseUrl + '/api/me/streams/' + streamId + '/moderators', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'cohost' })
+    });
+    const remove = await fetch(baseUrl + '/api/me/streams/' + streamId + '/moderators/507f1f77bcf86cd799439012', { method: 'DELETE' });
+    assert.equal(list.status, 401);
+    assert.equal(add.status, 401);
+    assert.equal(remove.status, 401);
+  });
+});
+
+test('live stream co-host management rejects malformed identifiers before database access', async () => {
+  const jwt = require('jsonwebtoken');
+  const mongoose = require('mongoose');
+  const token = jwt.sign({ sub: new mongoose.Types.ObjectId().toString(), username: 'stream_owner', role: 'user' },
+    process.env.JWT_SECRET, { algorithm: 'HS256', expiresIn: '5m', issuer: 'playverse-api', audience: 'playverse-clients' });
+  await withServer(async (baseUrl) => {
+    const headers = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+    const list = await fetch(baseUrl + '/api/me/streams/not-an-id/moderators', { headers });
+    const add = await fetch(baseUrl + '/api/me/streams/not-an-id/moderators', { method: 'POST', headers, body: JSON.stringify({ username: 'cohost' }) });
+    const remove = await fetch(baseUrl + '/api/me/streams/not-an-id/moderators/not-an-id', { method: 'DELETE', headers });
+    assert.equal(list.status, 400);
+    assert.equal(add.status, 400);
+    assert.equal(remove.status, 400);
+  });
+});
+
 test('live stream chat history and message creation require authentication', async () => {
   await withServer(async (baseUrl) => {
     const streamId = '507f1f77bcf86cd799439011';
