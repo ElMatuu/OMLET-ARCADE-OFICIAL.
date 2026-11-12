@@ -1,4 +1,4 @@
-name: PLAYVERSE Windows installer
+name: Omlet Arcade Windows installer
 
 on:
   push:
@@ -40,7 +40,7 @@ jobs:
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
-          name: PLAYVERSE-Windows-installer
+          name: Omlet-Arcade-Windows-installer
           path: release/*.exe
           if-no-files-found: error
           retention-days: 14
