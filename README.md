@@ -49,6 +49,10 @@ This repository contains a working backend foundation and a web client that is s
 
 No million-user capacity or public production readiness is claimed. Those require load tests, production infrastructure, observability, abuse controls and operational support.
 
+## Creator RTMP destinations
+
+See [`docs/CREATOR_STREAM_DESTINATIONS.md`](docs/CREATOR_STREAM_DESTINATIONS.md) for secure Twitch, YouTube and Kick RTMP key storage and app setup. This feature does not yet provide OAuth linking or direct multistream relay.
+
 ## LiveKit Cloud setup
 
 See [`docs/LIVEKIT_SETUP.md`](docs/LIVEKIT_SETUP.md) for the exact environment variables, webhook endpoint, and end-to-end validation sequence. Do not put LiveKit credentials in source control or client-side settings.
