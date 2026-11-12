@@ -9,7 +9,7 @@ test('each catalog game exposes a dedicated detail action and detail metadata', 
   const keys = ['minecraft', 'roblox', 'free fire', 'pubg', 'brawl stars', 'fortnite', 'among us', 'call of duty'];
   for (const key of keys) {
     assert.ok(html.includes("openGameDetail('" + key + "')"), 'missing detail action for ' + key);
-    assert.ok(html.includes(key + ': { name:'), 'missing detail metadata for ' + key);
+    assert.ok(html.includes("'" + key + "': { name:") || html.includes(key + ': { name:'), 'missing detail metadata for ' + key);
   }
   assert.match(html, /id="game-detail-panel"/);
   assert.match(html, /id="game-detail-art"/);
