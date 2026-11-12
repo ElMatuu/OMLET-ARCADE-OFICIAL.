@@ -220,7 +220,7 @@ class NativeScreenSharePlugin : Plugin() {
             } catch (error: Exception) {
                 try { candidate?.disconnect() } catch (_: Exception) {}
                 try { candidate?.release() } catch (_: Exception) {}
-                call.reject("No se pudo iniciar la captura nativa: ${error.message}", error)
+                call.reject("No se pudo iniciar la captura nativa: \${error.message}", error)
             }
         }
     }
@@ -246,7 +246,7 @@ class NativeScreenSharePlugin : Plugin() {
                 nativeRoom = null
             }
             if (stopError != null) {
-                call.reject("La captura se cerró con un aviso de limpieza: ${stopError.message}", stopError)
+                call.reject("La captura se cerró con un aviso de limpieza: \${stopError.message}", stopError)
             } else {
                 val result = JSObject()
                 result.put("active", false)
