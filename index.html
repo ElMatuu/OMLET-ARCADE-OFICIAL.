@@ -4308,8 +4308,8 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             root.style.background = themes[theme] || themes.arcade;
             root.style.flexDirection = layout === 'vertical' ? 'column' : 'row';
             root.style.flexWrap = layout === 'compact' ? 'wrap' : 'nowrap';
-            root.style.justifyContent = position.endsWith('right') ? 'flex-end' : 'flex-start';
-            root.style.alignItems = position.startsWith('top') ? 'flex-start' : 'flex-end';
+            root.style.justifyContent = layout === 'vertical' ? (position.startsWith('top') ? 'flex-start' : 'flex-end') : (position.endsWith('right') ? 'flex-end' : 'flex-start');
+            root.style.alignItems = layout === 'vertical' ? (position.endsWith('right') ? 'flex-end' : 'flex-start') : (position.startsWith('top') ? 'flex-start' : 'flex-end');
             root.style.transform = 'scale(' + (scale / 100) + ')';
             root.style.transformOrigin = position.replace('-', ' ');
             root.style.opacity = String(opacity / 100);
