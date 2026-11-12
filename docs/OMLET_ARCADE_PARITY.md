@@ -107,6 +107,7 @@ Specific defects and gaps:
 - [x] Persist the selected game on live-stream records and return it in live discovery.
 - [x] Add a game choice to the creator flow.
 - [x] Remove the OBS overlay URL from the default mobile creator experience.
+- [ ] Add the recognizable game-artwork registry and per-game detail/feed pages; the first creator-flow batch currently stores and displays the selected game name only.
 - [ ] Replace the current browser-only publisher with native Android gameplay capture and a foreground service.
 - [ ] Implement the real floating HUD and game-specific artwork catalog.
 
