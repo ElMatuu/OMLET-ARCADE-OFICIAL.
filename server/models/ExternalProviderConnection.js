@@ -19,6 +19,7 @@ const externalProviderConnectionSchema = new mongoose.Schema({
   youtubeLiveChatId: { type: String, default: null, select: false },
   youtubePageToken: { type: String, default: null, select: false },
   youtubeNextPollAt: { type: Date, default: null, index: true, select: false },
+  youtubePollLockUntil: { type: Date, default: null, index: true, select: false },
   status: { type: String, enum: ['connected', 'reauthorization_required'], default: 'connected', index: true },
   connectedAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
