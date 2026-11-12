@@ -428,6 +428,34 @@ app.get('/api/public/stream-overlay/:token', overlayReadLimiter, async (req, res
   } catch (error) { return next(error); }
 });
 
+app.post('/api/public/stream-overlay/:token/session', overlayReadLimiter, async (req, res, next) => {
+  try {
+    const token = req.params.token;
+    if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{40,64}$/.test(token)) {
+      return res.status(404).json({ success: false, message: 'Overlay no disponible.' });
+    }
+    const config = getLiveKitConfig();
+    if (!config) return res.status(503).json({ success: false, message: 'El servicio de video no está configurado.' });
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const stream = await LiveStream.findOne({ overlayTokenHash: tokenHash, status: 'live' })
+      .select('_id roomName').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'La transmisión finalizó o el overlay fue revocado.' });
+    const identity = 'overlay:' + String(stream._id) + ':' + crypto.randomUUID();
+    const participantToken = await createParticipantToken({
+      config,
+      identity,
+      name: 'PLAYVERSE Overlay',
+      metadata: { role: 'overlay', streamId: String(stream._id) },
+      roomName: stream.roomName,
+      canPublish: false
+    });
+    return res.set('Cache-Control', 'no-store').json({
+      success: true,
+      liveKit: { url: config.clientUrl, token: participantToken, expiresInSeconds: 600 }
+    });
+  } catch (error) { return next(error); }
+});
+
 app.get('/overlay/:token', (req, res) => {
   const token = req.params.token;
   if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{40,64}$/.test(token)) {
