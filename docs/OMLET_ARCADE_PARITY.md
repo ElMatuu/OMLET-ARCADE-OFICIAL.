@@ -107,7 +107,11 @@ Specific defects and gaps:
 - [x] Persist the selected game on live-stream records and return it in live discovery.
 - [x] Add a game choice to the creator flow.
 - [x] Remove the OBS overlay URL from the default mobile creator experience.
-- [ ] Add the recognizable game-artwork registry and per-game detail/feed pages; the first creator-flow batch currently stores and displays the selected game name only.
+- [x] Add an initial eight-game catalog, local vector artwork, search, live filters and game-to-stream shortcuts. These first illustrations are not the official game publisher logos; the catalog still needs the approved game art package and full game detail/feed pages.
+- [x] Replace the generic home hero with a live-session carousel and game shortcuts backed by the stream API.
+- [x] Refine private chat with participant avatar header and distinct incoming/outgoing message bubbles.
+- [x] Add optional self-hosted Minecraft Java/Paper and Bedrock server templates behind the explicit `game-servers` profile and EULA gate.
+- [ ] Replace the temporary Omlet Arcade icon adaptation with the rights holder's official brand package before public distribution.
 - [ ] Replace the current browser-only publisher with native Android gameplay capture and a foreground service.
 - [ ] Implement the real floating HUD and game-specific artwork catalog.
 
