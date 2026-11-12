@@ -1232,6 +1232,31 @@ app.put('/api/me/inventory/:itemId/equip', requireAuth, storeLimiter, async (req
   }
 });
 
+app.delete('/api/me/inventory/:category/equip', requireAuth, storeLimiter, async (req, res, next) => {
+  const category = req.params.category;
+  if (!['avatar-frame', 'stream-overlay'].includes(category)) {
+    return res.status(400).json({ success: false, message: 'La categoría no admite equipamiento.' });
+  }
+  const field = category === 'avatar-frame' ? 'activeAvatarFrame' : 'activeStreamOverlay';
+  const itemIds = STORE_CATALOG.filter((item) => item.category === category).map((item) => item.id);
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      await Inventory.updateMany(
+        { user: req.auth.sub, itemId: { $in: itemIds } },
+        { $set: { equipped: false } },
+        { session }
+      );
+      await User.updateOne({ _id: req.auth.sub }, { $set: { [field]: null } }, { session });
+    });
+    return res.json({ success: true, equipped: null, category });
+  } catch (error) {
+    return next(error);
+  } finally {
+    await session.endSession();
+  }
+});
+
 app.get('/api/me/followers', requireAuth, async (req, res, next) => {
   try {
     const records = await Follow.find({ following: req.auth.sub })
