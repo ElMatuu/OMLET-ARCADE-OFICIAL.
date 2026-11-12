@@ -808,7 +808,7 @@ app.delete('/api/me/streams/:streamId', requireAuth, streamLimiter, async (req, 
   });
   try {
     if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
-    const session = await LiveStream.findOne({ _id: req.params.streamId, owner: req.auth.sub, status: 'live' });
+    const session = await LiveStream.findOne({ _id: req.params.streamId, owner: req.auth.sub, status: 'live' }).select('+recordingEgressId');
     if (!session) return res.status(404).json({ success: false, message: 'No se encontró una transmisión activa propia.' });
     const liveKit = createLiveKitApi(config);
     if (session.recordingEgressId && ['starting', 'active', 'stopping'].includes(session.recordingStatus)) {
