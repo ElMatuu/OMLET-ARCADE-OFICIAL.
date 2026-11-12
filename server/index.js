@@ -3262,16 +3262,34 @@ app.get('/api/rooms/:roomId/participation-requests', requireAuth, async (req, re
 app.post('/api/rooms/:roomId/participation-requests', requireAuth, async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.roomId)) return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
-    const room = await Room.findOneAndUpdate({
+    const requestTime = new Date();
+    let room = await Room.findOneAndUpdate({
       _id: req.params.roomId,
       visibility: 'public',
       status: 'open',
       owner: { $ne: req.auth.sub },
       members: { $ne: req.auth.sub },
-      'joinRequests.user': { $ne: req.auth.sub }
+      joinRequests: { $elemMatch: { user: req.auth.sub, status: 'declined' } }
     }, {
-      $push: { joinRequests: { user: req.auth.sub, username: req.auth.username, status: 'pending', requestedAt: new Date() } }
+      $set: {
+        'joinRequests.$.username': req.auth.username,
+        'joinRequests.$.status': 'pending',
+        'joinRequests.$.requestedAt': requestTime,
+        'joinRequests.$.respondedAt': null
+      }
     }, { new: true }).select('name owner ownerUsername').lean();
+    if (!room) {
+      room = await Room.findOneAndUpdate({
+        _id: req.params.roomId,
+        visibility: 'public',
+        status: 'open',
+        owner: { $ne: req.auth.sub },
+        members: { $ne: req.auth.sub },
+        'joinRequests.user': { $ne: req.auth.sub }
+      }, {
+        $push: { joinRequests: { user: req.auth.sub, username: req.auth.username, status: 'pending', requestedAt: requestTime } }
+      }, { new: true }).select('name owner ownerUsername').lean();
+    }
     if (!room) {
       const existing = await Room.findById(req.params.roomId).select('owner members joinRequests status').lean();
       if (!existing) return res.status(404).json({ success: false, message: 'Sala no encontrada.' });
