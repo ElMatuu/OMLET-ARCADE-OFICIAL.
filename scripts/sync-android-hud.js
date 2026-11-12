@@ -34,10 +34,12 @@ const pluginPackage = appPackage + '.plugins';
 const pluginDirectory = path.join(path.dirname(activityPath), 'plugins');
 fs.mkdirSync(pluginDirectory, { recursive: true });
 
-for (const file of ['ArcadeHudPlugin.java', 'ArcadeHudService.java']) {
+for (const file of ['ArcadeHudPlugin.java', 'ArcadeHudService.java', 'NativeScreenSharePlugin.kt']) {
   const sourcePath = path.join(sourceRoot, file);
   if (!fs.existsSync(sourcePath)) throw new Error('Missing native HUD source: ' + sourcePath);
-  const source = fs.readFileSync(sourcePath, 'utf8').replace(/^package\s+[\w.]+;/m, 'package ' + pluginPackage + ';');
+  const sourceText = fs.readFileSync(sourcePath, 'utf8');
+  const packageDeclaration = file.endsWith('.kt') ? 'package ' + pluginPackage : 'package ' + pluginPackage + ';';
+  const source = sourceText.replace(/^package\s+[\w.]+;?/m, packageDeclaration);
   fs.writeFileSync(path.join(pluginDirectory, file), source);
 }
 
@@ -84,7 +86,8 @@ fs.writeFileSync(manifestPath, manifest);
 
 const imports = [
   'import ' + pluginPackage + '.ArcadeHudPlugin;',
-  'import ' + pluginPackage + '.ArcadeHudService;'
+  'import ' + pluginPackage + '.ArcadeHudService;',
+  'import ' + pluginPackage + '.NativeScreenSharePlugin;'
 ];
 for (const importLine of imports) {
   if (!activity.includes(importLine)) {
@@ -98,7 +101,8 @@ for (const importLine of imports) {
   }
 }
 const registrations = [
-  'registerPlugin(ArcadeHudPlugin.class);'
+  'registerPlugin(ArcadeHudPlugin.class);',
+  'registerPlugin(NativeScreenSharePlugin.class);'
 ];
 for (const registration of registrations) {
   if (activity.includes(registration)) continue;
@@ -115,4 +119,42 @@ for (const registration of registrations) {
 }
 fs.writeFileSync(activityPath, activity);
 
-console.log('PLAYVERSE Android HUD sources copied, plugin registered, and foreground-service permissions declared.');
+// Install the native LiveKit Android SDK used by the MediaProjection companion publisher.
+const rootGradlePath = path.join(root, 'android', 'build.gradle');
+if (!fs.existsSync(rootGradlePath)) throw new Error('Android root build.gradle not found.');
+let rootGradle = fs.readFileSync(rootGradlePath, 'utf8');
+if (!rootGradle.includes('kotlin-gradle-plugin')) {
+  if (!/dependencies\s*\{/.test(rootGradle)) throw new Error('Cannot locate root Gradle dependencies block.');
+  rootGradle = rootGradle.replace(/dependencies\s*\{/, match => match + '\n        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21"');
+}
+const settingsGradlePath = path.join(root, 'android', 'settings.gradle');
+if (!fs.existsSync(settingsGradlePath)) throw new Error('Android settings.gradle not found.');
+let settingsGradle = fs.readFileSync(settingsGradlePath, 'utf8');
+if (!settingsGradle.includes('jitpack.io')) {
+  const managedRepositories = /dependencyResolutionManagement\s*\{[\s\S]*?repositories\s*\{/;
+  if (managedRepositories.test(settingsGradle)) {
+    settingsGradle = settingsGradle.replace(managedRepositories, match => match + '\n        maven { url "https://jitpack.io" }');
+  } else {
+    const projectRepositories = /allprojects\s*\{\s*repositories\s*\{/;
+    if (!projectRepositories.test(rootGradle)) throw new Error('Cannot locate Android dependency repositories for JitPack.');
+    rootGradle = rootGradle.replace(projectRepositories, match => match + '\n        maven { url "https://jitpack.io" }');
+  }
+  fs.writeFileSync(settingsGradlePath, settingsGradle);
+}
+fs.writeFileSync(rootGradlePath, rootGradle);
+
+const appGradlePath = path.join(root, 'android', 'app', 'build.gradle');
+if (!fs.existsSync(appGradlePath)) throw new Error('Android app build.gradle not found.');
+let appGradle = fs.readFileSync(appGradlePath, 'utf8');
+if (!appGradle.includes("apply plugin: 'kotlin-android'")) {
+  appGradle = appGradle.replace("apply plugin: 'com.android.application'", "apply plugin: 'com.android.application'\napply plugin: 'kotlin-android'");
+}
+if (!appGradle.includes('io.livekit:livekit-android')) {
+  appGradle = appGradle.replace(/dependencies\s*\{/, match => match + '\n    implementation "io.livekit:livekit-android:2.30.0"');
+}
+if (!appGradle.includes('KotlinCompile).configureEach')) {
+  appGradle += '\ntasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { kotlinOptions { jvmTarget = "17" } }\n';
+}
+fs.writeFileSync(appGradlePath, appGradle);
+
+console.log('PLAYVERSE Android HUD and native MediaProjection sources copied, plugins registered, and Gradle dependencies synchronized.');

@@ -5343,6 +5343,9 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         }
         function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
         let liveKitRoom = null;
+        let nativeScreenShareActive = false;
+        let nativeScreenShareStreamId = null;
+        let nativeScreenShareGeneration = 0;
         let activeLiveStream = null;
         let activeLiveStreamRole = null;
         let liveKitConnectionGeneration = 0;
@@ -6230,14 +6233,67 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
 
         async function toggleLiveScreenShare() {
             if (!liveKitRoom || activeLiveStreamRole !== 'publisher') return;
+            const status = document.getElementById('live-player-status');
+            const platform = window.Capacitor?.getPlatform?.();
+            if (platform === 'android') {
+                const plugin = window.Capacitor?.Plugins?.NativeScreenShare;
+                if (!plugin) {
+                    status.textContent = 'La captura nativa no está instalada en esta compilación Android. Actualizá la aplicación.';
+                    return;
+                }
+                if (nativeScreenShareActive) {
+                    try {
+                        await plugin.stop();
+                        nativeScreenShareActive = false;
+                        nativeScreenShareStreamId = null;
+                        status.textContent = 'Compartir pantalla detenido. Tu transmisión principal sigue conectada.';
+                    } catch (error) {
+                        status.textContent = 'No se pudo detener la captura nativa: ' + error.message;
+                    }
+                    return;
+                }
+                const streamId = activeLiveStream?.id;
+                if (!streamId) {
+                    status.textContent = 'No se encontró la transmisión activa para compartir pantalla.';
+                    return;
+                }
+                const generation = ++nativeScreenShareGeneration;
+                status.textContent = 'Solicitando permiso de captura de pantalla a Android…';
+                try {
+                    const data = await apiRequest('/api/streams/' + encodeURIComponent(streamId) + '/screen-share-token', { method: 'POST' });
+                    if (generation !== nativeScreenShareGeneration || liveKitRoom == null || activeLiveStream?.id !== streamId) return;
+                    await plugin.start({ url: data.liveKit.url, token: data.liveKit.token });
+                    if (generation !== nativeScreenShareGeneration || liveKitRoom == null || activeLiveStream?.id !== streamId) {
+                        try { await plugin.stop(); } catch {}
+                        return;
+                    }
+                    nativeScreenShareActive = true;
+                    nativeScreenShareStreamId = streamId;
+                    status.textContent = 'Pantalla publicada en la transmisión. La conexión principal permanece activa.';
+                } catch (error) {
+                    status.textContent = 'No se pudo iniciar la captura nativa: ' + (error.message || 'error desconocido');
+                }
+                return;
+            }
             try {
                 await liveKitRoom.localParticipant.setScreenShareEnabled(!liveKitRoom.localParticipant.isScreenShareEnabled);
-                document.getElementById('live-player-status').textContent = 'Estado de compartir pantalla actualizado.';
-            } catch (error) { document.getElementById('live-player-status').textContent = 'No se pudo compartir la pantalla: ' + error.message; }
+                status.textContent = 'Estado de compartir pantalla actualizado.';
+            } catch (error) { status.textContent = 'No se pudo compartir la pantalla: ' + error.message; }
         }
 
         async function closeLivePlayer() {
             liveKitConnectionGeneration += 1;
+            nativeScreenShareGeneration += 1;
+            if (nativeScreenShareActive) {
+                const nativePlugin = window.Capacitor?.Plugins?.NativeScreenShare;
+                try { await nativePlugin?.stop(); } catch (error) {
+                    const status = document.getElementById('live-player-status');
+                    if (status) status.textContent = 'La captura nativa no pudo detenerse limpiamente: ' + error.message;
+                } finally {
+                    nativeScreenShareActive = false;
+                    nativeScreenShareStreamId = null;
+                }
+            }
             const room = liveKitRoom;
             liveKitRoom = null;
             activeLiveStream = null;

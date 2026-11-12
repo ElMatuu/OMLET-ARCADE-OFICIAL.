@@ -5,6 +5,7 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
 const plugin = fs.readFileSync(path.join(root, 'native/android/ArcadeHudPlugin.java'), 'utf8');
+const screenSharePlugin = fs.readFileSync(path.join(root, 'native/android/NativeScreenSharePlugin.kt'), 'utf8');
 const service = fs.readFileSync(path.join(root, 'native/android/ArcadeHudService.java'), 'utf8');
 const sync = fs.readFileSync(path.join(root, 'scripts/sync-android-hud.js'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
@@ -38,6 +39,12 @@ test('floating HUD is draggable and dispatches only app navigation actions', () 
 
 test('Android sync is idempotent and registers the plugin and foreground service', () => {
   assert.match(sync, /registerPlugin\(ArcadeHudPlugin\.class\)/);
+  assert.match(sync, /registerPlugin\(NativeScreenSharePlugin\.class\)/);
+  assert.match(sync, /livekit-android:2\.30\.0/);
+  assert.match(screenSharePlugin, /MediaProjectionManager/);
+  assert.match(screenSharePlugin, /startActivityForResult/);
+  assert.match(screenSharePlugin, /setScreenShareEnabled\(true, ScreenCaptureParams/);
+  assert.match(screenSharePlugin, /ACTION_CAPTURE_STOP/);
   assert.match(sync, /SYSTEM_ALERT_WINDOW/);
   assert.match(sync, /FOREGROUND_SERVICE_SPECIAL_USE/);
   assert.match(sync, /FOREGROUND_SERVICE_MEDIA_PROJECTION/);
