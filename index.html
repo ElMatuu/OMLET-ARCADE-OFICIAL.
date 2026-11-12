@@ -2592,6 +2592,7 @@
         }
 
         let roomCanModerate = false;
+        let roomIsOwner = false;
 
         function renderPinnedRoomMessage(message) {
             const banner = document.getElementById('room-chat-pinned');
@@ -2612,6 +2613,18 @@
                 banner.appendChild(unpin);
             }
             banner.classList.remove('hidden');
+        }
+
+        async function setRoomModerator(userId, promote) {
+            if (!activeRoomId || !roomIsOwner || !userId) return;
+            try {
+                const method = promote ? 'PUT' : 'DELETE';
+                await apiRequest('/api/rooms/' + encodeURIComponent(activeRoomId) + '/moderators/' + encodeURIComponent(userId), { method });
+                document.getElementById('room-chat-status').textContent = promote ? 'Coanfitrión agregado.' : 'Permisos de coanfitrión retirados.';
+                await loadRoomMessages(activeRoomId);
+            } catch (error) {
+                document.getElementById('room-chat-status').textContent = error.message;
+            }
         }
 
         async function removeRoomMember(userId) {
@@ -2662,6 +2675,20 @@
             body.className = 'text-sm text-slate-100 whitespace-pre-wrap break-words';
             body.textContent = String(message.message || '');
             item.append(heading, body);
+            if (roomIsOwner && message.authorId && String(message.authorId) !== String(appState.profile && appState.profile.id)) {
+                const cohost = document.createElement('button');
+                cohost.type = 'button';
+                cohost.className = 'mt-2 mr-3 text-[11px] font-bold text-cyan-300 underline';
+                cohost.textContent = 'Dar coanfitrión';
+                cohost.addEventListener('click', () => setRoomModerator(String(message.authorId), true));
+                item.appendChild(cohost);
+                const revoke = document.createElement('button');
+                revoke.type = 'button';
+                revoke.className = 'mt-2 mr-3 text-[11px] font-bold text-slate-400 underline';
+                revoke.textContent = 'Quitar coanfitrión';
+                revoke.addEventListener('click', () => setRoomModerator(String(message.authorId), false));
+                item.appendChild(revoke);
+            }
             if (roomCanModerate && message.authorId) {
                 const mute = document.createElement('button');
                 mute.type = 'button';
@@ -2693,6 +2720,7 @@
             container.replaceChildren();
             const data = await apiRequest('/api/rooms/' + encodeURIComponent(roomId) + '/messages');
             roomCanModerate = Boolean(data.canModerate);
+            roomIsOwner = Boolean(data.isOwner);
             renderPinnedRoomMessage(data.pinnedMessage);
             data.messages.forEach(appendRoomMessage);
         }

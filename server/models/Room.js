@@ -30,6 +30,7 @@ const roomSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  moderators: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   pinnedMessage: { type: mongoose.Schema.Types.ObjectId, ref: 'RoomMessage', default: null },
   pinnedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   pinnedAt: { type: Date, default: null },

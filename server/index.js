@@ -2883,7 +2883,7 @@ app.get('/api/rooms/:roomId/messages', requireAuth, async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
     }
     const room = await Room.findOne({ _id: req.params.roomId, members: req.auth.sub })
-      .select('owner pinnedMessage pinnedBy pinnedAt mutedMembers').lean();
+      .select('owner moderators pinnedMessage pinnedBy pinnedAt mutedMembers').lean();
     if (!room) return res.status(403).json({ success: false, message: 'No pertenecés a esta sala.' });
     const [messages, pinned] = await Promise.all([
       RoomMessage.find({ room: req.params.roomId }).sort({ sentAt: -1, _id: -1 }).limit(50).lean(),
@@ -2891,7 +2891,8 @@ app.get('/api/rooms/:roomId/messages', requireAuth, async (req, res, next) => {
     ]);
     return res.json({
       success: true,
-      canModerate: String(room.owner) === String(req.auth.sub),
+      canModerate: String(room.owner) === String(req.auth.sub) || (room.moderators || []).some((id) => String(id) === String(req.auth.sub)),
+      isOwner: String(room.owner) === String(req.auth.sub),
       pinnedMessage: pinned ? {
         id: String(pinned._id), username: pinned.username, message: pinned.message,
         sentAt: pinned.sentAt, pinnedBy: room.pinnedBy ? String(room.pinnedBy) : null, pinnedAt: room.pinnedAt
@@ -3053,6 +3054,43 @@ app.patch('/api/rooms/:roomId/participation-requests/:userId', requireAuth, asyn
   } catch (error) { return next(error); }
 });
 
+app.put('/api/rooms/:roomId/moderators/:userId', requireAuth, async (req, res, next) => {
+  try {
+    const { roomId, userId } = req.params;
+    if (!mongoose.isValidObjectId(roomId) || !mongoose.isValidObjectId(userId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    if (String(userId) === String(req.auth.sub)) return res.status(400).json({ success: false, message: 'El anfitrión ya tiene todos los permisos.' });
+    const room = await Room.findOneAndUpdate({
+      _id: roomId, owner: req.auth.sub, status: 'open', members: userId, moderators: { $ne: userId }
+    }, { $addToSet: { moderators: userId } }, { new: true }).select('moderators').lean();
+    if (!room) {
+      const existing = await Room.findById(roomId).select('owner members moderators status').lean();
+      if (!existing) return res.status(404).json({ success: false, message: 'Sala no encontrada.' });
+      if (String(existing.owner) !== String(req.auth.sub)) return res.status(403).json({ success: false, message: 'Solo el anfitrión puede administrar coanfitriones.' });
+      if (existing.status !== 'open' || !existing.members.some((id) => String(id) === String(userId))) return res.status(409).json({ success: false, message: 'El usuario debe pertenecer a una sala abierta.' });
+      return res.json({ success: true, alreadyModerator: true });
+    }
+    const io = httpServer.io;
+    if (io) io.to(String(roomId)).emit('room_moderator_updated', { roomId, userId: String(userId), moderator: true });
+    return res.json({ success: true, moderatorUserId: String(userId) });
+  } catch (error) { return next(error); }
+});
+
+app.delete('/api/rooms/:roomId/moderators/:userId', requireAuth, async (req, res, next) => {
+  try {
+    const { roomId, userId } = req.params;
+    if (!mongoose.isValidObjectId(roomId) || !mongoose.isValidObjectId(userId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    const room = await Room.findOneAndUpdate({ _id: roomId, owner: req.auth.sub, status: 'open' },
+      { $pull: { moderators: userId } }, { new: true }).select('_id').lean();
+    if (!room) {
+      const existing = await Room.findById(roomId).select('owner').lean();
+      return res.status(existing ? 403 : 404).json({ success: false, message: existing ? 'Solo el anfitrión puede quitar coanfitriones.' : 'Sala no encontrada.' });
+    }
+    const io = httpServer.io;
+    if (io) io.to(String(roomId)).emit('room_moderator_updated', { roomId, userId: String(userId), moderator: false });
+    return res.json({ success: true, removedModeratorUserId: String(userId) });
+  } catch (error) { return next(error); }
+});
+
 app.post('/api/rooms/:roomId/members/:userId/remove', requireAuth, async (req, res, next) => {
   try {
     const { roomId, userId } = req.params;
@@ -3063,15 +3101,15 @@ app.post('/api/rooms/:roomId/members/:userId/remove', requireAuth, async (req, r
       return res.status(400).json({ success: false, message: 'El anfitrión no puede expulsarse a sí mismo.' });
     }
     const room = await Room.findOneAndUpdate({
-      _id: roomId, owner: req.auth.sub, status: 'open', members: userId, memberCount: { $gt: 1 }
+      _id: roomId, $or: [{ owner: req.auth.sub }, { moderators: req.auth.sub }], status: 'open', members: userId, memberCount: { $gt: 1 }
     }, {
-      $pull: { members: userId, mutedMembers: { user: userId } }, $inc: { memberCount: -1 }
+      $pull: { members: userId, moderators: userId, mutedMembers: { user: userId } }, $inc: { memberCount: -1 }
     }, { new: true, runValidators: true }).select('name memberCount capacity').lean();
     if (!room) {
-      const existing = await Room.findById(roomId).select('owner status members').lean();
+      const existing = await Room.findById(roomId).select('owner status members moderators').lean();
       if (!existing) return res.status(404).json({ success: false, message: 'Sala no encontrada.' });
-      if (String(existing.owner) !== String(req.auth.sub)) {
-        return res.status(403).json({ success: false, message: 'Solo el anfitrión puede expulsar participantes.' });
+      if (String(existing.owner) !== String(req.auth.sub) && !(existing.moderators || []).some((id) => String(id) === String(req.auth.sub))) {
+        return res.status(403).json({ success: false, message: 'No tenés permisos para expulsar participantes.' });
       }
       return res.status(409).json({ success: false, message: 'El participante ya no pertenece a la sala o la sala está cerrada.' });
     }
@@ -3110,7 +3148,7 @@ app.post('/api/rooms/:roomId/leave', requireAuth, async (req, res, next) => {
         owner: { $ne: req.auth.sub },
         memberCount: { $gt: 1 }
       },
-      { $pull: { members: req.auth.sub }, $inc: { memberCount: -1 } },
+      { $pull: { members: req.auth.sub, moderators: req.auth.sub }, $inc: { memberCount: -1 } },
       { new: true, runValidators: true }
     ).select('name memberCount capacity').lean();
     if (!room) {

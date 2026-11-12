@@ -296,12 +296,12 @@ function attachSocketServer(httpServer, allowedOrigins) {
         return acknowledge({ success: false, message: 'Sala o mensaje inválidos.' });
       }
       try {
-        const room = await Room.findOne({ _id: roomId, owner: socket.user.sub, members: socket.user.sub, status: 'open' }).select('_id').lean();
+        const room = await Room.findOne({ _id: roomId, $or: [{ owner: socket.user.sub }, { moderators: socket.user.sub }], members: socket.user.sub, status: 'open' }).select('_id').lean();
         if (!room) return acknowledge({ success: false, message: 'Solo el anfitrión puede fijar mensajes.' });
         const target = await RoomMessage.findOne({ _id: messageId, room: roomId }).lean();
         if (!target) return acknowledge({ success: false, message: 'El mensaje ya no existe en esta sala.' });
         const pinnedAt = new Date();
-        await Room.updateOne({ _id: roomId, owner: socket.user.sub, status: 'open' },
+        await Room.updateOne({ _id: roomId, $or: [{ owner: socket.user.sub }, { moderators: socket.user.sub }], status: 'open' },
           { $set: { pinnedMessage: target._id, pinnedBy: socket.user.sub, pinnedAt } });
         const pinnedMessage = { id: String(target._id), username: target.username, message: target.message,
           sentAt: target.sentAt, pinnedBy: String(socket.user.sub), pinnedAt };
@@ -319,7 +319,7 @@ function attachSocketServer(httpServer, allowedOrigins) {
       }
       try {
         const room = await Room.findOneAndUpdate(
-          { _id: roomId, owner: socket.user.sub, members: socket.user.sub, status: 'open' },
+          { _id: roomId, $or: [{ owner: socket.user.sub }, { moderators: socket.user.sub }], members: socket.user.sub, status: 'open' },
           { $set: { pinnedMessage: null, pinnedBy: null, pinnedAt: null } }, { new: true }
         ).select('_id').lean();
         if (!room) return acknowledge({ success: false, message: 'Solo el anfitrión puede quitar el mensaje fijado.' });
@@ -338,11 +338,11 @@ function attachSocketServer(httpServer, allowedOrigins) {
           !socket.rooms.has(roomId)) return acknowledge({ success: false, message: 'Sala o participante inválidos.' });
       if (targetUserId === String(socket.user.sub)) return acknowledge({ success: false, message: 'No podés silenciarte a vos mismo.' });
       try {
-        const room = await Room.findOne({ _id: roomId, owner: socket.user.sub, members: targetUserId, status: 'open' }).select('_id').lean();
+        const room = await Room.findOne({ _id: roomId, $or: [{ owner: socket.user.sub }, { moderators: socket.user.sub }], members: targetUserId, status: 'open' }).select('_id').lean();
         if (!room) return acknowledge({ success: false, message: 'Solo el anfitrión puede silenciar participantes.' });
         const mutedUntil = new Date(Date.now() + 15 * 60 * 1000);
-        await Room.updateOne({ _id: roomId, owner: socket.user.sub }, { $pull: { mutedMembers: { user: targetUserId } } });
-        await Room.updateOne({ _id: roomId, owner: socket.user.sub }, { $push: { mutedMembers: { user: targetUserId, mutedBy: socket.user.sub, mutedUntil } } });
+        await Room.updateOne({ _id: roomId, $or: [{ owner: socket.user.sub }, { moderators: socket.user.sub }] }, { $pull: { mutedMembers: { user: targetUserId } } });
+        await Room.updateOne({ _id: roomId, $or: [{ owner: socket.user.sub }, { moderators: socket.user.sub }] }, { $push: { mutedMembers: { user: targetUserId, mutedBy: socket.user.sub, mutedUntil } } });
         io.to(roomId).emit('room_member_muted', { roomId, userId: targetUserId, mutedUntil });
         return acknowledge({ success: true, userId: targetUserId, mutedUntil });
       } catch {
@@ -357,9 +357,9 @@ function attachSocketServer(httpServer, allowedOrigins) {
           typeof targetUserId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(targetUserId) ||
           !socket.rooms.has(roomId)) return acknowledge({ success: false, message: 'Sala o participante inválidos.' });
       try {
-        const room = await Room.findOne({ _id: roomId, owner: socket.user.sub, status: 'open' }).select('_id').lean();
-        if (!room) return acknowledge({ success: false, message: 'Solo el anfitrión puede quitar silencios.' });
-        await Room.updateOne({ _id: roomId, owner: socket.user.sub }, { $pull: { mutedMembers: { user: targetUserId } } });
+        const room = await Room.findOne({ _id: roomId, $or: [{ owner: socket.user.sub }, { moderators: socket.user.sub }], members: socket.user.sub, status: 'open' }).select('_id').lean();
+        if (!room) return acknowledge({ success: false, message: 'No tenés permisos para quitar silencios.' });
+        await Room.updateOne({ _id: roomId, $or: [{ owner: socket.user.sub }, { moderators: socket.user.sub }] }, { $pull: { mutedMembers: { user: targetUserId } } });
         io.to(roomId).emit('room_member_unmuted', { roomId, userId: targetUserId });
         return acknowledge({ success: true, userId: targetUserId });
       } catch {
