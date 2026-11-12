@@ -32,6 +32,13 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /if \(pendingFloatingAction\)[\s\S]{0,180}switchTab\(action\)/, 'Queued floating navigation must run after successful sign-in');
 
   assert.match(html, /livekit-client\.umd\.js/, 'The bundled LiveKit browser SDK must be loaded locally');
+  assert.match(html, /liveKitConnectionGeneration/, 'Live sessions must invalidate stale asynchronous connection attempts');
+  assert.match(html, /generation !== liveKitConnectionGeneration/, 'A late LiveKit connection must not replace a newer session');
+  assert.match(html, /if \(liveKitRoom !== room\) return/, 'Events from disconnected LiveKit rooms must not overwrite the active player');
+  assert.match(html, /const connected = await connectLiveKitSession/, 'Stream creation and viewing must handle cancelled connections');
+  assert.match(html, /startedConnectionGeneration !== null/, 'A failed stream start may close only the connection it created');
+  assert.match(html, /liveKitConnectionGeneration \+= 1/, 'Closing the player must invalidate pending LiveKit connections');
+  assert.match(html, /playback\.catch\(/, 'Blocked remote audio autoplay must expose the manual audio-enable control');
   assert.match(html, /function connectLiveKitSession\(/, 'The live UI must connect to authenticated LiveKit sessions');
   assert.match(html, /function startLiveStream\(/, 'Creators must be able to start a real stream from the UI');
   assert.match(html, /id="stream-overlay-theme"/, 'Creators must be able to choose a stream overlay theme');
