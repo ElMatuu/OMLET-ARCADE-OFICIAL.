@@ -319,7 +319,7 @@ function attachSocketServer(httpServer, allowedOrigins) {
       }
       try {
         const room = await Room.findOneAndUpdate(
-          { _id: roomId, owner: socket.user.sub, members: socket.user.sub, status: 'open' },
+          { _id: roomId, $or: [{ owner: socket.user.sub }, { moderators: socket.user.sub }], members: socket.user.sub, status: 'open' },
           { $set: { pinnedMessage: null, pinnedBy: null, pinnedAt: null } }, { new: true }
         ).select('_id').lean();
         if (!room) return acknowledge({ success: false, message: 'Solo el anfitrión puede quitar el mensaje fijado.' });
