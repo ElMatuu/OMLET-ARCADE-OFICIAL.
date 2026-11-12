@@ -205,15 +205,24 @@
         <!-- DRAWER LATERAL -->
         <div id="drawer-backdrop" onclick="toggleDrawer(false)" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden"></div>
         <div id="drawer-panel" class="fixed inset-y-0 left-0 w-80 bg-slate-900 border-r border-slate-800 z-50 flex flex-col transform -translate-x-full transition-transform duration-300 will-change-transform shadow-2xl">
-            <div class="p-5 border-b border-slate-800 flex items-center justify-between PLAYVERSE-gradient">
-                <div class="flex items-center space-x-3">
-                    <div class="w-12 h-12 rounded-full bg-slate-950 border-2 border-white/40 flex items-center justify-center text-2xl shadow-lg">🎮</div>
-                    <div>
-                        <h4 id="drawer-username" class="font-bold text-sm text-white">Wachin Gamer</h4>
-                        <span id="drawer-profile-subtitle" class="text-[10px] text-orange-200 font-mono font-bold">Comunidad gamer</span>
+            <div class="relative border-b border-slate-700/70 p-3">
+                <button type="button" onclick="openDrawerProfile()" class="group relative block w-full overflow-hidden rounded-2xl border border-slate-600/70 bg-slate-900 text-left" aria-label="Abrir mi perfil">
+                    <img id="drawer-profile-banner" class="absolute inset-0 h-full w-full object-cover opacity-35 hidden" alt="">
+                    <div class="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/75 to-slate-900/60"></div>
+                    <div class="relative flex items-center gap-3 p-4">
+                        <div class="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-slate-300/70 bg-slate-800 shadow-lg">
+                            <span id="drawer-avatar-placeholder" class="flex h-full w-full items-center justify-center text-2xl">🎮</span>
+                            <img id="drawer-avatar" class="hidden h-full w-full object-cover" alt="Tu avatar">
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <span class="block text-[9px] font-bold uppercase tracking-[.2em] text-slate-300">Tu espacio Omlet Arcade</span>
+                            <strong id="drawer-username" class="mt-1 block truncate text-base font-black text-white">Tu perfil</strong>
+                            <span id="drawer-profile-subtitle" class="mt-0.5 block truncate text-[11px] text-slate-300">Comunidad gamer</span>
+                            <span class="mt-2 inline-flex items-center gap-1 rounded-full border border-slate-500/70 bg-slate-950/70 px-2 py-1 text-[9px] font-bold text-slate-200">Ver perfil completo <i class="fa-solid fa-arrow-up-right-from-square"></i></span>
+                        </div>
                     </div>
-                </div>
-                <button onclick="toggleDrawer(false)" class="text-white hover:bg-black/20 p-2 rounded-xl"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </button>
+                <button type="button" onclick="toggleDrawer(false)" aria-label="Cerrar menú" class="absolute right-5 top-5 rounded-lg bg-slate-950/80 p-2 text-slate-300 hover:bg-slate-800 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <nav class="p-3 space-y-1.5 flex-1 overflow-y-auto">
                 <button onclick="switchTab('feed'); toggleDrawer(false);" class="w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl hover:bg-slate-800 text-sm font-semibold"><i class="fa-solid fa-tv text-orange-400 w-5"></i><span>Feed y Transmisiones</span></button>
@@ -1191,12 +1200,33 @@
             const roleLabels = { user: 'Jugador', moderator: 'Moderador', admin: 'Administrador' };
             document.getElementById('profile-role').textContent = roleLabels[user.role] || 'Jugador';
             document.getElementById('drawer-profile-subtitle').textContent = roleLabels[user.role] || 'Comunidad gamer';
+            const drawerBanner = document.getElementById('drawer-profile-banner');
+            if (drawerBanner) {
+                if (user.profileBannerUrl) { drawerBanner.onerror = () => drawerBanner.classList.add('hidden'); drawerBanner.src = user.profileBannerUrl; drawerBanner.classList.remove('hidden'); }
+                else { drawerBanner.removeAttribute('src'); drawerBanner.classList.add('hidden'); }
+            }
             const memberSince = user.createdAt ? new Date(user.createdAt) : null;
             document.getElementById('profile-member-since').textContent =
                 memberSince && !Number.isNaN(memberSince.getTime()) ? memberSince.toLocaleDateString('es-AR', { month: 'short', year: 'numeric' }) : '—';
 
             const avatar = document.getElementById('profile-avatar');
             const placeholder = document.getElementById('profile-avatar-placeholder');
+            const drawerAvatar = document.getElementById('drawer-avatar');
+            const drawerPlaceholder = document.getElementById('drawer-avatar-placeholder');
+            if (drawerAvatar && drawerPlaceholder) {
+                if (user.avatarUrl) {
+                    drawerAvatar.onerror = () => { drawerAvatar.classList.add('hidden'); drawerPlaceholder.classList.remove('hidden'); };
+                    drawerAvatar.src = user.avatarUrl;
+                    drawerAvatar.classList.remove('hidden');
+                    drawerPlaceholder.classList.add('hidden');
+                } else {
+                    drawerAvatar.removeAttribute('src');
+                    drawerAvatar.classList.add('hidden');
+                    drawerPlaceholder.classList.remove('hidden');
+                    const preset = (avatarCatalogCache || []).find((item) => item.id === user.avatarPreset);
+                    drawerPlaceholder.textContent = preset ? preset.emoji : '🎮';
+                }
+            }
             if (user.avatarUrl) {
                 avatar.onerror = () => {
                     avatar.classList.add('hidden');
@@ -1808,6 +1838,7 @@ const GAME_CATALOG_DETAILS = {
             switchTab('clubs');
             const search = document.getElementById('club-search');
             if (search) search.value = game.name;
+            loadClubs(game.name);
         }
 
         function closeGameDetail() {
