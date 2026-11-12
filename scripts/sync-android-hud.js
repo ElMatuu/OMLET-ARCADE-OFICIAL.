@@ -137,6 +137,9 @@ if (!appGradle.includes("apply plugin: 'kotlin-android'")) {
 if (!appGradle.includes('io.livekit:livekit-android')) {
   appGradle = appGradle.replace(/dependencies\s*\{/, match => match + '\n    implementation "io.livekit:livekit-android:2.30.0"');
 }
+if (!appGradle.includes('KotlinCompile).configureEach')) {
+  appGradle += '\ntasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { kotlinOptions { jvmTarget = "17" } }\n';
+}
 fs.writeFileSync(appGradlePath, appGradle);
 
 console.log('Native PLAYVERSE HUD and LiveKit MediaProjection plugin installed.');
