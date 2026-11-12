@@ -4505,10 +4505,22 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
 
         async function toggleLiveScreenShare() {
             if (!liveKitRoom || activeLiveStreamRole !== 'publisher') return;
+            const enabling = !liveKitRoom.localParticipant.isScreenShareEnabled;
+            const includeSystemAudio = enabling && activeStreamingPreferences.systemAudioEnabled === true;
             try {
-                await liveKitRoom.localParticipant.setScreenShareEnabled(!liveKitRoom.localParticipant.isScreenShareEnabled);
-                document.getElementById('live-player-status').textContent = 'Estado de compartir pantalla actualizado.';
-            } catch (error) { document.getElementById('live-player-status').textContent = 'No se pudo compartir la pantalla: ' + error.message; }
+                await liveKitRoom.localParticipant.setScreenShareEnabled(enabling, {
+                    audio: includeSystemAudio,
+                    systemAudio: includeSystemAudio ? 'include' : 'exclude',
+                    contentHint: 'motion'
+                });
+                document.getElementById('live-player-status').textContent = enabling
+                    ? (includeSystemAudio
+                        ? 'Pantalla compartida. Se solicitó incluir audio del sistema; el navegador puede no ofrecerlo en este dispositivo.'
+                        : 'Pantalla compartida sin audio del sistema.')
+                    : 'Compartir pantalla finalizado.';
+            } catch (error) {
+                document.getElementById('live-player-status').textContent = 'No se pudo compartir la pantalla: ' + error.message;
+            }
         }
 
         async function closeLivePlayer() {
