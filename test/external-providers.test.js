@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  PROVIDERS, decryptSecret, encryptSecret, getCredentials, getEncryptionKey, getProvider
+  PROVIDERS, decryptSecret, encryptSecret, getCredentials, getEncryptionKey, getMissingConfiguration, getProvider
 } = require('../server/services/externalProviders');
 
 const key = 'a'.repeat(64);
@@ -55,4 +55,19 @@ test('integration secrets use AES-256-GCM and reject tampering or wrong keys', (
 test('provider credentials cannot be built from untrusted non-HTTPS public origins', () => {
   assert.equal(getCredentials('kick', { ...env, PLAYVERSE_API_URL: 'https://user:pass@api.example' }), null);
   assert.equal(getCredentials('kick', { ...env, PLAYVERSE_API_URL: 'https://api.example/base' }), null);
+});
+
+test('provider readiness reports missing server variable names without exposing secret values', () => {
+  assert.deepEqual(getMissingConfiguration('twitch', env), []);
+  assert.deepEqual(getMissingConfiguration('youtube', env), []);
+  assert.deepEqual(getMissingConfiguration('kick', env), []);
+  const missing = getMissingConfiguration('twitch', {
+    PLAYVERSE_API_URL: 'https://api.playverse.example',
+    TWITCH_CLIENT_ID: 'present-id',
+    TWITCH_CLIENT_SECRET: 'present-secret',
+    TWITCH_EVENTSUB_SECRET: 'too-short',
+    APP_INTEGRATION_ENCRYPTION_KEY: 'invalid'
+  });
+  assert.deepEqual(missing, ['APP_INTEGRATION_ENCRYPTION_KEY', 'TWITCH_EVENTSUB_SECRET (10–100 caracteres)']);
+  assert.equal(JSON.stringify(missing).includes('present-secret'), false);
 });
