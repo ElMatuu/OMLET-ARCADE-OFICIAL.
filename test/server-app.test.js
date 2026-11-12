@@ -520,3 +520,60 @@ test('recording library and playback endpoints require the authenticated owner',
     assert.deepEqual(responses.map(response => response.status), [401, 401, 401, 401, 401]);
   });
 });
+
+
+test('store catalog discovery is authenticated and supports search and pagination', async () => {
+  const jwt = require('jsonwebtoken');
+  const mongoose = require('mongoose');
+  const token = jwt.sign({
+    sub: new mongoose.Types.ObjectId().toString(),
+    username: 'store_player',
+    role: 'user'
+  }, process.env.JWT_SECRET, {
+    algorithm: 'HS256',
+    expiresIn: '5m',
+    issuer: 'playverse-api',
+    audience: 'playverse-clients'
+  });
+  await withServer(async (baseUrl) => {
+    const anonymous = await fetch(baseUrl + '/api/store/catalog');
+    assert.equal(anonymous.status, 401);
+    const response = await fetch(baseUrl + '/api/store/catalog?q=gift-phoenix-rise&perPage=12&page=1', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.success, true);
+    assert.equal(body.applied.search, 'gift-phoenix-rise');
+    assert.ok(body.pagination.total >= 1);
+    assert.ok(body.items.some(item => item.id === 'gift-phoenix-rise'));
+    assert.ok(body.filters.categories.includes('stream-gift'));
+  });
+});
+
+test('store catalog discovery applies category, currency and sort filters on the server', async () => {
+  const jwt = require('jsonwebtoken');
+  const mongoose = require('mongoose');
+  const token = jwt.sign({
+    sub: new mongoose.Types.ObjectId().toString(),
+    username: 'store_filter_player',
+    role: 'user'
+  }, process.env.JWT_SECRET, {
+    algorithm: 'HS256',
+    expiresIn: '5m',
+    issuer: 'playverse-api',
+    audience: 'playverse-clients'
+  });
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/store/catalog?category=chat-effect&currency=gold&sort=price-asc&perPage=100', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.applied.category, 'chat-effect');
+    assert.equal(body.applied.currency, 'gold');
+    assert.equal(body.applied.sort, 'price-asc');
+    assert.ok(body.items.every(item => item.category === 'chat-effect' && (item.priceCurrency || 'gold') === 'gold'));
+    assert.ok(body.items.every((item, index, items) => index === 0 || items[index - 1].priceTokens <= item.priceTokens));
+  });
+});
