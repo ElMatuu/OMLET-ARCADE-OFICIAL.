@@ -17,7 +17,7 @@ The historical target must be pinned to a specific app version before exact scre
 | Multiplayer | Minecraft world sharing, multiplayer rooms, Let's Play invitations, squad/team play | Public rooms and tournaments are present. Minecraft world hosting/sharing and game-specific multiplayer integrations are not implemented. |
 | Tournaments / teams | Tournaments, team-up chat, teams joining events/leagues | Tournament foundation exists; team formation, team-up chat and league workflows require completion and end-to-end tests. |
 | Creator growth | Supporter leaderboards, streaming rankings, raids, featured-friend streams | Not complete. |
-| Rewards / monetization | Tokens, gifts, money gun, donations, paid subscriptions, creator support | Cosmetic token ledger/store exists. Real-money payments, gifts, donations, payouts and fraud controls are not enabled. |
+| Rewards / monetization | Tokens, gifts, money gun, donations, paid subscriptions, creator support | Gold/Plata/Diamante store wallet remains separate. PLAYVERSE Plus is being introduced as a non-transferable, non-purchasable virtual reward currency for manually redeemed digital membership; it has a dedicated ledger and subscription record. No cash value, cashout, external billing, creator payouts or real-money monetization are offered. Creator recognition is in-app only. |
 | Recording / highlights | Local recording, stream summaries, clips, Killcam/highlights | Recording, media upload/storage and highlight pipeline are not complete. |
 | Notifications / focus | Notification center, message requests, Do Not Disturb while streaming | Account notification center exists. Push delivery and streaming-aware DND are not complete. |
 | Safety / moderation | Blocking, reporting, community moderation and co-admin tools | Blocking and reporting foundations exist; complete moderator queues, appeals and community role enforcement remain incomplete. |
@@ -39,8 +39,18 @@ The historical target must be pinned to a specific app version before exact scre
 5. Complete group chat, co-admin roles and team-up chat with server-side authorization.
 6. Complete recording, clips, stream summaries and media retention.
 7. Complete push delivery and streaming-aware Do Not Disturb.
-8. Complete gifting/donations only after payment-provider, payout, refund, fraud, tax and legal controls are designed and tested.
+8. Keep the initial economy fully virtual: no cash purchases, cashouts, physical prizes or creator payouts. Complete Plus entitlement enforcement, abuse-resistant reward verification and subscription lifecycle handling before advertising premium benefits. Revisit any real-money monetization only as a separate future product decision with legal and operational readiness.
 9. Validate each flow on physical Android devices and Windows, including permissions, background/foreground transitions, reconnects and poor network conditions.
+
+
+## PLAYVERSE Plus economy — product safety contract
+
+- PLAYVERSE Plus is a separate virtual balance. It is not interchangeable with Gold, Plata or Diamante, cannot be transferred, has no cash value and cannot be purchased with money.
+- Plus is earned only from server-verified, one-time mission claims. Mission claims and Plus ledger credits are committed in the same MongoDB transaction; a unique per-user source key prevents duplicate reward credits.
+- Digital membership is redeemed manually using Plus credits. There is no card checkout, real-money charge, automatic renewal, cashout, physical prize or promise of creator income.
+- Subscription expiry removes membership status only; it must not delete user content, friendships, clips or account data.
+- Before Plus membership is promoted as including specific perks, those perks must be implemented, access-controlled on the server and tested. A membership record alone is not proof that every premium entitlement is operational.
+- Reward amounts are virtual product-design values, not exchange rates, financial value, earnings or a guarantee of a future payout.
 
 ## Historical references
 

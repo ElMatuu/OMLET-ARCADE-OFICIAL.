@@ -35,6 +35,8 @@ const DirectMessage = require('./models/DirectMessage');
 const Inventory = require('./models/Inventory');
 const TokenTransaction = require('./models/TokenTransaction');
 const MissionClaim = require('./models/MissionClaim');
+const PremiumPlusTransaction = require('./models/PremiumPlusTransaction');
+const PremiumSubscription = require('./models/PremiumSubscription');
 const { STORE_CATALOG } = require('./data/storeCatalog');
 const { AVATAR_CATALOG, AVATAR_BY_ID } = require('./data/avatarCatalog');
 const { requireAuth } = require('./middleware/auth');
@@ -913,7 +915,11 @@ app.get('/api/me', requireAuth, async (req, res, next) => {
       .select('username role displayName bio profileBannerUrl profileTheme favoriteGames socialYouTubeUrl socialTwitchUrl socialTikTokUrl avatarUrl avatarPreset createdAt')
       .lean();
     if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    const subscription = await PremiumSubscription.findOne({ user: req.auth.sub }).select('endsAt').lean();
+    const plusMembershipActive = Boolean(subscription && new Date(subscription.endsAt) > new Date());
     return res.json({ success: true, user: {
+      plusMembershipActive,
+      plusMembershipEndsAt: plusMembershipActive ? subscription.endsAt : null,
       id: String(user._id),
       username: user.username,
       role: user.role,
@@ -2050,24 +2056,24 @@ function getCurrencyLabel(currency) {
 }
 
 const MISSION_CATALOG = [
-  { id: 'welcome-post-1', chapter: 'Primeros pasos', title: 'Tu voz en PLAYVERSE', description: 'Publicá tu primera idea, captura o presentación para que la comunidad te conozca.', metric: 'posts', target: 1, rewardTokens: 500 },
+  { id: 'welcome-post-1', chapter: 'Primeros pasos', title: 'Tu voz en PLAYVERSE', description: 'Publicá tu primera idea, captura o presentación para que la comunidad te conozca.', metric: 'posts', target: 1, rewardTokens: 500, rewardPlus: 10 },
   { id: 'welcome-post-3', chapter: 'Primeros pasos', title: 'Creador en movimiento', description: 'Compartí tres publicaciones diferentes y empezá a construir tu perfil.', metric: 'posts', target: 3, rewardTokens: 750 },
-  { id: 'welcome-friend-1', chapter: 'Primeros pasos', title: 'Tu primera conexión', description: 'Aceptá o conseguí tu primera amistad dentro de PLAYVERSE.', metric: 'friends', target: 1, rewardTokens: 300 },
+  { id: 'welcome-friend-1', chapter: 'Primeros pasos', title: 'Tu primera conexión', description: 'Aceptá o conseguí tu primera amistad dentro de PLAYVERSE.', metric: 'friends', target: 1, rewardTokens: 300, rewardPlus: 10 },
   { id: 'welcome-message-1', chapter: 'Primeros pasos', title: 'Romper el hielo', description: 'Mandá tu primer mensaje privado a una amistad.', metric: 'directMessages', target: 1, rewardTokens: 250 },
 
-  { id: 'creator-post-10', chapter: 'Camino del creador', title: 'Voz reconocible', description: 'Llegá a diez publicaciones y mantené activa tu presencia en la comunidad.', metric: 'posts', target: 10, rewardTokens: 1000 },
+  { id: 'creator-post-10', chapter: 'Camino del creador', title: 'Voz reconocible', description: 'Llegá a diez publicaciones y mantené activa tu presencia en la comunidad.', metric: 'posts', target: 10, rewardTokens: 1000, rewardPlus: 25 },
   { id: 'creator-comment-1', chapter: 'Camino del creador', title: 'Conversación iniciada', description: 'Comentá una publicación de la comunidad y sumate al intercambio.', metric: 'comments', target: 1, rewardTokens: 250 },
   { id: 'creator-comment-5', chapter: 'Camino del creador', title: 'Siempre hay algo para aportar', description: 'Escribí cinco comentarios útiles en publicaciones de la comunidad.', metric: 'comments', target: 5, rewardTokens: 500 },
   { id: 'creator-like-1', chapter: 'Camino del creador', title: 'Buena onda', description: 'Dale tu primer me gusta a una publicación que te interese.', metric: 'likes', target: 1, rewardTokens: 250 },
 
-  { id: 'party-room-1', chapter: 'Líder de escuadra', title: 'Armá la escuadra', description: 'Creá tu primera sala pública para reunir jugadores.', metric: 'rooms', target: 1, rewardTokens: 500 },
+  { id: 'party-room-1', chapter: 'Líder de escuadra', title: 'Armá la escuadra', description: 'Creá tu primera sala pública para reunir jugadores.', metric: 'rooms', target: 1, rewardTokens: 500, rewardPlus: 10 },
   { id: 'party-room-3', rewardCurrency: 'purple', chapter: 'Líder de escuadra', title: 'Organizador habitual', description: 'Creá tres salas para organizar distintas sesiones de juego.', metric: 'rooms', target: 3, rewardTokens: 15 },
   { id: 'party-chat-1', chapter: 'Líder de escuadra', title: 'Primera llamada al equipo', description: 'Mandá un mensaje en el chat de una sala.', metric: 'roomMessages', target: 1, rewardTokens: 250 },
   { id: 'party-chat-10', chapter: 'Líder de escuadra', title: 'Capitán comunicador', description: 'Participá con diez mensajes en chats de salas.', metric: 'roomMessages', target: 10, rewardTokens: 500 },
   { id: 'party-chat-30', chapter: 'Líder de escuadra', title: 'La voz de la sala', description: 'Alcanzá treinta mensajes en chats de salas y mantené viva la coordinación.', metric: 'roomMessages', target: 30, rewardTokens: 1000 },
 
   { id: 'social-friends-3', chapter: 'Leyenda de comunidad', title: 'Círculo cercano', description: 'Formá un grupo de tres amistades aceptadas.', metric: 'friends', target: 3, rewardTokens: 500 },
-  { id: 'social-friends-5', rewardCurrency: 'purple', chapter: 'Leyenda de comunidad', title: 'Punto de encuentro', description: 'Llegá a cinco amistades aceptadas en PLAYVERSE.', metric: 'friends', target: 5, rewardTokens: 15 },
+  { id: 'social-friends-5', rewardCurrency: 'purple', chapter: 'Leyenda de comunidad', title: 'Punto de encuentro', description: 'Llegá a cinco amistades aceptadas en PLAYVERSE.', metric: 'friends', target: 5, rewardTokens: 15, rewardPlus: 25 },
   { id: 'social-follow-1', chapter: 'Leyenda de comunidad', title: 'Seguí a un creador', description: 'Empezá a seguir a otro jugador para no perderte sus novedades.', metric: 'follows', target: 1, rewardTokens: 250 },
   { id: 'social-follow-5', chapter: 'Leyenda de comunidad', title: 'Radar de comunidad', description: 'Seguí a cinco jugadores cuyos contenidos te interesen.', metric: 'follows', target: 5, rewardTokens: 500 },
 
@@ -2080,14 +2086,14 @@ const MISSION_CATALOG = [
 ];
 
 const DAILY_MISSION_POOL = [
-  { key: 'post', title: 'Compartí algo hoy', description: 'Publicá una actualización para tu comunidad.', metric: 'posts', target: 1, rewardTokens: 45, rewardCurrency: 'gold' },
-  { key: 'room-chat', title: 'Activá una sala', description: 'Enviá cinco mensajes en salas de la comunidad.', metric: 'roomMessages', target: 5, rewardTokens: 18, rewardCurrency: 'purple' },
-  { key: 'private-chat', title: 'Conectá por privado', description: 'Enviá tres mensajes privados.', metric: 'directMessages', target: 3, rewardTokens: 35, rewardCurrency: 'gold' },
-  { key: 'comments', title: 'Sumá conversación', description: 'Comentá dos publicaciones.', metric: 'comments', target: 2, rewardTokens: 12, rewardCurrency: 'purple' },
-  { key: 'follow', title: 'Descubrí un creador', description: 'Seguí a una cuenta nueva.', metric: 'follows', target: 1, rewardTokens: 15, rewardCurrency: 'purple' },
-  { key: 'room', title: 'Abrí una sala', description: 'Creá una sala para jugar con la comunidad.', metric: 'rooms', target: 1, rewardTokens: 50, rewardCurrency: 'gold' },
-  { key: 'friend', title: 'Hacé una conexión', description: 'Aceptá o completá una amistad nueva.', metric: 'friends', target: 1, rewardTokens: 1, rewardCurrency: 'diamond' },
-  { key: 'posts-two', title: 'Doble publicación', description: 'Compartí dos publicaciones durante el día.', metric: 'posts', target: 2, rewardTokens: 70, rewardCurrency: 'gold' }
+  { key: 'post', title: 'Compartí algo hoy', description: 'Publicá una actualización para tu comunidad.', metric: 'posts', target: 1, rewardTokens: 45, rewardCurrency: 'gold', rewardPlus: 5 },
+  { key: 'room-chat', title: 'Activá una sala', description: 'Enviá cinco mensajes en salas de la comunidad.', metric: 'roomMessages', target: 5, rewardTokens: 18, rewardCurrency: 'purple', rewardPlus: 5 },
+  { key: 'private-chat', title: 'Conectá por privado', description: 'Enviá tres mensajes privados.', metric: 'directMessages', target: 3, rewardTokens: 35, rewardCurrency: 'gold', rewardPlus: 5 },
+  { key: 'comments', title: 'Sumá conversación', description: 'Comentá dos publicaciones.', metric: 'comments', target: 2, rewardTokens: 12, rewardCurrency: 'purple', rewardPlus: 5 },
+  { key: 'follow', title: 'Descubrí un creador', description: 'Seguí a una cuenta nueva.', metric: 'follows', target: 1, rewardTokens: 15, rewardCurrency: 'purple', rewardPlus: 5 },
+  { key: 'room', title: 'Abrí una sala', description: 'Creá una sala para jugar con la comunidad.', metric: 'rooms', target: 1, rewardTokens: 50, rewardCurrency: 'gold', rewardPlus: 5 },
+  { key: 'friend', title: 'Hacé una conexión', description: 'Aceptá o completá una amistad nueva.', metric: 'friends', target: 1, rewardTokens: 1, rewardCurrency: 'diamond', rewardPlus: 5 },
+  { key: 'posts-two', title: 'Doble publicación', description: 'Compartí dos publicaciones durante el día.', metric: 'posts', target: 2, rewardTokens: 70, rewardCurrency: 'gold', rewardPlus: 5 }
 ];
 
 function getDailyMissionDefinitions(now = new Date()) {
@@ -2159,7 +2165,7 @@ async function buildMissionProgress(userId, session = null) {
     { $count: 'total' }
   ]);
   if (session) newCreatorFollowsQuery.session(session);
-  const claimsQuery = MissionClaim.find({ user: userId }).select('missionId rewardTokens claimedAt').lean();
+  const claimsQuery = MissionClaim.find({ user: userId }).select('missionId rewardTokens rewardPlus claimedAt').lean();
   if (session) claimsQuery.session(session);
   const [values, claims, newCreatorFollowResult] = await Promise.all([
     Promise.all(countQueries), claimsQuery, newCreatorFollowsQuery
@@ -2183,6 +2189,7 @@ async function buildMissionProgress(userId, session = null) {
       completed: current >= definition.target,
       rewardTokens: definition.rewardTokens,
       rewardCurrency: definition.rewardCurrency || 'gold',
+      rewardPlus: Number(definition.rewardPlus) || 0,
       claimed: Boolean(claim),
       claimable: current >= definition.target && !claim,
       claimedAt: claim ? claim.claimedAt : null
@@ -2231,7 +2238,8 @@ app.post('/api/me/missions/:missionId/claim', requireAuth, storeLimiter, async (
   if (!definition) return res.status(404).json({ success: false, message: 'Misión no encontrada o ya venció.' });
   const currency = definition.rewardCurrency || 'gold';
   const walletField = getCurrencyField(currency);
-  try { await MissionClaim.init(); } catch (error) { return next(error); }
+  const rewardPlus = Number(definition.rewardPlus) || 0;
+  try { await Promise.all([MissionClaim.init(), PremiumPlusTransaction.init()]); } catch (error) { return next(error); }
   const session = await mongoose.startSession();
   let result;
   try {
@@ -2243,26 +2251,134 @@ app.post('/api/me/missions/:missionId/claim', requireAuth, storeLimiter, async (
       if (!mission || !mission.completed) { result = { error: 'NOT_COMPLETED' }; return; }
       if (mission.claimed) { result = { error: 'ALREADY_CLAIMED' }; return; }
       const user = await User.findByIdAndUpdate(
-        req.auth.sub, { $inc: { [walletField]: definition.rewardTokens } },
+        req.auth.sub, { $inc: { [walletField]: definition.rewardTokens, walletPlusTokens: rewardPlus } },
         { new: true, session }
-      ).select('walletTokens walletPurpleTokens walletDiamondTokens');
+      ).select('walletTokens walletPurpleTokens walletDiamondTokens walletPlusTokens');
       if (!user) { result = { error: 'USER_NOT_FOUND' }; return; }
-      await MissionClaim.create([{ user: req.auth.sub, missionId: definition.id, rewardTokens: definition.rewardTokens, rewardCurrency: currency }], { session });
+      await MissionClaim.create([{ user: req.auth.sub, missionId: definition.id, rewardTokens: definition.rewardTokens, rewardCurrency: currency, rewardPlus }], { session });
       await TokenTransaction.create([{
         user: req.auth.sub, type: 'credit', currency, amount: definition.rewardTokens,
         itemId: 'mission:' + definition.id, balanceAfter: getWalletBalances(user)[currency]
       }], { session });
-      result = { balances: getWalletBalances(user), rewardTokens: definition.rewardTokens };
+      if (rewardPlus > 0) {
+        await PremiumPlusTransaction.create([{
+          user: req.auth.sub, type: 'earn', amount: rewardPlus,
+          sourceKey: 'mission:' + definition.id,
+          description: 'Recompensa PLAYVERSE Plus: ' + definition.title,
+          balanceAfter: Number(user.walletPlusTokens) || 0
+        }], { session });
+      }
+      result = { balances: getWalletBalances(user), rewardTokens: definition.rewardTokens, plusBalance: Number(user.walletPlusTokens) || 0, rewardPlus };
     });
     if (result?.error === 'NOT_COMPLETED') return res.status(409).json({ success: false, code: result.error, message: 'Completá los objetivos de la misión antes de reclamar la recompensa.' });
     if (result?.error === 'ALREADY_CLAIMED') return res.status(409).json({ success: false, code: result.error, message: 'Esta recompensa ya fue reclamada.' });
     if (result?.error === 'USER_NOT_FOUND') return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
     return res.status(201).json({
       success: true, message: 'Recompensa acreditada.', missionId: definition.id,
-      rewardTokens: result.rewardTokens, currency, wallet: { tokens: result.balances.gold, balances: result.balances }
+      rewardTokens: result.rewardTokens, rewardPlus: result.rewardPlus, currency, wallet: { tokens: result.balances.gold, balances: result.balances, plus: result.plusBalance }
     });
   } catch (error) {
     if (error?.code === 11000) return res.status(409).json({ success: false, code: 'ALREADY_CLAIMED', message: 'Esta recompensa ya fue reclamada.' });
+    return next(error);
+  } finally { await session.endSession(); }
+});
+
+const PREMIUM_PLUS_PLANS = Object.freeze({
+  'plus-7d': { id: 'plus-7d', name: 'PLAYVERSE Plus · 7 días', days: 7, price: 80 },
+  'plus-30d': { id: 'plus-30d', name: 'PLAYVERSE Plus · 30 días', days: 30, price: 280 },
+  'plus-90d': { id: 'plus-90d', name: 'PLAYVERSE Plus · 90 días', days: 90, price: 720 }
+});
+
+app.get('/api/me/plus', requireAuth, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.auth.sub).select('walletPlusTokens').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    const records = await PremiumPlusTransaction.find({ user: req.auth.sub })
+      .sort({ createdAt: -1, _id: -1 }).limit(30).lean();
+    return res.json({
+      success: true,
+      currency: { id: 'plus', name: 'PLAYVERSE Plus', symbol: '✦', transferable: false, purchasableWithMoney: false, cashValue: false },
+      balance: Number(user.walletPlusTokens) || 0,
+      plans: Object.values(PREMIUM_PLUS_PLANS),
+      transactions: records.map((record) => ({
+        id: String(record._id), type: record.type, amount: record.amount,
+        description: record.description, balanceAfter: record.balanceAfter, createdAt: record.createdAt
+      }))
+    });
+  } catch (error) { return next(error); }
+});
+
+app.get('/api/me/subscription', requireAuth, async (req, res, next) => {
+  try {
+    const subscription = await PremiumSubscription.findOne({ user: req.auth.sub }).lean();
+    const now = new Date();
+    const active = Boolean(subscription && new Date(subscription.endsAt) > now);
+    return res.json({
+      success: true,
+      active,
+      plan: active ? PREMIUM_PLUS_PLANS[subscription.planId] : null,
+      startedAt: active ? subscription.startedAt : null,
+      endsAt: active ? subscription.endsAt : (subscription ? subscription.endsAt : null),
+      remainingMs: active ? Math.max(0, new Date(subscription.endsAt).getTime() - now.getTime()) : 0,
+      renewal: 'manual_plus_only',
+      cashPaymentsEnabled: false,
+      autoRenewEnabled: false
+    });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/me/subscription/redeem', requireAuth, storeLimiter, async (req, res, next) => {
+  const plan = typeof req.body.planId === 'string' ? PREMIUM_PLUS_PLANS[req.body.planId] : null;
+  if (!plan) return res.status(400).json({ success: false, message: 'Elegí un plan PLAYVERSE Plus válido.' });
+  try { await Promise.all([PremiumPlusTransaction.init(), PremiumSubscription.init()]); }
+  catch (error) { return next(error); }
+  const session = await mongoose.startSession();
+  let result;
+  try {
+    await session.withTransaction(async () => {
+      const user = await User.findOneAndUpdate(
+        { _id: req.auth.sub, walletPlusTokens: { $gte: plan.price } },
+        { $inc: { walletPlusTokens: -plan.price } },
+        { new: true, session }
+      ).select('walletPlusTokens');
+      if (!user) {
+        const exists = await User.exists({ _id: req.auth.sub }).session(session);
+        result = { error: exists ? 'INSUFFICIENT_PLUS' : 'USER_NOT_FOUND' };
+        return;
+      }
+      const now = new Date();
+      const current = await PremiumSubscription.findOne({ user: req.auth.sub }).session(session);
+      const currentEnd = current && new Date(current.endsAt) > now ? new Date(current.endsAt) : now;
+      const nextEnd = new Date(currentEnd.getTime() + plan.days * 86400000);
+      const totalDaysPurchased = (current && new Date(current.endsAt) > now ? Number(current.totalDaysPurchased) || 0 : 0) + plan.days;
+      if (totalDaysPurchased > 3650) { result = { error: 'MAX_DURATION' }; throw Object.assign(new Error('Subscription duration limit reached.'), { code: 'PLAYVERSE_MAX_SUBSCRIPTION_DURATION' }); }
+      const subscription = await PremiumSubscription.findOneAndUpdate(
+        { user: req.auth.sub },
+        { $set: { planId: plan.id, startedAt: current && new Date(current.endsAt) > now ? current.startedAt : now, endsAt: nextEnd, totalDaysPurchased, updatedAt: now } },
+        { new: true, upsert: true, setDefaultsOnInsert: true, session }
+      );
+      await PremiumPlusTransaction.create([{
+        user: req.auth.sub, type: 'spend', amount: plan.price,
+        sourceKey: 'subscription:' + String(subscription._id) + ':' + now.toISOString(),
+        description: 'Canje de ' + plan.name,
+        balanceAfter: Number(user.walletPlusTokens) || 0
+      }], { session });
+      result = { balance: Number(user.walletPlusTokens) || 0, subscription };
+    });
+    if (result?.error === 'INSUFFICIENT_PLUS') return res.status(409).json({ success: false, code: result.error, message: 'No tenés suficientes créditos PLAYVERSE Plus. Podés conseguirlos completando actividades verificadas.' });
+    if (result?.error === 'USER_NOT_FOUND') return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    if (result?.error === 'MAX_DURATION') return res.status(409).json({ success: false, code: result.error, message: 'Alcanzaste el máximo de duración acumulada permitido.' });
+    return res.status(201).json({
+      success: true, message: 'PLAYVERSE Plus activado con créditos virtuales. No se realizó ningún cobro de dinero real.',
+      balance: result.balance, subscription: {
+        active: true, plan: PREMIUM_PLUS_PLANS[result.subscription.planId],
+        startedAt: result.subscription.startedAt, endsAt: result.subscription.endsAt
+      }
+    });
+  } catch (error) {
+    if (error?.code === 'PLAYVERSE_MAX_SUBSCRIPTION_DURATION') {
+      return res.status(409).json({ success: false, code: 'MAX_DURATION', message: 'Alcanzaste el máximo de duración acumulada permitido.' });
+    }
     return next(error);
   } finally { await session.endSession(); }
 });

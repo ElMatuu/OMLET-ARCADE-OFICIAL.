@@ -522,6 +522,20 @@
                     </div>
                     <p class="text-xs text-slate-400">Tres monedas virtuales independientes con identidad PLAYVERSE. Se consiguen jugando, completando misiones y participando en la comunidad; no se compran con dinero real.</p>
                 </section>
+                <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3 border border-violet-400/30">
+                    <div class="flex items-center justify-between gap-3">
+                        <div><p class="text-[10px] font-black uppercase tracking-widest text-violet-300">ECONOMÍA PREMIUM · SIN DINERO REAL</p><h4 class="text-lg font-black text-white">✦ PLAYVERSE Plus</h4></div>
+                        <div class="rounded-xl border border-violet-400/40 bg-violet-950/50 px-3 py-2 text-center"><strong id="wallet-plus-balance" class="block text-xl text-violet-200">0</strong><span class="text-[9px] uppercase tracking-widest text-violet-300">créditos Plus</span></div>
+                    </div>
+                    <p class="text-xs leading-relaxed text-slate-300">Créditos especiales, separados de Oro, Plata y Diamante. Se obtienen completando actividades reales dentro de PLAYVERSE y se canjean por membresía digital. No se compran, no se transfieren y no tienen valor en efectivo.</p>
+                    <div id="plus-subscription-status" class="rounded-xl bg-slate-950/70 border border-slate-800 p-3 text-xs text-slate-300" role="status">Consultando tu membresía…</div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2" id="plus-plan-buttons">
+                        <button type="button" data-plus-plan="plus-7d" class="rounded-xl border border-violet-400/40 bg-violet-500/10 px-3 py-3 text-left text-xs text-white"><strong class="block">7 días</strong><span class="text-violet-200">80 Plus</span></button>
+                        <button type="button" data-plus-plan="plus-30d" class="rounded-xl border border-violet-400/40 bg-violet-500/10 px-3 py-3 text-left text-xs text-white"><strong class="block">30 días</strong><span class="text-violet-200">280 Plus</span></button>
+                        <button type="button" data-plus-plan="plus-90d" class="rounded-xl border border-violet-400/40 bg-violet-500/10 px-3 py-3 text-left text-xs text-white"><strong class="block">90 días</strong><span class="text-violet-200">720 Plus</span></button>
+                    </div>
+                    <p id="plus-redemption-status" class="text-xs text-slate-400" role="status">Canje manual: no hay renovación automática ni cobros externos.</p>
+                </section>
                 <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
 <div><h4 class="font-bold text-sm">Enviar monedas a otro jugador</h4><p class="text-[10px] text-slate-400">Transferencia entre billeteras PLAYVERSE. Se descuenta de tu saldo y se acredita al destinatario en una sola operación.</p></div>
 <form id="wallet-gift-form" class="grid grid-cols-2 gap-2">
@@ -693,6 +707,7 @@
                     <div>
                         <h3 id="profile-display-name" class="font-black text-xl text-white">Jugador PLAYVERSE</h3>
                         <p id="profile-username" class="text-xs text-orange-400 font-mono mt-0.5">@usuario</p>
+                        <span id="profile-plus-badge" class="hidden inline-flex mt-2 rounded-full border border-violet-400/50 bg-violet-500/10 px-3 py-1 text-[10px] font-black tracking-wider text-violet-200">✦ PLAYVERSE PLUS</span>
                         <p id="profile-bio" class="text-sm text-slate-300 mt-3 whitespace-pre-wrap break-words">Todavía no agregaste una biografía.</p>
                     </div>
                     <div id="profile-favorite-games" class="flex flex-wrap justify-center gap-2" aria-label="Juegos favoritos"></div>
@@ -985,6 +1000,8 @@
             document.getElementById('drawer-username').textContent = displayName;
             document.getElementById('profile-display-name').textContent = displayName;
             document.getElementById('profile-username').textContent = '@' + user.username;
+            const plusBadge = document.getElementById('profile-plus-badge');
+            if (plusBadge) plusBadge.classList.toggle('hidden', user.plusMembershipActive !== true);
             document.getElementById('profile-bio').textContent = user.bio || 'Todavía no agregaste una biografía.';
             const banner = document.getElementById('profile-banner-image');
             if (user.profileBannerUrl) { banner.onerror = () => banner.classList.add('hidden'); banner.src = user.profileBannerUrl; banner.classList.remove('hidden'); }
@@ -2917,10 +2934,12 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             if (!authToken) { status.textContent = 'Iniciá sesión para acceder a la tienda.'; return; }
             status.textContent = 'Cargando catálogo e inventario…';
             try {
-                const [catalog, inventory, walletHistory] = await Promise.all([
+                const [catalog, inventory, walletHistory, plusWallet, plusSubscription] = await Promise.all([
                     apiRequest('/api/store/catalog'),
                     apiRequest('/api/me/inventory'),
-                    apiRequest('/api/me/wallet/transactions')
+                    apiRequest('/api/me/wallet/transactions'),
+                    apiRequest('/api/me/plus'),
+                    apiRequest('/api/me/subscription')
                 ]);
                 storeItems = catalog.items || [];
                 inventoryItems = inventory.items || [];
@@ -2929,6 +2948,34 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 document.getElementById('wallet-gold-balance').textContent = Number(appState.walletBalances.gold || 0).toLocaleString('es-AR');
                 document.getElementById('wallet-purple-balance').textContent = Number(appState.walletBalances.purple || 0).toLocaleString('es-AR');
                 document.getElementById('wallet-diamond-balance').textContent = Number(appState.walletBalances.diamond || 0).toLocaleString('es-AR');
+                const plusBalanceNode = document.getElementById('wallet-plus-balance');
+                if (plusBalanceNode) plusBalanceNode.textContent = Number(plusWallet.balance || 0).toLocaleString('es-AR');
+                const plusStatusNode = document.getElementById('plus-subscription-status');
+                if (plusStatusNode) {
+                    plusStatusNode.textContent = plusSubscription.active
+                        ? 'PLAYVERSE Plus activo hasta ' + new Date(plusSubscription.endsAt).toLocaleDateString('es-AR') + '. La renovación se hace únicamente con créditos Plus.'
+                        : 'No tenés una membresía Plus activa. Elegí un período y canjealo con tus créditos.';
+                }
+                const plusPlanButtons = document.getElementById('plus-plan-buttons');
+                if (plusPlanButtons && plusPlanButtons.dataset.bound !== 'true') {
+                    plusPlanButtons.dataset.bound = 'true';
+                    plusPlanButtons.addEventListener('click', async (event) => {
+                        const button = event.target.closest('[data-plus-plan]');
+                        if (!button || button.disabled) return;
+                        const statusNode = document.getElementById('plus-redemption-status');
+                        button.disabled = true;
+                        if (statusNode) statusNode.textContent = 'Procesando el canje virtual…';
+                        try {
+                            const redeemed = await apiRequest('/api/me/subscription/redeem', {
+                                method: 'POST', body: JSON.stringify({ planId: button.dataset.plusPlan })
+                            });
+                            if (statusNode) statusNode.textContent = redeemed.message || 'Membresía activada.';
+                            await loadStore();
+                        } catch (error) {
+                            if (statusNode) statusNode.textContent = error.message;
+                        } finally { button.disabled = false; }
+                    });
+                }
                 document.getElementById('header-créditos').textContent = appState.walletTokens.toLocaleString('es-AR');
                 renderStoreItems();
                 renderStoreInventory(inventory);
@@ -3480,7 +3527,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                     count.textContent = mission.current + ' / ' + mission.target;
                     const reward = document.createElement('p');
                     reward.className = 'text-xs font-semibold text-amber-300';
-                    reward.textContent = 'Recompensa: ' + Number(mission.rewardTokens || 0).toLocaleString('es-AR') + ' ' + (mission.rewardCurrency === 'diamond' ? '💎 Diamantes' : mission.rewardCurrency === 'purple' ? '🥈 Platas' : '🟡 Oros');
+                    reward.textContent = 'Recompensa: ' + Number(mission.rewardTokens || 0).toLocaleString('es-AR') + ' ' + (mission.rewardCurrency === 'diamond' ? '💎 Diamantes' : mission.rewardCurrency === 'purple' ? '🥈 Platas' : '🟡 Oros') + (Number(mission.rewardPlus || 0) > 0 ? ' · ✦ ' + Number(mission.rewardPlus).toLocaleString('es-AR') + ' Plus' : '');
                     card.append(top, description, progress, count, reward);
                     if (mission.claimed) {
                         const claimed = document.createElement('p');
@@ -3497,7 +3544,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                             claim.textContent = 'Acreditando recompensa…';
                             try {
                                 const result = await apiRequest('/api/me/missions/' + encodeURIComponent(mission.id) + '/claim', { method: 'POST' });
-                                status.textContent = '¡Recompensa acreditada en tu billetera! ' + result.rewardTokens + ' ' + (result.currency === 'diamond' ? '💎 Diamantes' : result.currency === 'purple' ? '🥈 Platas' : '🟡 Oros') + '.';
+                                status.textContent = '¡Recompensa acreditada! ' + result.rewardTokens + ' ' + (result.currency === 'diamond' ? '💎 Diamantes' : result.currency === 'purple' ? '🥈 Platas' : '🟡 Oros') + (Number(result.rewardPlus || 0) > 0 ? ' + ✦ ' + result.rewardPlus + ' Plus' : '') + '.';
                                 await Promise.all([loadMissions(), loadStore()]);
                             } catch (error) {
                                 status.textContent = 'No se pudo reclamar la recompensa: ' + error.message;

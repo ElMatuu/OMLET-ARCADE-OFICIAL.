@@ -5,6 +5,7 @@ const missionClaimSchema = new mongoose.Schema({
   missionId: { type: String, required: true, trim: true, maxlength: 64 },
   rewardTokens: { type: Number, required: true, min: 1, max: 100000 },
   rewardCurrency: { type: String, enum: ['gold', 'purple', 'diamond'], default: 'gold' },
+  rewardPlus: { type: Number, min: 0, max: 100000, default: 0 },
   claimedAt: { type: Date, default: Date.now }
 }, { versionKey: false });
 
