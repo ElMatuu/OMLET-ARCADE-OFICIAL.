@@ -45,3 +45,35 @@ Connected creator destinations can now be used as actual LiveKit Egress outputs.
 The backend decrypts keys only in memory, builds provider URLs from a fixed allowlist, and starts one composite Egress with all connected destinations. Keys and RTMP URLs are never returned by these endpoints. A unique active-session record prevents duplicate concurrent broadcasts for one stream; the signed `egress_ended` webhook closes the session. This requires a working LiveKit Egress service and `STREAM_KEY_ENCRYPTION_KEY`. An accepted Egress job is not proof that every provider has accepted the stream: verify each provider's live dashboard before announcing the external broadcast as live.
 
 The provider keys remain manually entered. OAuth account linking and provider-side analytics/chat ingestion are separate integrations and are not implied by this RTMP relay.
+
+
+## OAuth account linking (Twitch, YouTube, Kick)
+
+PLAYVERSE now includes server-side OAuth 2.0 / 2.1 authorization-code + PKCE account linking for Twitch, YouTube and Kick. Access and refresh tokens are encrypted at rest with AES-256-GCM using the dedicated `APP_INTEGRATION_ENCRYPTION_KEY`. OAuth state is random, hashed in storage, single-use and expires after ten minutes. Provider secrets and tokens are never sent to the browser.
+
+Configure the six provider client variables, `PLAYVERSE_API_URL`, `PLAYVERSE_WEB_URL`, and a unique 32-byte `APP_INTEGRATION_ENCRYPTION_KEY`. Register these exact callback URLs in each free developer application:
+
+- `https://YOUR_API_HOST/api/external-integrations/twitch/callback`
+- `https://YOUR_API_HOST/api/external-integrations/youtube/callback`
+- `https://YOUR_API_HOST/api/external-integrations/kick/callback`
+
+Authenticated endpoints:
+
+- `GET /api/me/external-integrations` — configured/connected status and safe account metadata.
+- `POST /api/me/external-integrations/:provider/connect` — returns a provider authorization URL; open it in the system browser.
+- `DELETE /api/me/external-integrations/:provider` — disconnect and delete stored tokens.
+
+The callback exchanges the authorization code, validates the returned account identity and stores only encrypted tokens. YouTube requests offline access for refresh tokens. Kick uses the required S256 PKCE challenge. The provider's developer application registration and user consent are mandatory; these cannot be fabricated or bypassed. Account linking is distinct from RTMP stream-key relay and does not by itself claim that external chat, donations, or analytics are synchronized.
+
+
+## External chat synchronization
+
+After account linking, PLAYVERSE activates external chat ingestion where the provider supports it:
+
+- **Twitch:** signed EventSub webhooks subscribe to `channel.chat.message`, `channel.bits.use`, `channel.subscribe`, `channel.subscription.gift`, `stream.online` and `stream.offline`. The Twitch app authorization requests `user:read:chat`, `user:bot` and `channel:bot`. Set `TWITCH_EVENTSUB_SECRET` (10–100 characters) and register the callback `https://YOUR_API_HOST/api/webhooks/twitch`.
+- **Kick:** the app subscribes to `chat.message.sent`, follows, subscriptions and livestream start/end events. In Kick Developer settings, enable webhooks and set `https://YOUR_API_HOST/api/webhooks/kick`. Each delivery is verified using Kick's current public key fetched dynamically.
+- **YouTube:** a background worker checks linked channels for an active broadcast and imports Live Chat messages through the official Live Streaming API. Polling is throttled to at least 60 seconds per channel to protect the free API quota.
+
+Incoming messages are deduplicated by provider message ID and forwarded to the active PLAYVERSE live chat with a provider prefix. Connection status, chat sync state, errors and last activity are exposed by `GET /api/me/external-integrations`. Provider callbacks require a publicly reachable HTTPS API host; localhost alone cannot receive external webhooks.
+
+Platform event notifications (Twitch Bits/subscriptions, Kick KICK gifts/subscriptions, and YouTube Super Chats/memberships) are displayed as external chat events only. PLAYVERSE does not receive, hold, charge, transfer or settle money, and does not process payouts or simulate payment transactions.

@@ -35,8 +35,10 @@ const { createPresignedRecordingUrl } = require('./services/recordingStorage');
 const LiveStreamMessage = require('./models/LiveStreamMessage');
 const creatorDestinationsRouter = require('./routes/creatorDestinations');
 const creatorBroadcastsRouter = require('./routes/creatorBroadcasts');
+const externalIntegrationsRouter = require('./routes/externalIntegrations');
 const StreamBroadcastSession = require('./models/StreamBroadcastSession');
 const { startRtmpBroadcast, stopRtmpBroadcast } = require('./services/rtmpBroadcast');
+const { processKickWebhook, processTwitchWebhook, startYouTubeChatSync, stopYouTubeChatSync, verifyKickWebhook, verifyTwitchEventSub } = require('./services/externalProviderEvents');
 const groupConversationsRouter = require('./routes/groupConversations');
 const Conversation = require('./models/Conversation');
 const DirectMessage = require('./models/DirectMessage');
@@ -154,9 +156,44 @@ app.post('/api/webhooks/livekit', express.raw({ type: 'application/webhook+json'
   }
 });
 
+
+// Provider callbacks preserve raw bodies because their signatures cover the exact bytes received.
+app.post('/api/webhooks/twitch', express.raw({ type: 'application/json', limit: '1mb' }), async (req, res) => {
+  const secret = process.env.TWITCH_EVENTSUB_SECRET || '';
+  if (!verifyTwitchEventSub({ rawBody: req.body, headers: req.headers, secret })) {
+    return res.status(403).send('Invalid Twitch EventSub signature');
+  }
+  let event;
+  try { event = JSON.parse(req.body.toString('utf8')); }
+  catch { return res.status(400).send('Invalid JSON'); }
+  const messageType = req.get('Twitch-Eventsub-Message-Type');
+  if (messageType === 'webhook_callback_verification') {
+    return res.type('text/plain').status(200).send(event.challenge || '');
+  }
+  if (messageType === 'notification') {
+    try { await processTwitchWebhook(event, httpServer.io); }
+    catch (error) { console.error('Twitch EventSub processing failed:', error.message); return res.sendStatus(500); }
+  }
+  return res.sendStatus(204);
+});
+
+app.post('/api/webhooks/kick', express.raw({ type: 'application/json', limit: '1mb' }), async (req, res) => {
+  if (!await verifyKickWebhook({ rawBody: req.body, headers: req.headers })) {
+    return res.status(403).send('Invalid Kick webhook signature');
+  }
+  let event;
+  try { event = JSON.parse(req.body.toString('utf8')); }
+  catch { return res.status(400).send('Invalid JSON'); }
+  try { await processKickWebhook(event, req.headers, httpServer.io); }
+  catch (error) { console.error('Kick webhook processing failed:', error.message); return res.sendStatus(500); }
+  return res.sendStatus(204);
+});
+
 app.use(express.json({ limit: '20kb' }));
 app.use('/api/me/stream-destinations', creatorDestinationsRouter);
 app.use('/api/me/stream-destinations', creatorBroadcastsRouter);
+app.use('/api/me/external-integrations', externalIntegrationsRouter);
+app.use('/api/external-integrations', externalIntegrationsRouter);
 app.use('/api/group-conversations', groupConversationsRouter);
 
 const webRoot = path.join(__dirname, '..', 'www');
@@ -4924,6 +4961,7 @@ async function start() {
   await mongoose.connect(process.env.MONGODB_URI);
   httpServer.io = attachSocketServer(httpServer, allowedOrigins);
   app.set('io', httpServer.io);
+  startYouTubeChatSync(httpServer.io);
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`PLAYVERSE API listening on port ${PORT}`);
   });
@@ -4935,6 +4973,7 @@ async function shutdown(signal = 'shutdown') {
   app.set('isShuttingDown', true);
   shutdownPromise = (async () => {
     console.log(`PLAYVERSE API shutting down (${signal}); readiness disabled`);
+    stopYouTubeChatSync();
     if (httpServer.io) {
       await new Promise((resolve) => httpServer.io.close(resolve));
     } else if (httpServer.listening) {
