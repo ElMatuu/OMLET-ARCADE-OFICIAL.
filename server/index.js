@@ -3739,7 +3739,7 @@ app.post('/api/reports', requireAuth, reportLimiter, async (req, res, next) => {
     const targetId = req.body && req.body.targetId;
     const reason = req.body && req.body.reason;
     const details = typeof (req.body && req.body.details) === 'string' ? req.body.details.trim() : '';
-    const validTypes = ['user', 'post', 'comment', 'room', 'stream'];
+    const validTypes = ['user', 'post', 'comment', 'room', 'stream', 'stream_message'];
     const validReasons = ['harassment', 'hate', 'spam', 'sexual_content', 'violence', 'impersonation', 'scam', 'other'];
     if (!validTypes.includes(targetType) || typeof targetId !== 'string' ||
         !validReasons.includes(reason) || details.length > 1000) {
@@ -3761,7 +3761,8 @@ app.post('/api/reports', requireAuth, reportLimiter, async (req, res, next) => {
       : targetType === 'post' ? await Post.exists({ _id: resolvedTargetId })
       : targetType === 'comment' ? await Comment.exists({ _id: resolvedTargetId })
       : targetType === 'room' ? await Room.exists({ _id: resolvedTargetId })
-      : await LiveStream.exists({ _id: resolvedTargetId });
+      : targetType === 'stream' ? await LiveStream.exists({ _id: resolvedTargetId })
+      : await LiveStreamMessage.exists({ _id: resolvedTargetId });
     if (!targetExists) return res.status(404).json({ success: false, message: 'El contenido o cuenta que querés reportar no existe.' });
     if (targetType === 'user' && String(resolvedTargetId) === String(req.auth.sub)) {
       return res.status(400).json({ success: false, message: 'No podés reportar tu propia cuenta.' });
@@ -3816,6 +3817,7 @@ app.patch('/api/admin/reports/:reportId', requireAuth, requireModerator, async (
   const session = await mongoose.startSession();
   let result;
   let liveKitRoomName = null;
+  let moderatedChatMessage = null;
   try {
     await session.withTransaction(async () => {
       const report = await Report.findOne({ _id: req.params.reportId, status: 'pending' }).session(session);
@@ -3840,6 +3842,21 @@ app.patch('/api/admin/reports/:reportId', requireAuth, requireModerator, async (
           const room = await Room.findByIdAndDelete(report.targetId, { session });
           removed = Boolean(room);
           if (room) await RoomMessage.deleteMany({ room: room._id }, { session });
+        } else if (report.targetType === 'stream_message') {
+          const message = await LiveStreamMessage.findByIdAndDelete(report.targetId, { session }).lean();
+          removed = Boolean(message);
+          if (message) {
+            const stream = await LiveStream.findOneAndUpdate(
+              { _id: message.stream, pinnedMessage: message._id },
+              { $set: { pinnedMessage: null, pinnedBy: null, pinnedAt: null } },
+              { new: true, session }
+            ).select('_id').lean();
+            moderatedChatMessage = {
+              streamId: String(message.stream),
+              messageId: String(message._id),
+              wasPinned: Boolean(stream)
+            };
+          }
         } else if (report.targetType === 'stream') {
           const stream = await LiveStream.findOneAndUpdate(
             { _id: report.targetId, status: 'live' },
@@ -3862,6 +3879,20 @@ app.patch('/api/admin/reports/:reportId', requireAuth, requireModerator, async (
     if (result && result.error === 'REPORT_NOT_FOUND') return res.status(404).json({ success: false, message: 'El reporte ya fue atendido o no existe.' });
     if (result && result.error === 'USER_ACTION_UNSUPPORTED') return res.status(400).json({ success: false, message: 'Los reportes de cuenta requieren un procedimiento de sanción específico; no se elimina una cuenta desde esta acción.' });
     if (result && result.error === 'TARGET_NOT_FOUND') return res.status(404).json({ success: false, message: 'El contenido ya no existe o fue moderado anteriormente.' });
+    if (moderatedChatMessage) {
+      const io = req.app.get('io');
+      if (io) {
+        io.to('stream-chat:' + moderatedChatMessage.streamId).emit('stream_chat_message_deleted', {
+          streamId: moderatedChatMessage.streamId,
+          messageId: moderatedChatMessage.messageId
+        });
+        if (moderatedChatMessage.wasPinned) {
+          io.to('stream-chat:' + moderatedChatMessage.streamId).emit('stream_chat_unpinned', {
+            streamId: moderatedChatMessage.streamId
+          });
+        }
+      }
+    }
     if (liveKitRoomName) {
       const config = getLiveKitConfig();
       if (config) {
