@@ -52,6 +52,9 @@ jobs:
       - name: Apply official launcher icon and startup screen
         run: node scripts/sync-android-brand.js
 
+      - name: Install native floating HUD plugin
+        run: node scripts/sync-android-hud.js
+
       - name: Build debug APK
         run: |
           cd android
