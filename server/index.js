@@ -481,6 +481,8 @@ app.get('/api/public/stream-overlay/:token', overlayReadLimiter, async (req, res
       console.error('Unable to read LiveKit overlay participant count:', error.message);
     }
     const preferences = owner.streamingPreferences || {};
+    const chatMessages = await LiveStreamMessage.find({ stream: stream._id })
+      .sort({ sentAt: -1, _id: -1 }).limit(6).lean();
     return res.set('Cache-Control', 'no-store').json({
       success: true,
       stream: { title: stream.title, creator: stream.ownerUsername },
@@ -488,13 +490,18 @@ app.get('/api/public/stream-overlay/:token', overlayReadLimiter, async (req, res
         theme: preferences.overlayTheme || 'arcade',
         layout: preferences.overlayLayout || 'wide',
         showViewerCount: preferences.overlayShowViewerCount !== false,
+        showChat: preferences.overlayShowChat !== false,
         brandingText: preferences.overlayBrandingText || '',
         socialYouTube: preferences.socialYouTube || '',
         socialTwitch: preferences.socialTwitch || '',
         socialTikTok: preferences.socialTikTok || ''
       },
       viewerCount,
-      capabilities: { viewerCount: viewerCount !== null, chat: false, donations: false }
+      chatMessages: chatMessages.reverse().map((message) => ({
+        id: String(message._id), username: message.username,
+        message: message.message, sentAt: message.sentAt
+      })),
+      capabilities: { viewerCount: viewerCount !== null, chat: true, donations: false }
     });
   } catch (error) { return next(error); }
 });
@@ -519,15 +526,39 @@ app.get('/overlay/:token', (req, res) => {
 #branding{font-size:12px;color:#cbd5e1;margin-top:7px}
 #viewers{white-space:nowrap;padding:10px 14px;border-radius:999px;background:#10152be8;border:1px solid #ffffff35;font-weight:800}
 #social{font-size:11px;color:#dbeafe;margin-top:5px}
+#chat{display:none;max-width:min(420px,42vw);min-width:220px;max-height:42vh;overflow:hidden;padding:12px 14px;border:1px solid #ffffff35;border-radius:14px;background:#10152be8;box-shadow:0 8px 30px #0006}
+#chat.visible{display:block}
+#chat-title{font-size:10px;font-weight:900;letter-spacing:.12em;color:#9da9ff;text-transform:uppercase;margin-bottom:7px}
+#chat-messages{display:flex;flex-direction:column;gap:6px;overflow:hidden}
+.chat-line{font-size:12px;line-height:1.35;overflow-wrap:anywhere;color:#f8fafc}
+.chat-line strong{color:#fdba74;margin-right:5px}
 .theme-neon .panel,.theme-neon #viewers{border-color:#22d3ee99;box-shadow:0 0 22px #22d3ee33}
 .theme-minimal .panel,.theme-minimal #viewers{background:#111c;color:#fff;border-color:#ffffff55;box-shadow:none}
 .theme-esports .panel,.theme-esports #viewers{border-radius:4px;border-left:4px solid #f97316;background:#111827ed}
 .layout-compact .panel{padding:9px 12px}.layout-vertical{flex-direction:column;align-items:flex-start}.layout-vertical .panel{max-width:100%}
-</style></head><body><main id="overlay"><section class="panel"><div id="creator"></div><div id="title">Conectando con la transmisión…</div><div id="branding"></div><div id="social"></div></section><div id="viewers"></div></main>
+</style></head><body><main id="overlay"><section class="panel"><div id="creator"></div><div id="title">Conectando con la transmisión…</div><div id="branding"></div><div id="social"></div></section><section id="chat"><div id="chat-title">Chat en vivo</div><div id="chat-messages"></div></section><div id="viewers"></div></main>
 <script>
 const token=${JSON.stringify(token)};
 const root=document.getElementById('overlay');
 const set=(id,value)=>{document.getElementById(id).textContent=value||''};
+const chat=document.getElementById('chat');
+const chatMessages=document.getElementById('chat-messages');
+let lastChatSignature='';
+function renderChat(messages,enabled){
+ chat.classList.toggle('visible',enabled===true);
+ if(!enabled){chatMessages.replaceChildren();lastChatSignature='';return}
+ const safeMessages=Array.isArray(messages)?messages.slice(-6):[];
+ const signature=safeMessages.map(m=>String(m.id||'')+':'+String(m.message||'')).join('|');
+ if(signature===lastChatSignature)return;
+ lastChatSignature=signature;
+ chatMessages.replaceChildren();
+ for(const message of safeMessages){
+  const line=document.createElement('div');line.className='chat-line';
+  const author=document.createElement('strong');author.textContent=String(message.username||'Jugador');
+  const body=document.createElement('span');body.textContent=String(message.message||'');
+  line.append(author,body);chatMessages.appendChild(line);
+ }
+}
 async function refresh(){
  try{
   const response=await fetch('/api/public/stream-overlay/'+encodeURIComponent(token),{cache:'no-store'});
@@ -540,6 +571,7 @@ async function refresh(){
   const socials=[p.socialYouTube&&'YouTube '+p.socialYouTube,p.socialTwitch&&'Twitch '+p.socialTwitch,p.socialTikTok&&'TikTok '+p.socialTikTok].filter(Boolean).join('  •  ');
   set('social',socials);
   set('viewers',p.showViewerCount?(Number.isInteger(data.viewerCount)?'● '+data.viewerCount+' espectadores':'● espectadores no disponibles'):'');
+  renderChat(data.chatMessages,p.showChat);
  }catch{set('title','Reconectando…')}
 }
 refresh();setInterval(refresh,5000);
