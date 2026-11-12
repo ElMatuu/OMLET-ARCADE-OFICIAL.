@@ -707,6 +707,7 @@
                     <div>
                         <h3 id="profile-display-name" class="font-black text-xl text-white">Jugador PLAYVERSE</h3>
                         <p id="profile-username" class="text-xs text-orange-400 font-mono mt-0.5">@usuario</p>
+                        <span id="profile-plus-badge" class="hidden inline-flex mt-2 rounded-full border border-violet-400/50 bg-violet-500/10 px-3 py-1 text-[10px] font-black tracking-wider text-violet-200">✦ PLAYVERSE PLUS</span>
                         <p id="profile-bio" class="text-sm text-slate-300 mt-3 whitespace-pre-wrap break-words">Todavía no agregaste una biografía.</p>
                     </div>
                     <div id="profile-favorite-games" class="flex flex-wrap justify-center gap-2" aria-label="Juegos favoritos"></div>
@@ -999,6 +1000,8 @@
             document.getElementById('drawer-username').textContent = displayName;
             document.getElementById('profile-display-name').textContent = displayName;
             document.getElementById('profile-username').textContent = '@' + user.username;
+            const plusBadge = document.getElementById('profile-plus-badge');
+            if (plusBadge) plusBadge.classList.toggle('hidden', user.plusMembershipActive !== true);
             document.getElementById('profile-bio').textContent = user.bio || 'Todavía no agregaste una biografía.';
             const banner = document.getElementById('profile-banner-image');
             if (user.profileBannerUrl) { banner.onerror = () => banner.classList.add('hidden'); banner.src = user.profileBannerUrl; banner.classList.remove('hidden'); }
