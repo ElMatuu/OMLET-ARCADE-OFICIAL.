@@ -76,4 +76,4 @@ After account linking, PLAYVERSE activates external chat ingestion where the pro
 
 Incoming messages are deduplicated by provider message ID and forwarded to the active PLAYVERSE live chat with a provider prefix. Connection status, chat sync state, errors and last activity are exposed by `GET /api/me/external-integrations`. Provider callbacks require a publicly reachable HTTPS API host; localhost alone cannot receive external webhooks.
 
-This is chat/event synchronization, not payment processing. Donations, Twitch Bits, Kick gifts, paid memberships, payouts and financial settlement are not enabled by these integrations and are never simulated.
+Platform event notifications (Twitch Bits/subscriptions, Kick KICK gifts/subscriptions, and YouTube Super Chats/memberships) are displayed as external chat events only. PLAYVERSE does not receive, hold, charge, transfer or settle money, and does not process payouts or simulate payment transactions.
