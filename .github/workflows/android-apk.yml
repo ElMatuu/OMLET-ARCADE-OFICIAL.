@@ -52,6 +52,9 @@ jobs:
       - name: Apply official launcher icon and startup screen
         run: node scripts/sync-android-brand.js
 
+      - name: Register Android game capture and floating HUD plugins
+        run: node scripts/sync-android-hud.js
+
       - name: Build debug APK
         run: |
           cd android
