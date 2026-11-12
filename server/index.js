@@ -715,6 +715,8 @@ app.post('/api/streams/:streamId/screen-share-token', requireAuth, streamLimiter
       },
       roomName: session.roomName,
       canPublish: true,
+      canPublishData: false,
+      canSubscribe: false,
       canPublishSources: ['SCREEN_SHARE']
     });
     return res.set('Cache-Control', 'no-store').json({
