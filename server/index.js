@@ -2897,6 +2897,11 @@ app.delete('/api/posts/:postId/save', requireAuth, postLimiter, async (req, res,
 app.get('/api/posts', requireAuth, async (req, res, next) => {
   try {
     const filter = {};
+    if (req.query.game !== undefined) {
+      if (typeof req.query.game !== 'string' || req.query.game.trim().length > 60) return res.status(400).json({ success: false, message: 'Juego de publicación inválido.' });
+      const game = req.query.game.trim();
+      if (game) filter.game = game;
+    }
     const before = typeof req.query.before === 'string' ? req.query.before : '';
     if (before) {
       if (before.length > 256) {
@@ -2920,7 +2925,7 @@ app.get('/api/posts', requireAuth, async (req, res, next) => {
     }
 
     const fetchedPosts = await Post.find(filter)
-      .select('authorUsername content likes commentCount createdAt')
+      .select('authorUsername content game likes commentCount createdAt')
       .sort({ createdAt: -1, _id: -1 })
       .limit(31)
       .lean();
@@ -2942,6 +2947,7 @@ app.get('/api/posts', requireAuth, async (req, res, next) => {
         id: String(post._id),
         authorUsername: post.authorUsername,
         content: post.content,
+        game: post.game || '',
         likeCount: Array.isArray(post.likes) ? post.likes.length : 0,
         likedByMe: Array.isArray(post.likes) && post.likes.some((id) => String(id) === req.auth.sub),
         commentCount: Number(post.commentCount) || 0,
@@ -2957,6 +2963,8 @@ app.get('/api/posts', requireAuth, async (req, res, next) => {
 app.post('/api/posts', requireAuth, postLimiter, async (req, res, next) => {
   try {
     const content = typeof req.body.content === 'string' ? req.body.content.trim() : '';
+    const game = req.body.game === undefined ? '' : (typeof req.body.game === 'string' ? req.body.game.trim() : null);
+    if (game === null || game.length > 60) return res.status(400).json({ success: false, message: 'Juego de publicación inválido.' });
     if (!content || content.length > 2000) {
       return res.status(400).json({
         success: false,
@@ -2969,7 +2977,8 @@ app.post('/api/posts', requireAuth, postLimiter, async (req, res, next) => {
     const post = await Post.create({
       author: req.auth.sub,
       authorUsername: user.username,
-      content
+      content,
+      game
     });
     return res.status(201).json({
       success: true,
@@ -2977,6 +2986,7 @@ app.post('/api/posts', requireAuth, postLimiter, async (req, res, next) => {
         id: String(post._id),
         authorUsername: post.authorUsername,
         content: post.content,
+        game: post.game || '',
         likeCount: 0,
         likedByMe: false,
         commentCount: 0,
