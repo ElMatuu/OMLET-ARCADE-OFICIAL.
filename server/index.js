@@ -472,8 +472,19 @@ app.get('/overlay/:token', (req, res) => {
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PLAYVERSE Stream Overlay</title>
 <style>
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:transparent;color:#fff;font-family:Inter,system-ui,Arial,sans-serif}
-#overlay{position:absolute;left:3%;right:3%;bottom:4%;display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:transparent;color:#fff;font-family:Inter,system-ui,Arial,sans-serif;overflow:hidden}
+#video-stage{position:absolute;inset:0;overflow:hidden;background:transparent;z-index:0}
+#video-stage video{position:absolute;display:none}
+#screen-share{inset:0;width:100%;height:100%;object-fit:contain;background:transparent}
+#camera{width:24%;height:28%;object-fit:cover;border:2px solid #fff;border-radius:14px;box-shadow:0 4px 22px #0009;background:#020617}
+#camera[data-position="top-left"]{top:4%;left:3%}
+#camera[data-position="top-right"]{top:4%;right:3%}
+#camera[data-position="bottom-left"]{bottom:5%;left:3%}
+#camera[data-position="bottom-right"]{bottom:5%;right:3%}
+#camera[data-frame="cyan"]{border:3px solid #22d3ee;box-shadow:0 0 22px #22d3ee88}
+#camera[data-frame="violet"]{border:3px double #a78bfa;box-shadow:0 0 22px #8b5cf688}
+#overlay.camera-only #camera{inset:0;width:100%;height:100%;border:0;border-radius:0;box-shadow:none;object-fit:contain}
+#overlay{position:absolute;z-index:5;left:3%;right:3%;bottom:4%;display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
 .panel{max-width:75%;padding:14px 18px;border:1px solid #ffffff35;border-radius:16px;background:linear-gradient(110deg,#10152be8,#1c2345d9);box-shadow:0 8px 30px #0006;backdrop-filter:blur(10px)}
 #creator{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#9da9ff}
 #title{font-size:clamp(16px,2.4vw,28px);font-weight:900;line-height:1.15;margin-top:4px}
