@@ -342,7 +342,7 @@ async function processTwitchWebhook(body, io) {
   if (type !== 'notification') return { accepted: true, type };
   const subscriptionType = body.payload?.subscription?.type;
   const event = body.payload?.event || {};
-  const externalUserId = String(event.broadcaster_user_id || '');
+  const externalUserId = String(event.broadcaster_user_id || event.to_broadcaster_user_id || '');
   const messageId = String(event.message_id || body.metadata?.message_id || '');
   if (subscriptionType === 'channel.chat.message') {
     return ingestExternalChatMessage({
