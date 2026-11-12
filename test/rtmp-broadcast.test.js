@@ -25,9 +25,10 @@ test('builds only fixed provider RTMP endpoints and decrypts keys server-side', 
 test('rejects arbitrary, duplicate, empty and excessive destinations', () => {
   assert.throws(() => buildRtmpUrls([]), /one and three/);
   assert.throws(() => buildRtmpUrls([{ provider: 'other' }]), /Invalid or duplicate/);
+  const twitch = encryptStreamKey('twitch-secret-key', env);
   assert.throws(() => buildRtmpUrls([
-    { provider: 'twitch' }, { provider: 'twitch' }
-  ]), /Invalid or duplicate/);
+    { provider: 'twitch', ...twitch }, { provider: 'twitch', ...twitch }
+  ], env), /Invalid or duplicate/);
   assert.throws(() => buildRtmpUrls([
     { provider: 'twitch' }, { provider: 'youtube' }, { provider: 'kick' }, { provider: 'kick' }
   ]), /one and three/);
