@@ -9,6 +9,9 @@ test('public stream overlay resolves an owned overlay and exposes the live water
     preferences: {
       overlayTheme: 'neon',
       overlayLayout: 'vertical',
+      overlayPosition: 'top-right',
+      overlayScale: 115,
+      overlayOpacity: 80,
       overlayShowViewerCount: true,
       overlayBrandingText: 'Canal oficial',
       socialYouTube: '@creator'
@@ -31,6 +34,9 @@ test('public stream overlay resolves an owned overlay and exposes the live water
   });
   assert.equal(payload.overlay.theme, 'neon');
   assert.equal(payload.overlay.layout, 'vertical');
+  assert.equal(payload.overlay.position, 'top-right');
+  assert.equal(payload.overlay.scale, 115);
+  assert.equal(payload.overlay.opacity, 80);
   assert.equal(payload.overlay.brandingText, 'Canal oficial');
   assert.equal(payload.viewerCount, 7);
   assert.deepEqual(payload.capabilities, {
