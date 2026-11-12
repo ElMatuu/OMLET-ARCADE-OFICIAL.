@@ -38,7 +38,7 @@ const creatorBroadcastsRouter = require('./routes/creatorBroadcasts');
 const externalIntegrationsRouter = require('./routes/externalIntegrations');
 const StreamBroadcastSession = require('./models/StreamBroadcastSession');
 const { startRtmpBroadcast, stopRtmpBroadcast } = require('./services/rtmpBroadcast');
-const { processKickWebhook, processTwitchWebhook, startYouTubeChatSync, verifyKickWebhook, verifyTwitchEventSub } = require('./services/externalProviderEvents');
+const { processKickWebhook, processTwitchWebhook, startYouTubeChatSync, stopYouTubeChatSync, verifyKickWebhook, verifyTwitchEventSub } = require('./services/externalProviderEvents');
 const groupConversationsRouter = require('./routes/groupConversations');
 const Conversation = require('./models/Conversation');
 const DirectMessage = require('./models/DirectMessage');
@@ -4973,6 +4973,7 @@ async function shutdown(signal = 'shutdown') {
   app.set('isShuttingDown', true);
   shutdownPromise = (async () => {
     console.log(`PLAYVERSE API shutting down (${signal}); readiness disabled`);
+    stopYouTubeChatSync();
     if (httpServer.io) {
       await new Promise((resolve) => httpServer.io.close(resolve));
     } else if (httpServer.listening) {
