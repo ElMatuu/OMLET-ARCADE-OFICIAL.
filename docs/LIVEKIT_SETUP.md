@@ -40,7 +40,22 @@ Subscribe to the `room_finished` event. The endpoint verifies the LiveKit Author
 
 The API issues role-scoped participant tokens that expire after **10 minutes**; publisher and viewer permissions are restricted to the requested room. Clients must request a fresh token when a new session is needed. The API returns a clear `503 LIVE_STREAMING_NOT_CONFIGURED` response until all three server environment variables are valid.
 
-## 5. Platform validation still required
+## 5. Browser overlay source
+
+When the creator starts a stream, PLAYVERSE returns a private URL at `/overlay/<token>`. Add it to OBS or another compatible encoder as a **Browser Source**. The URL is a bearer secret: do not post it in public chat, screenshots, or support tickets. It is revoked when the stream ends.
+
+The browser source polls the authenticated-by-token public overlay endpoint and renders:
+- Stream title and creator name.
+- The custom watermark entered when starting the stream (visible in the browser composition; it is **not burned into the original video or automatically added to other RTMP outputs**).
+- Theme, layout, channel branding and configured social handles.
+- LiveKit participant count when the LiveKit API can retrieve it.
+- The equipped and owned stream-overlay cosmetic, using PLAYVERSE's built-in CSS skin.
+
+The browser overlay is a separate composition layer. It does not alter the creator's camera/game source. Chat messages and gifts/donations are deliberately not displayed yet because their event sources and moderation/payment integrations are not connected. Their controls remain disabled rather than pretending to work.
+
+To verify: start a stream with a watermark, equip an overlay cosmetic, open the private URL in a browser, and confirm title, creator, watermark, skin and viewer count. End the stream and confirm the URL stops returning active overlay data.
+
+## 6. Platform validation still required
 
 - **Web:** test on current Chrome/Edge/Firefox over HTTPS, including permissions, reconnects, autoplay behavior and network interruptions.
 - **Windows:** build the Electron installer, test the explicit camera/microphone permission prompt and choose a screen/window in the capture picker.
