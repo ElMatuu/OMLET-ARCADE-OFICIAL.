@@ -171,7 +171,7 @@ public class ArcadeHudService extends Service {
         card.addView(title);
 
         TextView status = new TextView(this);
-        status.setText("HUD activo · transmisión no iniciada");
+        status.setText("Controles de directo y comunidad");
         status.setTextColor(Color.LTGRAY);
         status.setTextSize(12);
         status.setPadding(0, 8, 0, 12);
