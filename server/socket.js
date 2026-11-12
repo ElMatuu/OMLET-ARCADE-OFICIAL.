@@ -357,8 +357,8 @@ function attachSocketServer(httpServer, allowedOrigins) {
           typeof targetUserId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(targetUserId) ||
           !socket.rooms.has(roomId)) return acknowledge({ success: false, message: 'Sala o participante inválidos.' });
       try {
-        const room = await Room.findOne({ _id: roomId, owner: socket.user.sub, status: 'open' }).select('_id').lean();
-        if (!room) return acknowledge({ success: false, message: 'Solo el anfitrión puede quitar silencios.' });
+        const room = await Room.findOne({ _id: roomId, $or: [{ owner: socket.user.sub }, { moderators: socket.user.sub }], members: socket.user.sub, status: 'open' }).select('_id').lean();
+        if (!room) return acknowledge({ success: false, message: 'No tenés permisos para quitar silencios.' });
         await Room.updateOne({ _id: roomId, $or: [{ owner: socket.user.sub }, { moderators: socket.user.sub }] }, { $pull: { mutedMembers: { user: targetUserId } } });
         io.to(roomId).emit('room_member_unmuted', { roomId, userId: targetUserId });
         return acknowledge({ success: true, userId: targetUserId });
