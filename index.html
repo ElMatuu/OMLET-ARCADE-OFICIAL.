@@ -1402,7 +1402,7 @@
             ]);
             connectPresenceSocket();
             if (pvStartupFinished) checkPendingExperienceRewards();
-            if (pendingFloatingAction) { const action = pendingFloatingAction; pendingFloatingAction = ''; switchTab(action); }
+            if (pendingFloatingAction) { const action = pendingFloatingAction; pendingFloatingAction = ''; runFloatingAction(action).catch(function(error) { setLiveStatus(error.message); }); }
             if (!friendsPresenceTimer) {
                 friendsPresenceTimer = setInterval(() => {
                     const friendsTab = document.getElementById('tab-friends');
@@ -1703,13 +1703,44 @@
             if (authToken) checkPendingExperienceRewards();
             setupOverlayPermissionPrompt();
             const overlayPlugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.ArcadeHud;
+            async function runFloatingAction(action) {
+                if (!action) return;
+                if (!authToken) { pendingFloatingAction = action; return; }
+                const nativeShare = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.NativeScreenShare;
+                if (action === 'chat') { switchTab('chat'); return; }
+                if (action === 'live' || action === 'lobbies' || action === 'clubs') { switchTab(action); return; }
+                if (action === 'stream_chat') {
+                    switchTab('live');
+                    document.getElementById('stream-chat-messages')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    document.getElementById('stream-chat-input')?.focus();
+                    return;
+                }
+                if (action === 'screen_share_toggle') {
+                    if (activeLiveStreamRole === 'publisher') await toggleLiveScreenShare();
+                    else { switchTab('live'); setLiveStatus('Primero iniciá un directo; después usá Capturar juego en el HUD.'); }
+                    return;
+                }
+                if (action === 'microphone_toggle' || action === 'camera_toggle') {
+                    if (!nativeShare) { setLiveStatus('El control nativo de medios no está disponible en esta compilación.'); return; }
+                    try {
+                        const result = action === 'microphone_toggle'
+                            ? await nativeShare.toggleMicrophone()
+                            : await nativeShare.toggleCamera();
+                        setLiveStatus((action === 'microphone_toggle' ? 'Micrófono ' : 'Cámara ') + (result.enabled ? 'activado.' : 'desactivado.'));
+                    } catch (error) { setLiveStatus('No se pudo cambiar el control: ' + error.message); }
+                    return;
+                }
+                if (action === 'end_stream') {
+                    if (activeLiveStreamRole === 'publisher') await endLiveStream();
+                    else setLiveStatus('No hay una transmisión propia activa para finalizar.');
+                }
+            }
             function consumeFloatingAction() {
                 if (!overlayPlugin || typeof overlayPlugin.consumePendingAction !== 'function') return;
                 overlayPlugin.consumePendingAction().then(function(result) {
                     const action = result && result.action;
-                    if (!['chat', 'live', 'lobbies', 'clubs'].includes(action)) return;
-                    if (authToken) switchTab(action);
-                    else pendingFloatingAction = action;
+                    if (!['chat', 'live', 'lobbies', 'clubs', 'stream_chat', 'screen_share_toggle', 'microphone_toggle', 'camera_toggle', 'end_stream'].includes(action)) return;
+                    runFloatingAction(action).catch(function(error) { setLiveStatus('Error en el control flotante: ' + error.message); });
                 }).catch(function() {});
             }
             consumeFloatingAction();
@@ -5627,6 +5658,11 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         async function toggleLiveCamera() {
             if (!liveKitRoom || activeLiveStreamRole !== 'publisher') return;
             try {
+                if (nativeScreenShareActive && window.Capacitor?.Plugins?.NativeScreenShare) {
+                    const result = await window.Capacitor.Plugins.NativeScreenShare.toggleCamera();
+                    document.getElementById('live-player-status').textContent = 'Cámara nativa ' + (result.enabled ? 'activada.' : 'desactivada.');
+                    return;
+                }
                 if (liveCompositeBroadcast) {
                     const enabled = !liveCompositeBroadcast.cameraTrack.mediaStreamTrack.enabled;
                     liveCompositeBroadcast.cameraTrack.mediaStreamTrack.enabled = enabled;
@@ -5673,8 +5709,14 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
 
         async function toggleLiveMicrophone() {
             if (!liveKitRoom || activeLiveStreamRole !== 'publisher') return;
-            try { await liveKitRoom.localParticipant.setMicrophoneEnabled(!liveKitRoom.localParticipant.isMicrophoneEnabled); }
-            catch (error) { document.getElementById('live-player-status').textContent = error.message; }
+            try {
+                if (nativeScreenShareActive && window.Capacitor?.Plugins?.NativeScreenShare) {
+                    const result = await window.Capacitor.Plugins.NativeScreenShare.toggleMicrophone();
+                    document.getElementById('live-player-status').textContent = 'Micrófono nativo ' + (result.enabled ? 'activado.' : 'desactivado.');
+                    return;
+                }
+                await liveKitRoom.localParticipant.setMicrophoneEnabled(!liveKitRoom.localParticipant.isMicrophoneEnabled);
+            } catch (error) { document.getElementById('live-player-status').textContent = error.message; }
         }
 
         async function toggleLiveScreenShare() {
