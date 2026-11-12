@@ -28,6 +28,7 @@ const Report = require('./models/Report');
 const Notification = require('./models/Notification');
 const UserPresence = require('./models/UserPresence');
 const LiveStream = require('./models/LiveStream');
+const LiveStreamMessage = require('./models/LiveStreamMessage');
 const creatorDestinationsRouter = require('./routes/creatorDestinations');
 const Conversation = require('./models/Conversation');
 const DirectMessage = require('./models/DirectMessage');
@@ -171,6 +172,14 @@ const streamLimiter = rateLimit({
   message: { success: false, message: 'Demasiadas operaciones de streaming. Probá en un minuto.' }
 });
 
+const liveChatLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, message: 'Estás enviando mensajes demasiado rápido. Esperá un minuto.' }
+});
+
 const overlayReadLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 60,
@@ -239,6 +248,63 @@ app.get('/api/health/ready', (req, res) => {
     service: 'PLAYVERSE API',
     status: draining ? 'draining' : (databaseReady ? 'ready' : 'database-disconnected')
   });
+});
+
+app.get('/api/streams/:streamId/messages', requireAuth, async (req, res, next) => {
+  try {
+    if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
+    const stream = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).select('owner').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
+    if (String(stream.owner) !== String(req.auth.sub)) {
+      const blocked = await Block.exists({ $or: [
+        { blocker: req.auth.sub, blocked: stream.owner },
+        { blocker: stream.owner, blocked: req.auth.sub }
+      ] });
+      if (blocked) return res.status(403).json({ success: false, message: 'No podés acceder al chat de esta transmisión.' });
+    }
+    const parsedLimit = Number(req.query.limit);
+    const limit = Number.isInteger(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 50;
+    const messages = await LiveStreamMessage.find({ stream: stream._id })
+      .sort({ sentAt: -1, _id: -1 }).limit(limit).lean();
+    return res.set('Cache-Control', 'no-store').json({
+      success: true,
+      messages: messages.reverse().map((message) => ({
+        id: String(message._id), authorId: String(message.author),
+        username: message.username, message: message.message, sentAt: message.sentAt
+      }))
+    });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/streams/:streamId/messages', requireAuth, liveChatLimiter, async (req, res, next) => {
+  try {
+    if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
+    const message = typeof (req.body && req.body.message) === 'string' ? req.body.message.trim() : '';
+    if (!message || message.length > 500) {
+      return res.status(400).json({ success: false, message: 'El mensaje debe contener entre 1 y 500 caracteres.' });
+    }
+    const stream = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).select('owner').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
+    if (String(stream.owner) !== String(req.auth.sub)) {
+      const blocked = await Block.exists({ $or: [
+        { blocker: req.auth.sub, blocked: stream.owner },
+        { blocker: stream.owner, blocked: req.auth.sub }
+      ] });
+      if (blocked) return res.status(403).json({ success: false, message: 'No podés participar en esta transmisión.' });
+    }
+    const user = await User.findById(req.auth.sub).select('username').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    const saved = await LiveStreamMessage.create({
+      stream: stream._id, author: req.auth.sub, username: user.username, message
+    });
+    const result = {
+      id: String(saved._id), authorId: String(saved.author),
+      username: saved.username, message: saved.message, sentAt: saved.sentAt
+    };
+    const io = httpServer.io;
+    if (io) io.to('stream-chat:' + String(stream._id)).emit('stream_chat_message', result);
+    return res.status(201).json({ success: true, message: result });
+  } catch (error) { return next(error); }
 });
 
 app.get('/api/streams', async (req, res, next) => {
