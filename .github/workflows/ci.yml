@@ -1,4 +1,4 @@
-name: PLAYVERSE CI
+name: Omlet Arcade CI
 
 on:
   push:
