@@ -46,7 +46,14 @@ const service = `<service
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-enabled floating in-game controls for PLAYVERSE" />
         </service>`;
-if (!manifest.includes('com.playverse.app.plugins.ArcadeHudService')) {
+const hudServiceName = 'com.playverse.app.plugins.ArcadeHudService';
+const hudServiceNameIndex = manifest.indexOf(hudServiceName);
+if (hudServiceNameIndex >= 0) {
+  const serviceStart = manifest.lastIndexOf('<service', hudServiceNameIndex);
+  const serviceEnd = manifest.indexOf('</service>', hudServiceNameIndex);
+  if (serviceStart < 0 || serviceEnd < 0) throw new Error('Existing ArcadeHudService declaration is malformed.');
+  manifest = manifest.slice(0, serviceStart) + service + manifest.slice(serviceEnd + '</service>'.length);
+} else {
   manifest = manifest.replace('</application>', '    ' + service + '\n    </application>');
 }
 fs.writeFileSync(manifestPath, manifest);
@@ -75,14 +82,18 @@ if (!activity.includes(importLine)) {
 if (!activity.includes(nativeShareImport)) {
   activity = activity.replace(importLine, importLine + '\n' + nativeShareImport);
 }
-if (!activity.includes('registerPlugin(NativeScreenSharePlugin.class)')) {
+const missingRegistrations = [];
+if (!activity.includes('registerPlugin(ArcadeHudPlugin.class)')) missingRegistrations.push('registerPlugin(ArcadeHudPlugin.class);');
+if (!activity.includes('registerPlugin(NativeScreenSharePlugin.class)')) missingRegistrations.push('registerPlugin(NativeScreenSharePlugin.class);');
+if (missingRegistrations.length) {
+  const registrationLines = '\n        ' + missingRegistrations.join('\n        ');
   const onCreate = /((?:public|protected)\s+void\s+onCreate\s*\([^)]*\)\s*\{)/;
   if (onCreate.test(activity)) {
-    activity = activity.replace(onCreate, match => match + '\n        registerPlugin(ArcadeHudPlugin.class);\n        registerPlugin(NativeScreenSharePlugin.class);');
+    activity = activity.replace(onCreate, match => match + registrationLines);
   } else {
     const classOpen = /extends BridgeActivity\s*\{/;
     if (!classOpen.test(activity)) throw new Error('Unsupported MainActivity template; plugin was not registered.');
-    activity = activity.replace(classOpen, match => match + '\n    @Override\n    public void onCreate(Bundle savedInstanceState) {\n        registerPlugin(ArcadeHudPlugin.class);\n        registerPlugin(NativeScreenSharePlugin.class);\n        super.onCreate(savedInstanceState);\n    }');
+    activity = activity.replace(classOpen, match => match + '\n    @Override\n    public void onCreate(Bundle savedInstanceState) {\n        ' + missingRegistrations.join('\n        ') + '\n        super.onCreate(savedInstanceState);\n    }');
     if (!activity.includes('import android.os.Bundle;')) {
       activity = activity.replace(importLine, importLine + '\nimport android.os.Bundle;');
     }
