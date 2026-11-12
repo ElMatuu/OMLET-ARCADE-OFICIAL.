@@ -1,5 +1,5 @@
 const crypto = require('node:crypto');
-const { AccessToken, LiveKitAPI, WebhookReceiver } = require('livekit-server-sdk');
+const { AccessToken, LiveKitAPI, WebhookReceiver, TrackSource } = require('livekit-server-sdk');
 
 function getLiveKitConfig(env = process.env) {
   const url = typeof env.LIVEKIT_URL === 'string' ? env.LIVEKIT_URL.trim() : '';
@@ -34,7 +34,7 @@ function createRoomName() {
   return 'pv_' + crypto.randomUUID().replace(/-/g, '');
 }
 
-async function createParticipantToken({ config, identity, name, metadata, roomName, canPublish, canPublishSources }) {
+async function createParticipantToken({ config, identity, name, metadata, roomName, canPublish, canPublishSources, canPublishData, canSubscribe = true }) {
   const token = new AccessToken(config.apiKey, config.apiSecret, {
     identity,
     name,
@@ -46,9 +46,9 @@ async function createParticipantToken({ config, identity, name, metadata, roomNa
     roomJoin: true,
     room: roomName,
     canPublish: Boolean(canPublish),
-    canSubscribe: true,
-    canPublishData: Boolean(canPublish),
-    ...(Array.isArray(canPublishSources) && canPublishSources.length ? { canPublishSources } : {})
+    canSubscribe: Boolean(canSubscribe),
+    canPublishData: canPublishData === undefined ? Boolean(canPublish) : Boolean(canPublishData),
+    ...(Array.isArray(canPublishSources) && canPublishSources.length ? { canPublishSources: canPublishSources.map(source => typeof source === 'string' && TrackSource[source] !== undefined ? TrackSource[source] : source) } : {})
   });
   return token.toJwt();
 }
