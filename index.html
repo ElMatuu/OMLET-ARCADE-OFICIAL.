@@ -2614,6 +2614,17 @@
             banner.classList.remove('hidden');
         }
 
+        async function removeRoomMember(userId) {
+            if (!activeRoomId || !roomCanModerate || !userId) return;
+            if (!window.confirm('¿Querés expulsar a este participante de la sala?')) return;
+            try {
+                await apiRequest('/api/rooms/' + encodeURIComponent(activeRoomId) + '/members/' + encodeURIComponent(userId) + '/remove', { method: 'POST' });
+                document.getElementById('room-chat-status').textContent = 'Participante expulsado de la sala.';
+            } catch (error) {
+                document.getElementById('room-chat-status').textContent = error.message;
+            }
+        }
+
         function muteRoomMember(userId) {
             if (!roomSocket || !roomSocketJoined || !activeRoomId) return;
             roomSocket.emit('mute_room_member', { roomId: activeRoomId, userId }, (result) => {
@@ -2658,6 +2669,12 @@
                 mute.textContent = 'Silenciar 15 min';
                 mute.addEventListener('click', () => muteRoomMember(String(message.authorId)));
                 item.appendChild(mute);
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'mt-2 mr-3 text-[11px] font-bold text-rose-400 underline';
+                remove.textContent = 'Expulsar';
+                remove.addEventListener('click', () => removeRoomMember(String(message.authorId)));
+                item.appendChild(remove);
             }
             if (roomCanModerate && message.id) {
                 const pin = document.createElement('button');
