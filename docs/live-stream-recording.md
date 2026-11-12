@@ -31,3 +31,12 @@ Todas las operaciones requieren sesión autenticada y que la transmisión perten
 Los estados persistidos son `not_started`, `starting`, `active`, `stopping`, `ended` y `failed`. El webhook firmado de LiveKit procesa `egress_ended` para cerrar el ciclo de vida. Los objetos se guardan bajo `playverse/{ownerId}/{streamId}/{timestamp}.mp4`.
 
 La biblioteca VOD, los enlaces temporales de reproducción y la eliminación de grabaciones son una fase posterior; esta implementación no expone objetos del bucket ni afirma que exista reproducción hasta que esa integración esté construida y verificada.
+
+## Biblioteca privada de grabaciones
+
+Cada intento de grabación genera un registro independiente para conservar el historial de una misma transmisión. La biblioteca solo lista grabaciones finalizadas del propietario:
+
+- `GET /api/me/recordings`: devuelve las últimas 100 grabaciones finalizadas del usuario.
+- `GET /api/me/recordings/:recordingId/playback`: devuelve una URL S3 firmada por 5 minutos, únicamente para el propietario.
+
+Las URLs de reproducción se firman con AWS Signature Version 4 y requieren HTTPS. La API no expone las claves de almacenamiento ni la ruta del objeto. La URL temporal no debe guardarse como enlace permanente ni compartirse públicamente.
