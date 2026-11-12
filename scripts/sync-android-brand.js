@@ -235,16 +235,22 @@ class NativeScreenSharePlugin : Plugin() {
             return
         }
         pluginScope.launch {
+            var stopError: Exception? = null
             try {
                 active.localParticipant.setScreenShareEnabled(false)
-                active.disconnect()
-                active.release()
+            } catch (error: Exception) {
+                stopError = error
+            } finally {
+                try { active.disconnect() } catch (error: Exception) { if (stopError == null) stopError = error }
+                try { active.release() } catch (error: Exception) { if (stopError == null) stopError = error }
                 nativeRoom = null
+            }
+            if (stopError != null) {
+                call.reject("La captura se cerró con un aviso de limpieza: ${stopError.message}", stopError)
+            } else {
                 val result = JSObject()
                 result.put("active", false)
                 call.resolve(result)
-            } catch (error: Exception) {
-                call.reject("No se pudo detener la captura nativa: ${error.message}", error)
             }
         }
     }
