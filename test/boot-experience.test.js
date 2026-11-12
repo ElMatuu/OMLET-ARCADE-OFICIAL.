@@ -34,8 +34,8 @@ test('startup has a bounded cinematic hold and respects reduced motion', () => {
   assert.match(html, /5200 - \(Date\.now\(\) - startedAt\)/);
   assert.match(html, /prefers-reduced-motion:reduce/);
   assert.ok(html.includes('pv-shooting-star 7.4s'));
-  assert.ok(html.includes('La burbuja nativa todavía no está incluida en esta compilación'));
-  assert.ok(html.includes('Pendiente de integración nativa'));
+  assert.ok(html.includes('El HUD nativo no está disponible en esta compilación'));
+  assert.ok(html.includes('HUD no disponible'));
 });
 
 test('earned mission rewards use an audible claim dialog with an orange claim action', () => {

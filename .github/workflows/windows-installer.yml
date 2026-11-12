@@ -4,9 +4,12 @@ on:
   push:
     branches:
       - main
+      - feat/arcade-hud-game-discovery
   pull_request:
     branches:
       - main
+      - feat/profile-menu-achievements
+
   workflow_dispatch:
 
 permissions:

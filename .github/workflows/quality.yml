@@ -5,9 +5,11 @@ on:
     branches:
       - main
       - feat/playverse-brand-foundation
+      - feat/arcade-hud-game-discovery
   pull_request:
     branches:
       - main
+      - feat/profile-menu-achievements
 
 jobs:
   validate:
