@@ -61,3 +61,17 @@ test('creator flow does not claim a stream is live before publishing video', () 
   assert.match(html, /Conectando la emisión.*se publique video/);
   assert.doesNotMatch(html, /Transmisión iniciada\. Compartí tu emisión desde esta sala\./);
 });
+
+test('Android game capture uses MediaProjection and the native LiveKit SDK', () => {
+  const generator = read('scripts/sync-android-brand.js');
+  assert.match(generator, /NativeScreenSharePlugin/);
+  assert.match(generator, /MediaProjectionManager/);
+  assert.match(generator, /ScreenCaptureParams\(data\)/);
+  assert.match(generator, /setScreenShareEnabled\(/);
+  assert.match(generator, /io\.livekit:livekit-android:2\.30\.0/);
+  assert.match(generator, /FOREGROUND_SERVICE_MEDIA_PROJECTION/);
+  assert.match(generator, /ScreenCaptureService/);
+  assert.match(html, /Plugins\.NativeScreenShare/);
+  assert.match(html, /nativePlugin\.start\(\{ url: credentials\.liveKit\.url, token: credentials\.liveKit\.token \}\)/);
+  assert.match(html, /nativePlugin\.stop\(\)/);
+});
