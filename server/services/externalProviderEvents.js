@@ -87,6 +87,7 @@ function isValidKickEventPayload(eventType, event) {
   if (eventType === 'channel.subscription.new' || eventType === 'channel.subscription.renewal') return Boolean(event.subscriber?.username);
   if (eventType === 'channel.subscription.gifts') return Boolean(event.gifter?.username) && Array.isArray(event.giftees);
   if (eventType === 'kicks.gifted') return Boolean(event.sender?.username) && Boolean(event.gift && typeof event.gift.amount === 'number');
+  if (eventType === 'moderation.banned') return Boolean(event.moderator?.username) && Boolean(event.banned_user?.username);
   if (eventType === 'channel.reward.redemption.updated') return Boolean(event.redeemer?.username) && Boolean(event.reward);
   if (eventType === 'livestream.status.updated') return typeof event.is_live === 'boolean';
   if (eventType === 'livestream.metadata.updated') return Boolean(event.metadata && typeof event.metadata === 'object');
@@ -169,7 +170,8 @@ async function subscribeProviderEvents(provider, owner, env = process.env) {
         { type: 'channel.subscribe', version: '1', condition: { broadcaster_user_id: connection.externalUserId } },
         { type: 'channel.subscription.gift', version: '1', condition: { broadcaster_user_id: connection.externalUserId } },
         { type: 'stream.online', version: '1', condition: { broadcaster_user_id: connection.externalUserId } },
-        { type: 'stream.offline', version: '1', condition: { broadcaster_user_id: connection.externalUserId } }
+        { type: 'stream.offline', version: '1', condition: { broadcaster_user_id: connection.externalUserId } },
+        { type: 'channel.raid', version: '1', condition: { to_broadcaster_user_id: connection.externalUserId } }
       ];
       const results = [];
       for (const event of events) {
@@ -202,7 +204,8 @@ async function subscribeProviderEvents(provider, owner, env = process.env) {
         { name: 'channel.reward.redemption.updated', version: 1 },
         { name: 'livestream.status.updated', version: 1 },
         { name: 'livestream.metadata.updated', version: 1 },
-        { name: 'kicks.gifted', version: 1 }
+        { name: 'kicks.gifted', version: 1 },
+        { name: 'moderation.banned', version: 1 }
       ];
       const existing = await fetchJson('https://api.kick.com/public/v1/events/subscriptions', {
         headers: { Authorization: 'Bearer ' + token }
@@ -355,6 +358,7 @@ async function processTwitchWebhook(body, io) {
   else if (subscriptionType === 'channel.subscription.gift') summary = 'regaló ' + Number(event.total || 1) + ' suscripción(es)';
   else if (subscriptionType === 'stream.online') summary = 'inició una transmisión en Twitch';
   else if (subscriptionType === 'stream.offline') summary = 'finalizó su transmisión en Twitch';
+  else if (subscriptionType === 'channel.raid') summary = 'recibió una raid de ' + String(event.from_broadcaster_user_name || 'otro canal') + ' con ' + Number(event.viewers || 0) + ' espectadores';
   if (!summary) return { accepted: true, type: subscriptionType };
   return ingestExternalChatMessage({ provider: 'twitch', externalUserId, externalMessageId: messageId, username, message: summary, io });
 }
@@ -363,7 +367,7 @@ async function processKickWebhook(body, headers, io) {
   const event = body?.data || body?.event || body || {};
   const broadcasterId = String(event.broadcaster?.user_id || event.broadcaster_user_id || '');
   if (!isValidKickEventPayload(eventType, event)) return { accepted: false, reason: 'invalid_event_payload' };
-  const sender = event.sender || event.follower || event.subscriber || event.gifter || event.redeemer || {};
+  const sender = event.sender || event.follower || event.subscriber || event.gifter || event.redeemer || event.moderator || {};
   const messageId = String(event.message_id || headers['kick-event-message-id'] || '');
   if (eventType === 'chat.message.sent') {
     return ingestExternalChatMessage({
@@ -378,6 +382,7 @@ async function processKickWebhook(body, headers, io) {
   else if (eventType === 'channel.subscription.renewal') summary = 'renovó su suscripción';
   else if (eventType === 'channel.subscription.gifts') summary = 'regaló ' + ((event.giftees || []).length || 1) + ' suscripción(es)';
   else if (eventType === 'kicks.gifted') summary = 'envió ' + Number(event.gift?.amount || 0) + ' KICKs' + (event.gift?.message ? ': ' + event.gift.message : '');
+  else if (eventType === 'moderation.banned') summary = 'moderó a @' + String(event.banned_user.username) + (event.metadata?.reason ? ': ' + event.metadata.reason : '');
   else if (eventType === 'channel.reward.redemption.updated') summary = 'canjeó la recompensa ' + String(event.reward?.title || '');
   else if (eventType === 'livestream.status.updated') summary = event.is_live ? 'inició su transmisión en Kick' : 'finalizó su transmisión en Kick';
   else if (eventType === 'livestream.metadata.updated') summary = 'actualizó los datos de su transmisión en Kick';
