@@ -198,7 +198,14 @@ async function getAccessToken(connection, env = process.env) {
   const credentials = getCredentials(provider, env);
   const refreshToken = decryptSecret(connection.encryptedRefreshToken, connection.refreshIv, connection.refreshAuthTag, env);
   const body = new URLSearchParams({ client_id: credentials.clientId, client_secret: credentials.clientSecret, grant_type: 'refresh_token', refresh_token: refreshToken });
-  const refreshed = await fetchJson(config.token, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+  let refreshed;
+  try { refreshed = await fetchJson(config.token, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body }); }
+  catch (error) {
+    if (error.status === 400 || error.status === 401) {
+      await ExternalProviderConnection.updateOne({ _id: connection._id }, { $set: { status: 'reauthorization_required', chatSyncStatus: 'error', chatSyncError: 'La autorización externa venció o fue revocada. Volvé a vincular la cuenta.' } });
+    }
+    throw error;
+  }
   if (!refreshed.access_token) throw new Error('El proveedor no pudo renovar la autorización.');
   const access = encryptSecret(refreshed.access_token, env);
   const refresh = refreshed.refresh_token ? encryptSecret(refreshed.refresh_token, env) : null;
