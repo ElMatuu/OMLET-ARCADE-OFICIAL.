@@ -95,6 +95,7 @@
       });
       const connected = items.filter(item => item.connection && item.connection.connected).length;
       status.textContent = connected + ' de 3 cuentas externas conectadas. La sincronización requiere autorización de cada cuenta.';
+      await loadExternalProviderEvents();
     } catch (error) {
       status.textContent = 'No se pudieron consultar las cuentas: ' + error.message;
     }
