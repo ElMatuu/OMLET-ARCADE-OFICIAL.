@@ -35,5 +35,5 @@ test('stream recording stores private object and egress identifiers and a valid 
 test('recording library has owner chronology and unique Egress indexes', () => {
   const indexes = StreamRecording.schema.indexes();
   assert.ok(indexes.some(([keys]) => keys.owner === 1 && keys.startedAt === -1));
-  assert.ok(indexes.some(([keys, options]) => keys.egressId === 1 && options.unique === true && options.sparse === true));
+  assert.ok(indexes.some(([keys, options]) => keys.egressId === 1 && options.unique === true && options.partialFilterExpression?.egressId?.$type === 'string'));
 });
