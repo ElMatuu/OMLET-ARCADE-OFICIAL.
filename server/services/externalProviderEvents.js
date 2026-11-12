@@ -114,14 +114,15 @@ async function subscribeProviderEvents(provider, owner, env = process.env) {
       ];
       const results = [];
       for (const event of events) {
-        const result = await fetchJson('https://api.twitch.tv/helix/eventsub/subscriptions', {
+        let result;
+        try { result = await fetchJson('https://api.twitch.tv/helix/eventsub/subscriptions', {
           method: 'POST',
           headers: { Authorization: 'Bearer ' + token, 'Client-Id': credentials.clientId, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             type: event.type, version: event.version, condition: event.condition,
             transport: { method: 'webhook', callback, secret }
           })
-        });
+        }); } catch (error) { if (error.status !== 409) throw error; result = { data: [{ status: 'already_subscribed' }] }; }
         results.push(result.data?.[0]?.status || 'requested');
       }
       await ExternalProviderConnection.updateOne({ _id: connection._id }, { $set: { chatSyncStatus: 'subscribed', chatSyncError: null, updatedAt: new Date() } });
@@ -216,8 +217,14 @@ function startYouTubeChatSync(io, env = process.env) {
       for (const connection of due) {
         try { await pollYouTubeConnection(connection, io, env); }
         catch (error) {
+          const endedChat = error.status === 404 || (error.status === 403 && /liveChatEnded|liveChatNotFound/i.test(error.message));
           await ExternalProviderConnection.updateOne({ _id: connection._id }, {
-            $set: { chatSyncStatus: 'error', chatSyncError: String(error.message).slice(0, 240), youtubeNextPollAt: new Date(Date.now() + 120000), chatSyncLastAt: new Date() }
+            $set: {
+              chatSyncStatus: endedChat ? 'idle' : 'error',
+              chatSyncError: endedChat ? null : String(error.message).slice(0, 240),
+              ...(endedChat ? { youtubeLiveChatId: null, youtubePageToken: null } : {}),
+              youtubeNextPollAt: new Date(Date.now() + (endedChat ? 60000 : 120000)), chatSyncLastAt: new Date()
+            }
           });
         }
       }
@@ -228,6 +235,10 @@ function startYouTubeChatSync(io, env = process.env) {
   youtubePollTimer.unref?.();
   run();
   return youtubePollTimer;
+}
+function stopYouTubeChatSync() {
+  if (youtubePollTimer) clearInterval(youtubePollTimer);
+  youtubePollTimer = null;
 }
 async function processTwitchWebhook(body, io) {
   const type = body?.metadata?.message_type;
@@ -257,5 +268,5 @@ async function processKickWebhook(body, headers, io) {
 }
 module.exports = {
   ingestExternalChatMessage, processKickWebhook, processTwitchWebhook,
-  startYouTubeChatSync, subscribeProviderEvents, verifyKickWebhook, verifyTwitchEventSub
+  startYouTubeChatSync, stopYouTubeChatSync, subscribeProviderEvents, verifyKickWebhook, verifyTwitchEventSub
 };
