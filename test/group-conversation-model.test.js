@@ -45,3 +45,35 @@ test('group roles and limits are constrained by schema', async () => {
   await assert.rejects(group.validate());
   assert.equal(GroupConversation.schema.indexes().some(([keys]) => keys['members.user'] === 1), true);
 });
+
+test('group ownership transfer preserves exactly one owner and keeps the previous owner as moderator', async () => {
+  const previousOwner = new mongoose.Types.ObjectId();
+  const nextOwner = new mongoose.Types.ObjectId();
+  const group = new GroupConversation({
+    name: 'Grupo transferible',
+    owner: previousOwner,
+    members: [
+      { user: previousOwner, username: 'previous_owner', role: 'owner' },
+      { user: nextOwner, username: 'next_owner', role: 'member' }
+    ]
+  });
+  await group.validate();
+  group.members.find(member => String(member.user) === String(previousOwner)).role = 'moderator';
+  group.members.find(member => String(member.user) === String(nextOwner)).role = 'owner';
+  group.owner = nextOwner;
+  await group.validate();
+  assert.equal(String(group.owner), String(nextOwner));
+  assert.equal(group.members.filter(member => member.role === 'owner').length, 1);
+  assert.equal(group.members.find(member => String(member.user) === String(previousOwner)).role, 'moderator');
+});
+
+test('group rejects an owner id that does not match its only owner-role member', async () => {
+  const owner = new mongoose.Types.ObjectId();
+  const other = new mongoose.Types.ObjectId();
+  const group = new GroupConversation({
+    name: 'Grupo inconsistente',
+    owner: other,
+    members: [{ user: owner, username: 'owner_user', role: 'owner' }]
+  });
+  await assert.rejects(group.validate());
+});

@@ -511,6 +511,11 @@
                                 <input id="group-invite-username" maxlength="24" required pattern="[A-Za-z0-9_]{3,24}" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-white" placeholder="Usuario para invitar">
                                 <button class="w-full rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-2 py-2 text-[11px] font-bold text-fuchsia-200">Invitar</button>
                             </form>
+                            <form id="group-transfer-form" class="hidden space-y-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2">
+                                <label for="group-transfer-username" class="text-[10px] font-bold text-amber-200">Transferir propiedad</label>
+                                <input id="group-transfer-username" maxlength="24" required pattern="[A-Za-z0-9_]{3,24}" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-white" placeholder="Usuario integrante">
+                                <button class="w-full rounded-lg border border-amber-400/30 px-2 py-2 text-[11px] font-bold text-amber-200">Transferir grupo</button>
+                            </form>
                             <button id="group-leave-button" type="button" onclick="leaveGroupConversation()" class="hidden w-full rounded-lg border border-rose-500/30 px-2 py-2 text-[11px] font-bold text-rose-300">Salir del grupo</button>
                         </aside>
                     </div>
@@ -3912,6 +3917,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             const canInvite = mine && ['owner', 'moderator'].includes(mine.role);
             const invite = document.getElementById('group-invite-form');
             invite.classList.toggle('hidden', !canInvite);
+            document.getElementById('group-transfer-form').classList.toggle('hidden', !isOwner);
             document.getElementById('group-leave-button').classList.toggle('hidden', !mine || mine.role === 'owner');
             container.replaceChildren();
             members.forEach(member => {
@@ -3971,6 +3977,9 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             groupSocket.on('group_message_received', message => {
                 if (String(message.conversationId) === String(activeGroupConversationId)) appendGroupMessage(message);
                 loadGroupConversations();
+            });
+            groupSocket.on('group_owner_transferred', event => {
+                if (event && String(event.groupId) === String(activeGroupConversationId)) refreshGroupMembers();
             });
             groupSocket.on('group_member_removed', event => {
                 if (!event || String(event.groupId) !== String(activeGroupConversationId)) return;
@@ -4037,6 +4046,25 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             } catch (error) { document.getElementById('group-thread-status').textContent = error.message; }
         }
 
+        async function transferGroupOwnership(event) {
+            event.preventDefault();
+            if (!activeGroupConversationId) return;
+            const input = document.getElementById('group-transfer-username');
+            const username = input.value.trim().replace(/^@/, '');
+            if (!window.confirm('¿Transferir la propiedad del grupo a @' + username + '? Vas a pasar a ser moderador y no podrás deshacerlo sin que te vuelvan a nombrar propietario.')) return;
+            try {
+                await apiRequest('/api/group-conversations/' + encodeURIComponent(activeGroupConversationId) + '/transfer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                input.value = '';
+                await refreshGroupMembers();
+                await loadGroupConversations();
+                document.getElementById('group-thread-status').textContent = 'Propiedad transferida correctamente.';
+            } catch (error) { document.getElementById('group-thread-status').textContent = error.message; }
+        }
+
         async function removeGroupMember(userId) {
             if (!activeGroupConversationId || !window.confirm('¿Querés quitar a esta persona del grupo?')) return;
             try {
@@ -4067,6 +4095,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         document.getElementById('group-create-form').addEventListener('submit', createGroupConversation);
         document.getElementById('group-send-form').addEventListener('submit', sendGroupMessage);
         document.getElementById('group-invite-form').addEventListener('submit', inviteGroupMember);
+        document.getElementById('group-transfer-form').addEventListener('submit', transferGroupOwnership);
 
         async function loadFriends() {
             const status = document.getElementById('friends-status');

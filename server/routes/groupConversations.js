@@ -136,6 +136,32 @@ router.delete('/:groupId/members/:userId', limiter, async (req, res, next) => {
   } catch (error) { return next(error); }
 });
 
+router.post('/:groupId/transfer', limiter, async (req, res, next) => {
+  try {
+    if (!validId(req.params.groupId)) return res.status(400).json({ success: false, message: 'Grupo inválido.' });
+    const username = typeof req.body.username === 'string' ? req.body.username.trim().replace(/^@/, '') : '';
+    if (!/^[a-zA-Z0-9_]{3,24}$/.test(username)) return res.status(400).json({ success: false, message: 'Ingresá un nombre de usuario válido.' });
+    const group = await GroupConversation.findOne({ _id: req.params.groupId, status: 'active' });
+    if (!group) return res.status(404).json({ success: false, message: 'Grupo no encontrado.' });
+    if (String(group.owner) !== String(req.auth.sub)) return res.status(403).json({ success: false, message: 'Solo el propietario actual puede transferir el grupo.' });
+    const target = group.members.find(member => member.username.toLowerCase() === username.toLowerCase());
+    if (!target || String(target.user) === String(req.auth.sub)) return res.status(404).json({ success: false, message: 'La nueva persona propietaria debe ser integrante del grupo.' });
+    const previousOwnerId = String(req.auth.sub);
+    const newOwnerId = String(target.user);
+    const previousOwner = memberOf(group, previousOwnerId);
+    if (!previousOwner || previousOwner.role !== 'owner') return res.status(409).json({ success: false, message: 'El rol de propietario no coincide con el registro del grupo.' });
+    previousOwner.role = 'moderator';
+    target.role = 'owner';
+    group.owner = target.user;
+    await group.save();
+    const io = req.app.get('io');
+    if (io) io.to('group:' + String(group._id)).emit('group_owner_transferred', {
+      groupId: String(group._id), previousOwnerId, newOwnerId
+    });
+    return res.json({ success: true, ownerId: newOwnerId, previousOwnerId, message: 'Propiedad transferida. Ahora sos moderador del grupo.' });
+  } catch (error) { return next(error); }
+});
+
 router.patch('/:groupId/members/:userId/role', limiter, async (req, res, next) => {
   try {
     if (!validId(req.params.groupId) || !validId(req.params.userId)) return res.status(400).json({ success: false, message: 'Identificador inválido.' });
