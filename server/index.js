@@ -2882,18 +2882,24 @@ app.get('/api/rooms/:roomId/messages', requireAuth, async (req, res, next) => {
     if (!mongoose.isValidObjectId(req.params.roomId)) {
       return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
     }
-    const membership = await Room.exists({ _id: req.params.roomId, members: req.auth.sub });
-    if (!membership) return res.status(403).json({ success: false, message: 'No pertenecés a esta sala.' });
-    const messages = await RoomMessage.find({ room: req.params.roomId })
-      .sort({ sentAt: -1, _id: -1 })
-      .limit(50)
-      .lean();
-    return res.json({ success: true, messages: messages.reverse().map((item) => ({
-      id: String(item._id),
-      username: item.username,
-      message: item.message,
-      sentAt: item.sentAt
-    })) });
+    const room = await Room.findOne({ _id: req.params.roomId, members: req.auth.sub })
+      .select('owner pinnedMessage pinnedBy pinnedAt').lean();
+    if (!room) return res.status(403).json({ success: false, message: 'No pertenecés a esta sala.' });
+    const [messages, pinned] = await Promise.all([
+      RoomMessage.find({ room: req.params.roomId }).sort({ sentAt: -1, _id: -1 }).limit(50).lean(),
+      room.pinnedMessage ? RoomMessage.findOne({ _id: room.pinnedMessage, room: req.params.roomId }).lean() : null
+    ]);
+    return res.json({
+      success: true,
+      canModerate: String(room.owner) === String(req.auth.sub),
+      pinnedMessage: pinned ? {
+        id: String(pinned._id), username: pinned.username, message: pinned.message,
+        sentAt: pinned.sentAt, pinnedBy: room.pinnedBy ? String(room.pinnedBy) : null, pinnedAt: room.pinnedAt
+      } : null,
+      messages: messages.reverse().map((item) => ({
+        id: String(item._id), username: item.username, message: item.message, sentAt: item.sentAt
+      }))
+    });
   } catch (error) {
     return next(error);
   }
