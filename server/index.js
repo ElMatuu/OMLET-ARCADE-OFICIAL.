@@ -400,10 +400,10 @@ app.get('/api/public/stream-overlay/:token', overlayReadLimiter, async (req, res
     }
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const stream = await LiveStream.findOne({ overlayTokenHash: tokenHash, status: 'live' })
-      .select('owner ownerUsername title roomName').lean();
+      .select('owner ownerUsername title roomName customWatermark').lean();
     if (!stream) return res.status(404).json({ success: false, message: 'La transmisión finalizó o el overlay fue revocado.' });
     const [owner, config] = await Promise.all([
-      User.findById(stream.owner).select('streamingPreferences').lean(),
+      User.findById(stream.owner).select('streamingPreferences activeStreamOverlay').lean(),
       Promise.resolve(getLiveKitConfig())
     ]);
     if (!owner || !config) return res.status(503).json({ success: false, message: 'El overlay no está disponible temporalmente.' });
@@ -417,20 +417,24 @@ app.get('/api/public/stream-overlay/:token', overlayReadLimiter, async (req, res
       console.error('Unable to read LiveKit overlay participant count:', error.message);
     }
     const preferences = owner.streamingPreferences || {};
+    const equippedOverlay = STORE_CATALOG.find((item) =>
+      item.id === owner.activeStreamOverlay && item.category === 'stream-overlay'
+    ) || null;
     return res.set('Cache-Control', 'no-store').json({
       success: true,
-      stream: { title: stream.title, creator: stream.ownerUsername },
+      stream: { title: stream.title, creator: stream.ownerUsername, watermark: stream.customWatermark || '' },
       overlay: {
         theme: preferences.overlayTheme || 'arcade',
         layout: preferences.overlayLayout || 'wide',
         showViewerCount: preferences.overlayShowViewerCount !== false,
         brandingText: preferences.overlayBrandingText || '',
+        equippedOverlay: equippedOverlay ? { id: equippedOverlay.id, name: equippedOverlay.name, animation: equippedOverlay.animation } : null,
         socialYouTube: preferences.socialYouTube || '',
         socialTwitch: preferences.socialTwitch || '',
         socialTikTok: preferences.socialTikTok || ''
       },
       viewerCount,
-      capabilities: { viewerCount: viewerCount !== null, chat: false, donations: false }
+      capabilities: { viewerCount: viewerCount !== null, watermark: Boolean(stream.customWatermark), equippedOverlay: Boolean(equippedOverlay), chat: false, donations: false }
     });
   } catch (error) { return next(error); }
 });
@@ -455,11 +459,27 @@ app.get('/overlay/:token', (req, res) => {
 #branding{font-size:12px;color:#cbd5e1;margin-top:7px}
 #viewers{white-space:nowrap;padding:10px 14px;border-radius:999px;background:#10152be8;border:1px solid #ffffff35;font-weight:800}
 #social{font-size:11px;color:#dbeafe;margin-top:5px}
+#watermark{position:absolute;right:3%;top:3%;max-width:42%;padding:7px 11px;border-radius:9px;background:#020617b8;border:1px solid #ffffff55;color:#fff;font-size:clamp(10px,1.3vw,15px);font-weight:900;letter-spacing:.08em;text-transform:uppercase;text-shadow:0 2px 8px #000;overflow-wrap:anywhere}
+#skin{display:none;position:absolute;inset:1.5%;border:2px solid #ffffff35;border-radius:20px;pointer-events:none;box-shadow:inset 0 0 35px #0005}
+#overlay[data-product="overlay-retro-arcade"] #skin{display:block;border-color:#4ade80;background:linear-gradient(135deg,#14532d22,#02061711)}
+#overlay[data-product="overlay-minimal-black"] #skin{display:block;border-color:#94a3b8;border-radius:5px}
+#overlay[data-product="overlay-flame-rgb"] #skin{display:block;border:3px solid #fb7185;box-shadow:inset 0 0 28px #f9731633,0 0 20px #fb718555}
+#overlay[data-product="overlay-pro-esports"] #skin{display:block;border:3px solid #60a5fa;border-radius:4px}
+#overlay[data-product="overlay-cyber-arena"] #skin{display:block;border:2px solid #22d3ee;box-shadow:inset 0 0 36px #06b6d433}
+#overlay[data-product="overlay-sunset"] #skin{display:block;border:2px solid #fb923c;box-shadow:inset 0 0 36px #ea580c33}
+#overlay[data-product="overlay-tournament"] #skin{display:block;border:3px double #a5b4fc;border-radius:6px}
+#overlay[data-product="overlay-streamer-classic"] #skin{display:block;border:2px solid #cbd5e1;border-radius:14px}
+#overlay[data-product="overlay-pixel-grid"] #skin{display:block;border:3px dashed #fbbf24;border-radius:3px}
+#overlay[data-product="overlay-nebula-live"] #skin{display:block;border:2px solid #c084fc;box-shadow:inset 0 0 55px #7e22ce44,0 0 18px #c084fc55}
+#overlay[data-product="overlay-rgb-storm"] #skin{display:block;border:3px solid #22d3ee;box-shadow:inset 0 0 30px #22d3ee33,0 0 18px #ec489955}
+#overlay[data-product="overlay-ice-breaker"] #skin{display:block;border:2px solid #7dd3fc;box-shadow:inset 0 0 40px #38bdf833}
 .theme-neon .panel,.theme-neon #viewers{border-color:#22d3ee99;box-shadow:0 0 22px #22d3ee33}
 .theme-minimal .panel,.theme-minimal #viewers{background:#111c;color:#fff;border-color:#ffffff55;box-shadow:none}
 .theme-esports .panel,.theme-esports #viewers{border-radius:4px;border-left:4px solid #f97316;background:#111827ed}
 .layout-compact .panel{padding:9px 12px}.layout-vertical{flex-direction:column;align-items:flex-start}.layout-vertical .panel{max-width:100%}
-</style></head><body><main id="overlay"><section class="panel"><div id="creator"></div><div id="title">Conectando con la transmisión…</div><div id="branding"></div><div id="social"></div></section><div id="viewers"></div></main>
+@media(prefers-reduced-motion:no-preference){#overlay[data-product="overlay-flame-rgb"] #skin,#overlay[data-product="overlay-nebula-live"] #skin{animation:skin-pulse 5s ease-in-out infinite alternate}}
+@keyframes skin-pulse{from{filter:brightness(.85)}to{filter:brightness(1.3)}}
+</style></head><body><main id="overlay"><div id="skin" aria-hidden="true"></div><section class="panel"><div id="creator"></div><div id="title">Conectando con la transmisión…</div><div id="branding"></div><div id="social"></div></section><div id="viewers"></div><div id="watermark"></div></main>
 <script>
 const token=${JSON.stringify(token)};
 const root=document.getElementById('overlay');
@@ -467,12 +487,14 @@ const set=(id,value)=>{document.getElementById(id).textContent=value||''};
 async function refresh(){
  try{
   const response=await fetch('/api/public/stream-overlay/'+encodeURIComponent(token),{cache:'no-store'});
-  if(!response.ok){set('title','Transmisión finalizada');set('creator','PLAYVERSE');set('viewers','');return}
+  if(!response.ok){set('title','Transmisión finalizada');set('creator','PLAYVERSE');set('viewers','');set('watermark','');root.removeAttribute('data-product');return}
   const data=await response.json();const p=data.overlay||{};
   root.className='theme-'+(p.theme||'arcade')+' layout-'+(p.layout||'wide');
+  if(p.equippedOverlay&&/^overlay-[a-z0-9-]+$/.test(p.equippedOverlay.id||''))root.dataset.product=p.equippedOverlay.id;else root.removeAttribute('data-product');
   set('creator','@'+(data.stream.creator||''));
   set('title',data.stream.title);
   set('branding',p.brandingText);
+  set('watermark',data.stream.watermark);
   const socials=[p.socialYouTube&&'YouTube '+p.socialYouTube,p.socialTwitch&&'Twitch '+p.socialTwitch,p.socialTikTok&&'TikTok '+p.socialTikTok].filter(Boolean).join('  •  ');
   set('social',socials);
   set('viewers',p.showViewerCount?(Number.isInteger(data.viewerCount)?'● '+data.viewerCount+' espectadores':'● espectadores no disponibles'):'');
