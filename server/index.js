@@ -40,6 +40,8 @@ const DirectMessage = require('./models/DirectMessage');
 const Inventory = require('./models/Inventory');
 const TokenTransaction = require('./models/TokenTransaction');
 const MissionClaim = require('./models/MissionClaim');
+const UserAchievement = require('./models/UserAchievement');
+const { ACHIEVEMENTS } = require('./data/achievementCatalog');
 const PremiumPlusTransaction = require('./models/PremiumPlusTransaction');
 const PremiumSubscription = require('./models/PremiumSubscription');
 const { STORE_CATALOG } = require('./data/storeCatalog');
@@ -595,7 +597,7 @@ app.get('/api/streams', async (req, res, next) => {
   try {
     const streams = await LiveStream.find({ status: 'live' })
       .sort({ startedAt: -1 }).limit(50)
-      .select('ownerUsername title description startedAt').lean();
+      .select('ownerUsername title game description startedAt').lean();
     return res.json({
       success: true,
       streamingEnabled: Boolean(getLiveKitConfig()),
@@ -603,6 +605,7 @@ app.get('/api/streams', async (req, res, next) => {
         id: String(stream._id),
         creator: stream.ownerUsername,
         title: stream.title,
+        game: stream.game || 'Otro',
         description: stream.description,
         startedAt: stream.startedAt
       }))
@@ -621,6 +624,8 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
     const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
     const title = typeof body.title === 'string' ? body.title.trim() : '';
     const description = typeof body.description === 'string' ? body.description.trim() : '';
+    const game = body.game === undefined ? 'Otro' : (typeof body.game === 'string' ? body.game.trim() : null);
+    if (game === null || !game || game.length > 60) return res.status(400).json({ success: false, message: 'Elegí un juego válido para la transmisión.' });
     if (!title || title.length > 100 || description.length > 500) {
       return res.status(400).json({ success: false, message: 'El título es obligatorio (máximo 100 caracteres) y la descripción admite hasta 500.' });
     }
@@ -641,6 +646,7 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
       owner: req.auth.sub,
       ownerUsername: user.username,
       title,
+      game,
       description,
       roomName,
       overlayTokenHash,
@@ -659,7 +665,7 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
       });
       return res.status(201).json({
         success: true,
-        stream: { id: String(session._id), title: session.title, description: session.description, status: session.status, startedAt: session.startedAt },
+        stream: { id: String(session._id), title: session.title, game: session.game, description: session.description, status: session.status, startedAt: session.startedAt },
         liveKit: { url: config.clientUrl, token, role: 'publisher', expiresInSeconds: 600 },
         overlay: { url: req.protocol + '://' + req.get('host') + '/overlay/' + overlayAccessToken, refreshIntervalMs: 5000 }
       });
@@ -770,7 +776,7 @@ app.post('/api/streams/:streamId/token', requireAuth, streamLimiter, async (req,
     });
     return res.json({
       success: true,
-      stream: { id: String(session._id), title: session.title, creator: session.ownerUsername, status: session.status },
+      stream: { id: String(session._id), title: session.title, game: session.game || 'Otro', creator: session.ownerUsername, status: session.status },
       liveKit: { url: config.clientUrl, token, role, expiresInSeconds: 600 }
     });
   } catch (error) { return next(error); }
@@ -1344,6 +1350,91 @@ app.get('/api/me/profile-summary', requireAuth, async (req, res, next) => {
 });
 
 
+async function buildAchievementSnapshot(userId) {
+  const [user, posts, comments, rooms, roomMessages, friends, followers, savedPosts, tournaments, tournamentWins, streams] = await Promise.all([
+    User.findById(userId).select('firstStorePurchaseBonusAvailableAt firstStorePurchaseBonusClaimedAt').lean(),
+    Post.countDocuments({ author: userId }),
+    Comment.countDocuments({ author: userId }),
+    Room.countDocuments({ owner: userId }),
+    RoomMessage.countDocuments({ author: userId }),
+    Friendship.countDocuments({ status: 'accepted', $or: [{ requester: userId }, { recipient: userId }] }),
+    Follow.countDocuments({ following: userId }),
+    SavedPost.countDocuments({ user: userId }),
+    Tournament.countDocuments({ entries: { $elemMatch: { $or: [{ captain: userId }, { 'members.user': userId }], status: { $in: ['approved', 'checked-in'] } } } }),
+    Tournament.countDocuments({ entries: { $elemMatch: { $or: [{ captain: userId }, { 'members.user': userId }], placement: 1 } } }),
+    LiveStream.countDocuments({ owner: userId, status: 'ended' })
+  ]);
+  if (!user) return null;
+  const metrics = {
+    posts, comments, rooms, roomMessages, friends, followers, savedPosts, tournaments, tournamentWins, streams,
+    firstPurchaseBonusAvailable: user.firstStorePurchaseBonusAvailableAt ? 1 : 0
+  };
+  const unlocked = ACHIEVEMENTS.filter((item) => (metrics[item.metric] || 0) >= item.target);
+  if (unlocked.length) {
+    await Promise.all(unlocked.map(async (item) => {
+      try {
+        await UserAchievement.updateOne(
+          { user: userId, achievementId: item.id },
+          { $setOnInsert: { user: userId, achievementId: item.id, earnedXP: 0, claimedAt: null, unlockedAt: new Date() } },
+          { upsert: true }
+        );
+      } catch (error) {
+        if (!error || error.code !== 11000) throw error;
+      }
+    }));
+  }
+  const earned = await UserAchievement.find({ user: userId }).select('achievementId earnedXP unlockedAt').lean();
+  const earnedById = new Map(earned.map((item) => [item.achievementId, item]));
+  const achievements = ACHIEVEMENTS.map((item) => {
+    const metricValue = metrics[item.metric] || 0;
+    const record = earnedById.get(item.id);
+    return {
+      id: item.id, title: item.title, description: item.description, category: item.category,
+      tier: item.tier, icon: item.icon, target: item.target,
+      progress: Math.min(metricValue, item.target), metricValue, xp: item.xp,
+      unlocked: Boolean(record),
+      claimed: Boolean(record && Number(record.earnedXP) > 0),
+      claimable: Boolean(record && Number(record.earnedXP) === 0),
+      unlockedAt: record ? record.unlockedAt : null
+    };
+  });
+  const totalXP = earned.reduce((sum, item) => sum + item.earnedXP, 0);
+  return {
+    summary: {
+      unlocked: achievements.filter((item) => item.unlocked).length,
+      total: ACHIEVEMENTS.length,
+      totalXP,
+      level: Math.floor(totalXP / 500) + 1,
+      nextLevelXP: 500 - (totalXP % 500)
+    },
+    metrics,
+    achievements,
+    source: 'persisted-platform-activity'
+  };
+}
+
+app.get('/api/me/achievements', requireAuth, async (req, res, next) => {
+  try {
+    const snapshot = await buildAchievementSnapshot(req.auth.sub);
+    if (!snapshot) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    return res.json({ success: true, ...snapshot });
+  } catch (error) { return next(error); }
+});
+
+app.get('/api/users/:username/achievements', requireAuth, async (req, res, next) => {
+  try {
+    const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
+    const player = await User.findOne({ username }).select('_id').lean();
+    if (!player) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    if (String(player._id) !== req.auth.sub && await hasBlockBetween(req.auth.sub, player._id)) {
+      return res.status(403).json({ success: false, message: 'No podés ver el perfil de este jugador.' });
+    }
+    const snapshot = await buildAchievementSnapshot(player._id);
+    if (!snapshot) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    return res.json({ success: true, username, ...snapshot });
+  } catch (error) { return next(error); }
+});
+
 const ACTIVITY_SOURCES = [
   { model: Post, type: 'post', dateField: 'createdAt', filter: (userId) => ({ author: userId }), title: 'Publicaste en la comunidad', description: 'Nueva publicación' },
   { model: Room, type: 'room', dateField: 'createdAt', filter: (userId) => ({ owner: userId }), title: 'Creaste una sala', description: 'Nueva sala de juego' },
@@ -1574,6 +1665,46 @@ const STREAMING_PREFERENCE_RULES = {
   farewellMessage: (value) => typeof value === 'string' && value.trim().length <= 200
 };
 
+app.get('/api/me/posts', requireAuth, async (req, res, next) => {
+  try {
+    const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50) return res.status(400).json({ success: false, message: 'El límite debe ser un número entero entre 1 y 50.' });
+    let cursor = null;
+    if (typeof req.query.cursor === 'string' && req.query.cursor) {
+      if (req.query.cursor.length > 256) return res.status(400).json({ success: false, message: 'Cursor de publicaciones inválido.' });
+      try { cursor = JSON.parse(Buffer.from(req.query.cursor, 'base64url').toString('utf8')); }
+      catch { return res.status(400).json({ success: false, message: 'Cursor de publicaciones inválido.' }); }
+      const cursorDate = cursor && typeof cursor.createdAt === 'string' ? new Date(cursor.createdAt) : null;
+      if (!cursor || !mongoose.isValidObjectId(cursor.id) || !cursorDate || !Number.isFinite(cursorDate.getTime()) || cursorDate.toISOString() !== cursor.createdAt) {
+        return res.status(400).json({ success: false, message: 'Cursor de publicaciones inválido.' });
+      }
+    }
+    const filter = { author: req.auth.sub };
+    if (cursor) {
+      const cursorDate = new Date(cursor.createdAt);
+      filter.$or = [
+        { createdAt: { $lt: cursorDate } },
+        { createdAt: cursorDate, _id: { $lt: new mongoose.Types.ObjectId(cursor.id) } }
+      ];
+    }
+    const records = await Post.find(filter).sort({ createdAt: -1, _id: -1 }).limit(limit + 1)
+      .select('authorUsername content game likes commentCount createdAt').lean();
+    const hasMore = records.length > limit;
+    const posts = records.slice(0, limit);
+    const last = posts[posts.length - 1];
+    return res.json({
+      success: true,
+      posts: posts.map((post) => ({
+        id: String(post._id), authorUsername: post.authorUsername, content: post.content, game: post.game || '',
+        likeCount: Array.isArray(post.likes) ? post.likes.length : 0,
+        likedByMe: Array.isArray(post.likes) && post.likes.some((id) => String(id) === req.auth.sub),
+        commentCount: Number(post.commentCount) || 0, createdAt: post.createdAt
+      })),
+      page: { limit, hasMore, nextCursor: hasMore && last ? Buffer.from(JSON.stringify({ createdAt: last.createdAt.toISOString(), id: String(last._id) })).toString('base64url') : null }
+    });
+  } catch (error) { return next(error); }
+});
+
 app.get('/api/me/streaming-preferences', requireAuth, async (req, res, next) => {
   try {
     const user = await User.findById(req.auth.sub).select('streamingPreferences').lean();
@@ -1796,6 +1927,47 @@ app.post('/api/wallet/transfers', requireAuth, storeLimiter, async (req, res, ne
   }
 });
 
+app.post('/api/me/achievements/:achievementId/claim', requireAuth, storeLimiter, async (req, res, next) => {
+  const definition = ACHIEVEMENTS.find((item) => item.id === req.params.achievementId);
+  if (!definition) return res.status(404).json({ success: false, message: 'Trofeo no encontrado.' });
+  try {
+  const snapshot = await buildAchievementSnapshot(req.auth.sub);
+  const progress = snapshot && snapshot.achievements.find((item) => item.id === definition.id);
+  if (!progress || !progress.unlocked) return res.status(409).json({ success: false, message: 'Todavía no cumpliste los requisitos de este trofeo.' });
+  if (progress.claimed) return res.status(409).json({ success: false, message: 'Este trofeo ya fue reclamado.' });
+  const session = await mongoose.startSession();
+  let claimed = false;
+  try {
+    await session.withTransaction(async () => {
+      if (definition.id === 'first-purchase-bonus') {
+        const user = await User.findOneAndUpdate(
+          { _id: req.auth.sub, firstStorePurchaseBonusAvailableAt: { $ne: null }, firstStorePurchaseBonusClaimedAt: null },
+          { $set: { firstStorePurchaseBonusClaimedAt: new Date() } },
+          { new: true, session }
+        ).select('_id');
+        if (!user) return;
+      }
+      const record = await UserAchievement.findOneAndUpdate(
+        { user: req.auth.sub, achievementId: definition.id, earnedXP: 0 },
+        { $set: { earnedXP: definition.xp, claimedAt: new Date() } },
+        { new: true, session }
+      );
+      claimed = Boolean(record);
+    });
+    if (!claimed) return res.status(409).json({ success: false, message: 'Este trofeo ya fue reclamado o no está disponible.' });
+    const updated = await buildAchievementSnapshot(req.auth.sub);
+    return res.json({
+      success: true,
+      message: '¡Trofeo reclamado! Sumaste ' + definition.xp + ' XP.',
+      achievementId: definition.id,
+      xp: definition.xp,
+      summary: updated ? updated.summary : null
+    });
+  } catch (error) { return next(error); }
+  finally { await session.endSession(); }
+  } catch (error) { return next(error); }
+});
+
 app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next) => {
   const itemId = typeof req.body.itemId === 'string' ? req.body.itemId : '';
   const product = STORE_CATALOG.find((entry) => entry.id === itemId);
@@ -1807,6 +1979,7 @@ app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next
   let result;
   try {
     await session.withTransaction(async () => {
+      const previousPurchases = await TokenTransaction.countDocuments({ user: req.auth.sub, type: 'purchase' }).session(session);
       const existing = await Inventory.findOne({ user: req.auth.sub, itemId }).session(session);
       if (existing && product.category !== 'stream-gift') { result = { error: 'ALREADY_OWNED' }; return; }
       const user = await User.findOneAndUpdate(
@@ -1828,11 +2001,20 @@ app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next
         user: req.auth.sub, type: 'purchase', currency, amount: -product.priceTokens, itemId,
         balanceAfter: getWalletBalances(user)[currency]
       }], { session });
-      result = { balances: getWalletBalances(user) };
+      let firstPurchaseBonusAvailable = false;
+      if (previousPurchases === 0) {
+        const bonus = await User.updateOne(
+          { _id: req.auth.sub, firstStorePurchaseBonusAvailableAt: null, firstStorePurchaseBonusClaimedAt: null },
+          { $set: { firstStorePurchaseBonusAvailableAt: new Date() } },
+          { session }
+        );
+        firstPurchaseBonusAvailable = bonus.modifiedCount === 1;
+      }
+      result = { balances: getWalletBalances(user), firstPurchaseBonusAvailable };
     });
     if (result?.error === 'ALREADY_OWNED') return res.status(409).json({ success: false, message: 'Ya tenés este artículo en tu inventario.' });
     if (result?.error === 'INSUFFICIENT_TOKENS') return res.status(409).json({ success: false, code: result.error, message: 'No tenés saldo suficiente de ' + getCurrencyLabel(currency) + '.' });
-    return res.status(201).json({ success: true, message: 'Compra registrada.', wallet: { tokens: result.balances.gold, balances: result.balances } });
+    return res.status(201).json({ success: true, message: 'Compra registrada.', wallet: { tokens: result.balances.gold, balances: result.balances }, firstPurchaseBonusAvailable: result.firstPurchaseBonusAvailable === true, firstPurchaseBonus: result.firstPurchaseBonusAvailable ? { xp: 250, label: 'Bonus de primera compra: +250 XP' } : null });
   } catch (error) {
     return next(error);
   } finally {
@@ -2715,6 +2897,11 @@ app.delete('/api/posts/:postId/save', requireAuth, postLimiter, async (req, res,
 app.get('/api/posts', requireAuth, async (req, res, next) => {
   try {
     const filter = {};
+    if (req.query.game !== undefined) {
+      if (typeof req.query.game !== 'string' || req.query.game.trim().length > 60) return res.status(400).json({ success: false, message: 'Juego de publicación inválido.' });
+      const game = req.query.game.trim();
+      if (game) filter.game = game;
+    }
     const before = typeof req.query.before === 'string' ? req.query.before : '';
     if (before) {
       if (before.length > 256) {
@@ -2738,7 +2925,7 @@ app.get('/api/posts', requireAuth, async (req, res, next) => {
     }
 
     const fetchedPosts = await Post.find(filter)
-      .select('authorUsername content likes commentCount createdAt')
+      .select('authorUsername content game likes commentCount createdAt')
       .sort({ createdAt: -1, _id: -1 })
       .limit(31)
       .lean();
@@ -2760,6 +2947,7 @@ app.get('/api/posts', requireAuth, async (req, res, next) => {
         id: String(post._id),
         authorUsername: post.authorUsername,
         content: post.content,
+        game: post.game || '',
         likeCount: Array.isArray(post.likes) ? post.likes.length : 0,
         likedByMe: Array.isArray(post.likes) && post.likes.some((id) => String(id) === req.auth.sub),
         commentCount: Number(post.commentCount) || 0,
@@ -2775,6 +2963,8 @@ app.get('/api/posts', requireAuth, async (req, res, next) => {
 app.post('/api/posts', requireAuth, postLimiter, async (req, res, next) => {
   try {
     const content = typeof req.body.content === 'string' ? req.body.content.trim() : '';
+    const game = req.body.game === undefined ? '' : (typeof req.body.game === 'string' ? req.body.game.trim() : null);
+    if (game === null || game.length > 60) return res.status(400).json({ success: false, message: 'Juego de publicación inválido.' });
     if (!content || content.length > 2000) {
       return res.status(400).json({
         success: false,
@@ -2787,7 +2977,8 @@ app.post('/api/posts', requireAuth, postLimiter, async (req, res, next) => {
     const post = await Post.create({
       author: req.auth.sub,
       authorUsername: user.username,
-      content
+      content,
+      game
     });
     return res.status(201).json({
       success: true,
@@ -2795,6 +2986,7 @@ app.post('/api/posts', requireAuth, postLimiter, async (req, res, next) => {
         id: String(post._id),
         authorUsername: post.authorUsername,
         content: post.content,
+        game: post.game || '',
         likeCount: 0,
         likedByMe: false,
         commentCount: 0,

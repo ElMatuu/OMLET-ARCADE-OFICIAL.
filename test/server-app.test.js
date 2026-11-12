@@ -88,6 +88,17 @@ test('protected profile endpoint rejects unauthenticated requests', async () => 
   });
 });
 
+test('profile achievements, claims and owned posts require an authenticated account', async () => {
+  await withServer(async (baseUrl) => {
+    const achievements = await fetch(baseUrl + '/api/me/achievements');
+    assert.equal(achievements.status, 401);
+    const posts = await fetch(baseUrl + '/api/me/posts?limit=20');
+    assert.equal(posts.status, 401);
+    const claim = await fetch(baseUrl + '/api/me/achievements/first-post/claim', { method: 'POST' });
+    assert.equal(claim.status, 401);
+  });
+});
+
 test('room cohost promotion and revocation require an authenticated account', async () => {
   await withServer(async (baseUrl) => {
     const path = '/api/rooms/507f1f77bcf86cd799439011/moderators/507f1f77bcf86cd799439012';
