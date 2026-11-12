@@ -850,17 +850,14 @@ app.post('/api/me/streams/:streamId/recording/stop', requireAuth, streamLimiter,
     }, { $set: { recordingStatus: 'stopping' } }, { new: true })
       .select('+recordingEgressId roomName recordingStatus').lean();
     if (!stream || !stream.recordingEgressId) return res.status(409).json({ success: false, message: 'No hay una grabación activa para detener o ya se está deteniendo.' });
+    await StreamRecording.updateOne(
+      { egressId: stream.recordingEgressId, owner: req.auth.sub, status: { $in: ['starting', 'active'] } },
+      { $set: { status: 'stopping' } }
+    );
     try {
       const liveKit = createLiveKitApi(config);
       await stopRoomRecording({ egressClient: liveKit.egress, egressId: stream.recordingEgressId });
-      const stoppingAt = new Date();
-      await Promise.all([
-        LiveStream.updateOne({ _id: stream._id, owner: req.auth.sub, recordingEgressId: stream.recordingEgressId },
-          { $set: { recordingStatus: 'stopping' } }),
-        StreamRecording.updateOne({ egressId: stream.recordingEgressId, owner: req.auth.sub },
-          { $set: { status: 'stopping' } })
-      ]);
-      return res.json({ success: true, recording: { status: 'stopping', stoppingAt } });
+      return res.json({ success: true, recording: { status: 'stopping', stoppingAt: new Date() } });
     } catch (error) {
       await Promise.all([
         LiveStream.updateOne({ _id: stream._id, owner: req.auth.sub, recordingEgressId: stream.recordingEgressId, recordingStatus: 'stopping' },
