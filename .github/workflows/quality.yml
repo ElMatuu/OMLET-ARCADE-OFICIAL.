@@ -67,7 +67,12 @@ jobs:
       - name: Smoke test authenticated self-hosted MongoDB replica set and transactions
         run: |
           cleanup() {
+            status=$?
+            if [ "$status" -ne 0 ]; then
+              docker compose --env-file .env.selfhost logs --no-color mongo mongo-init-replica-set || true
+            fi
             docker compose --env-file .env.selfhost down --volumes --remove-orphans
+            return "$status"
           }
           trap cleanup EXIT
           docker compose --env-file .env.selfhost up -d mongo-init-replica-set
