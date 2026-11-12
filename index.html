@@ -2776,6 +2776,7 @@
                 resetRoomVoiceControls();
                 setRoomVoiceStatus('Canal de voz desconectado.');
             }
+            resetRoomVoiceControls();
             if (roomSocket) roomSocket.disconnect();
             roomSocket = null;
             roomSocketJoined = false;
