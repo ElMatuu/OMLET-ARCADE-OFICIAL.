@@ -883,6 +883,7 @@
             </div>
             <div class="flex items-center gap-2 border-b border-slate-800 py-2">
                 <button id="room-voice-toggle" type="button" onclick="toggleRoomVoice()" class="rounded-xl border border-cyan-400/40 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-200">🎙️ Unirse a voz</button>
+                <button id="room-voice-mute" type="button" onclick="toggleRoomVoiceMute()" disabled class="hidden rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 disabled:opacity-40" aria-pressed="false">Silenciar micrófono</button>
                 <p id="room-voice-status" class="min-w-0 text-[11px] text-slate-400" role="status" aria-live="polite">Voz grupal disponible para miembros cuando LiveKit esté configurado.</p>
                 <div id="room-voice-audio" class="hidden"></div>
             </div>
@@ -906,6 +907,7 @@
         let activeRoomId = null;
         let activeRoomName = '';
         let activeVoiceRoom = null;
+        let activeVoiceMuted = false;
         let roomSocket = null;
         let roomSocketJoined = false;
         let socketScriptLoading = false;
@@ -2660,6 +2662,41 @@
             status.className = isError ? 'min-w-0 text-[11px] text-red-300' : 'min-w-0 text-[11px] text-slate-400';
         }
 
+        function resetRoomVoiceControls() {
+            const muteButton = document.getElementById('room-voice-mute');
+            const joinButton = document.getElementById('room-voice-toggle');
+            activeVoiceMuted = false;
+            if (muteButton) {
+                muteButton.disabled = true;
+                muteButton.classList.add('hidden');
+                muteButton.textContent = 'Silenciar micrófono';
+                muteButton.setAttribute('aria-pressed', 'false');
+            }
+            if (joinButton) {
+                joinButton.disabled = false;
+                joinButton.textContent = '🎙️ Unirse a voz';
+            }
+        }
+
+        async function toggleRoomVoiceMute() {
+            if (!activeVoiceRoom) return;
+            const muteButton = document.getElementById('room-voice-mute');
+            if (!muteButton) return;
+            muteButton.disabled = true;
+            try {
+                const nextMuted = !activeVoiceMuted;
+                await activeVoiceRoom.localParticipant.setMicrophoneEnabled(!nextMuted);
+                activeVoiceMuted = nextMuted;
+                muteButton.textContent = activeVoiceMuted ? 'Activar micrófono' : 'Silenciar micrófono';
+                muteButton.setAttribute('aria-pressed', String(activeVoiceMuted));
+                setRoomVoiceStatus(activeVoiceMuted ? 'Estás conectado con el micrófono silenciado.' : 'Micrófono activo en el canal de voz.');
+            } catch (error) {
+                setRoomVoiceStatus(error.message || 'No se pudo cambiar el estado del micrófono.', true);
+            } finally {
+                muteButton.disabled = !activeVoiceRoom;
+            }
+        }
+
         async function toggleRoomVoice() {
             const button = document.getElementById('room-voice-toggle');
             if (activeVoiceRoom) {
@@ -2667,11 +2704,12 @@
                 activeVoiceRoom = null;
                 try { await currentRoom.disconnect(); } catch {}
                 document.getElementById('room-voice-audio').replaceChildren();
-                button.textContent = '🎙️ Unirse a voz';
+                resetRoomVoiceControls();
                 setRoomVoiceStatus('Te desconectaste del canal de voz.');
                 return;
             }
             if (!activeRoomId) return;
+            const joiningRoomId = activeRoomId;
             const sdk = window.LivekitClient;
             if (!sdk || !sdk.Room || !sdk.RoomEvent) {
                 setRoomVoiceStatus('No se pudo cargar el módulo de voz. Recargá la aplicación e intentá otra vez.', true);
@@ -2699,19 +2737,29 @@
                     if (activeVoiceRoom === voiceRoom) {
                         activeVoiceRoom = null;
                         document.getElementById('room-voice-audio').replaceChildren();
-                        button.textContent = '🎙️ Unirse a voz';
+                        resetRoomVoiceControls();
                         setRoomVoiceStatus('La conexión de voz se cerró.');
                     }
                 });
                 await voiceRoom.connect(data.liveKit.url, data.liveKit.token);
                 await voiceRoom.localParticipant.setMicrophoneEnabled(true);
+                if (activeRoomId !== joiningRoomId) {
+                    await voiceRoom.disconnect();
+                    return;
+                }
                 activeVoiceRoom = voiceRoom;
+                activeVoiceMuted = false;
+                const muteButton = document.getElementById('room-voice-mute');
+                muteButton.disabled = false;
+                muteButton.classList.remove('hidden');
+                muteButton.textContent = 'Silenciar micrófono';
+                muteButton.setAttribute('aria-pressed', 'false');
                 button.textContent = 'Salir de voz';
                 setRoomVoiceStatus('Conectado al canal de voz de ' + data.room.name + '. Micrófono activo.');
             } catch (error) {
                 if (voiceRoom) { try { await voiceRoom.disconnect(); } catch {} }
                 activeVoiceRoom = null;
-                button.textContent = '🎙️ Unirse a voz';
+                resetRoomVoiceControls();
                 setRoomVoiceStatus(error.message || 'No se pudo conectar a la voz grupal.', true);
             } finally {
                 button.disabled = false;
@@ -2725,7 +2773,7 @@
                 activeVoiceRoom = null;
                 currentVoiceRoom.disconnect().catch(() => {});
                 document.getElementById('room-voice-audio').replaceChildren();
-                document.getElementById('room-voice-toggle').textContent = '🎙️ Unirse a voz';
+                resetRoomVoiceControls();
                 setRoomVoiceStatus('Canal de voz desconectado.');
             }
             if (roomSocket) roomSocket.disconnect();
