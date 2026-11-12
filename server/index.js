@@ -36,6 +36,7 @@ const LiveStreamMessage = require('./models/LiveStreamMessage');
 const creatorDestinationsRouter = require('./routes/creatorDestinations');
 const creatorBroadcastsRouter = require('./routes/creatorBroadcasts');
 const StreamBroadcastSession = require('./models/StreamBroadcastSession');
+const { startRtmpBroadcast, stopRtmpBroadcast } = require('./services/rtmpBroadcast');
 const groupConversationsRouter = require('./routes/groupConversations');
 const Conversation = require('./models/Conversation');
 const DirectMessage = require('./models/DirectMessage');
@@ -978,6 +979,29 @@ app.delete('/api/me/streams/:streamId', requireAuth, streamLimiter, async (req, 
             { $set: { status: 'active' } })
         ]);
         throw recordingError;
+      }
+    }
+    const broadcastSession = await StreamBroadcastSession.findOne({
+      stream: session._id, owner: req.auth.sub, active: true
+    }).select('+egressId');
+    if (broadcastSession) {
+      await StreamBroadcastSession.updateOne(
+        { _id: broadcastSession._id, active: true },
+        { $set: { status: 'stopping' } }
+      );
+      if (broadcastSession.egressId) {
+        try {
+          await stopRtmpBroadcast({ egressClient: liveKit.egress, egressId: broadcastSession.egressId });
+        } catch (broadcastError) {
+          // Closing the LiveKit room below is the final cleanup path; the signed webhook
+          // marks the egress session ended when LiveKit reports its termination.
+          console.error('Unable to stop RTMP Egress before room close:', broadcastError.message);
+        }
+      } else {
+        await StreamBroadcastSession.updateOne(
+          { _id: broadcastSession._id, active: true },
+          { $set: { status: 'failed', active: false, endedAt: new Date() } }
+        );
       }
     }
     await liveKit.room.deleteRoom(session.roomName);
