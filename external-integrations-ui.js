@@ -60,7 +60,7 @@
         const detail = document.createElement('p');
         detail.className = 'text-[10px] text-slate-400';
         detail.textContent = item.connection && item.connection.connected
-          ? 'Conectada como ' + item.connection.username
+          ? 'Conectada como ' + item.connection.username + ' · chat: ' + (item.connection.chatSyncStatus || 'pendiente')
           : (item.configured ? 'Lista para autorizar tu cuenta' : 'Faltan credenciales OAuth gratuitas en el servidor');
         info.append(name, detail);
         const action = document.createElement('button');
