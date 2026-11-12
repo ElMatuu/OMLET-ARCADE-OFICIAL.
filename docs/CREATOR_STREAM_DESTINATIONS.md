@@ -51,7 +51,7 @@ The provider keys remain manually entered. OAuth account linking and provider-si
 
 PLAYVERSE now includes server-side OAuth 2.0 / 2.1 authorization-code + PKCE account linking for Twitch, YouTube and Kick. Access and refresh tokens are encrypted at rest with AES-256-GCM using the dedicated `APP_INTEGRATION_ENCRYPTION_KEY`. OAuth state is random, hashed in storage, single-use and expires after ten minutes. Provider secrets and tokens are never sent to the browser.
 
-Configure the six provider client variables, `PLAYVERSE_API_URL`, `PLAYVERSE_WEB_URL`, and a unique 32-byte `APP_INTEGRATION_ENCRYPTION_KEY`. Register these exact callback URLs in each free developer application:
+Configure the six provider client variables, `PLAYVERSE_API_URL`, `PLAYVERSE_WEB_URL`, and a unique 32-byte `APP_INTEGRATION_ENCRYPTION_KEY`. Twitch additionally requires `TWITCH_EVENTSUB_SECRET` (10–100 characters) for signed webhook verification. Register these exact callback URLs in each free developer application:
 
 - `https://YOUR_API_HOST/api/external-integrations/twitch/callback`
 - `https://YOUR_API_HOST/api/external-integrations/youtube/callback`
@@ -72,10 +72,32 @@ After account linking, PLAYVERSE activates external chat ingestion where the pro
 
 - **Twitch:** signed EventSub webhooks subscribe to `channel.chat.message`, `channel.bits.use`, `channel.subscribe`, `channel.subscription.gift`, `stream.online`, `stream.offline` and `channel.raid`. The Twitch app authorization requests `user:read:chat`, `user:bot`, `channel:bot`, `bits:read`, `channel:read:subscriptions` and `user:write:chat`. Set `TWITCH_EVENTSUB_SECRET` (10–100 characters) and register the callback `https://YOUR_API_HOST/api/webhooks/twitch`.
 - **Kick:** the app subscribes to `chat.message.sent`, follows, subscriptions and livestream start/end events. In Kick Developer settings, enable webhooks and set `https://YOUR_API_HOST/api/webhooks/kick`. Each delivery is verified using Kick's current public key fetched dynamically.
-- **YouTube:** a background worker checks linked channels for an active broadcast and imports Live Chat messages through the official Live Streaming API. Polling is throttled to at least 60 seconds per channel to protect the free API quota.
+- **YouTube:** a background worker discovers active broadcasts and imports Live Chat messages through the official low-latency gRPC `liveChatMessages.streamList` method, persisting continuation tokens and reconnecting when needed.
 
 Incoming messages are deduplicated by provider message ID and forwarded to the active PLAYVERSE live chat with a provider prefix for Twitch and YouTube. Kick chat/events are kept in a creator-only inbox (not redistributed to viewers) and automatically purged after 24 hours to respect Kick content retention rules. Messages sent by the PLAYVERSE stream owner are also relayed outward to each linked platform where the send scope is authorized; ordinary viewers' messages are never sent using the creator's account. The broadcaster's own webhook echoes are suppressed to avoid duplicates. Connection status, chat sync state, errors and last activity are exposed by `GET /api/me/external-integrations`. Provider callbacks require a publicly reachable HTTPS API host; localhost alone cannot receive external webhooks.
 
 Platform event notifications (Twitch Bits/subscriptions, Kick KICK gifts/subscriptions, and YouTube Super Chats/memberships) are displayed as external chat events only. PLAYVERSE does not receive, hold, charge, transfer or settle money, and does not process payouts or simulate payment transactions.
 
 The outbound relay uses Twitch's chat messages API, Kick's `POST /public/v1/chat` endpoint as the authenticated user, and YouTube's `liveChatMessages.insert`. If a linked account predates the new send scopes, use **Actualizar permisos** in the creator settings to reauthorize it. Provider message limits are checked per platform; one platform's rejection does not undo the local PLAYVERSE message.
+
+
+## Where to configure the secrets
+
+The values above are **runtime environment variables for the PLAYVERSE API service**, not automatically supplied by GitHub Actions repository secrets.
+
+- **Render or another hosting provider:** add them to the API web service's Environment settings, then redeploy/restart that service.
+- **Self-hosted Docker:** put them in the private `.env.selfhost` file on the server. Do not commit that file.
+- **GitHub Actions repository secrets:** use these only if a workflow explicitly reads them (for example, to deploy the API). The current CI test workflow does not consume the OAuth client credentials and adding them there alone will not configure the running API.
+
+Required OAuth runtime values:
+- `APP_INTEGRATION_ENCRYPTION_KEY`: random 32-byte key, 64 hexadecimal characters.
+- `PLAYVERSE_API_URL`: exact public HTTPS origin of the API, with no path, query or trailing slash.
+- `PLAYVERSE_WEB_URL`: public web-app origin used after OAuth returns.
+- `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET`.
+- `TWITCH_EVENTSUB_SECRET`: random ASCII secret, 10–100 characters.
+- `YOUTUBE_CLIENT_ID` and `YOUTUBE_CLIENT_SECRET`; enable YouTube Data API v3 in the same Google Cloud project.
+- `KICK_CLIENT_ID` and `KICK_CLIENT_SECRET`.
+
+For RTMP key storage, also set `STREAM_KEY_ENCRYPTION_KEY` to a separate random 32-byte key (64 hexadecimal characters). Do not reuse the OAuth encryption key. Preserve backups of both encryption keys: changing or losing either key makes the corresponding stored credentials unreadable.
+
+The creator integration panel reports missing variable **names only**. It never returns secret values to the browser. A provider can be OAuth-linked while its webhook/chat synchronization is still in an error state; check the per-provider chat status after consent and verify callbacks from a real provider account. Google OAuth consent-screen publishing/testing restrictions and each provider's developer-app approval requirements still apply.
