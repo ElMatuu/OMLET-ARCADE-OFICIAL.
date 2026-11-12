@@ -477,6 +477,44 @@
                 </form>
                 <p id="friends-status" class="text-xs text-slate-400" role="status"></p>
                 <div id="friends-search-result" class="space-y-2"></div>
+                <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center justify-between gap-2">
+                        <div><h4 class="font-black text-sm"><i class="fa-solid fa-people-group text-fuchsia-300 mr-2"></i>Chats grupales</h4><p class="text-[11px] text-slate-400">Grupos privados persistentes de hasta 100 integrantes.</p></div>
+                        <button type="button" onclick="loadGroupConversations()" class="rounded-lg border border-slate-700 px-3 py-2 text-[11px] font-bold">Actualizar</button>
+                    </div>
+                    <form id="group-create-form" class="space-y-2">
+                        <input id="group-create-name" required minlength="3" maxlength="60" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white" placeholder="Nombre del grupo">
+                        <textarea id="group-create-description" maxlength="240" rows="2" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" placeholder="Descripción (opcional)"></textarea>
+                        <input id="group-create-usernames" required class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white" placeholder="Usuarios separados por coma (sin @)">
+                        <button id="group-create-submit" type="submit" class="PLAYVERSE-gradient w-full rounded-xl px-4 py-3 text-xs font-black text-white">Crear grupo</button>
+                    </form>
+                    <p id="group-list-status" class="text-xs text-slate-400" role="status">Tus grupos aparecerán acá.</p>
+                    <div id="group-conversations-list" class="space-y-2" aria-live="polite"></div>
+                </section>
+                <section id="group-thread" class="hidden PLAYVERSE-card rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                        <div class="min-w-0"><h4 id="group-thread-title" class="font-black text-sm truncate">Grupo</h4><p id="group-thread-status" class="text-[11px] text-slate-400" role="status"></p></div>
+                        <button type="button" onclick="closeGroupConversation()" class="rounded-lg border border-slate-700 px-3 py-2 text-xs">Cerrar</button>
+                    </div>
+                    <div class="grid gap-3 md:grid-cols-[1fr_220px]">
+                        <div class="min-w-0 space-y-2">
+                            <div id="group-messages" class="h-72 overflow-y-auto space-y-2 rounded-xl bg-slate-950/70 p-3" aria-live="polite"></div>
+                            <form id="group-send-form" class="flex gap-2 border-t border-slate-800 pt-3">
+                                <input id="group-message-input" maxlength="2000" required autocomplete="off" class="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white" placeholder="Escribí al grupo…">
+                                <button id="group-send-button" type="submit" class="PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white">Enviar</button>
+                            </form>
+                        </div>
+                        <aside class="space-y-2">
+                            <h5 class="text-xs font-black text-white">Integrantes</h5>
+                            <div id="group-members-list" class="space-y-2"></div>
+                            <form id="group-invite-form" class="space-y-2">
+                                <input id="group-invite-username" maxlength="24" required pattern="[A-Za-z0-9_]{3,24}" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-white" placeholder="Usuario para invitar">
+                                <button class="w-full rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-2 py-2 text-[11px] font-bold text-fuchsia-200">Invitar</button>
+                            </form>
+                            <button id="group-leave-button" type="button" onclick="leaveGroupConversation()" class="hidden w-full rounded-lg border border-rose-500/30 px-2 py-2 text-[11px] font-bold text-rose-300">Salir del grupo</button>
+                        </aside>
+                    </div>
+                </section>
                 <section class="space-y-3">
                     <h4 class="font-bold text-sm text-white">Solicitudes recibidas</h4>
                     <div id="friends-incoming" class="space-y-2"></div>
@@ -1433,7 +1471,7 @@
             if (tabName === 'feed') loadCommunityPosts();
             if (tabName === 'saved') loadSavedPosts();
             if (tabName === 'events') loadMissions();
-            if (tabName === 'friends') loadFriends();
+            if (tabName === 'friends') { loadFriends(); loadGroupConversations(); }
             if (tabName === 'notifications') loadNotifications(true);
             if (tabName === 'help') {
                 const panel = document.getElementById('moderation-queue-panel');
@@ -3762,6 +3800,273 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             }
             return card;
         }
+
+        let activeGroupConversationId = null;
+        let activeGroupConversation = null;
+        let groupSocket = null;
+        let groupSocketScriptLoading = false;
+        const renderedGroupMessageIds = new Set();
+
+        function appendGroupMessage(message) {
+            if (!message || !message.id || renderedGroupMessageIds.has(message.id)) return;
+            renderedGroupMessageIds.add(message.id);
+            const container = document.getElementById('group-messages');
+            if (!container) return;
+            const own = String(message.senderId) === String(appState.profile && appState.profile.id);
+            const item = document.createElement('article');
+            item.className = 'max-w-[90%] rounded-xl border px-3 py-2 ' + (own ? 'ml-auto border-orange-500/20 bg-orange-500/10' : 'mr-auto border-slate-700 bg-slate-800/80');
+            const meta = document.createElement('p');
+            meta.className = 'mb-1 text-[10px] text-slate-400';
+            meta.textContent = (own ? 'Vos' : '@' + (message.senderUsername || 'jugador')) + ' · ' + (message.createdAt ? new Date(message.createdAt).toLocaleString('es-AR') : '');
+            const body = document.createElement('p');
+            body.className = 'whitespace-pre-wrap break-words text-sm text-slate-100';
+            body.textContent = message.body || '';
+            item.append(meta, body);
+            container.appendChild(item);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function loadGroupConversations() {
+            const status = document.getElementById('group-list-status');
+            const list = document.getElementById('group-conversations-list');
+            if (!status || !list || !authToken) return;
+            status.textContent = 'Cargando grupos…';
+            try {
+                const data = await apiRequest('/api/group-conversations');
+                list.replaceChildren();
+                const groups = data.groups || [];
+                if (!groups.length) { status.textContent = 'Todavía no participás en grupos. Creá uno e invitá a tus amigos.'; return; }
+                status.textContent = groups.length + ' grupo(s) activo(s).';
+                groups.forEach(group => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'w-full rounded-xl border border-slate-700 bg-slate-950/70 p-3 text-left hover:border-fuchsia-400/40';
+                    const title = document.createElement('p');
+                    title.className = 'text-sm font-bold text-white';
+                    title.textContent = group.name;
+                    const detail = document.createElement('p');
+                    detail.className = 'mt-1 text-[11px] text-slate-400';
+                    detail.textContent = group.memberCount + ' integrantes · ' + (group.role === 'owner' ? 'Propietario' : group.role === 'moderator' ? 'Moderador' : 'Integrante');
+                    const preview = document.createElement('p');
+                    preview.className = 'mt-1 truncate text-xs text-slate-500';
+                    preview.textContent = group.lastMessage || group.description || 'Abrir conversación';
+                    button.append(title, detail, preview);
+                    button.addEventListener('click', () => openGroupConversation(group));
+                    list.appendChild(button);
+                });
+            } catch (error) { status.textContent = 'No se pudieron cargar los grupos: ' + error.message; }
+        }
+
+        async function createGroupConversation(event) {
+            event.preventDefault();
+            const button = document.getElementById('group-create-submit');
+            const status = document.getElementById('group-list-status');
+            const usernames = document.getElementById('group-create-usernames').value.split(',').map(value => value.trim().replace(/^@/, '')).filter(Boolean);
+            button.disabled = true;
+            try {
+                const data = await apiRequest('/api/group-conversations', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: document.getElementById('group-create-name').value.trim(),
+                        description: document.getElementById('group-create-description').value.trim(),
+                        usernames
+                    })
+                });
+                document.getElementById('group-create-form').reset();
+                await loadGroupConversations();
+                await openGroupConversation(data.group);
+                status.textContent = 'Grupo creado correctamente.';
+            } catch (error) { status.textContent = error.message; }
+            finally { button.disabled = false; }
+        }
+
+        async function openGroupConversation(group) {
+            if (groupSocket) groupSocket.disconnect();
+            groupSocket = null;
+            activeGroupConversationId = group.id;
+            activeGroupConversation = group;
+            renderedGroupMessageIds.clear();
+            const panel = document.getElementById('group-thread');
+            panel.classList.remove('hidden');
+            document.getElementById('group-thread-title').textContent = group.name;
+            document.getElementById('group-thread-status').textContent = 'Sincronizando historial…';
+            document.getElementById('group-messages').replaceChildren();
+            try {
+                const [messages, members] = await Promise.all([
+                    apiRequest('/api/group-conversations/' + encodeURIComponent(group.id) + '/messages'),
+                    apiRequest('/api/group-conversations/' + encodeURIComponent(group.id) + '/members')
+                ]);
+                (messages.messages || []).forEach(appendGroupMessage);
+                renderGroupMembers(members);
+                document.getElementById('group-thread-status').textContent = 'Historial sincronizado. Conectando…';
+                connectGroupSocket(group.id);
+            } catch (error) { document.getElementById('group-thread-status').textContent = error.message; }
+        }
+
+        function renderGroupMembers(data) {
+            const container = document.getElementById('group-members-list');
+            const members = data.members || [];
+            const me = String(appState.profile && appState.profile.id);
+            const mine = members.find(member => String(member.userId) === me);
+            const isOwner = String(data.ownerId) === me;
+            const canInvite = mine && ['owner', 'moderator'].includes(mine.role);
+            const invite = document.getElementById('group-invite-form');
+            invite.classList.toggle('hidden', !canInvite);
+            document.getElementById('group-leave-button').classList.toggle('hidden', !mine || mine.role === 'owner');
+            container.replaceChildren();
+            members.forEach(member => {
+                const row = document.createElement('div');
+                row.className = 'rounded-lg border border-slate-800 bg-slate-950/60 p-2';
+                const name = document.createElement('p');
+                name.className = 'truncate text-[11px] font-bold text-white';
+                name.textContent = '@' + member.username + (member.role === 'owner' ? ' · Dueño' : member.role === 'moderator' ? ' · Mod' : '');
+                row.appendChild(name);
+                if (isOwner && member.role !== 'owner') {
+                    const actions = document.createElement('div');
+                    actions.className = 'mt-2 flex flex-wrap gap-1';
+                    const roleButton = document.createElement('button');
+                    roleButton.type = 'button';
+                    roleButton.className = 'rounded border border-slate-700 px-2 py-1 text-[10px] text-slate-300';
+                    roleButton.textContent = member.role === 'moderator' ? 'Quitar mod' : 'Hacer mod';
+                    roleButton.addEventListener('click', () => updateGroupMemberRole(member.userId, member.role === 'moderator' ? 'member' : 'moderator'));
+                    const removeButton = document.createElement('button');
+                    removeButton.type = 'button';
+                    removeButton.className = 'rounded border border-rose-500/30 px-2 py-1 text-[10px] text-rose-300';
+                    removeButton.textContent = 'Quitar';
+                    removeButton.addEventListener('click', () => removeGroupMember(member.userId));
+                    actions.append(roleButton, removeButton);
+                    row.appendChild(actions);
+                } else if (mine && mine.role === 'moderator' && member.role === 'member' && member.userId !== me) {
+                    const removeButton = document.createElement('button');
+                    removeButton.type = 'button';
+                    removeButton.className = 'mt-2 rounded border border-rose-500/30 px-2 py-1 text-[10px] text-rose-300';
+                    removeButton.textContent = 'Quitar integrante';
+                    removeButton.addEventListener('click', () => removeGroupMember(member.userId));
+                    row.appendChild(removeButton);
+                }
+                container.appendChild(row);
+            });
+        }
+
+        function connectGroupSocket(groupId) {
+            if (!window.io) {
+                if (groupSocketScriptLoading) return;
+                groupSocketScriptLoading = true;
+                const script = document.createElement('script');
+                script.src = API_URL + '/socket.io/socket.io.js';
+                script.onload = () => { groupSocketScriptLoading = false; connectGroupSocket(groupId); };
+                script.onerror = () => {
+                    groupSocketScriptLoading = false;
+                    const status = document.getElementById('group-thread-status');
+                    if (status) status.textContent = 'Tiempo real no disponible; podés enviar mensajes guardados.';
+                };
+                document.head.appendChild(script);
+                return;
+            }
+            groupSocket = window.io(API_URL, { auth: { token: authToken } });
+            groupSocket.on('connect', () => groupSocket.emit('join_group_conversation', { groupId }, result => {
+                const status = document.getElementById('group-thread-status');
+                if (status) status.textContent = result && result.success ? 'Chat grupal en tiempo real conectado' : (result && result.message) || 'No se pudo entrar al chat.';
+            }));
+            groupSocket.on('group_message_received', message => {
+                if (String(message.conversationId) === String(activeGroupConversationId)) appendGroupMessage(message);
+                loadGroupConversations();
+            });
+            groupSocket.on('group_member_removed', event => {
+                if (!event || String(event.groupId) !== String(activeGroupConversationId)) return;
+                if (String(event.userId) === String(appState.profile && appState.profile.id)) {
+                    closeGroupConversation();
+                    document.getElementById('group-thread-status').textContent = 'Ya no pertenecés a este grupo.';
+                } else refreshGroupMembers();
+            });
+            groupSocket.on('connect_error', () => {
+                const status = document.getElementById('group-thread-status');
+                if (status) status.textContent = 'No se pudo conectar al tiempo real; el envío seguro sigue disponible.';
+            });
+        }
+
+        async function refreshGroupMembers() {
+            if (!activeGroupConversationId) return;
+            try {
+                const data = await apiRequest('/api/group-conversations/' + encodeURIComponent(activeGroupConversationId) + '/members');
+                renderGroupMembers(data);
+            } catch (error) { document.getElementById('group-thread-status').textContent = error.message; }
+        }
+
+        async function sendGroupMessage(event) {
+            event.preventDefault();
+            if (!activeGroupConversationId) return;
+            const input = document.getElementById('group-message-input');
+            const button = document.getElementById('group-send-button');
+            const body = input.value.trim();
+            if (!body) return;
+            button.disabled = true;
+            try {
+                const data = await apiRequest('/api/group-conversations/' + encodeURIComponent(activeGroupConversationId) + '/messages', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body })
+                });
+                appendGroupMessage(data.message);
+                input.value = '';
+                await loadGroupConversations();
+            } catch (error) { document.getElementById('group-thread-status').textContent = error.message; }
+            finally { button.disabled = false; input.focus(); }
+        }
+
+        async function inviteGroupMember(event) {
+            event.preventDefault();
+            if (!activeGroupConversationId) return;
+            const input = document.getElementById('group-invite-username');
+            try {
+                await apiRequest('/api/group-conversations/' + encodeURIComponent(activeGroupConversationId) + '/members', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: input.value.trim() })
+                });
+                input.value = '';
+                await refreshGroupMembers();
+                await loadGroupConversations();
+                document.getElementById('group-thread-status').textContent = 'Integrante invitado.';
+            } catch (error) { document.getElementById('group-thread-status').textContent = error.message; }
+        }
+
+        async function updateGroupMemberRole(userId, role) {
+            if (!activeGroupConversationId) return;
+            try {
+                await apiRequest('/api/group-conversations/' + encodeURIComponent(activeGroupConversationId) + '/members/' + encodeURIComponent(userId) + '/role', {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role })
+                });
+                await refreshGroupMembers();
+            } catch (error) { document.getElementById('group-thread-status').textContent = error.message; }
+        }
+
+        async function removeGroupMember(userId) {
+            if (!activeGroupConversationId || !window.confirm('¿Querés quitar a esta persona del grupo?')) return;
+            try {
+                await apiRequest('/api/group-conversations/' + encodeURIComponent(activeGroupConversationId) + '/members/' + encodeURIComponent(userId), { method: 'DELETE' });
+                await refreshGroupMembers();
+                await loadGroupConversations();
+            } catch (error) { document.getElementById('group-thread-status').textContent = error.message; }
+        }
+
+        async function leaveGroupConversation() {
+            if (!activeGroupConversationId || !window.confirm('¿Querés salir de este grupo?')) return;
+            try {
+                await apiRequest('/api/group-conversations/' + encodeURIComponent(activeGroupConversationId) + '/members/' + encodeURIComponent(appState.profile.id), { method: 'DELETE' });
+                closeGroupConversation();
+                await loadGroupConversations();
+            } catch (error) { document.getElementById('group-thread-status').textContent = error.message; }
+        }
+
+        function closeGroupConversation() {
+            if (groupSocket) groupSocket.disconnect();
+            groupSocket = null;
+            activeGroupConversationId = null;
+            activeGroupConversation = null;
+            renderedGroupMessageIds.clear();
+            document.getElementById('group-thread').classList.add('hidden');
+        }
+
+        document.getElementById('group-create-form').addEventListener('submit', createGroupConversation);
+        document.getElementById('group-send-form').addEventListener('submit', sendGroupMessage);
+        document.getElementById('group-invite-form').addEventListener('submit', inviteGroupMember);
 
         async function loadFriends() {
             const status = document.getElementById('friends-status');
