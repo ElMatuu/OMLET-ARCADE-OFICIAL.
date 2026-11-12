@@ -35,6 +35,7 @@ const { createPresignedRecordingUrl } = require('./services/recordingStorage');
 const LiveStreamMessage = require('./models/LiveStreamMessage');
 const creatorDestinationsRouter = require('./routes/creatorDestinations');
 const creatorBroadcastsRouter = require('./routes/creatorBroadcasts');
+const externalIntegrationsRouter = require('./routes/externalIntegrations');
 const StreamBroadcastSession = require('./models/StreamBroadcastSession');
 const { startRtmpBroadcast, stopRtmpBroadcast } = require('./services/rtmpBroadcast');
 const groupConversationsRouter = require('./routes/groupConversations');
@@ -157,6 +158,8 @@ app.post('/api/webhooks/livekit', express.raw({ type: 'application/webhook+json'
 app.use(express.json({ limit: '20kb' }));
 app.use('/api/me/stream-destinations', creatorDestinationsRouter);
 app.use('/api/me/stream-destinations', creatorBroadcastsRouter);
+app.use('/api/me/external-integrations', externalIntegrationsRouter);
+app.use('/api/external-integrations', externalIntegrationsRouter);
 app.use('/api/group-conversations', groupConversationsRouter);
 
 const webRoot = path.join(__dirname, '..', 'www');
