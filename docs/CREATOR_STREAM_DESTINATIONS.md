@@ -45,3 +45,22 @@ Connected creator destinations can now be used as actual LiveKit Egress outputs.
 The backend decrypts keys only in memory, builds provider URLs from a fixed allowlist, and starts one composite Egress with all connected destinations. Keys and RTMP URLs are never returned by these endpoints. A unique active-session record prevents duplicate concurrent broadcasts for one stream; the signed `egress_ended` webhook closes the session. This requires a working LiveKit Egress service and `STREAM_KEY_ENCRYPTION_KEY`. An accepted Egress job is not proof that every provider has accepted the stream: verify each provider's live dashboard before announcing the external broadcast as live.
 
 The provider keys remain manually entered. OAuth account linking and provider-side analytics/chat ingestion are separate integrations and are not implied by this RTMP relay.
+
+
+## OAuth account linking (Twitch, YouTube, Kick)
+
+PLAYVERSE now includes server-side OAuth 2.0 / 2.1 authorization-code + PKCE account linking for Twitch, YouTube and Kick. Access and refresh tokens are encrypted at rest with AES-256-GCM using the dedicated `APP_INTEGRATION_ENCRYPTION_KEY`. OAuth state is random, hashed in storage, single-use and expires after ten minutes. Provider secrets and tokens are never sent to the browser.
+
+Configure the six provider client variables, `PLAYVERSE_API_URL`, `PLAYVERSE_WEB_URL`, and a unique 32-byte `APP_INTEGRATION_ENCRYPTION_KEY`. Register these exact callback URLs in each free developer application:
+
+- `https://YOUR_API_HOST/api/external-integrations/twitch/callback`
+- `https://YOUR_API_HOST/api/external-integrations/youtube/callback`
+- `https://YOUR_API_HOST/api/external-integrations/kick/callback`
+
+Authenticated endpoints:
+
+- `GET /api/me/external-integrations` — configured/connected status and safe account metadata.
+- `POST /api/me/external-integrations/:provider/connect` — returns a provider authorization URL; open it in the system browser.
+- `DELETE /api/me/external-integrations/:provider` — disconnect and delete stored tokens.
+
+The callback exchanges the authorization code, validates the returned account identity and stores only encrypted tokens. YouTube requests offline access for refresh tokens. Kick uses the required S256 PKCE challenge. The provider's developer application registration and user consent are mandatory; these cannot be fabricated or bypassed. Account linking is distinct from RTMP stream-key relay and does not by itself claim that external chat, donations, or analytics are synchronized.
