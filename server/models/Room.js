@@ -33,6 +33,7 @@ const roomSchema = new mongoose.Schema({
   pinnedMessage: { type: mongoose.Schema.Types.ObjectId, ref: 'RoomMessage', default: null },
   pinnedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   pinnedAt: { type: Date, default: null },
+  mutedMembers: [{ user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, mutedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, mutedUntil: { type: Date, required: true }, createdAt: { type: Date, default: Date.now } }],
   joinRequests: [{
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     username: { type: String, required: true, maxlength: 24 },

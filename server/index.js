@@ -2883,7 +2883,7 @@ app.get('/api/rooms/:roomId/messages', requireAuth, async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Identificador de sala inválido.' });
     }
     const room = await Room.findOne({ _id: req.params.roomId, members: req.auth.sub })
-      .select('owner pinnedMessage pinnedBy pinnedAt').lean();
+      .select('owner pinnedMessage pinnedBy pinnedAt mutedMembers').lean();
     if (!room) return res.status(403).json({ success: false, message: 'No pertenecés a esta sala.' });
     const [messages, pinned] = await Promise.all([
       RoomMessage.find({ room: req.params.roomId }).sort({ sentAt: -1, _id: -1 }).limit(50).lean(),
@@ -2897,7 +2897,7 @@ app.get('/api/rooms/:roomId/messages', requireAuth, async (req, res, next) => {
         sentAt: pinned.sentAt, pinnedBy: room.pinnedBy ? String(room.pinnedBy) : null, pinnedAt: room.pinnedAt
       } : null,
       messages: messages.reverse().map((item) => ({
-        id: String(item._id), username: item.username, message: item.message, sentAt: item.sentAt
+        id: String(item._id), authorId: String(item.author), username: item.username, message: item.message, sentAt: item.sentAt
       }))
     });
   } catch (error) {
@@ -2918,8 +2918,12 @@ app.post('/api/rooms/:roomId/messages', requireAuth, commentLimiter, async (req,
       _id: req.params.roomId,
       members: req.auth.sub,
       status: 'open'
-    }).select('_id').lean();
+    }).select('_id mutedMembers').lean();
     if (!room) return res.status(403).json({ success: false, message: 'La sala está cerrada o no pertenecés a ella.' });
+    const activeMute = (room.mutedMembers || []).find((entry) =>
+      String(entry.user) === String(req.auth.sub) && new Date(entry.mutedUntil) > new Date()
+    );
+    if (activeMute) return res.status(403).json({ success: false, message: 'El anfitrión silenció temporalmente tu chat en esta sala.' });
     const created = await RoomMessage.create({
       room: room._id,
       author: req.auth.sub,
@@ -2928,6 +2932,7 @@ app.post('/api/rooms/:roomId/messages', requireAuth, commentLimiter, async (req,
     });
     const result = {
       id: String(created._id),
+      authorId: String(created.author),
       username: created.username,
       message: created.message,
       sentAt: created.sentAt

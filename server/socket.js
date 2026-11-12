@@ -330,6 +330,43 @@ function attachSocketServer(httpServer, allowedOrigins) {
       }
     });
 
+    socket.on('mute_room_member', async (payload, acknowledge = () => {}) => {
+      const roomId = payload && payload.roomId;
+      const targetUserId = payload && payload.userId;
+      if (typeof roomId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(roomId) ||
+          typeof targetUserId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(targetUserId) ||
+          !socket.rooms.has(roomId)) return acknowledge({ success: false, message: 'Sala o participante inválidos.' });
+      if (targetUserId === String(socket.user.sub)) return acknowledge({ success: false, message: 'No podés silenciarte a vos mismo.' });
+      try {
+        const room = await Room.findOne({ _id: roomId, owner: socket.user.sub, members: targetUserId, status: 'open' }).select('_id').lean();
+        if (!room) return acknowledge({ success: false, message: 'Solo el anfitrión puede silenciar participantes.' });
+        const mutedUntil = new Date(Date.now() + 15 * 60 * 1000);
+        await Room.updateOne({ _id: roomId, owner: socket.user.sub }, { $pull: { mutedMembers: { user: targetUserId } } });
+        await Room.updateOne({ _id: roomId, owner: socket.user.sub }, { $push: { mutedMembers: { user: targetUserId, mutedBy: socket.user.sub, mutedUntil } } });
+        io.to(roomId).emit('room_member_muted', { roomId, userId: targetUserId, mutedUntil });
+        return acknowledge({ success: true, userId: targetUserId, mutedUntil });
+      } catch {
+        return acknowledge({ success: false, message: 'No se pudo silenciar al participante.' });
+      }
+    });
+
+    socket.on('unmute_room_member', async (payload, acknowledge = () => {}) => {
+      const roomId = payload && payload.roomId;
+      const targetUserId = payload && payload.userId;
+      if (typeof roomId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(roomId) ||
+          typeof targetUserId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(targetUserId) ||
+          !socket.rooms.has(roomId)) return acknowledge({ success: false, message: 'Sala o participante inválidos.' });
+      try {
+        const room = await Room.findOne({ _id: roomId, owner: socket.user.sub, status: 'open' }).select('_id').lean();
+        if (!room) return acknowledge({ success: false, message: 'Solo el anfitrión puede quitar silencios.' });
+        await Room.updateOne({ _id: roomId, owner: socket.user.sub }, { $pull: { mutedMembers: { user: targetUserId } } });
+        io.to(roomId).emit('room_member_unmuted', { roomId, userId: targetUserId });
+        return acknowledge({ success: true, userId: targetUserId });
+      } catch {
+        return acknowledge({ success: false, message: 'No se pudo quitar el silencio.' });
+      }
+    });
+
     socket.on('send_message', async (payload, acknowledge = () => {}) => {
       const roomId = payload && payload.roomId;
       const rawMessage = payload && payload.message;
@@ -354,11 +391,15 @@ function attachSocketServer(httpServer, allowedOrigins) {
           _id: roomId,
           members: socket.user.sub,
           status: 'open'
-        }).select('_id').lean();
+        }).select('_id mutedMembers').lean();
         if (!room) {
           await socket.leave(roomId);
           return acknowledge({ success: false, message: 'La sala está cerrada o ya no tenés acceso.' });
         }
+        const activeMute = (room.mutedMembers || []).find((entry) =>
+          String(entry.user) === String(socket.user.sub) && new Date(entry.mutedUntil) > new Date()
+        );
+        if (activeMute) return acknowledge({ success: false, message: 'El anfitrión silenció temporalmente tu chat en esta sala.' });
         const saved = await RoomMessage.create({
           room: room._id,
           author: socket.user.sub,
@@ -367,6 +408,7 @@ function attachSocketServer(httpServer, allowedOrigins) {
         });
         const message = {
           id: String(saved._id),
+          authorId: String(saved.author),
           username: saved.username,
           message: saved.message,
           sentAt: saved.sentAt
