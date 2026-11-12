@@ -678,6 +678,53 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
   }
 });
 
+app.post('/api/streams/:streamId/screen-share-token', requireAuth, streamLimiter, async (req, res, next) => {
+  const config = getLiveKitConfig();
+  if (!config) return res.status(503).json({
+    success: false,
+    code: 'LIVE_STREAMING_NOT_CONFIGURED',
+    message: 'La captura de pantalla todavía no está configurada en el servidor.'
+  });
+  try {
+    if (!isValidObjectId(req.params.streamId)) {
+      return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
+    }
+    const session = await LiveStream.findOne({
+      _id: req.params.streamId,
+      owner: req.auth.sub,
+      status: 'live'
+    }).select('_id owner ownerUsername roomName').lean();
+    if (!session) return res.status(403).json({
+      success: false,
+      code: 'STREAM_OWNER_REQUIRED',
+      message: 'Solo quien transmite puede publicar la captura de pantalla.'
+    });
+    const user = await User.findById(req.auth.sub).select('username').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    // A unique companion identity avoids replacing the existing browser/WebView publisher.
+    const identity = String(req.auth.sub) + ':screen:' + crypto.randomUUID();
+    const token = await createParticipantToken({
+      config,
+      identity,
+      name: user.username + ' · Pantalla',
+      metadata: {
+        userId: String(req.auth.sub),
+        username: user.username,
+        role: 'screen_share',
+        streamId: String(session._id)
+      },
+      roomName: session.roomName,
+      canPublish: true,
+      canPublishSources: ['SCREEN_SHARE']
+    });
+    return res.set('Cache-Control', 'no-store').json({
+      success: true,
+      stream: { id: String(session._id), status: 'live' },
+      liveKit: { url: config.clientUrl, token, role: 'screen_share', expiresInSeconds: 600 }
+    });
+  } catch (error) { return next(error); }
+});
+
 app.post('/api/streams/:streamId/token', requireAuth, streamLimiter, async (req, res, next) => {
   const config = getLiveKitConfig();
   if (!config) return res.status(503).json({
