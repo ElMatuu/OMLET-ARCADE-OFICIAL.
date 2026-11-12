@@ -36,7 +36,13 @@
     const list = document.createElement('div');
     list.id = 'external-integrations-list';
     list.className = 'space-y-2';
-    section.append(heading, buttons, status, list);
+    const eventsHeading = document.createElement('h5');
+    eventsHeading.className = 'pt-2 text-[10px] font-black uppercase tracking-wider text-emerald-300';
+    eventsHeading.textContent = 'Eventos de Kick privados (retención máxima: 24 horas)';
+    const events = document.createElement('div');
+    events.id = 'external-integrations-events';
+    events.className = 'space-y-1';
+    section.append(heading, buttons, status, list, eventsHeading, events);
     destinationSection.parentNode.insertBefore(section, destinationSection);
   }
 
@@ -91,6 +97,35 @@
       status.textContent = connected + ' de 3 cuentas externas conectadas. La sincronización requiere autorización de cada cuenta.';
     } catch (error) {
       status.textContent = 'No se pudieron consultar las cuentas: ' + error.message;
+    }
+  }
+
+  async function loadExternalProviderEvents() {
+    const container = document.getElementById('external-integrations-events');
+    if (!container || typeof authToken === 'undefined' || !authToken || typeof apiRequest !== 'function') return;
+    container.replaceChildren();
+    try {
+      const data = await apiRequest('/api/me/external-integrations/events');
+      const events = data.events || [];
+      if (!events.length) {
+        const empty = document.createElement('p');
+        empty.className = 'text-[10px] text-slate-500';
+        empty.textContent = 'Todavía no hay eventos privados de Kick durante una transmisión.';
+        container.appendChild(empty);
+        return;
+      }
+      events.forEach((item) => {
+        const row = document.createElement('p');
+        row.className = 'rounded-lg bg-slate-900/70 px-3 py-2 text-[10px] text-slate-300';
+        const time = item.sentAt ? new Date(item.sentAt).toLocaleTimeString() : '';
+        row.textContent = (time ? '[' + time + '] ' : '') + item.username + ': ' + item.message;
+        container.appendChild(row);
+      });
+    } catch (error) {
+      const failure = document.createElement('p');
+      failure.className = 'text-[10px] text-slate-500';
+      failure.textContent = 'No se pudieron cargar los eventos privados de Kick.';
+      container.appendChild(failure);
     }
   }
 
