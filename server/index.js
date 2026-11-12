@@ -115,7 +115,7 @@ app.post('/api/webhooks/livekit', express.raw({ type: 'application/webhook+json'
     if (event.event === 'room_finished' && event.room && event.room.name) {
       await LiveStream.updateOne(
         { roomName: event.room.name, status: { $in: ['starting', 'live'] } },
-        { $set: { status: 'ended', endedAt: new Date() } }
+        { $set: { status: 'ended', endedAt: new Date() }, $unset: { activeOwner: 1 } }
       );
     }
     return res.status(200).json({ success: true });
@@ -336,6 +336,7 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
     const liveKit = createLiveKitApi(config);
     const session = await LiveStream.create({
       owner: req.auth.sub,
+      activeOwner: req.auth.sub,
       ownerUsername: user.username,
       title,
       game,
@@ -432,6 +433,7 @@ app.delete('/api/me/streams/:streamId', requireAuth, streamLimiter, async (req, 
     const liveKit = createLiveKitApi(config);
     await liveKit.room.deleteRoom(session.roomName);
     session.status = 'ended';
+    session.activeOwner = undefined;
     session.endedAt = new Date();
     await session.save();
     return res.json({ success: true, stream: { id: String(session._id), status: session.status, endedAt: session.endedAt } });
