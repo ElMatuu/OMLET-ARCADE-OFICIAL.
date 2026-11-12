@@ -20,6 +20,7 @@ test('recording storage stays disabled until required private S3 credentials are
   assert.equal(getRecordingStorageConfig({}), null);
   assert.equal(getRecordingStorageConfig({ ...validStorageEnv, LIVEKIT_RECORDING_S3_SECRET: '' }), null);
   assert.equal(getRecordingStorageConfig({ ...validStorageEnv, LIVEKIT_RECORDING_S3_ENDPOINT: 'file:///etc/passwd' }), null);
+  assert.equal(getRecordingStorageConfig({ ...validStorageEnv, LIVEKIT_RECORDING_S3_ENDPOINT: 'http://minio.local:9000' }), null);
   const config = getRecordingStorageConfig({ ...validStorageEnv, LIVEKIT_RECORDING_S3_ENDPOINT: 'https://s3.example.test', LIVEKIT_RECORDING_S3_FORCE_PATH_STYLE: 'true' });
   assert.equal(config.bucket, 'playverse-recordings');
   assert.equal(config.endpoint, 'https://s3.example.test');
