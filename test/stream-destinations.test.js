@@ -31,7 +31,7 @@ test('tampered ciphertext and wrong encryption keys are rejected', () => {
 test('encryption configuration accepts only a valid 32-byte key', () => {
   assert.equal(getEncryptionKey(env).length, 32);
   assert.equal(getEncryptionKey({ STREAM_KEY_ENCRYPTION_KEY: 'too-short' }), null);
-  assert.equal(getEncryptionKey({}).length, undefined);
+  assert.equal(getEncryptionKey({}), null);
   assert.equal(getEncryptionKey({ STREAM_KEY_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64') }).length, 32);
 });
 
