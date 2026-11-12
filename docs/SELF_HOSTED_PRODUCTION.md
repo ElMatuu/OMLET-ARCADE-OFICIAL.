@@ -54,3 +54,8 @@ Confirm LiveKit is reachable over WSS and test an actual creator-to-viewer strea
 ## Production launch gate
 
 Do not call the platform production-ready until secrets and DNS are configured, backups have been restored in a drill, the single-node or multi-node database topology is chosen intentionally, all firewall rules are tested, two-device streaming and reconnect tests pass, and Android/Windows clients have been tested on physical devices. This stack supplies self-hosted infrastructure; it does not itself prove capacity, global availability or operational support.
+
+
+## Creator RTMP broadcast secrets
+
+Set `STREAM_KEY_ENCRYPTION_KEY` to a dedicated 32-byte key encoded as 64 hexadecimal characters. Compose passes it only to the backend. Do not reuse JWT, MongoDB or LiveKit secrets. Back it up securely; losing it makes saved RTMP keys unreadable. The optional `LIVEKIT_RECORDING_S3_*` variables are passed through to the API for private recording storage and remain unset until a private bucket is provisioned.
