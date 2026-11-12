@@ -2861,6 +2861,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 }
                 applyEquippedCosmetics(inventory.equipped || {});
             } catch (error) {
+                if (generation !== storeLoadGeneration) return;
                 status.textContent = 'No se pudo cargar la tienda: ' + error.message;
             }
         }
