@@ -3,7 +3,7 @@ const ExternalOAuthState = require('../models/ExternalOAuthState');
 const ExternalProviderConnection = require('../models/ExternalProviderConnection');
 
 const PROVIDERS = Object.freeze({
-  twitch: { name: 'Twitch', authorize: 'https://id.twitch.tv/oauth2/authorize', token: 'https://id.twitch.tv/oauth2/token', profile: 'https://api.twitch.tv/helix/users', scopes: ['user:read:chat', 'user:bot', 'channel:bot'] },
+  twitch: { name: 'Twitch', authorize: 'https://id.twitch.tv/oauth2/authorize', token: 'https://id.twitch.tv/oauth2/token', profile: 'https://api.twitch.tv/helix/users', scopes: ['user:read:chat', 'user:bot', 'channel:bot', 'bits:read', 'channel:read:subscriptions'] },
   youtube: { name: 'YouTube', authorize: 'https://accounts.google.com/o/oauth2/v2/auth', token: 'https://oauth2.googleapis.com/token', profile: 'https://openidconnect.googleapis.com/v1/userinfo', scopes: ['openid', 'email', 'profile', 'https://www.googleapis.com/auth/youtube.readonly'] },
   kick: { name: 'Kick', authorize: 'https://id.kick.com/oauth/authorize', token: 'https://id.kick.com/oauth/token', profile: 'https://api.kick.com/public/v1/users', scopes: ['user:read', 'events:subscribe'] }
 });
