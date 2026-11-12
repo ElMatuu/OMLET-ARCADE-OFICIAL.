@@ -18,6 +18,7 @@ const streamingPreferencesSchema = new mongoose.Schema({
   overlayShowChat: { type: Boolean, default: true },
   overlayShowViewerCount: { type: Boolean, default: true },
   overlayShowDonations: { type: Boolean, default: true },
+  doNotDisturbWhileStreaming: { type: Boolean, default: false },
   overlayBrandingText: { type: String, trim: true, maxlength: 40, default: '' },
   socialYouTube: { type: String, trim: true, maxlength: 60, default: '' },
   socialTwitch: { type: String, trim: true, maxlength: 60, default: '' },

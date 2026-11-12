@@ -182,6 +182,31 @@ test('creator streaming preferences remain protected by authentication', async (
   });
 });
 
+test('streaming DND rejects non-boolean values before database access', async () => {
+  const jwt = require('jsonwebtoken');
+  const mongoose = require('mongoose');
+  const token = jwt.sign({
+    sub: new mongoose.Types.ObjectId().toString(),
+    username: 'dnd_player',
+    role: 'user'
+  }, process.env.JWT_SECRET, {
+    algorithm: 'HS256',
+    expiresIn: '5m',
+    issuer: 'playverse-api',
+    audience: 'playverse-clients'
+  });
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/me/streaming-preferences', {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ doNotDisturbWhileStreaming: 'true' })
+    });
+    const body = await response.json();
+    assert.equal(response.status, 400);
+    assert.equal(body.success, false);
+  });
+});
+
 test('report submission requires an authenticated account', async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(baseUrl + '/api/reports', {
