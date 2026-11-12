@@ -23,9 +23,9 @@ Al apagar el servidor, el agente puede enviar `isOnline:false`. Si no llegan hea
 
 ## Minecraft
 
-- Java: el jugador copia host y puerto y los pega en Multiplayer → Direct Connection o Add Server.
-- Bedrock: en móvil/PC puede agregarse desde Play → Servers → Add Server. El puerto predeterminado suele ser 19132, pero el propietario debe publicar el puerto real.
-- El botón de abrir Minecraft solo intenta abrir la aplicación. No promete conectarse automáticamente: los deep links internos de Minecraft pueden cambiar y Microsoft advierte que no deben ser una dependencia crítica.
+- Bedrock: PLAYVERSE usa el deep link documentado `minecraft://?addExternalServer=name|address:port` para pedirle al cliente que agregue el servidor a su lista. Después, el jugador selecciona ese servidor y pulsa Jugar. Esto no equivale a entrar automáticamente a la partida.
+- Java: el jugador copia host y puerto y los pega en Multijugador → Conexión directa o Agregar servidor. No hay un enlace público y estable documentado por Mojang/Microsoft para que una web fuerce la unión directa a un servidor Java.
+- El handler de Bedrock está documentado por Microsoft, pero la propia documentación advierte que estos deep links están pensados principalmente para uso interno y pueden cambiar o desaparecer. PLAYVERSE debe mantener siempre la alternativa manual.
 - La instalación/compra se realiza en los canales oficiales de Minecraft; PLAYVERSE no distribuye copias del juego.
 
 ## Capacidad, costo y seguridad
