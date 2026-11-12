@@ -253,7 +253,7 @@ app.get('/api/health/ready', (req, res) => {
 app.get('/api/streams/:streamId/messages', requireAuth, async (req, res, next) => {
   try {
     if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
-    const stream = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).select('owner').lean();
+    const stream = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).select('owner pinnedMessage pinnedBy pinnedAt').lean();
     if (!stream) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
     if (String(stream.owner) !== String(req.auth.sub)) {
       const blocked = await Block.exists({ $or: [
@@ -266,13 +266,77 @@ app.get('/api/streams/:streamId/messages', requireAuth, async (req, res, next) =
     const limit = Number.isInteger(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 50;
     const messages = await LiveStreamMessage.find({ stream: stream._id })
       .sort({ sentAt: -1, _id: -1 }).limit(limit).lean();
+    const pinned = stream.pinnedMessage
+      ? await LiveStreamMessage.findOne({ _id: stream.pinnedMessage, stream: stream._id }).lean()
+      : null;
     return res.set('Cache-Control', 'no-store').json({
       success: true,
+      canModerate: String(stream.owner) === String(req.auth.sub),
+      pinnedMessage: pinned ? {
+        id: String(pinned._id), authorId: String(pinned.author),
+        username: pinned.username, message: pinned.message, sentAt: pinned.sentAt,
+        pinnedBy: stream.pinnedBy ? String(stream.pinnedBy) : null, pinnedAt: stream.pinnedAt
+      } : null,
       messages: messages.reverse().map((message) => ({
         id: String(message._id), authorId: String(message.author),
         username: message.username, message: message.message, sentAt: message.sentAt
       }))
     });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/streams/:streamId/messages/:messageId/pin', requireAuth, liveChatLimiter, async (req, res, next) => {
+  try {
+    if (!isValidObjectId(req.params.streamId) || !isValidObjectId(req.params.messageId)) {
+      return res.status(400).json({ success: false, message: 'Transmisión o mensaje inválido.' });
+    }
+    const stream = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).select('owner').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
+    if (String(stream.owner) !== String(req.auth.sub)) return res.status(403).json({ success: false, message: 'Solo el anfitrión puede fijar mensajes.' });
+    const target = await LiveStreamMessage.findOne({ _id: req.params.messageId, stream: stream._id }).lean();
+    if (!target) return res.status(404).json({ success: false, message: 'El mensaje ya no existe.' });
+    const pinnedAt = new Date();
+    await LiveStream.updateOne({ _id: stream._id, owner: req.auth.sub, status: 'live' },
+      { $set: { pinnedMessage: target._id, pinnedBy: req.auth.sub, pinnedAt } });
+    const pinnedMessage = { id: String(target._id), authorId: String(target.author), username: target.username,
+      message: target.message, sentAt: target.sentAt, pinnedBy: String(req.auth.sub), pinnedAt };
+    const io = httpServer.io;
+    if (io) io.to('stream-chat:' + String(stream._id)).emit('stream_chat_pinned', { streamId: String(stream._id), pinnedMessage });
+    return res.json({ success: true, pinnedMessage });
+  } catch (error) { return next(error); }
+});
+
+app.delete('/api/streams/:streamId/pin', requireAuth, liveChatLimiter, async (req, res, next) => {
+  try {
+    if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
+    const stream = await LiveStream.findOneAndUpdate({ _id: req.params.streamId, owner: req.auth.sub, status: 'live' },
+      { $set: { pinnedMessage: null, pinnedBy: null, pinnedAt: null } }, { new: true }).select('_id').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'Transmisión no disponible o no sos el anfitrión.' });
+    const io = httpServer.io;
+    if (io) io.to('stream-chat:' + String(stream._id)).emit('stream_chat_unpinned', { streamId: String(stream._id) });
+    return res.json({ success: true });
+  } catch (error) { return next(error); }
+});
+
+app.delete('/api/streams/:streamId/messages/:messageId', requireAuth, liveChatLimiter, async (req, res, next) => {
+  try {
+    if (!isValidObjectId(req.params.streamId) || !isValidObjectId(req.params.messageId)) {
+      return res.status(400).json({ success: false, message: 'Transmisión o mensaje inválido.' });
+    }
+    const stream = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).select('owner pinnedMessage').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
+    if (String(stream.owner) !== String(req.auth.sub)) return res.status(403).json({ success: false, message: 'Solo el anfitrión puede eliminar mensajes.' });
+    const removed = await LiveStreamMessage.findOneAndDelete({ _id: req.params.messageId, stream: stream._id }).lean();
+    if (!removed) return res.status(404).json({ success: false, message: 'El mensaje ya no existe.' });
+    const wasPinned = String(stream.pinnedMessage || '') === String(removed._id);
+    if (wasPinned) await LiveStream.updateOne({ _id: stream._id, owner: req.auth.sub, status: 'live' },
+      { $set: { pinnedMessage: null, pinnedBy: null, pinnedAt: null } });
+    const io = httpServer.io;
+    if (io) {
+      io.to('stream-chat:' + String(stream._id)).emit('stream_chat_message_deleted', { streamId: String(stream._id), messageId: String(removed._id) });
+      if (wasPinned) io.to('stream-chat:' + String(stream._id)).emit('stream_chat_unpinned', { streamId: String(stream._id) });
+    }
+    return res.json({ success: true, messageId: String(removed._id) });
   } catch (error) { return next(error); }
 });
 
