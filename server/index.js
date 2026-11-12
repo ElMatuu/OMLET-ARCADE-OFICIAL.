@@ -3025,7 +3025,7 @@ function isNonPublicIPv4(address) {
     (a === 100 && b >= 64 && b <= 127) ||
     (a === 169 && b === 254) ||
     (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && (b === 0 || b === 2 || b === 168)) ||
+    (a === 192 && ((b === 0 && (c === 0 || c === 2)) || b === 168)) ||
     (a === 192 && b === 88 && c === 99) ||
     (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
     (a === 203 && b === 0 && c === 113) ||
@@ -3038,7 +3038,7 @@ function normalizePublicServerAddress(value) {
       address.includes('/') || address.includes('@') || address.includes('?') ||
       address.includes('#') || address.includes('\\\\')) return null;
   if (address === 'localhost' || address.endsWith('.localhost') || address.endsWith('.local')) return null;
-  if (/^\\d+(?:\\.\\d+){3}$/.test(address)) {
+  if (address.split('.').length === 4 && address.split('.').every((part) => part.length > 0 && [...part].every((char) => char >= '0' && char <= '9'))) {
     return net.isIP(address) === 4 && !isNonPublicIPv4(address) ? address : null;
   }
   const labels = address.split('.');
