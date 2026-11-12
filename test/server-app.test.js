@@ -6,7 +6,7 @@ process.env.MONGODB_URI = 'mongodb://127.0.0.1:27017/playverse_test_only';
 process.env.JWT_SECRET = 'playverse-test-secret-with-at-least-32-characters';
 process.env.CORS_ORIGIN = 'https://playverse-test.example';
 
-const { app, httpServer, serializeGameServer } = require('../server/index');
+const { app, httpServer, serializeGameServer, normalizePublicServerAddress } = require('../server/index');
 
 async function withServer(run) {
   const server = http.createServer(app);
@@ -21,6 +21,17 @@ async function withServer(run) {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
 }
+
+test('public game server address validation rejects non-public IPv4 ranges without blocking valid public ranges', () => {
+  for (const address of [
+    '0.0.0.1', '10.0.0.1', '100.64.0.1', '127.0.0.1', '169.254.1.1',
+    '172.16.0.1', '192.0.0.8', '192.0.2.10', '192.168.1.1',
+    '198.18.0.1', '198.51.100.10', '203.0.113.10', '224.0.0.1', '240.0.0.1',
+    '999.1.1.1'
+  ]) assert.equal(normalizePublicServerAddress(address), null, address);
+  assert.equal(normalizePublicServerAddress('8.8.8.8'), '8.8.8.8');
+  assert.equal(normalizePublicServerAddress('play.example.net'), 'play.example.net');
+});
 
 test('heartbeat server payload never grants the owner UI flag to token-authenticated agents', () => {
   const server = {
