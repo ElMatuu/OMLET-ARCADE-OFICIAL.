@@ -30,12 +30,12 @@ test('self-hosted Mongo keyfile is persistent and permission-restricted', () => 
 
 
 test('self-hosted LiveKit includes its shared Redis bus and a matching Egress worker', () => {
-  assert.match(compose, /  redis:[\s\S]*image: redis:7\.4-alpine/);
-  assert.match(compose, /  livekit-egress:[\s\S]*livekit\\/egress:v1\.9\.0/);
-  assert.match(compose, /EGRESS_CONFIG_FILE: \/etc\/egress\.yaml/);
-  assert.match(compose, /playverse_redis_data:\/data/);
-  assert.match(livekitConfig, /redis:\n  address: redis:6379/);
-  assert.match(egressConfig, /redis:\n  address: redis:6379/);
-  assert.match(egressConfig, /ws_url: ws:\/\/livekit:7880/);
-  assert.match(egressConfig, /insecure: true/);
+  assert.ok(compose.includes('  redis:\n    image: redis:7.4-alpine'));
+  assert.ok(compose.includes('  livekit-egress:\n    image: livekit/egress:v1.9.0'));
+  assert.ok(compose.includes('EGRESS_CONFIG_FILE: /etc/egress.yaml'));
+  assert.ok(compose.includes('  playverse_redis_data:\n'));
+  assert.ok(livekitConfig.includes('redis:\n  address: redis:6379'));
+  assert.ok(egressConfig.includes('redis:\n  address: redis:6379'));
+  assert.ok(egressConfig.includes('ws_url: ws://livekit:7880'));
+  assert.ok(egressConfig.includes('insecure: true'));
 });
