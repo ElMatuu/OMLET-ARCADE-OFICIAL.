@@ -8,6 +8,7 @@ const studio = fs.readFileSync(path.join(root, 'playverse-stream-studio.js'), 'u
 const prepare = fs.readFileSync(path.join(root, 'scripts/prepare-web.js'), 'utf8');
 const android = fs.readFileSync(path.join(root, 'native/android/NativeScreenSharePlugin.kt'), 'utf8');
 const desktop = fs.readFileSync(path.join(root, 'desktop/main.js'), 'utf8');
+const serviceWorker = fs.readFileSync(path.join(root, 'service-worker.js'), 'utf8');
 
 test('creator studio presents game identity and one-tap stream copy', () => {
   for (const game of ['Minecraft', 'Roblox', 'Free Fire', 'PUBG Mobile', 'Brawl Stars', 'Fortnite', 'Among Us', 'Call of Duty: Mobile']) {
