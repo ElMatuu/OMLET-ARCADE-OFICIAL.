@@ -15,6 +15,12 @@ const liveStreamSchema = new mongoose.Schema({
     addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     addedAt: { type: Date, default: Date.now }
   }],
+  kickedParticipants: [{
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    moderator: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    expiresAt: { type: Date, required: true },
+    createdAt: { type: Date, default: Date.now }
+  }],
   mutedParticipants: [{
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     moderator: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
