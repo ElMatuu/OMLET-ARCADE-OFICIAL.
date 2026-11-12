@@ -49,6 +49,10 @@ test('all inline JavaScript in the main interface parses successfully', () => {
 
   assert.match(html, /function joinLiveStream\(/, 'Viewers must be able to join live streams from the UI');
   assert.match(html, /function toggleLiveScreenShare\(/, 'Creators must have a screen-sharing control');
+  assert.match(html, /NativeScreenShare/, 'Android must use the native MediaProjection bridge');
+  assert.match(html, /screen-share-token/, 'Android screen sharing must request a server-minted companion identity');
+  assert.match(html, /nativeScreenShareGeneration/, 'Late Android capture requests must be discarded when the live session closes');
+  assert.match(html, /Tu transmisión principal sigue conectada/, 'Stopping native capture must preserve the primary LiveKit publisher');
   assert.match(html, /RoomEvent\.ParticipantConnected/, 'Live viewers must update the connected participant count');
   assert.match(html, /live-player-participant-count/, 'The live player must expose participant synchronization status');
   assert.match(html, /RoomEvent\.AudioPlaybackStatusChanged/, 'The player must handle browser audio autoplay restrictions');
