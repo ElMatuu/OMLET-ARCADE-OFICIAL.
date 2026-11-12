@@ -2461,18 +2461,33 @@
                     const open = document.createElement('button');
                     open.type = 'button';
                     open.className = 'rounded-xl border border-slate-700 px-3 py-2 text-[11px] font-bold text-white';
-                    open.textContent = 'Abrir Minecraft';
-                    open.addEventListener('click', () => {
-                        if (server.game.toLowerCase() !== 'minecraft') {
-                            status.textContent = 'Abrí ' + server.game + ' y conectate con la dirección copiada.';
+                    const isMinecraft = String(server.game || '').toLowerCase() === 'minecraft';
+                    const isBedrock = isMinecraft && ['bedrock', 'crossplay'].includes(server.edition);
+                    open.textContent = isBedrock ? 'Agregar a Minecraft Bedrock' : (isMinecraft ? 'Abrir instrucciones Java' : 'Copiar y abrir juego');
+                    open.addEventListener('click', async () => {
+                        const serverAddress = server.address + ':' + server.port;
+                        if (!isMinecraft) {
+                            try {
+                                await navigator.clipboard.writeText(serverAddress);
+                                status.textContent = 'Dirección copiada. Abrí ' + server.game + ' y usá la opción multijugador para conectarte.';
+                            } catch {
+                                status.textContent = 'Copiá la dirección ' + serverAddress + ' y conectate desde ' + server.game + '.';
+                            }
                             return;
                         }
-                        if (/Android|iPhone|iPad/i.test(navigator.userAgent)) {
-                            window.location.href = 'minecraft://';
-                        } else {
-                            window.open('https://www.minecraft.net/', '_blank', 'noopener,noreferrer');
+                        if (isBedrock) {
+                            const deepLink = 'minecraft://?addExternalServer=' + encodeURIComponent(server.name) + '|' + server.address + ':' + server.port;
+                            status.textContent = 'Enviando el servidor a Minecraft Bedrock. Si el juego no se abre, copiá la dirección y agregala manualmente.';
+                            try {
+                                window.location.href = deepLink;
+                            } catch {
+                                try { await navigator.clipboard.writeText(serverAddress); } catch {}
+                                status.textContent = 'No se pudo abrir Minecraft automáticamente. Copiá ' + serverAddress + ' y agregalo en Jugar > Servidores > Agregar servidor.';
+                            }
+                            return;
                         }
-                        status.textContent = 'Minecraft se abre en su pantalla principal. Pegá la dirección en Servidores > Agregar servidor; el enlace directo de unión no está garantizado por el proveedor del juego.';
+                        try { await navigator.clipboard.writeText(serverAddress); } catch {}
+                        status.textContent = 'Minecraft Java no ofrece un enlace público y estable para entrar directamente a un servidor. Abrí Java Edition, elegí Multijugador > Conexión directa y pegá ' + serverAddress + '.';
                     });
                     actions.appendChild(open);
                     if (server.isOwner) {
