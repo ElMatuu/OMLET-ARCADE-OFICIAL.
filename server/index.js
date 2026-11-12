@@ -41,7 +41,7 @@ const { STORE_CATALOG } = require('./data/storeCatalog');
 const { AVATAR_CATALOG, AVATAR_BY_ID } = require('./data/avatarCatalog');
 const { requireAuth } = require('./middleware/auth');
 const { attachSocketServer } = require('./socket');
-const { createLiveKitApi, createParticipantToken, createRoomName, createWebhookReceiver, getLiveKitConfig } = require('./services/livekit');
+const { createLiveKitApi, createParticipantToken, createRoomName, createWebhookReceiver, getLiveKitConfig, isLiveKitVideoTrack } = require('./services/livekit');
 
 const app = express();
 // Render terminates the public connection in one trusted proxy hop.
@@ -106,9 +106,15 @@ app.post('/api/webhooks/livekit', express.raw({ type: 'application/webhook+json'
     return res.status(401).json({ success: false, message: 'Firma de webhook inválida.' });
   }
   try {
+    if (event.event === 'track_published' && event.room && event.room.name && isLiveKitVideoTrack(event.track)) {
+      await LiveStream.updateOne(
+        { roomName: event.room.name, status: 'starting' },
+        { $set: { status: 'live' } }
+      );
+    }
     if (event.event === 'room_finished' && event.room && event.room.name) {
       await LiveStream.updateOne(
-        { roomName: event.room.name, status: 'live' },
+        { roomName: event.room.name, status: { $in: ['starting', 'live'] } },
         { $set: { status: 'ended', endedAt: new Date() } }
       );
     }
@@ -315,7 +321,7 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
     if (!title || title.length > 100 || description.length > 500 || !game || game.length > 60) {
       return res.status(400).json({ success: false, message: 'El título es obligatorio (máximo 100 caracteres) y la descripción admite hasta 500.' });
     }
-    const existingStream = await LiveStream.findOne({ owner: req.auth.sub, status: 'live' }).select('_id title').lean();
+    const existingStream = await LiveStream.findOne({ owner: req.auth.sub, status: { $in: ['starting', 'live'] } }).select('_id title status').lean();
     if (existingStream) return res.status(409).json({
       success: false,
       code: 'ACTIVE_STREAM_EXISTS',
@@ -336,7 +342,7 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
       description,
       roomName,
       overlayTokenHash,
-      status: 'live'
+      status: 'starting'
     });
     try {
       await liveKit.room.createRoom({ name: roomName, emptyTimeout: 60, maxParticipants: 100 });
@@ -379,9 +385,10 @@ app.post('/api/streams/:streamId/token', requireAuth, streamLimiter, async (req,
   });
   try {
     if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
-    const session = await LiveStream.findOne({ _id: req.params.streamId, status: 'live' }).lean();
+    const session = await LiveStream.findOne({ _id: req.params.streamId, status: { $in: ['starting', 'live'] } }).lean();
     if (!session) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
     const isOwner = String(session.owner) === String(req.auth.sub);
+    if (!isOwner && session.status !== 'live') return res.status(425).json({ success: false, code: 'STREAM_NOT_LIVE', message: 'El creador todavía está preparando la emisión. Probá de nuevo en unos segundos.' });
     if (!isOwner) {
       const blocked = await Block.exists({
         $or: [
@@ -420,7 +427,7 @@ app.delete('/api/me/streams/:streamId', requireAuth, streamLimiter, async (req, 
   });
   try {
     if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
-    const session = await LiveStream.findOne({ _id: req.params.streamId, owner: req.auth.sub, status: 'live' });
+    const session = await LiveStream.findOne({ _id: req.params.streamId, owner: req.auth.sub, status: { $in: ['starting', 'live'] } });
     if (!session) return res.status(404).json({ success: false, message: 'No se encontró una transmisión activa propia.' });
     const liveKit = createLiveKitApi(config);
     await liveKit.room.deleteRoom(session.roomName);
