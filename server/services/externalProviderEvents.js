@@ -558,7 +558,11 @@ async function sendToLinkedProviders(owner, message, env = process.env) {
   }));
 }
 
+function isYouTubeStreamListAvailable() {
+  return Boolean(youtubeGrpcClient && typeof youtubeGrpcClient.streamList === 'function');
+}
+
 module.exports = {
   claimWebhookReceipt, cleanupExpiredKickMessages, completeWebhookReceipt, ingestExternalChatMessage, processKickWebhook, processTwitchWebhook, sendToLinkedProviders,
-  isValidKickEventPayload, startYouTubeChatSync, stopYouTubeChatSync, subscribeProviderEvents, verifyKickWebhook, verifyTwitchEventSub
+  isValidKickEventPayload, isYouTubeStreamListAvailable, startYouTubeChatSync, stopYouTubeChatSync, subscribeProviderEvents, verifyKickWebhook, verifyTwitchEventSub
 };
