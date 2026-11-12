@@ -5,7 +5,10 @@ const { requireAuth } = require('../middleware/auth');
 const User = require('../models/User');
 const GroupConversation = require('../models/GroupConversation');
 const GroupMessage = require('../models/GroupMessage');
+const LiveStream = require('../models/LiveStream');
 const Notification = require('../models/Notification');
+const { createRealtimeNotificationPolicy } = require('../services/notificationDelivery');
+const shouldDeliverRealtimeNotification = createRealtimeNotificationPolicy({ UserModel: User, LiveStreamModel: LiveStream });
 
 const router = express.Router();
 const limiter = rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false });
@@ -118,7 +121,7 @@ router.post('/:groupId/members', limiter, async (req, res, next) => {
         body: '@' + req.auth.username + ' te agregó a "' + group.name + '".',
         entityId: group._id
       });
-      if (io) io.to('user:' + String(target._id)).emit('notification_received', {
+      if (io && await shouldDeliverRealtimeNotification(target._id)) io.to('user:' + String(target._id)).emit('notification_received', {
         id: String(notification._id), type: notification.type, title: notification.title,
         body: notification.body, entityId: String(group._id), createdAt: notification.createdAt
       });
