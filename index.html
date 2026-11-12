@@ -355,6 +355,9 @@
                     <form id="live-stream-create-form" onsubmit="startLiveStream(event)" class="space-y-2">
                         <select id="live-stream-game" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white" aria-label="Juego de la transmisión"><option value="Otro">Otro juego</option><option value="Minecraft">Minecraft</option><option value="Roblox">Roblox</option><option value="Free Fire">Free Fire</option><option value="PUBG Mobile">PUBG Mobile</option><option value="Brawl Stars">Brawl Stars</option><option value="Fortnite">Fortnite</option><option value="Among Us">Among Us</option><option value="Call of Duty: Mobile">Call of Duty: Mobile</option></select>
                         <input id="live-stream-title" maxlength="100" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white" placeholder="Título de tu transmisión">
+                        <label for="live-stream-watermark" class="block text-xs font-bold text-slate-300">Marca de agua personalizada <span class="font-normal text-slate-500">(hasta 40 caracteres)</span></label>
+                        <input id="live-stream-watermark" maxlength="40" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white" placeholder="Tu nombre o canal">
+                        <p class="text-[10px] text-slate-500">Se muestra en la fuente de navegador de PLAYVERSE.</p>
                         <textarea id="live-stream-description" maxlength="500" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white" placeholder="Descripción (opcional)"></textarea>
                         <button id="live-stream-start" type="submit" class="PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white w-full">Iniciar transmisión</button>
                     </form>
@@ -6497,6 +6500,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             const button = document.getElementById('live-stream-start');
             const title = document.getElementById('live-stream-title').value.trim();
             const description = document.getElementById('live-stream-description').value.trim();
+            const customWatermark = document.getElementById('live-stream-watermark').value.trim().slice(0, 40);
             let createdStreamId = null;
             let startedConnectionGeneration = null;
             button.disabled = true;
@@ -6510,7 +6514,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                     activeStreamingPreferences = { cameraEnabled: false, microphoneEnabled: true };
                 }
                 setLiveStatus('Creando sala segura y solicitando acceso de emisión…');
-                const data = await apiRequest('/api/me/streams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description, game: document.getElementById('live-stream-game')?.value || 'Otro' }) });
+                const data = await apiRequest('/api/me/streams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description, game: document.getElementById('live-stream-game')?.value || 'Otro', customWatermark }) });
                 createdStreamId = data.stream.id;
                 const connected = await connectLiveKitSession(data.liveKit, data.stream, 'publisher');
                 if (!connected) throw new Error('La conexión de emisión fue cancelada porque cambió la sesión.');
