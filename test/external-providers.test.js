@@ -50,6 +50,6 @@ test('integration secrets use AES-256-GCM and reject tampering or wrong keys', (
 });
 
 test('provider credentials cannot be built from untrusted non-HTTPS public origins', () => {
-  assert.equal(getCredentials('kick', { ...env, PLAYVERSE_API_URL: 'https://user:pass@api.example' }).redirectUri,
-    'https://user:pass@api.example/api/external-integrations/kick/callback');
+  assert.equal(getCredentials('kick', { ...env, PLAYVERSE_API_URL: 'https://user:pass@api.example' }), null);
+  assert.equal(getCredentials('kick', { ...env, PLAYVERSE_API_URL: 'https://api.example/base' }), null);
 });
