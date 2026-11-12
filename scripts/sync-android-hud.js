@@ -1,0 +1,118 @@
+const fs = require('node:fs');
+const path = require('node:path');
+
+const root = path.resolve(__dirname, '..');
+const androidRoot = path.join(root, 'android', 'app', 'src', 'main');
+const javaRoot = path.join(androidRoot, 'java');
+const sourceRoot = path.join(root, 'native', 'android');
+
+if (!fs.existsSync(androidRoot)) {
+  throw new Error('Android platform is not generated. Run npx cap add android first.');
+}
+
+function findMainActivity(directory) {
+  if (!fs.existsSync(directory)) return null;
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const candidate = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      const found = findMainActivity(candidate);
+      if (found) return found;
+    } else if (entry.name === 'MainActivity.java') {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+const activityPath = findMainActivity(javaRoot);
+if (!activityPath) throw new Error('Capacitor MainActivity.java was not found.');
+let activity = fs.readFileSync(activityPath, 'utf8');
+const packageMatch = activity.match(/^package\s+([\w.]+);/m);
+if (!packageMatch) throw new Error('Could not determine Android application package.');
+const appPackage = packageMatch[1];
+const pluginPackage = appPackage + '.plugins';
+const pluginDirectory = path.join(path.dirname(activityPath), 'plugins');
+fs.mkdirSync(pluginDirectory, { recursive: true });
+
+for (const file of ['ArcadeHudPlugin.java', 'ArcadeHudService.java']) {
+  const sourcePath = path.join(sourceRoot, file);
+  if (!fs.existsSync(sourcePath)) throw new Error('Missing native HUD source: ' + sourcePath);
+  const source = fs.readFileSync(sourcePath, 'utf8').replace(/^package\s+[\w.]+;/m, 'package ' + pluginPackage + ';');
+  fs.writeFileSync(path.join(pluginDirectory, file), source);
+}
+
+const manifestPath = path.join(androidRoot, 'AndroidManifest.xml');
+if (!fs.existsSync(manifestPath)) throw new Error('AndroidManifest.xml was not found.');
+let manifest = fs.readFileSync(manifestPath, 'utf8');
+const permissions = [
+  'android.permission.SYSTEM_ALERT_WINDOW',
+  'android.permission.FOREGROUND_SERVICE',
+  'android.permission.FOREGROUND_SERVICE_SPECIAL_USE',
+  'android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION',
+  'android.permission.FOREGROUND_SERVICE_MICROPHONE',
+  'android.permission.FOREGROUND_SERVICE_CAMERA',
+  'android.permission.RECORD_AUDIO',
+  'android.permission.CAMERA',
+  'android.permission.POST_NOTIFICATIONS'
+];
+const missingPermissions = permissions.filter(name => !manifest.includes('android:name="' + name + '"'));
+if (missingPermissions.length) {
+  const declarations = missingPermissions.map(name => '    <uses-permission android:name="' + name + '" />').join('\n');
+  if (!/<application\b/.test(manifest)) throw new Error('AndroidManifest.xml has no application element.');
+  manifest = manifest.replace(/<application\b/, declarations + '\n    <application');
+}
+
+const serviceName = pluginPackage + '.ArcadeHudService';
+const serviceDeclaration = '    <service\n' +
+  '        android:name="' + serviceName + '"\n' +
+  '        android:exported="false"\n' +
+  '        android:stopWithTask="false"\n' +
+  '        android:foregroundServiceType="specialUse|mediaProjection|microphone|camera">\n' +
+  '        <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-enabled floating in-game controls for PLAYVERSE" />\n' +
+  '    </service>';
+const serviceIndex = manifest.indexOf(serviceName);
+if (serviceIndex >= 0) {
+  const start = manifest.lastIndexOf('<service', serviceIndex);
+  const end = manifest.indexOf('</service>', serviceIndex);
+  if (start < 0 || end < 0) throw new Error('Existing ArcadeHudService declaration is malformed.');
+  manifest = manifest.slice(0, start) + serviceDeclaration + manifest.slice(end + '</service>'.length);
+} else {
+  if (!manifest.includes('</application>')) throw new Error('AndroidManifest.xml application element is not closed.');
+  manifest = manifest.replace('</application>', serviceDeclaration + '\n    </application>');
+}
+fs.writeFileSync(manifestPath, manifest);
+
+const imports = [
+  'import ' + pluginPackage + '.ArcadeHudPlugin;',
+  'import ' + pluginPackage + '.ArcadeHudService;'
+];
+for (const importLine of imports) {
+  if (!activity.includes(importLine)) {
+    const lastImport = activity.match(/^import .*;\s*$/gm);
+    if (lastImport && lastImport.length) {
+      const anchor = lastImport[lastImport.length - 1];
+      activity = activity.replace(anchor, anchor + '\n' + importLine);
+    } else {
+      activity = activity.replace(packageMatch[0], packageMatch[0] + '\n\n' + importLine);
+    }
+  }
+}
+const registrations = [
+  'registerPlugin(ArcadeHudPlugin.class);'
+];
+for (const registration of registrations) {
+  if (activity.includes(registration)) continue;
+  const onCreate = /((?:public|protected)\s+void\s+onCreate\s*\([^)]*\)\s*\{)/;
+  if (onCreate.test(activity)) {
+    activity = activity.replace(onCreate, match => match + '\n        ' + registration);
+  } else {
+    const classOpen = /extends BridgeActivity\s*\{/;
+    if (!classOpen.test(activity)) throw new Error('Unsupported MainActivity template; cannot register ArcadeHudPlugin.');
+    activity = activity.replace(classOpen, match => match +
+      '\n    @Override\n    public void onCreate(android.os.Bundle savedInstanceState) {\n        ' +
+      registration + '\n        super.onCreate(savedInstanceState);\n    }\n');
+  }
+}
+fs.writeFileSync(activityPath, activity);
+
+console.log('PLAYVERSE Android HUD sources copied, plugin registered, and foreground-service permissions declared.');
