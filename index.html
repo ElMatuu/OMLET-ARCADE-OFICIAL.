@@ -886,6 +886,10 @@
     <div id="settings-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
         <form id="streaming-settings-form" onsubmit="saveStreamingPreferences(event)" class="PLAYVERSE-card rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-5 border border-slate-800">
             <div class="flex items-center justify-between pb-3 border-b border-slate-800"><div><h3 class="font-black text-lg text-white">Ajustes de PLAYVERSE</h3><p class="text-xs text-slate-400">Accesibilidad y preferencias de creador</p></div><button type="button" onclick="closeSettingsModal()" class="text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+            <section id="android-hud-settings" class="hidden space-y-3 rounded-2xl border border-orange-500/30 bg-orange-500/5 p-4">
+                <div><h4 class="text-xs font-black uppercase tracking-wider text-orange-300">HUD flotante de Android</h4><p class="mt-1 text-[11px] text-slate-400">Activá o volvé a configurar los controles flotantes mientras jugás. El permiso se administra desde Android.</p></div>
+                <button type="button" onclick="openPlayverseOverlayPermission()" class="w-full rounded-xl border border-orange-500/40 bg-orange-500/10 px-4 py-2.5 text-xs font-bold text-orange-200">Configurar HUD Android</button>
+            </section>
             <section class="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
                 <div><h4 class="text-xs font-black uppercase tracking-wider text-orange-300">Accesibilidad de la aplicación</h4><p class="text-[11px] text-slate-400 mt-1">Se guardan en tu cuenta y se aplican a esta interfaz.</p></div>
                 <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Reducir animaciones<input id="app-reduce-motion" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
@@ -1379,6 +1383,8 @@
             const screen = document.getElementById('overlay-permission-screen');
             const plugin = window.Capacitor?.Plugins?.ArcadeHud;
             if (!plugin) { status.textContent = 'El HUD nativo no está disponible en esta compilación.'; return; }
+            screen.classList.remove('hidden');
+            screen.classList.add('flex');
             try {
                 const permission = await plugin.hasOverlayPermission();
                 if (!permission.granted) {
@@ -1402,6 +1408,7 @@
             const enable = document.getElementById('overlay-permission-enable');
             const later = document.getElementById('overlay-permission-later');
             const status = document.getElementById('overlay-permission-status');
+            document.getElementById('android-hud-settings')?.classList.remove('hidden');
             if (!screen || localStorage.getItem('pv-overlay-permission-dismissed') === '1') return;
             checkPlayverseOverlayPermission().then((permission) => {
                 if (!permission.supported) {
