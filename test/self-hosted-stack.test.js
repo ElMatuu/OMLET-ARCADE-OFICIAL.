@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const compose = fs.readFileSync(path.join(__dirname, '..', 'docker-compose.yml'), 'utf8');
+const livekitConfig = fs.readFileSync(path.join(__dirname, '..', 'livekit.yaml'), 'utf8');
+const egressConfig = fs.readFileSync(path.join(__dirname, '..', 'egress.yaml'), 'utf8');
 const replicaInit = fs.readFileSync(path.join(__dirname, '..', 'docker', 'mongo-init-replica-set.sh'), 'utf8');
 const replicaService = compose.split('  mongo-init-replica-set:')[1].split('\n  api:')[0];
 
@@ -24,4 +26,15 @@ test('self-hosted Mongo keyfile is persistent and permission-restricted', () => 
   assert.match(compose, /playverse_mongo_keyfile:\/keydata/);
   assert.match(compose, /chown 999:999 \/keydata\/mongo-keyfile/);
   assert.match(compose, /chmod 0400 \/keydata\/mongo-keyfile/);
+});
+
+
+test('self-hosted LiveKit includes its shared Redis bus and a matching Egress worker', () => {
+  assert.match(compose, /  redis:[\\s\\S]*image: redis:7\\.4-alpine/);
+  assert.match(compose, /  livekit-egress:[\\s\\S]*livekit\\/egress:v1\\.9\\.0/);
+  assert.match(compose, /EGRESS_CONFIG_FILE: \/etc\/egress\.yaml/);
+  assert.match(compose, /playverse_redis_data:\/data/);
+  assert.match(livekitConfig, /redis:\\n  address: redis:6379/);
+  assert.match(egressConfig, /redis:\\n  address: redis:6379/);
+  assert.match(egressConfig, /ws_url: http:\/\/livekit:7880/);
 });
