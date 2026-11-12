@@ -5460,12 +5460,24 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             container.appendChild(item);
             while (container.children.length > 100) container.firstElementChild.remove();
             container.scrollTop = container.scrollHeight;
+            syncFloatingHudChat();
             if (streamChatOwner && activeStreamingPreferences.textToSpeechEnabled &&
                 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined') {
                 const utterance = new SpeechSynthesisUtterance(String(message.username || 'Jugador') + ' dice: ' + String(message.message || ''));
                 utterance.lang = 'es-AR';
                 window.speechSynthesis.speak(utterance);
             }
+        }
+
+        function syncFloatingHudChat() {
+            const plugin = window.Capacitor?.Plugins?.NativeScreenShare;
+            const container = document.getElementById('stream-chat-messages');
+            if (!plugin || typeof plugin.updateHudChat !== 'function' || !container) return;
+            const messages = Array.from(container.querySelectorAll('[data-message-id]')).slice(-6).map((item) => ({
+                username: item.querySelector('strong')?.textContent?.replace(/^@/, '') || 'Jugador',
+                message: item.querySelector('p')?.textContent || ''
+            }));
+            plugin.updateHudChat({ messages: JSON.stringify(messages) }).catch(() => {});
         }
 
         async function connectStreamChat(stream) {
