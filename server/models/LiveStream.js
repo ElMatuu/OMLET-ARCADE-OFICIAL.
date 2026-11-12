@@ -8,13 +8,13 @@ const liveStreamSchema = new mongoose.Schema({
   description: { type: String, default: '', trim: true, maxlength: 500 },
   roomName: { type: String, required: true, unique: true, immutable: true },
   overlayTokenHash: { type: String, default: null, select: false },
-  status: { type: String, enum: ['live', 'ended'], default: 'live', index: true },
+  status: { type: String, enum: ['starting', 'live', 'ended'], default: 'starting', index: true },
   startedAt: { type: Date, default: Date.now, immutable: true },
   endedAt: { type: Date, default: null }
 }, { timestamps: true, versionKey: false });
 
 liveStreamSchema.index({ status: 1, startedAt: -1 });
 liveStreamSchema.index({ owner: 1, status: 1, startedAt: -1 });
-liveStreamSchema.index({ owner: 1 }, { unique: true, partialFilterExpression: { status: 'live' } });
+liveStreamSchema.index({ owner: 1 }, { unique: true, partialFilterExpression: { status: { $in: ['starting', 'live'] } } });
 
 module.exports = mongoose.model('LiveStream', liveStreamSchema);
