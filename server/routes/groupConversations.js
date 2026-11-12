@@ -5,6 +5,7 @@ const { requireAuth } = require('../middleware/auth');
 const User = require('../models/User');
 const GroupConversation = require('../models/GroupConversation');
 const GroupMessage = require('../models/GroupMessage');
+const Notification = require('../models/Notification');
 
 const router = express.Router();
 const limiter = rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false });
@@ -107,7 +108,27 @@ router.post('/:groupId/members', limiter, async (req, res, next) => {
     if (group.members.some(member => String(member.user) === String(target._id))) return res.status(409).json({ success: false, message: 'Esa persona ya integra el grupo.' });
     group.members.push({ user: target._id, username: target.username, role: 'member' });
     await group.save();
-    return res.status(201).json({ success: true, memberCount: group.members.length });
+    const io = req.app.get('io');
+    try {
+      const notification = await Notification.create({
+        recipient: target._id,
+        actor: req.auth.sub,
+        type: 'group_invite',
+        title: 'Te agregaron a un grupo',
+        body: '@' + req.auth.username + ' te agregó a "' + group.name + '".',
+        entityId: group._id
+      });
+      if (io) io.to('user:' + String(target._id)).emit('notification_received', {
+        id: String(notification._id), type: notification.type, title: notification.title,
+        body: notification.body, entityId: String(group._id), createdAt: notification.createdAt
+      });
+    } catch (notificationError) {
+      console.error('Unable to persist group invitation notification:', notificationError.message);
+    }
+    if (io) io.to('group:' + String(group._id)).emit('group_member_added', {
+      groupId: String(group._id), userId: String(target._id), username: target.username
+    });
+    return res.status(201).json({ success: true, memberCount: group.members.length, invitedUserId: String(target._id) });
   } catch (error) { return next(error); }
 });
 
