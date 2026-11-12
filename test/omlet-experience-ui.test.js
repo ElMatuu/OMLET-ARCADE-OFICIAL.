@@ -58,6 +58,6 @@ test('creator flow does not claim a stream is live before publishing video', () 
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   assert.match(html, /Preparando tu emisión/);
   assert.match(html, /LocalTrackPublished/);
-  assert.match(html, /Conectando la emisión.*publicará video/);
+  assert.match(html, /Conectando la emisión.*se publique video/);
   assert.doesNotMatch(html, /Transmisión iniciada\. Compartí tu emisión desde esta sala\./);
 });
