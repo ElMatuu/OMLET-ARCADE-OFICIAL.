@@ -210,11 +210,11 @@ async function pollYouTubeConnection(connection, io, env = process.env) {
   for (const item of result.items || []) {
     const snippet = item.snippet || {};
     const author = item.authorDetails || {};
-    const superChat = snippet.superChatEventDetails;
-    const superSticker = snippet.superStickerEventDetails;
-    const newSponsor = snippet.newSponsorEventDetails;
+    const superChat = snippet.superChatDetails;
+    const superSticker = snippet.superStickerDetails;
+    const newSponsor = snippet.newSponsorDetails;
     const milestone = snippet.memberMilestoneChatDetails;
-    const giftMemberships = snippet.giftMembershipsEventDetails;
+    const giftMemberships = snippet.membershipGiftingDetails;
     const giftReceived = snippet.giftMembershipReceivedDetails;
     let message = snippet.textMessageDetails?.messageText || snippet.displayMessage || '';
     if (superChat) message = 'envió un Super Chat de ' + String(superChat.amountDisplayString || '') + (superChat.userComment ? ': ' + superChat.userComment : '');
@@ -223,6 +223,7 @@ async function pollYouTubeConnection(connection, io, env = process.env) {
     else if (milestone) message = 'celebró ' + Number(milestone.memberMonth || 0) + ' meses como miembro' + (milestone.userComment ? ': ' + milestone.userComment : '');
     else if (giftMemberships) message = 'regaló ' + Number(giftMemberships.giftMembershipsCount || 1) + ' membresía(s)';
     else if (giftReceived) message = 'recibió una membresía regalada por ' + String(giftReceived.gifterChannelName || 'un miembro');
+    else if (snippet.giftDetails) message = 'envió el regalo ' + String(snippet.giftDetails.giftName || snippet.giftDetails.altText || 'de YouTube');
     if (!message) continue;
     await ingestExternalChatMessage({
       provider: 'youtube', externalUserId: connection.externalUserId,
