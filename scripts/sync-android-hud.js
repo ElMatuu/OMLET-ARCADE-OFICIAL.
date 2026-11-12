@@ -67,15 +67,15 @@ if (!activity.includes(importLine)) {
   activity = activity.replace(packageLine[0], packageLine[0] + '\n\n' + importLine);
 }
 if (!activity.includes('registerPlugin(ArcadeHudPlugin.class)')) {
-  const onCreate = /public void onCreate\(Bundle savedInstanceState\)\s*\{/;
+  const onCreate = /((?:public|protected)\\s+void\\s+onCreate\\s*\\([^)]*\\)\\s*\\{)/;
   if (onCreate.test(activity)) {
-    activity = activity.replace(onCreate, match => match + '\n        registerPlugin(ArcadeHudPlugin.class);');
+    activity = activity.replace(onCreate, match => match + '\\n        registerPlugin(ArcadeHudPlugin.class);');
   } else {
-    const classOpen = /extends BridgeActivity\s*\{/;
+    const classOpen = /extends BridgeActivity\\s*\\{/;
     if (!classOpen.test(activity)) throw new Error('Unsupported MainActivity template; plugin was not registered.');
-    activity = activity.replace(classOpen, match => match + '\n    @Override\n    public void onCreate(Bundle savedInstanceState) {\n        registerPlugin(ArcadeHudPlugin.class);\n        super.onCreate(savedInstanceState);\n    }');
+    activity = activity.replace(classOpen, match => match + '\\n    @Override\\n    public void onCreate(Bundle savedInstanceState) {\\n        registerPlugin(ArcadeHudPlugin.class);\\n        super.onCreate(savedInstanceState);\\n    }');
     if (!activity.includes('import android.os.Bundle;')) {
-      activity = activity.replace(importLine, importLine + '\nimport android.os.Bundle;');
+      activity = activity.replace(importLine, importLine + '\\nimport android.os.Bundle;');
     }
   }
 }
