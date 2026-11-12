@@ -43,7 +43,7 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /id="store-sort"/, 'The store must expose catalog sorting controls');
   assert.match(html, /storeQuery\.set\('q', searchTerm\)/, 'Store search input must be sent to the catalog API');
   assert.match(html, /storeQuery\.set\('sort', sortOrder\)/, 'Store sorting must be sent to the catalog API');
-  assert.match(html, /method: 'PUT',[\\s\\S]{0,180}body: JSON\.stringify\(preset\)/, 'Automatic streaming setup must save its preset through the authenticated preferences API');
+  assert.match(html, /method: 'PUT',[\s\S]{0,260}body: JSON\.stringify\(preset\)/, 'Automatic streaming setup must save its preset through the authenticated preferences API');
   assert.match(html, /isAndroid \|\| \(cores > 0 && cores <= 4\)/, 'Automatic streaming setup must choose a conservative profile for lower-power devices');
   assert.match(html, /Podés ajustar cada opción manualmente/, 'Automatic setup must preserve the ability to customize settings manually');
   assert.match(html, /id="stream-overlay-theme"/, 'Creators must be able to choose a stream overlay theme');
