@@ -88,6 +88,13 @@ test('protected profile endpoint rejects unauthenticated requests', async () => 
   });
 });
 
+test('room participant removal requires an authenticated host account', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/rooms/507f1f77bcf86cd799439011/members/507f1f77bcf86cd799439012/remove', { method: 'POST' });
+    assert.equal(response.status, 401);
+  });
+});
+
 test('security headers are applied to API responses', async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(baseUrl + '/api/health');
