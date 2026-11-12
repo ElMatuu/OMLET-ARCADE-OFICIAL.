@@ -40,10 +40,13 @@ const DirectMessage = require('./models/DirectMessage');
 const Inventory = require('./models/Inventory');
 const TokenTransaction = require('./models/TokenTransaction');
 const MissionClaim = require('./models/MissionClaim');
+const UserAchievement = require('./models/UserAchievement');
+const { ACHIEVEMENTS } = require('./data/achievementCatalog');
 const PremiumPlusTransaction = require('./models/PremiumPlusTransaction');
 const PremiumSubscription = require('./models/PremiumSubscription');
 const { STORE_CATALOG } = require('./data/storeCatalog');
 const { buildStoreCatalog } = require('./services/storeCatalog');
+const { buildPublicStreamOverlay } = require('./services/streamOverlay');
 const { AVATAR_CATALOG, AVATAR_BY_ID } = require('./data/avatarCatalog');
 const { requireAuth } = require('./middleware/auth');
 const { attachSocketServer } = require('./socket');
@@ -595,7 +598,7 @@ app.get('/api/streams', async (req, res, next) => {
   try {
     const streams = await LiveStream.find({ status: 'live' })
       .sort({ startedAt: -1 }).limit(50)
-      .select('ownerUsername title description startedAt').lean();
+      .select('ownerUsername title game description customWatermark startedAt').lean();
     return res.json({
       success: true,
       streamingEnabled: Boolean(getLiveKitConfig()),
@@ -603,7 +606,9 @@ app.get('/api/streams', async (req, res, next) => {
         id: String(stream._id),
         creator: stream.ownerUsername,
         title: stream.title,
+        game: stream.game || 'Otro',
         description: stream.description,
+        customWatermark: stream.customWatermark || '',
         startedAt: stream.startedAt
       }))
     });
@@ -621,6 +626,9 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
     const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
     const title = typeof body.title === 'string' ? body.title.trim() : '';
     const description = typeof body.description === 'string' ? body.description.trim() : '';
+    const game = body.game === undefined ? 'Otro' : (typeof body.game === 'string' ? body.game.trim() : null);
+    const customWatermark = typeof body.customWatermark === 'string' ? body.customWatermark.trim().slice(0, 40) : '';
+    if (game === null || !game || game.length > 60) return res.status(400).json({ success: false, message: 'Elegí un juego válido para la transmisión.' });
     if (!title || title.length > 100 || description.length > 500) {
       return res.status(400).json({ success: false, message: 'El título es obligatorio (máximo 100 caracteres) y la descripción admite hasta 500.' });
     }
@@ -641,7 +649,9 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
       owner: req.auth.sub,
       ownerUsername: user.username,
       title,
+      game,
       description,
+      customWatermark,
       roomName,
       overlayTokenHash,
       status: 'live'
@@ -659,7 +669,7 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
       });
       return res.status(201).json({
         success: true,
-        stream: { id: String(session._id), title: session.title, description: session.description, status: session.status, startedAt: session.startedAt },
+        stream: { id: String(session._id), title: session.title, game: session.game, description: session.description, customWatermark: session.customWatermark, status: session.status, startedAt: session.startedAt },
         liveKit: { url: config.clientUrl, token, role: 'publisher', expiresInSeconds: 600 },
         overlay: { url: req.protocol + '://' + req.get('host') + '/overlay/' + overlayAccessToken, refreshIntervalMs: 5000 }
       });
@@ -770,7 +780,7 @@ app.post('/api/streams/:streamId/token', requireAuth, streamLimiter, async (req,
     });
     return res.json({
       success: true,
-      stream: { id: String(session._id), title: session.title, creator: session.ownerUsername, status: session.status },
+      stream: { id: String(session._id), title: session.title, game: session.game || 'Otro', creator: session.ownerUsername, status: session.status },
       liveKit: { url: config.clientUrl, token, role, expiresInSeconds: 600 }
     });
   } catch (error) { return next(error); }
@@ -980,49 +990,76 @@ app.get('/api/public/stream-overlay/:token', overlayReadLimiter, async (req, res
     }
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const stream = await LiveStream.findOne({ overlayTokenHash: tokenHash, status: 'live' })
-      .select('owner ownerUsername title roomName').lean();
+      .select('owner ownerUsername title roomName customWatermark').lean();
     if (!stream) return res.status(404).json({ success: false, message: 'La transmisión finalizó o el overlay fue revocado.' });
     const [owner, config] = await Promise.all([
-      User.findById(stream.owner).select('streamingPreferences').lean(),
+      User.findById(stream.owner).select('streamingPreferences activeStreamOverlay').lean(),
       Promise.resolve(getLiveKitConfig())
     ]);
     if (!owner || !config) return res.status(503).json({ success: false, message: 'El overlay no está disponible temporalmente.' });
     let viewerCount = null;
     try {
       const participants = await createLiveKitApi(config).room.listParticipants(stream.roomName);
-      viewerCount = Math.max(0, (participants || []).filter((participant) =>
-        !(participant.identity || '').startsWith(String(stream.owner) + ':')
-      ).length);
+      viewerCount = Math.max(0, (participants || []).filter((participant) => {
+        const identity = participant.identity || '';
+        return !identity.startsWith(String(stream.owner) + ':') && !identity.startsWith('overlay:');
+      }).length);
     } catch (error) {
       console.error('Unable to read LiveKit overlay participant count:', error.message);
     }
-    const preferences = owner.streamingPreferences || {};
+    const payload = buildPublicStreamOverlay({
+      stream: { title: stream.title, creator: stream.ownerUsername, watermark: stream.customWatermark || '' },
+      preferences: owner.streamingPreferences || {},
+      activeStreamOverlay: owner.activeStreamOverlay,
+      viewerCount,
+      catalog: STORE_CATALOG
+    });
     const chatMessages = await LiveStreamMessage.find({ stream: stream._id })
       .sort({ sentAt: -1, _id: -1 }).limit(6).lean();
+    payload.chatMessages = chatMessages.reverse().map((message) => ({
+      id: String(message._id), username: message.username,
+      message: message.message, sentAt: message.sentAt
+    }));
+    payload.capabilities.chat = (owner.streamingPreferences || {}).overlayShowChat !== false;
+    return res.set('Cache-Control', 'no-store').json(payload);
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/public/stream-overlay/:token/session', overlayReadLimiter, async (req, res, next) => {
+  try {
+    const token = req.params.token;
+    if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{40,64}$/.test(token)) {
+      return res.status(404).json({ success: false, message: 'Overlay no disponible.' });
+    }
+    const config = getLiveKitConfig();
+    if (!config) return res.status(503).json({ success: false, message: 'El servicio de video no está configurado.' });
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const stream = await LiveStream.findOne({ overlayTokenHash: tokenHash, status: 'live' })
+      .select('_id roomName').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'La transmisión finalizó o el overlay fue revocado.' });
+    const identity = 'overlay:' + String(stream._id) + ':' + crypto.randomUUID();
+    const participantToken = await createParticipantToken({
+      config,
+      identity,
+      name: 'PLAYVERSE Overlay',
+      metadata: { role: 'overlay', streamId: String(stream._id) },
+      roomName: stream.roomName,
+      canPublish: false,
+      canPublishData: false,
+      canSubscribe: true
+    });
     return res.set('Cache-Control', 'no-store').json({
       success: true,
-      stream: { title: stream.title, creator: stream.ownerUsername },
-      overlay: {
-        theme: preferences.overlayTheme || 'arcade',
-        layout: preferences.overlayLayout || 'wide',
-        position: preferences.overlayPosition || 'bottom-left',
-        scale: Number.isInteger(preferences.overlayScale) ? preferences.overlayScale : 100,
-        opacity: Number.isInteger(preferences.overlayOpacity) ? preferences.overlayOpacity : 90,
-        showViewerCount: preferences.overlayShowViewerCount !== false,
-        showChat: preferences.overlayShowChat !== false,
-        brandingText: preferences.overlayBrandingText || '',
-        socialYouTube: preferences.socialYouTube || '',
-        socialTwitch: preferences.socialTwitch || '',
-        socialTikTok: preferences.socialTikTok || ''
-      },
-      viewerCount,
-      chatMessages: chatMessages.reverse().map((message) => ({
-        id: String(message._id), username: message.username,
-        message: message.message, sentAt: message.sentAt
-      })),
-      capabilities: { viewerCount: viewerCount !== null, chat: true, donations: false }
+      liveKit: { url: config.clientUrl, token: participantToken, expiresInSeconds: 600 }
     });
   } catch (error) { return next(error); }
+});
+
+app.get('/livekit-client.umd.js', (req, res) => {
+  const bundlePath = path.resolve(__dirname, '..', 'node_modules', 'livekit-client', 'dist', 'livekit-client.umd.js');
+  res.type('application/javascript').sendFile(bundlePath, (error) => {
+    if (error && !res.headersSent) res.status(503).type('text').send('El reproductor LiveKit no está disponible en este servidor.');
+  });
 });
 
 app.get('/overlay/:token', (req, res) => {
@@ -1030,15 +1067,29 @@ app.get('/overlay/:token', (req, res) => {
   if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{40,64}$/.test(token)) {
     return res.status(404).type('text').send('Overlay no disponible.');
   }
+  const liveKitConfig = getLiveKitConfig();
+  const liveKitOrigin = liveKitConfig ? new URL(liveKitConfig.clientUrl).origin : '';
+  const connectSources = liveKitOrigin ? "'self' " + liveKitOrigin : "'self'";
   res.set({
     'Cache-Control': 'no-store',
-    'Content-Security-Policy': "default-src 'none'; connect-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; frame-ancestors *"
+    'Content-Security-Policy': "default-src 'none'; connect-src " + connectSources + "; media-src 'self' blob:; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; frame-ancestors *"
   }).type('html').send(`<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PLAYVERSE Stream Overlay</title>
 <style>
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:transparent;color:#fff;font-family:Inter,system-ui,Arial,sans-serif}
-#overlay{position:absolute;left:3%;right:3%;bottom:4%;display:flex;align-items:flex-end;justify-content:flex-start;gap:16px;transform-origin:bottom left}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:transparent;color:#fff;font-family:Inter,system-ui,Arial,sans-serif;overflow:hidden}
+#video-stage{position:absolute;inset:0;overflow:hidden;background:transparent;z-index:0}
+#video-stage video{position:absolute;display:none}
+#screen-share{inset:0;width:100%;height:100%;object-fit:contain;background:transparent}
+#camera{width:24%;height:28%;object-fit:cover;border:2px solid #fff;border-radius:14px;box-shadow:0 4px 22px #0009;background:#020617}
+#camera[data-position="top-left"]{top:4%;left:3%}
+#camera[data-position="top-right"]{top:4%;right:3%}
+#camera[data-position="bottom-left"]{bottom:5%;left:3%}
+#camera[data-position="bottom-right"]{bottom:5%;right:3%}
+#camera[data-frame="cyan"]{border:3px solid #22d3ee;box-shadow:0 0 22px #22d3ee88}
+#camera[data-frame="violet"]{border:3px double #a78bfa;box-shadow:0 0 22px #8b5cf688}
+#overlay.camera-only #camera{inset:0;width:100%;height:100%;border:0;border-radius:0;box-shadow:none;object-fit:contain}
+#overlay{position:absolute;z-index:5;left:3%;right:3%;bottom:4%;display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
 #overlay.position-top-left{top:4%;bottom:auto;justify-content:flex-start;align-items:flex-start;transform-origin:top left}
 #overlay.position-top-right{top:4%;bottom:auto;justify-content:flex-end;align-items:flex-start;transform-origin:top right}
 #overlay.position-bottom-left{bottom:4%;top:auto;justify-content:flex-start;align-items:flex-end;transform-origin:bottom left}
@@ -1049,29 +1100,46 @@ app.get('/overlay/:token', (req, res) => {
 #branding{font-size:12px;color:#cbd5e1;margin-top:7px}
 #viewers{white-space:nowrap;padding:10px 14px;border-radius:999px;background:#10152be8;border:1px solid #ffffff35;font-weight:800}
 #social{font-size:11px;color:#dbeafe;margin-top:5px}
-#chat{display:none;max-width:min(420px,42vw);min-width:220px;max-height:42vh;overflow:hidden;padding:12px 14px;border:1px solid #ffffff35;border-radius:14px;background:#10152be8;box-shadow:0 8px 30px #0006}
-#chat.visible{display:block}
-#chat-title{font-size:10px;font-weight:900;letter-spacing:.12em;color:#9da9ff;text-transform:uppercase;margin-bottom:7px}
-#chat-messages{display:flex;flex-direction:column;gap:6px;overflow:hidden}
-.chat-line{font-size:12px;line-height:1.35;overflow-wrap:anywhere;color:#f8fafc}
-.chat-line strong{color:#fdba74;margin-right:5px}
+#chat{display:none;max-width:min(420px,42vw);min-width:220px;max-height:42vh;overflow:hidden;padding:12px 14px;border:1px solid #ffffff35;border-radius:14px;background:#10152be8;box-shadow:0 8px 30px #0006}#chat.visible{display:block}#chat-title{font-size:10px;font-weight:900;letter-spacing:.12em;color:#9da9ff;text-transform:uppercase;margin-bottom:7px}#chat-messages{display:flex;flex-direction:column;gap:6px;overflow:hidden}.chat-line{font-size:12px;line-height:1.35;overflow-wrap:anywhere;color:#f8fafc}.chat-line strong{color:#fdba74;margin-right:5px}\n#watermark{position:absolute;right:3%;top:3%;max-width:42%;padding:7px 11px;border-radius:9px;background:#020617b8;border:1px solid #ffffff55;color:#fff;font-size:clamp(10px,1.3vw,15px);font-weight:900;letter-spacing:.08em;text-transform:uppercase;text-shadow:0 2px 8px #000;overflow-wrap:anywhere}
+#skin{display:none;position:absolute;inset:1.5%;border:2px solid #ffffff35;border-radius:20px;pointer-events:none;box-shadow:inset 0 0 35px #0005}
+#overlay[data-product="overlay-retro-arcade"] #skin{display:block;border-color:#4ade80;background:linear-gradient(135deg,#14532d22,#02061711)}
+#overlay[data-product="overlay-minimal-black"] #skin{display:block;border-color:#94a3b8;border-radius:5px}
+#overlay[data-product="overlay-flame-rgb"] #skin{display:block;border:3px solid #fb7185;box-shadow:inset 0 0 28px #f9731633,0 0 20px #fb718555}
+#overlay[data-product="overlay-pro-esports"] #skin{display:block;border:3px solid #60a5fa;border-radius:4px}
+#overlay[data-product="overlay-cyber-arena"] #skin{display:block;border:2px solid #22d3ee;box-shadow:inset 0 0 36px #06b6d433}
+#overlay[data-product="overlay-sunset"] #skin{display:block;border:2px solid #fb923c;box-shadow:inset 0 0 36px #ea580c33}
+#overlay[data-product="overlay-tournament"] #skin{display:block;border:3px double #a5b4fc;border-radius:6px}
+#overlay[data-product="overlay-streamer-classic"] #skin{display:block;border:2px solid #cbd5e1;border-radius:14px}
+#overlay[data-product="overlay-pixel-grid"] #skin{display:block;border:3px dashed #fbbf24;border-radius:3px}
+#overlay[data-product="overlay-nebula-live"] #skin{display:block;border:2px solid #c084fc;box-shadow:inset 0 0 55px #7e22ce44,0 0 18px #c084fc55}
+#overlay[data-product="overlay-rgb-storm"] #skin{display:block;border:3px solid #22d3ee;box-shadow:inset 0 0 30px #22d3ee33,0 0 18px #ec489955}
+#overlay[data-product="overlay-ice-breaker"] #skin{display:block;border:2px solid #7dd3fc;box-shadow:inset 0 0 40px #38bdf833}
 .theme-neon .panel,.theme-neon #viewers{border-color:#22d3ee99;box-shadow:0 0 22px #22d3ee33}
 .theme-minimal .panel,.theme-minimal #viewers{background:#111c;color:#fff;border-color:#ffffff55;box-shadow:none}
 .theme-esports .panel,.theme-esports #viewers{border-radius:4px;border-left:4px solid #f97316;background:#111827ed}
 .layout-compact .panel{padding:9px 12px}.layout-vertical{flex-direction:column;align-items:flex-start}.layout-vertical .panel{max-width:100%}
-</style></head><body><main id="overlay"><section class="panel"><div id="creator"></div><div id="title">Conectando con la transmisión…</div><div id="branding"></div><div id="social"></div></section><section id="chat"><div id="chat-title">Chat en vivo</div><div id="chat-messages"></div></section><div id="viewers"></div></main>
+@media(prefers-reduced-motion:no-preference){#overlay[data-product="overlay-flame-rgb"] #skin,#overlay[data-product="overlay-nebula-live"] #skin{animation:skin-pulse 5s ease-in-out infinite alternate}}
+@keyframes skin-pulse{from{filter:brightness(.85)}to{filter:brightness(1.3)}}
+</style></head><body><div id="video-stage" aria-hidden="true"><video id="screen-share" autoplay playsinline></video><video id="camera" data-position="bottom-right" data-frame="none" autoplay playsinline muted></video><div id="audio-tracks"></div></div><main id="overlay" class="camera-only"><div id="skin" aria-hidden="true"></div><section class="panel"><div id="creator"></div><div id="title">Conectando con la transmisión…</div><div id="branding"></div><div id="social"></div></section><div id="viewers"></div><section id="chat"><div id="chat-title">Chat en vivo</div><div id="chat-messages"></div></section><div id="watermark"></div></main>
+<script src="/livekit-client.umd.js"></script>
 <script>
 const token=${JSON.stringify(token)};
 const root=document.getElementById('overlay');
+const screenVideo=document.getElementById('screen-share');
+const cameraVideo=document.getElementById('camera');
+const audioTracks=document.getElementById('audio-tracks');
+let overlayRoom=null;
+let overlayStopped=false;
+let overlayConnectInProgress=false;
 const set=(id,value)=>{document.getElementById(id).textContent=value||''};
 const chat=document.getElementById('chat');
 const chatMessages=document.getElementById('chat-messages');
 let lastChatSignature='';
 function renderChat(messages,enabled){
  chat.classList.toggle('visible',enabled===true);
- if(!enabled){chatMessages.replaceChildren();lastChatSignature='';return}
+ if(!enabled){chatMessages.replaceChildren();lastChatSignature='';return;}
  const safeMessages=Array.isArray(messages)?messages.slice(-6):[];
- const signature=safeMessages.map(m=>String(m.id||'')+':'+String(m.message||'')).join('|');
+ const signature=safeMessages.map(message=>String(message.id||'')+':'+String(message.message||'')).join('|');
  if(signature===lastChatSignature)return;
  lastChatSignature=signature;
  chatMessages.replaceChildren();
@@ -1082,29 +1150,74 @@ function renderChat(messages,enabled){
   line.append(author,body);chatMessages.appendChild(line);
  }
 }
+
+function attachOverlayTrack(track,publication){
+ const source=publication.source;
+ if(source===LivekitClient.Track.Source.ScreenShare){
+  track.attach(screenVideo);screenVideo.style.display='block';root.classList.remove('camera-only');
+ }else if(source===LivekitClient.Track.Source.Camera){
+  track.attach(cameraVideo);cameraVideo.style.display='block';
+  root.classList.toggle('camera-only',!screenVideo.srcObject);
+ }else if(track.kind==='audio'){
+  const audio=track.attach();audio.autoplay=true;audio.controls=false;audioTracks.appendChild(audio);audio.play().catch(()=>{});
+ }
+}
+function detachOverlayTrack(track){
+ track.detach().forEach(element=>{
+  if(element===screenVideo){screenVideo.srcObject=null;screenVideo.style.display='none';root.classList.toggle('camera-only',Boolean(cameraVideo.srcObject));}
+  else if(element===cameraVideo){cameraVideo.srcObject=null;cameraVideo.style.display='none';root.classList.toggle('camera-only',!screenVideo.srcObject);}
+  else if(element&&element.tagName==='AUDIO')element.remove();
+ });
+}
+async function connectOverlayRoom(){
+ if(overlayStopped||overlayConnectInProgress||!window.LivekitClient)return;
+ overlayConnectInProgress=true;
+ try{
+  if(overlayRoom){const previous=overlayRoom;overlayRoom=null;await previous.disconnect();}
+  const response=await fetch('/api/public/stream-overlay/'+encodeURIComponent(token)+'/session',{method:'POST',cache:'no-store'});
+  if(response.status===404){overlayStopped=true;set('title','Transmisión finalizada');return}
+  if(!response.ok)throw new Error('No se pudo obtener acceso de video ('+response.status+')');
+  const data=await response.json();
+  const room=new LivekitClient.Room({adaptiveStream:true,dynacast:true});
+  room.on(LivekitClient.RoomEvent.TrackSubscribed,attachOverlayTrack);
+  room.on(LivekitClient.RoomEvent.TrackUnsubscribed,detachOverlayTrack);
+  room.on(LivekitClient.RoomEvent.Disconnected,()=>{
+   if(overlayRoom===room){overlayRoom=null;setTimeout(connectOverlayRoom,5000);}
+  });
+  await room.connect(data.liveKit.url,data.liveKit.token);
+  overlayRoom=room;
+  setTimeout(connectOverlayRoom,8*60*1000);
+ }catch(error){
+  set('title','Composición de video reconectando…');
+  setTimeout(connectOverlayRoom,30000);
+ }finally{overlayConnectInProgress=false}
+}
 async function refresh(){
  try{
   const response=await fetch('/api/public/stream-overlay/'+encodeURIComponent(token),{cache:'no-store'});
-  if(!response.ok){set('title','Transmisión finalizada');set('creator','PLAYVERSE');set('viewers','');return}
+  if(response.status===404){overlayStopped=true;if(overlayRoom){const oldRoom=overlayRoom;overlayRoom=null;oldRoom.disconnect()}set('title','Transmisión finalizada');set('creator','PLAYVERSE');set('viewers','');set('watermark','');root.removeAttribute('data-product');return}
+  if(!response.ok)throw new Error('Overlay temporalmente no disponible ('+response.status+')');
   const data=await response.json();const p=data.overlay||{};
-  root.className='theme-'+(p.theme||'arcade')+' layout-'+(p.layout||'wide')+' position-'+(p.position||'bottom-left');
+  root.className='theme-'+(p.theme||'arcade')+' layout-'+(p.layout||'wide')+(screenVideo.srcObject?'':' camera-only');
   const position=p.position||'bottom-left';
-  const layout=p.layout||'wide';
-  root.style.justifyContent=layout==='vertical'?(position.startsWith('top')?'flex-start':'flex-end'):(position.endsWith('right')?'flex-end':'flex-start');
-  root.style.alignItems=layout==='vertical'?(position.endsWith('right')?'flex-end':'flex-start'):(position.startsWith('top')?'flex-start':'flex-end');
-  root.style.transform='scale('+((Number.isInteger(p.scale)?p.scale:100)/100)+')';
+  root.classList.add('position-'+position);
+  root.style.transform='scale('+(Number.isInteger(p.scale)?p.scale:100)/100+')';
   root.style.transformOrigin=position.replace('-', ' ');
   root.style.opacity=String((Number.isInteger(p.opacity)?p.opacity:90)/100);
+  cameraVideo.dataset.position=p.cameraPosition||'bottom-right';
+  cameraVideo.dataset.frame=p.cameraFrame||'none';
+  if(p.equippedOverlay&&/^overlay-[a-z0-9-]+$/.test(p.equippedOverlay.id||''))root.dataset.product=p.equippedOverlay.id;else root.removeAttribute('data-product');
   set('creator','@'+(data.stream.creator||''));
   set('title',data.stream.title);
   set('branding',p.brandingText);
+  set('watermark',data.stream.watermark);
   const socials=[p.socialYouTube&&'YouTube '+p.socialYouTube,p.socialTwitch&&'Twitch '+p.socialTwitch,p.socialTikTok&&'TikTok '+p.socialTikTok].filter(Boolean).join('  •  ');
   set('social',socials);
   set('viewers',p.showViewerCount?(Number.isInteger(data.viewerCount)?'● '+data.viewerCount+' espectadores':'● espectadores no disponibles'):'');
-  renderChat(data.chatMessages,p.showChat);
+  renderChat(data.chatMessages,p.showChat===true);
  }catch{set('title','Reconectando…')}
 }
-refresh();setInterval(refresh,5000);
+refresh();connectOverlayRoom();setInterval(refresh,5000);
 </script></body></html>`);
 });
 
@@ -1344,6 +1457,91 @@ app.get('/api/me/profile-summary', requireAuth, async (req, res, next) => {
 });
 
 
+async function buildAchievementSnapshot(userId) {
+  const [user, posts, comments, rooms, roomMessages, friends, followers, savedPosts, tournaments, tournamentWins, streams] = await Promise.all([
+    User.findById(userId).select('firstStorePurchaseBonusAvailableAt firstStorePurchaseBonusClaimedAt').lean(),
+    Post.countDocuments({ author: userId }),
+    Comment.countDocuments({ author: userId }),
+    Room.countDocuments({ owner: userId }),
+    RoomMessage.countDocuments({ author: userId }),
+    Friendship.countDocuments({ status: 'accepted', $or: [{ requester: userId }, { recipient: userId }] }),
+    Follow.countDocuments({ following: userId }),
+    SavedPost.countDocuments({ user: userId }),
+    Tournament.countDocuments({ entries: { $elemMatch: { $or: [{ captain: userId }, { 'members.user': userId }], status: { $in: ['approved', 'checked-in'] } } } }),
+    Tournament.countDocuments({ entries: { $elemMatch: { $or: [{ captain: userId }, { 'members.user': userId }], placement: 1 } } }),
+    LiveStream.countDocuments({ owner: userId, status: 'ended' })
+  ]);
+  if (!user) return null;
+  const metrics = {
+    posts, comments, rooms, roomMessages, friends, followers, savedPosts, tournaments, tournamentWins, streams,
+    firstPurchaseBonusAvailable: user.firstStorePurchaseBonusAvailableAt ? 1 : 0
+  };
+  const unlocked = ACHIEVEMENTS.filter((item) => (metrics[item.metric] || 0) >= item.target);
+  if (unlocked.length) {
+    await Promise.all(unlocked.map(async (item) => {
+      try {
+        await UserAchievement.updateOne(
+          { user: userId, achievementId: item.id },
+          { $setOnInsert: { user: userId, achievementId: item.id, earnedXP: 0, claimedAt: null, unlockedAt: new Date() } },
+          { upsert: true }
+        );
+      } catch (error) {
+        if (!error || error.code !== 11000) throw error;
+      }
+    }));
+  }
+  const earned = await UserAchievement.find({ user: userId }).select('achievementId earnedXP unlockedAt').lean();
+  const earnedById = new Map(earned.map((item) => [item.achievementId, item]));
+  const achievements = ACHIEVEMENTS.map((item) => {
+    const metricValue = metrics[item.metric] || 0;
+    const record = earnedById.get(item.id);
+    return {
+      id: item.id, title: item.title, description: item.description, category: item.category,
+      tier: item.tier, icon: item.icon, target: item.target,
+      progress: Math.min(metricValue, item.target), metricValue, xp: item.xp,
+      unlocked: Boolean(record),
+      claimed: Boolean(record && Number(record.earnedXP) > 0),
+      claimable: Boolean(record && Number(record.earnedXP) === 0),
+      unlockedAt: record ? record.unlockedAt : null
+    };
+  });
+  const totalXP = earned.reduce((sum, item) => sum + item.earnedXP, 0);
+  return {
+    summary: {
+      unlocked: achievements.filter((item) => item.unlocked).length,
+      total: ACHIEVEMENTS.length,
+      totalXP,
+      level: Math.floor(totalXP / 500) + 1,
+      nextLevelXP: 500 - (totalXP % 500)
+    },
+    metrics,
+    achievements,
+    source: 'persisted-platform-activity'
+  };
+}
+
+app.get('/api/me/achievements', requireAuth, async (req, res, next) => {
+  try {
+    const snapshot = await buildAchievementSnapshot(req.auth.sub);
+    if (!snapshot) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    return res.json({ success: true, ...snapshot });
+  } catch (error) { return next(error); }
+});
+
+app.get('/api/users/:username/achievements', requireAuth, async (req, res, next) => {
+  try {
+    const username = typeof req.params.username === 'string' ? req.params.username.trim() : '';
+    const player = await User.findOne({ username }).select('_id').lean();
+    if (!player) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    if (String(player._id) !== req.auth.sub && await hasBlockBetween(req.auth.sub, player._id)) {
+      return res.status(403).json({ success: false, message: 'No podés ver el perfil de este jugador.' });
+    }
+    const snapshot = await buildAchievementSnapshot(player._id);
+    if (!snapshot) return res.status(404).json({ success: false, message: 'Jugador no encontrado.' });
+    return res.json({ success: true, username, ...snapshot });
+  } catch (error) { return next(error); }
+});
+
 const ACTIVITY_SOURCES = [
   { model: Post, type: 'post', dateField: 'createdAt', filter: (userId) => ({ author: userId }), title: 'Publicaste en la comunidad', description: 'Nueva publicación' },
   { model: Room, type: 'room', dateField: 'createdAt', filter: (userId) => ({ owner: userId }), title: 'Creaste una sala', description: 'Nueva sala de juego' },
@@ -1574,6 +1772,46 @@ const STREAMING_PREFERENCE_RULES = {
   farewellMessage: (value) => typeof value === 'string' && value.trim().length <= 200
 };
 
+app.get('/api/me/posts', requireAuth, async (req, res, next) => {
+  try {
+    const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50) return res.status(400).json({ success: false, message: 'El límite debe ser un número entero entre 1 y 50.' });
+    let cursor = null;
+    if (typeof req.query.cursor === 'string' && req.query.cursor) {
+      if (req.query.cursor.length > 256) return res.status(400).json({ success: false, message: 'Cursor de publicaciones inválido.' });
+      try { cursor = JSON.parse(Buffer.from(req.query.cursor, 'base64url').toString('utf8')); }
+      catch { return res.status(400).json({ success: false, message: 'Cursor de publicaciones inválido.' }); }
+      const cursorDate = cursor && typeof cursor.createdAt === 'string' ? new Date(cursor.createdAt) : null;
+      if (!cursor || !mongoose.isValidObjectId(cursor.id) || !cursorDate || !Number.isFinite(cursorDate.getTime()) || cursorDate.toISOString() !== cursor.createdAt) {
+        return res.status(400).json({ success: false, message: 'Cursor de publicaciones inválido.' });
+      }
+    }
+    const filter = { author: req.auth.sub };
+    if (cursor) {
+      const cursorDate = new Date(cursor.createdAt);
+      filter.$or = [
+        { createdAt: { $lt: cursorDate } },
+        { createdAt: cursorDate, _id: { $lt: new mongoose.Types.ObjectId(cursor.id) } }
+      ];
+    }
+    const records = await Post.find(filter).sort({ createdAt: -1, _id: -1 }).limit(limit + 1)
+      .select('authorUsername content game likes commentCount createdAt').lean();
+    const hasMore = records.length > limit;
+    const posts = records.slice(0, limit);
+    const last = posts[posts.length - 1];
+    return res.json({
+      success: true,
+      posts: posts.map((post) => ({
+        id: String(post._id), authorUsername: post.authorUsername, content: post.content, game: post.game || '',
+        likeCount: Array.isArray(post.likes) ? post.likes.length : 0,
+        likedByMe: Array.isArray(post.likes) && post.likes.some((id) => String(id) === req.auth.sub),
+        commentCount: Number(post.commentCount) || 0, createdAt: post.createdAt
+      })),
+      page: { limit, hasMore, nextCursor: hasMore && last ? Buffer.from(JSON.stringify({ createdAt: last.createdAt.toISOString(), id: String(last._id) })).toString('base64url') : null }
+    });
+  } catch (error) { return next(error); }
+});
+
 app.get('/api/me/streaming-preferences', requireAuth, async (req, res, next) => {
   try {
     const user = await User.findById(req.auth.sub).select('streamingPreferences').lean();
@@ -1796,6 +2034,47 @@ app.post('/api/wallet/transfers', requireAuth, storeLimiter, async (req, res, ne
   }
 });
 
+app.post('/api/me/achievements/:achievementId/claim', requireAuth, storeLimiter, async (req, res, next) => {
+  const definition = ACHIEVEMENTS.find((item) => item.id === req.params.achievementId);
+  if (!definition) return res.status(404).json({ success: false, message: 'Trofeo no encontrado.' });
+  try {
+  const snapshot = await buildAchievementSnapshot(req.auth.sub);
+  const progress = snapshot && snapshot.achievements.find((item) => item.id === definition.id);
+  if (!progress || !progress.unlocked) return res.status(409).json({ success: false, message: 'Todavía no cumpliste los requisitos de este trofeo.' });
+  if (progress.claimed) return res.status(409).json({ success: false, message: 'Este trofeo ya fue reclamado.' });
+  const session = await mongoose.startSession();
+  let claimed = false;
+  try {
+    await session.withTransaction(async () => {
+      if (definition.id === 'first-purchase-bonus') {
+        const user = await User.findOneAndUpdate(
+          { _id: req.auth.sub, firstStorePurchaseBonusAvailableAt: { $ne: null }, firstStorePurchaseBonusClaimedAt: null },
+          { $set: { firstStorePurchaseBonusClaimedAt: new Date() } },
+          { new: true, session }
+        ).select('_id');
+        if (!user) return;
+      }
+      const record = await UserAchievement.findOneAndUpdate(
+        { user: req.auth.sub, achievementId: definition.id, earnedXP: 0 },
+        { $set: { earnedXP: definition.xp, claimedAt: new Date() } },
+        { new: true, session }
+      );
+      claimed = Boolean(record);
+    });
+    if (!claimed) return res.status(409).json({ success: false, message: 'Este trofeo ya fue reclamado o no está disponible.' });
+    const updated = await buildAchievementSnapshot(req.auth.sub);
+    return res.json({
+      success: true,
+      message: '¡Trofeo reclamado! Sumaste ' + definition.xp + ' XP.',
+      achievementId: definition.id,
+      xp: definition.xp,
+      summary: updated ? updated.summary : null
+    });
+  } catch (error) { return next(error); }
+  finally { await session.endSession(); }
+  } catch (error) { return next(error); }
+});
+
 app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next) => {
   const itemId = typeof req.body.itemId === 'string' ? req.body.itemId : '';
   const product = STORE_CATALOG.find((entry) => entry.id === itemId);
@@ -1807,6 +2086,7 @@ app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next
   let result;
   try {
     await session.withTransaction(async () => {
+      const previousPurchases = await TokenTransaction.countDocuments({ user: req.auth.sub, type: 'purchase' }).session(session);
       const existing = await Inventory.findOne({ user: req.auth.sub, itemId }).session(session);
       if (existing && product.category !== 'stream-gift') { result = { error: 'ALREADY_OWNED' }; return; }
       const user = await User.findOneAndUpdate(
@@ -1828,11 +2108,20 @@ app.post('/api/store/purchase', requireAuth, storeLimiter, async (req, res, next
         user: req.auth.sub, type: 'purchase', currency, amount: -product.priceTokens, itemId,
         balanceAfter: getWalletBalances(user)[currency]
       }], { session });
-      result = { balances: getWalletBalances(user) };
+      let firstPurchaseBonusAvailable = false;
+      if (previousPurchases === 0) {
+        const bonus = await User.updateOne(
+          { _id: req.auth.sub, firstStorePurchaseBonusAvailableAt: null, firstStorePurchaseBonusClaimedAt: null },
+          { $set: { firstStorePurchaseBonusAvailableAt: new Date() } },
+          { session }
+        );
+        firstPurchaseBonusAvailable = bonus.modifiedCount === 1;
+      }
+      result = { balances: getWalletBalances(user), firstPurchaseBonusAvailable };
     });
     if (result?.error === 'ALREADY_OWNED') return res.status(409).json({ success: false, message: 'Ya tenés este artículo en tu inventario.' });
     if (result?.error === 'INSUFFICIENT_TOKENS') return res.status(409).json({ success: false, code: result.error, message: 'No tenés saldo suficiente de ' + getCurrencyLabel(currency) + '.' });
-    return res.status(201).json({ success: true, message: 'Compra registrada.', wallet: { tokens: result.balances.gold, balances: result.balances } });
+    return res.status(201).json({ success: true, message: 'Compra registrada.', wallet: { tokens: result.balances.gold, balances: result.balances }, firstPurchaseBonusAvailable: result.firstPurchaseBonusAvailable === true, firstPurchaseBonus: result.firstPurchaseBonusAvailable ? { xp: 250, label: 'Bonus de primera compra: +250 XP' } : null });
   } catch (error) {
     return next(error);
   } finally {
@@ -1868,6 +2157,31 @@ app.put('/api/me/inventory/:itemId/equip', requireAuth, storeLimiter, async (req
   } catch (error) {
     return next(error);
   }
+});
+
+app.delete('/api/me/inventory/:category/equip', requireAuth, storeLimiter, async (req, res, next) => {
+  try {
+    const category = req.params.category;
+    if (!['avatar-frame', 'stream-overlay'].includes(category)) {
+      return res.status(400).json({ success: false, message: 'Categoría de cosmético inválida.' });
+    }
+    const field = category === 'avatar-frame' ? 'activeAvatarFrame' : 'activeStreamOverlay';
+    const itemIds = STORE_CATALOG.filter((item) => item.category === category).map((item) => item.id);
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await Inventory.updateMany(
+          { user: req.auth.sub, itemId: { $in: itemIds } },
+          { $set: { equipped: false } },
+          { session }
+        );
+        await User.updateOne({ _id: req.auth.sub }, { $set: { [field]: null } }, { session });
+      });
+    } finally {
+      await session.endSession();
+    }
+    return res.json({ success: true, unequipped: category });
+  } catch (error) { return next(error); }
 });
 
 app.get('/api/me/followers', requireAuth, async (req, res, next) => {
@@ -2715,6 +3029,11 @@ app.delete('/api/posts/:postId/save', requireAuth, postLimiter, async (req, res,
 app.get('/api/posts', requireAuth, async (req, res, next) => {
   try {
     const filter = {};
+    if (req.query.game !== undefined) {
+      if (typeof req.query.game !== 'string' || req.query.game.trim().length > 60) return res.status(400).json({ success: false, message: 'Juego de publicación inválido.' });
+      const game = req.query.game.trim();
+      if (game) filter.game = game;
+    }
     const before = typeof req.query.before === 'string' ? req.query.before : '';
     if (before) {
       if (before.length > 256) {
@@ -2738,7 +3057,7 @@ app.get('/api/posts', requireAuth, async (req, res, next) => {
     }
 
     const fetchedPosts = await Post.find(filter)
-      .select('authorUsername content likes commentCount createdAt')
+      .select('authorUsername content game likes commentCount createdAt')
       .sort({ createdAt: -1, _id: -1 })
       .limit(31)
       .lean();
@@ -2760,6 +3079,7 @@ app.get('/api/posts', requireAuth, async (req, res, next) => {
         id: String(post._id),
         authorUsername: post.authorUsername,
         content: post.content,
+        game: post.game || '',
         likeCount: Array.isArray(post.likes) ? post.likes.length : 0,
         likedByMe: Array.isArray(post.likes) && post.likes.some((id) => String(id) === req.auth.sub),
         commentCount: Number(post.commentCount) || 0,
@@ -2775,6 +3095,8 @@ app.get('/api/posts', requireAuth, async (req, res, next) => {
 app.post('/api/posts', requireAuth, postLimiter, async (req, res, next) => {
   try {
     const content = typeof req.body.content === 'string' ? req.body.content.trim() : '';
+    const game = req.body.game === undefined ? '' : (typeof req.body.game === 'string' ? req.body.game.trim() : null);
+    if (game === null || game.length > 60) return res.status(400).json({ success: false, message: 'Juego de publicación inválido.' });
     if (!content || content.length > 2000) {
       return res.status(400).json({
         success: false,
@@ -2787,7 +3109,8 @@ app.post('/api/posts', requireAuth, postLimiter, async (req, res, next) => {
     const post = await Post.create({
       author: req.auth.sub,
       authorUsername: user.username,
-      content
+      content,
+      game
     });
     return res.status(201).json({
       success: true,
@@ -2795,6 +3118,7 @@ app.post('/api/posts', requireAuth, postLimiter, async (req, res, next) => {
         id: String(post._id),
         authorUsername: post.authorUsername,
         content: post.content,
+        game: post.game || '',
         likeCount: 0,
         likedByMe: false,
         commentCount: 0,
