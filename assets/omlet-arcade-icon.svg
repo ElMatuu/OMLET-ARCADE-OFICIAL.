@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Omlet Arcade</title>
+  <desc id="desc">Adaptación vectorial del icono histórico de Omlet Arcade: mando blanco sobre fondo coral, cruceta coral y botón amarillo.</desc>
+  <rect width="1024" height="1024" rx="0" fill="#ff654e"/>
+  <path d="M220 708 354 842 785 842 858 674 824 438 700 306 414 306 250 442Z" fill="#e84d3b" opacity=".42"/>
+  <path d="M230 690c-35-7-58-42-50-78l40-190c13-61 65-104 127-104h330c62 0 114 43 127 104l40 190c8 36-15 71-50 78-21 4-43-3-58-19l-75-78H363l-75 78c-15 16-37 23-58 19Z" fill="#fff"/>
+  <path d="M330 492h118m-59-59v118" stroke="#ff654e" stroke-width="34" stroke-linecap="round"/>
+  <circle cx="675" cy="466" r="72" fill="#f9c62a"/>
+</svg>
