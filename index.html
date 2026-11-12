@@ -4458,6 +4458,19 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             status.className = 'text-[11px] ' + (isError ? 'text-red-300' : 'text-slate-500');
         }
 
+        function getAuthenticatedSessionUserId() {
+            if (!authToken) return '';
+            try {
+                const payload = authToken.split('.')[1];
+                const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+                const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+                const decoded = JSON.parse(window.atob(padded));
+                return typeof decoded.sub === 'string' ? decoded.sub : '';
+            } catch (error) {
+                return '';
+            }
+        }
+
         function appendLiveChatMessage(message) {
             if (!message || !message.id || renderedStreamChatMessageIds.has(String(message.id))) return;
             renderedStreamChatMessageIds.add(String(message.id));
@@ -4482,7 +4495,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             body.className = 'whitespace-pre-wrap break-words text-xs text-slate-200';
             body.textContent = String(message.message || '');
             item.append(header, body);
-            if (authToken && (!activeLiveStream || String(message.authorId) !== String(currentUser && currentUser.id))) {
+            if (authToken && activeLiveStream && String(message.authorId) !== getAuthenticatedSessionUserId()) {
                 const reportButton = document.createElement('button');
                 reportButton.type = 'button';
                 reportButton.className = 'mt-2 text-[10px] font-semibold text-slate-400 hover:text-red-300';
