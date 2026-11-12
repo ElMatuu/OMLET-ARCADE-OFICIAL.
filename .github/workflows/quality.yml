@@ -1,4 +1,4 @@
-name: PLAYVERSE quality checks
+name: Omlet Arcade quality checks
 
 on:
   push:
@@ -64,6 +64,7 @@ jobs:
             'LIVEKIT_URL=wss://live.example.com' \
             'CORS_ORIGIN=https://api.example.com' > .env.selfhost
           docker compose --env-file .env.selfhost config --quiet
+          docker compose --env-file .env.selfhost --profile game-servers config --quiet
       - name: Build production API Docker image
         run: docker build --pull --tag playverse-api:ci .
       - name: Run unit and multi-user integration tests
