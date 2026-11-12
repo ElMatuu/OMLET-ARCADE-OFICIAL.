@@ -130,7 +130,10 @@ async function ingestExternalChatMessage({ provider, externalUserId, externalMes
     id: String(saved._id), authorId: String(saved.author), username: saved.username,
     message: saved.message, sentAt: saved.sentAt, externalProvider: provider
   };
-  if (io) io.to('stream-chat:' + String(stream._id)).emit('stream_chat_message', payload);
+  if (io) {
+    if (provider === 'kick') io.to('user:' + String(connection.owner)).emit('external_chat_message', payload);
+    else io.to('stream-chat:' + String(stream._id)).emit('stream_chat_message', payload);
+  }
   return { accepted: true, streamId: String(stream._id), message: payload };
 }
 async function getTwitchAppToken(env = process.env) {
