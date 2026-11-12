@@ -1344,7 +1344,7 @@ async function loadProfilePosts(reset = true) {
     (data.posts || []).forEach((post) => {
       const article = document.createElement('article'); article.className = 'rounded-xl border border-slate-800 bg-slate-900/70 p-3';
       const body = document.createElement('p'); body.className = 'whitespace-pre-wrap break-words text-xs text-slate-200'; body.textContent = post.content;
-      const meta = document.createElement('p'); meta.className = 'mt-2 text-[10px] text-slate-500'; meta.textContent = '♥ ' + post.likeCount + ' · Comentarios ' + post.commentCount + ' · ' + new Date(post.createdAt).toLocaleDateString('es-AR');
+      const meta = document.createElement('p'); meta.className = 'mt-2 text-[10px] text-slate-500'; meta.textContent = '♥ ' + post.likeCount + ' · Comentarios ' + post.commentCount + (post.game ? ' · ' + post.game : '') + ' · ' + new Date(post.createdAt).toLocaleDateString('es-AR');
       article.append(body, meta); list.append(article);
     });
     profilePostsCursor = data.page?.nextCursor || null;
