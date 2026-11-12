@@ -83,8 +83,10 @@ test('external provider account linking endpoints require an authenticated PLAYV
   await withServer(async (baseUrl) => {
     const list = await fetch(baseUrl + '/api/me/external-integrations');
     const connect = await fetch(baseUrl + '/api/me/external-integrations/twitch/connect', { method: 'POST' });
+    const events = await fetch(baseUrl + '/api/me/external-integrations/events');
     assert.equal(list.status, 401);
     assert.equal(connect.status, 401);
+    assert.equal(events.status, 401);
   });
 });
 

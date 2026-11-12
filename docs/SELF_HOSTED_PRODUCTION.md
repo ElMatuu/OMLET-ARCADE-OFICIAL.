@@ -61,3 +61,28 @@ Do not call the platform production-ready until secrets and DNS are configured, 
 ## Creator RTMP broadcast secrets
 
 Set `STREAM_KEY_ENCRYPTION_KEY` to a dedicated 32-byte key encoded as 64 hexadecimal characters. Compose passes it only to the backend. Do not reuse JWT, MongoDB or LiveKit secrets. Back it up securely; losing it makes saved RTMP keys unreadable. The optional `LIVEKIT_RECORDING_S3_*` variables are passed through to the API for private recording storage and remain unset until a private bucket is provisioned.
+
+
+## Free external provider accounts and secret generation
+
+Twitch, YouTube and Kick account linking uses each provider's own developer application and API. There is no paid relay vendor or subscription in this stack. Register a free developer app with each provider and set the client ID/secret values documented in `.env.selfhost.example`.
+
+Generate the dedicated 32-byte token-encryption key and Twitch webhook secret from Windows PowerShell (no Python required):
+
+```powershell
+function New-PlayverseHexSecret([int]$Length = 32) {
+  $bytes = New-Object byte[] $Length
+  $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+  try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
+  return ([BitConverter]::ToString($bytes)).Replace('-', '').ToLowerInvariant()
+}
+New-PlayverseHexSecret 32
+```
+
+Use one generated value for `APP_INTEGRATION_ENCRYPTION_KEY` and a different value for `TWITCH_EVENTSUB_SECRET`. Keep the encryption key backed up securely: losing it makes stored provider tokens unreadable. Never commit `.env.selfhost` or send its contents in chat.
+
+Set `PLAYVERSE_API_URL` to the final public HTTPS API origin and `PLAYVERSE_WEB_URL` to the app origin. Register the exact OAuth callback URLs from the creator integration documentation. In the Kick Developer Portal, enable webhooks and set `https://YOUR_API_HOST/api/webhooks/kick`; for Twitch, the app creates EventSub subscriptions using the configured secret. Localhost alone cannot receive provider webhooks; a public HTTPS endpoint or a secure tunnel is required.
+
+For YouTube, enable YouTube Data API v3 in the same Google Cloud project as the OAuth client. Live Chat polling is throttled to a minimum 60-second interval to conserve the free daily quota. Provider API quotas and rate limits still apply; a free API does not mean unlimited traffic.
+
+Kick chat/event content is shown only in the linked creator's private inbox and is purged after 24 hours. This avoids redistributing Kick API content to other viewers and keeps retention bounded. Twitch and YouTube incoming chat are integrated into the public PLAYVERSE stream chat; creator-originated messages can be sent outward to linked channels when the required scopes are granted.

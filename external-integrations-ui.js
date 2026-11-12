@@ -36,7 +36,13 @@
     const list = document.createElement('div');
     list.id = 'external-integrations-list';
     list.className = 'space-y-2';
-    section.append(heading, buttons, status, list);
+    const eventsHeading = document.createElement('h5');
+    eventsHeading.className = 'pt-2 text-[10px] font-black uppercase tracking-wider text-emerald-300';
+    eventsHeading.textContent = 'Eventos de Kick privados (retención máxima: 24 horas)';
+    const events = document.createElement('div');
+    events.id = 'external-integrations-events';
+    events.className = 'space-y-1';
+    section.append(heading, buttons, status, list, eventsHeading, events);
     destinationSection.parentNode.insertBefore(section, destinationSection);
   }
 
@@ -60,28 +66,67 @@
         const detail = document.createElement('p');
         detail.className = 'text-[10px] text-slate-400';
         detail.textContent = item.connection && item.connection.connected
-          ? 'Conectada como ' + item.connection.username + ' · chat: ' + (item.connection.chatSyncStatus || 'pendiente') + (item.connection.chatSyncError ? ' · ' + item.connection.chatSyncError : '')
+          ? 'Conectada como ' + item.connection.username + ' · chat: ' + (item.connection.chatSyncStatus || 'pendiente') + ' · envío: ' + (item.connection.canSend ? 'habilitado' : 'actualizar permisos') + (item.connection.chatSyncError ? ' · ' + item.connection.chatSyncError : '')
           : (item.connection && item.connection.status === 'reauthorization_required' ? 'La autorización venció: volvé a vincular' : (item.configured ? 'Lista para autorizar tu cuenta' : 'Faltan credenciales OAuth gratuitas en el servidor'));
         info.append(name, detail);
         const action = document.createElement('button');
         action.type = 'button';
         action.className = 'shrink-0 rounded-lg border border-slate-700 px-3 py-2 text-[10px] font-bold text-cyan-200';
         if (item.connection && item.connection.connected) {
-          action.textContent = 'Desconectar';
-          action.classList.replace('text-cyan-200', 'text-rose-200');
-          action.addEventListener('click', () => window.disconnectExternalProvider(item.provider));
-        } else {
-          action.textContent = 'Vincular';
+          action.textContent = 'Actualizar permisos';
           action.disabled = !item.configured;
           action.addEventListener('click', () => window.connectExternalProvider(item.provider));
+          const disconnect = document.createElement('button');
+          disconnect.type = 'button';
+          disconnect.className = 'shrink-0 rounded-lg border border-slate-700 px-3 py-2 text-[10px] font-bold text-rose-200';
+          disconnect.textContent = 'Desconectar';
+          disconnect.addEventListener('click', () => window.disconnectExternalProvider(item.provider));
+          const actions = document.createElement('div');
+          actions.className = 'flex shrink-0 gap-2';
+          actions.append(action, disconnect);
+          card.append(info, actions);
+        } else {
+          action.textContent = item.connection && item.connection.status === 'reauthorization_required' ? 'Volver a vincular' : 'Vincular';
+          action.disabled = !item.configured;
+          action.addEventListener('click', () => window.connectExternalProvider(item.provider));
+          card.append(info, action);
         }
-        card.append(info, action);
         list.appendChild(card);
       });
       const connected = items.filter(item => item.connection && item.connection.connected).length;
       status.textContent = connected + ' de 3 cuentas externas conectadas. La sincronización requiere autorización de cada cuenta.';
+      await loadExternalProviderEvents();
     } catch (error) {
       status.textContent = 'No se pudieron consultar las cuentas: ' + error.message;
+    }
+  }
+
+  async function loadExternalProviderEvents() {
+    const container = document.getElementById('external-integrations-events');
+    if (!container || typeof authToken === 'undefined' || !authToken || typeof apiRequest !== 'function') return;
+    container.replaceChildren();
+    try {
+      const data = await apiRequest('/api/me/external-integrations/events');
+      const events = data.events || [];
+      if (!events.length) {
+        const empty = document.createElement('p');
+        empty.className = 'text-[10px] text-slate-500';
+        empty.textContent = 'Todavía no hay eventos privados de Kick durante una transmisión.';
+        container.appendChild(empty);
+        return;
+      }
+      events.forEach((item) => {
+        const row = document.createElement('p');
+        row.className = 'rounded-lg bg-slate-900/70 px-3 py-2 text-[10px] text-slate-300';
+        const time = item.sentAt ? new Date(item.sentAt).toLocaleTimeString() : '';
+        row.textContent = (time ? '[' + time + '] ' : '') + item.username + ': ' + item.message;
+        container.appendChild(row);
+      });
+    } catch (error) {
+      const failure = document.createElement('p');
+      failure.className = 'text-[10px] text-slate-500';
+      failure.textContent = 'No se pudieron cargar los eventos privados de Kick.';
+      container.appendChild(failure);
     }
   }
 

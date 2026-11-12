@@ -38,7 +38,7 @@ const creatorBroadcastsRouter = require('./routes/creatorBroadcasts');
 const externalIntegrationsRouter = require('./routes/externalIntegrations');
 const StreamBroadcastSession = require('./models/StreamBroadcastSession');
 const { startRtmpBroadcast, stopRtmpBroadcast } = require('./services/rtmpBroadcast');
-const { processKickWebhook, processTwitchWebhook, startYouTubeChatSync, stopYouTubeChatSync, verifyKickWebhook, verifyTwitchEventSub } = require('./services/externalProviderEvents');
+const { claimWebhookReceipt, completeWebhookReceipt, processKickWebhook, processTwitchWebhook, sendToLinkedProviders, startYouTubeChatSync, stopYouTubeChatSync, verifyKickWebhook, verifyTwitchEventSub } = require('./services/externalProviderEvents');
 const groupConversationsRouter = require('./routes/groupConversations');
 const Conversation = require('./models/Conversation');
 const DirectMessage = require('./models/DirectMessage');
@@ -170,9 +170,17 @@ app.post('/api/webhooks/twitch', express.raw({ type: 'application/json', limit: 
   if (messageType === 'webhook_callback_verification') {
     return res.type('text/plain').status(200).send(event.challenge || '');
   }
-  if (messageType === 'notification') {
-    try { await processTwitchWebhook(event, httpServer.io); }
-    catch (error) { console.error('Twitch EventSub processing failed:', error.message); return res.sendStatus(500); }
+  if (messageType === 'notification' || messageType === 'revocation') {
+    const receipt = await claimWebhookReceipt('twitch', req.get('Twitch-Eventsub-Message-Id'));
+    if (!receipt.claimed) return res.sendStatus(204);
+    try {
+      await processTwitchWebhook(event, httpServer.io);
+      await completeWebhookReceipt(receipt.receiptId);
+    } catch (error) {
+      await completeWebhookReceipt(receipt.receiptId, error);
+      console.error('Twitch EventSub processing failed:', error.message);
+      return res.sendStatus(500);
+    }
   }
   return res.sendStatus(204);
 });
@@ -184,8 +192,16 @@ app.post('/api/webhooks/kick', express.raw({ type: 'application/json', limit: '1
   let event;
   try { event = JSON.parse(req.body.toString('utf8')); }
   catch { return res.status(400).send('Invalid JSON'); }
-  try { await processKickWebhook(event, req.headers, httpServer.io); }
-  catch (error) { console.error('Kick webhook processing failed:', error.message); return res.sendStatus(500); }
+  const receipt = await claimWebhookReceipt('kick', req.get('Kick-Event-Message-Id'));
+  if (!receipt.claimed) return res.sendStatus(204);
+  try {
+    await processKickWebhook(event, req.headers, httpServer.io);
+    await completeWebhookReceipt(receipt.receiptId);
+  } catch (error) {
+    await completeWebhookReceipt(receipt.receiptId, error);
+    console.error('Kick webhook processing failed:', error.message);
+    return res.sendStatus(500);
+  }
   return res.sendStatus(204);
 });
 
@@ -475,10 +491,12 @@ app.get('/api/streams/:streamId/messages', requireAuth, async (req, res, next) =
     }
     const parsedLimit = Number(req.query.limit);
     const limit = Number.isInteger(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 50;
-    const messages = await LiveStreamMessage.find({ stream: stream._id })
+    const messageFilter = { stream: stream._id };
+    if (String(stream.owner) !== String(req.auth.sub)) messageFilter.externalProvider = { $ne: 'kick' };
+    const messages = await LiveStreamMessage.find(messageFilter)
       .sort({ sentAt: -1, _id: -1 }).limit(limit).lean();
     const pinned = stream.pinnedMessage
-      ? await LiveStreamMessage.findOne({ _id: stream.pinnedMessage, stream: stream._id }).lean()
+      ? await LiveStreamMessage.findOne({ _id: stream.pinnedMessage, stream: stream._id, ...(String(stream.owner) !== String(req.auth.sub) ? { externalProvider: { $ne: 'kick' } } : {}) }).lean()
       : null;
     return res.set('Cache-Control', 'no-store').json({
       success: true,
@@ -635,7 +653,19 @@ app.post('/api/streams/:streamId/messages', requireAuth, liveChatLimiter, async 
     };
     const io = httpServer.io;
     if (io) io.to('stream-chat:' + String(stream._id)).emit('stream_chat_message', result);
-    return res.status(201).json({ success: true, message: result });
+    let externalDelivery = [];
+    if (String(stream.owner) === String(req.auth.sub)) {
+      try {
+        externalDelivery = await sendToLinkedProviders(req.auth.sub, message);
+      } catch (error) {
+        console.error('External chat relay failed:', error.message);
+        externalDelivery = [{ status: 'error', message: 'No se pudo completar el envío externo.' }];
+      }
+      if (io) io.to('user:' + String(req.auth.sub)).emit('external_chat_delivery_status', {
+        streamId: String(stream._id), results: externalDelivery
+      });
+    }
+    return res.status(201).json({ success: true, message: result, externalDelivery });
   } catch (error) { return next(error); }
 });
 

@@ -3,9 +3,9 @@ const ExternalOAuthState = require('../models/ExternalOAuthState');
 const ExternalProviderConnection = require('../models/ExternalProviderConnection');
 
 const PROVIDERS = Object.freeze({
-  twitch: { name: 'Twitch', authorize: 'https://id.twitch.tv/oauth2/authorize', token: 'https://id.twitch.tv/oauth2/token', profile: 'https://api.twitch.tv/helix/users', scopes: ['user:read:chat', 'user:bot', 'channel:bot', 'bits:read', 'channel:read:subscriptions'] },
-  youtube: { name: 'YouTube', authorize: 'https://accounts.google.com/o/oauth2/v2/auth', token: 'https://oauth2.googleapis.com/token', profile: 'https://openidconnect.googleapis.com/v1/userinfo', scopes: ['openid', 'email', 'profile', 'https://www.googleapis.com/auth/youtube.readonly'] },
-  kick: { name: 'Kick', authorize: 'https://id.kick.com/oauth/authorize', token: 'https://id.kick.com/oauth/token', profile: 'https://api.kick.com/public/v1/users', scopes: ['user:read', 'events:subscribe'] }
+  twitch: { name: 'Twitch', authorize: 'https://id.twitch.tv/oauth2/authorize', token: 'https://id.twitch.tv/oauth2/token', profile: 'https://api.twitch.tv/helix/users', scopes: ['user:read:chat', 'user:bot', 'channel:bot', 'bits:read', 'channel:read:subscriptions', 'user:write:chat'] },
+  youtube: { name: 'YouTube', authorize: 'https://accounts.google.com/o/oauth2/v2/auth', token: 'https://oauth2.googleapis.com/token', profile: 'https://openidconnect.googleapis.com/v1/userinfo', scopes: ['openid', 'email', 'profile', 'https://www.googleapis.com/auth/youtube.readonly', 'https://www.googleapis.com/auth/youtube.force-ssl'] },
+  kick: { name: 'Kick', authorize: 'https://id.kick.com/oauth/authorize', token: 'https://id.kick.com/oauth/token', profile: 'https://api.kick.com/public/v1/users', scopes: ['user:read', 'events:subscribe', 'chat:write'] }
 });
 
 function getProvider(provider) {
@@ -183,7 +183,8 @@ function toPublicConnection(record) {
     provider: record.provider, name: getProvider(record.provider).name,
     connected: record.status === 'connected', status: record.status, username: record.externalUsername,
     scopes: record.scopes || [], expiresAt: record.expiresAt || null, connectedAt: record.connectedAt,
-    chatSyncStatus: record.chatSyncStatus || 'idle', chatSyncLastAt: record.chatSyncLastAt || null, chatSyncError: record.chatSyncError || null
+    chatSyncStatus: record.chatSyncStatus || 'idle', chatSyncLastAt: record.chatSyncLastAt || null, chatSyncError: record.chatSyncError || null,
+    canSend: record.provider === 'twitch' ? (record.scopes || []).includes('user:write:chat') : record.provider === 'kick' ? (record.scopes || []).includes('chat:write') : (record.scopes || []).includes('https://www.googleapis.com/auth/youtube.force-ssl')
   };
 }
 async function getAccessToken(connection, env = process.env) {

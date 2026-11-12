@@ -21,6 +21,9 @@ test('only the supported OAuth providers are available', () => {
   assert.equal(getProvider('twitch').name, 'Twitch');
   assert.equal(getProvider('youtube').name, 'YouTube');
   assert.equal(getProvider('kick').name, 'Kick');
+  assert.ok(getProvider('twitch').scopes.includes('user:write:chat'));
+  assert.ok(getProvider('youtube').scopes.includes('https://www.googleapis.com/auth/youtube.force-ssl'));
+  assert.ok(getProvider('kick').scopes.includes('chat:write'));
   assert.equal(getProvider('other'), null);
 });
 

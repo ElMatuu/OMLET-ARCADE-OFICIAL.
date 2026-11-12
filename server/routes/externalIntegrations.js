@@ -1,6 +1,8 @@
 const express = require('express');
 const { rateLimit } = require('express-rate-limit');
 const ExternalProviderConnection = require('../models/ExternalProviderConnection');
+const LiveStream = require('../models/LiveStream');
+const LiveStreamMessage = require('../models/LiveStreamMessage');
 const { requireAuth } = require('../middleware/auth');
 const { PROVIDERS, completeAuthorization, createAuthorization, getCredentials, getEncryptionKey, revokeConnection, subscribeProviderEvents, toPublicConnection } = require('../services/externalProviders');
 
@@ -17,6 +19,24 @@ router.get('/', requireAuth, async (req, res, next) => {
         provider, name: PROVIDERS[provider].name,
         configured: Boolean(getCredentials(provider) && getEncryptionKey()),
         connection: byProvider.has(provider) ? toPublicConnection(byProvider.get(provider)) : null
+      }))
+    });
+  } catch (error) { return next(error); }
+});
+router.get('/events', requireAuth, async (req, res, next) => {
+  try {
+    const streams = await LiveStream.find({ owner: req.auth.sub }).select('_id').lean();
+    const streamIds = streams.map(stream => stream._id);
+    if (!streamIds.length) return res.set('Cache-Control', 'no-store').json({ success: true, events: [] });
+    const events = await LiveStreamMessage.find({
+      stream: { $in: streamIds }, externalProvider: 'kick',
+      externalExpiresAt: { $gt: new Date() }
+    }).sort({ sentAt: -1, _id: -1 }).limit(50).lean();
+    return res.set('Cache-Control', 'no-store').json({
+      success: true,
+      events: events.map(item => ({
+        id: String(item._id), provider: 'kick', username: item.username,
+        message: item.message, sentAt: item.sentAt, expiresAt: item.externalExpiresAt
       }))
     });
   } catch (error) { return next(error); }

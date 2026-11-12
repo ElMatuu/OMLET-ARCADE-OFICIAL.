@@ -1,8 +1,20 @@
 const crypto = require('node:crypto');
+const path = require('node:path');
+const grpc = require('@grpc/grpc-js');
+const protoLoader = require('@grpc/proto-loader');
 const LiveStream = require('../models/LiveStream');
 const LiveStreamMessage = require('../models/LiveStreamMessage');
 const ExternalProviderConnection = require('../models/ExternalProviderConnection');
+const ExternalWebhookReceipt = require('../models/ExternalWebhookReceipt');
 const { fetchJson, getAccessToken, getCredentials, getProvider } = require('./externalProviders');
+
+const youtubeProtoDefinition = protoLoader.loadSync(path.join(__dirname, '../proto/stream_list.proto'), {
+  keepCase: false, longs: String, enums: String, defaults: true, oneofs: true
+});
+const youtubeProto = grpc.loadPackageDefinition(youtubeProtoDefinition);
+const YouTubeLiveChatClient = youtubeProto.youtube.api.v3.V3DataLiveChatMessageService;
+const youtubeGrpcClient = new YouTubeLiveChatClient('youtube.googleapis.com:443', grpc.credentials.createSsl());
+
 
 let twitchAppToken = null;
 let twitchAppTokenExpiresAt = 0;
@@ -52,6 +64,47 @@ async function verifyKickWebhook({ rawBody, headers, now = Date.now() }) {
     return crypto.verify('RSA-SHA256', signed, rotatedKey, signatureBytes);
   } catch { return false; }
 }
+
+async function claimWebhookReceipt(provider, messageId) {
+  if (!['twitch', 'kick'].includes(provider) || typeof messageId !== 'string' || !messageId || messageId.length > 128) {
+    return { claimed: false, receiptId: null };
+  }
+  const now = new Date();
+  try {
+    const receipt = await ExternalWebhookReceipt.create({ provider, messageId, status: 'processing', receivedAt: now });
+    return { claimed: true, receiptId: receipt._id };
+  } catch (error) {
+    if (error.code !== 11000) throw error;
+    const retry = await ExternalWebhookReceipt.findOneAndUpdate({
+      provider, messageId,
+      $or: [
+        { status: 'failed' },
+        { status: 'processing', receivedAt: { $lt: new Date(now.getTime() - 2 * 60 * 1000) } }
+      ]
+    }, { $set: { status: 'processing', receivedAt: now, lastError: null, expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000) } }, { new: true });
+    return { claimed: Boolean(retry), receiptId: retry?._id || null };
+  }
+}
+async function completeWebhookReceipt(receiptId, error = null) {
+  if (!receiptId) return;
+  await ExternalWebhookReceipt.updateOne({ _id: receiptId }, {
+    $set: { status: error ? 'failed' : 'completed', lastError: error ? String(error.message || error).slice(0, 200) : null }
+  });
+}
+function isValidKickEventPayload(eventType, event) {
+  if (!event || !event.broadcaster?.user_id) return false;
+  if (eventType === 'chat.message.sent') return typeof event.message_id === 'string' && typeof event.content === 'string' && Boolean(event.sender?.username);
+  if (eventType === 'channel.followed') return Boolean(event.follower?.username);
+  if (eventType === 'channel.subscription.new' || eventType === 'channel.subscription.renewal') return Boolean(event.subscriber && (event.subscriber.username || event.subscriber.is_anonymous === true));
+  if (eventType === 'channel.subscription.gifts') return Boolean(event.gifter && (event.gifter.username || event.gifter.is_anonymous === true)) && Array.isArray(event.giftees);
+  if (eventType === 'kicks.gifted') return Boolean(event.sender?.username) && Boolean(event.gift && typeof event.gift.amount === 'number');
+  if (eventType === 'moderation.banned') return Boolean(event.moderator?.username) && Boolean(event.banned_user?.username);
+  if (eventType === 'channel.reward.redemption.updated') return Boolean(event.redeemer?.username) && Boolean(event.reward);
+  if (eventType === 'livestream.status.updated') return typeof event.is_live === 'boolean';
+  if (eventType === 'livestream.metadata.updated') return Boolean(event.metadata && typeof event.metadata === 'object');
+  return false;
+}
+
 async function ingestExternalChatMessage({ provider, externalUserId, externalMessageId, username, message, io }) {
   if (!['twitch', 'youtube', 'kick'].includes(provider) ||
       typeof externalUserId !== 'string' || !externalUserId ||
@@ -61,16 +114,24 @@ async function ingestExternalChatMessage({ provider, externalUserId, externalMes
   if (!text) return { accepted: false, reason: 'empty' };
   const connection = await ExternalProviderConnection.findOne({
     provider, externalUserId, status: 'connected'
-  }).select('owner').lean();
+  }).select('owner externalUsername').lean();
   if (!connection) return { accepted: false, reason: 'unlinked' };
   const stream = await LiveStream.findOne({ owner: connection.owner, status: 'live' }).select('_id owner').lean();
   if (!stream) return { accepted: false, reason: 'offline' };
+  if (String(username || '').toLowerCase() === String(connection.externalUsername || '').toLowerCase()) {
+    const ownRecentMessage = await LiveStreamMessage.exists({
+      stream: stream._id, author: connection.owner, message: text,
+      sentAt: { $gte: new Date(Date.now() - 30000) }
+    });
+    if (ownRecentMessage) return { accepted: false, reason: 'outbound_echo' };
+  }
   const safeUsername = ('[' + provider.toUpperCase() + '] ' + String(username || 'viewer')).slice(0, 24);
   let saved;
   try {
     saved = await LiveStreamMessage.create({
       stream: stream._id, author: connection.owner, username: safeUsername, message: text,
-      externalProvider: provider, externalMessageId: externalMessageId.slice(0, 200)
+      externalProvider: provider, externalMessageId: externalMessageId.slice(0, 200),
+      externalExpiresAt: provider === 'kick' ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null
     });
   } catch (error) {
     if (error && error.code === 11000) return { accepted: false, reason: 'duplicate' };
@@ -80,7 +141,10 @@ async function ingestExternalChatMessage({ provider, externalUserId, externalMes
     id: String(saved._id), authorId: String(saved.author), username: saved.username,
     message: saved.message, sentAt: saved.sentAt, externalProvider: provider
   };
-  if (io) io.to('stream-chat:' + String(stream._id)).emit('stream_chat_message', payload);
+  if (io) {
+    if (provider === 'kick') io.to('user:' + String(connection.owner)).emit('external_chat_message', payload);
+    else io.to('stream-chat:' + String(stream._id)).emit('stream_chat_message', payload);
+  }
   return { accepted: true, streamId: String(stream._id), message: payload };
 }
 async function getTwitchAppToken(env = process.env) {
@@ -106,6 +170,13 @@ async function subscribeProviderEvents(provider, owner, env = process.env) {
     await ExternalProviderConnection.updateOne({ _id: connection._id }, { $set: { chatSyncStatus: 'error', chatSyncError: 'Configurá PLAYVERSE_API_URL con una URL HTTPS pública para recibir eventos.' } });
     return { subscribed: false, reason: 'public_https_callback_required' };
   }
+  if (provider === 'twitch') {
+    const callbackPort = new URL(callback).port;
+    if (callbackPort && callbackPort !== '443') {
+      await ExternalProviderConnection.updateOne({ _id: connection._id }, { $set: { chatSyncStatus: 'error', chatSyncError: 'Twitch EventSub requiere HTTPS público por el puerto 443.' } });
+      return { subscribed: false, reason: 'twitch_requires_https_443' };
+    }
+  }
   try {
     if (provider === 'twitch') {
       const secret = env.TWITCH_EVENTSUB_SECRET || '';
@@ -121,7 +192,8 @@ async function subscribeProviderEvents(provider, owner, env = process.env) {
         { type: 'channel.subscribe', version: '1', condition: { broadcaster_user_id: connection.externalUserId } },
         { type: 'channel.subscription.gift', version: '1', condition: { broadcaster_user_id: connection.externalUserId } },
         { type: 'stream.online', version: '1', condition: { broadcaster_user_id: connection.externalUserId } },
-        { type: 'stream.offline', version: '1', condition: { broadcaster_user_id: connection.externalUserId } }
+        { type: 'stream.offline', version: '1', condition: { broadcaster_user_id: connection.externalUserId } },
+        { type: 'channel.raid', version: '1', condition: { to_broadcaster_user_id: connection.externalUserId } }
       ];
       const results = [];
       for (const event of events) {
@@ -154,7 +226,8 @@ async function subscribeProviderEvents(provider, owner, env = process.env) {
         { name: 'channel.reward.redemption.updated', version: 1 },
         { name: 'livestream.status.updated', version: 1 },
         { name: 'livestream.metadata.updated', version: 1 },
-        { name: 'kicks.gifted', version: 1 }
+        { name: 'kicks.gifted', version: 1 },
+        { name: 'moderation.banned', version: 1 }
       ];
       const existing = await fetchJson('https://api.kick.com/public/v1/events/subscriptions', {
         headers: { Authorization: 'Bearer ' + token }
@@ -177,61 +250,151 @@ async function subscribeProviderEvents(provider, owner, env = process.env) {
     return { subscribed: false, reason: 'provider_rejected_subscription' };
   }
 }
-async function pollYouTubeConnection(connection, io, env = process.env) {
-  const token = await getAccessToken(connection, env);
-  const headers = { Authorization: 'Bearer ' + token };
-  let liveChatId = connection.youtubeLiveChatId;
-  let pageToken = connection.youtubePageToken || '';
-  if (!liveChatId) {
-    const active = await fetchJson('https://www.googleapis.com/youtube/v3/liveBroadcasts?part=id,snippet,status&broadcastStatus=active&mine=true', { headers });
-    const broadcast = active.items?.[0];
-    liveChatId = broadcast?.snippet?.liveChatId || '';
-    if (!liveChatId) {
-      await ExternalProviderConnection.updateOne({ _id: connection._id }, {
-        $set: { youtubeLiveChatId: null, youtubePageToken: null, youtubeNextPollAt: new Date(Date.now() + 60000), chatSyncStatus: 'idle', chatSyncError: null, chatSyncLastAt: new Date() }
-      });
-      return;
-    }
-    pageToken = '';
-  }
-  const url = new URL('https://www.googleapis.com/youtube/v3/liveChat/messages');
-  url.searchParams.set('part', 'snippet,authorDetails');
-  url.searchParams.set('liveChatId', liveChatId);
-  url.searchParams.set('maxResults', '200');
-  if (pageToken) url.searchParams.set('pageToken', pageToken);
-  const result = await fetchJson(url, { headers });
-  for (const item of result.items || []) {
-    const snippet = item.snippet || {};
-    const author = item.authorDetails || {};
-    const superChat = snippet.superChatEventDetails;
-    const superSticker = snippet.superStickerEventDetails;
-    const newSponsor = snippet.newSponsorEventDetails;
-    const milestone = snippet.memberMilestoneChatDetails;
-    const giftMemberships = snippet.giftMembershipsEventDetails;
-    const giftReceived = snippet.giftMembershipReceivedDetails;
-    let message = snippet.textMessageDetails?.messageText || snippet.displayMessage || '';
-    if (superChat) message = 'envió un Super Chat de ' + String(superChat.amountDisplayString || '') + (superChat.userComment ? ': ' + superChat.userComment : '');
-    else if (superSticker) message = 'envió un Super Sticker de ' + String(superSticker.amountDisplayString || '') + (superSticker.superStickerMetadata?.altText ? ': ' + superSticker.superStickerMetadata.altText : '');
-    else if (newSponsor) message = 'se hizo miembro del canal' + (newSponsor.memberLevelName ? ' (' + newSponsor.memberLevelName + ')' : '');
-    else if (milestone) message = 'celebró ' + Number(milestone.memberMonth || 0) + ' meses como miembro' + (milestone.userComment ? ': ' + milestone.userComment : '');
-    else if (giftMemberships) message = 'regaló ' + Number(giftMemberships.giftMembershipsCount || 1) + ' membresía(s)';
-    else if (giftReceived) message = 'recibió una membresía regalada por ' + String(giftReceived.gifterChannelName || 'un miembro');
-    if (!message) continue;
-    await ingestExternalChatMessage({
-      provider: 'youtube', externalUserId: connection.externalUserId,
-      externalMessageId: item.id, username: author.displayName || 'YouTube viewer',
-      message, io
-    });
-  }
-  const interval = Math.max(60000, Number(result.pollingIntervalMillis) || 60000);
-  await ExternalProviderConnection.updateOne({ _id: connection._id }, {
+function cleanupYouTubeStreamEntry(connectionId, entry) {
+  clearInterval(entry.leaseTimer);
+  clearTimeout(entry.refreshTimer);
+  if (youtubeStreams.get(connectionId) === entry) youtubeStreams.delete(connectionId);
+}
+async function finishYouTubeStream(connectionId, entry, error = null) {
+  if (youtubeStreams.get(connectionId) !== entry) return;
+  if (entry.intentionalClose) return cleanupYouTubeStreamEntry(connectionId, entry);
+  cleanupYouTubeStreamEntry(connectionId, entry);
+  const now = new Date();
+  const ended = error && (error.code === grpc.status.NOT_FOUND || error.code === grpc.status.FAILED_PRECONDITION);
+  const unauthorized = error && (error.code === grpc.status.UNAUTHENTICATED || error.code === grpc.status.PERMISSION_DENIED);
+  await ExternalProviderConnection.updateOne({ _id: connectionId, youtubePollLockUntil: { $gt: now } }, {
     $set: {
-      youtubeLiveChatId: liveChatId, youtubePageToken: result.nextPageToken || pageToken || null,
-      youtubeNextPollAt: new Date(Date.now() + interval), chatSyncStatus: 'subscribed',
-      chatSyncError: null, chatSyncLastAt: new Date()
+      ...(ended ? { youtubeLiveChatId: null, youtubePageToken: null } : {}),
+      ...(unauthorized ? { status: 'reauthorization_required' } : {}),
+      chatSyncStatus: error ? 'error' : 'idle',
+      chatSyncError: error ? String(error.details || error.message || 'YouTube Live Chat stream ended').slice(0, 240) : null,
+      youtubeNextPollAt: new Date(Date.now() + (unauthorized ? 120000 : 60000)),
+      youtubePollLockUntil: null,
+      chatSyncLastAt: now
     }
   });
 }
+async function openYouTubeChatStream(connection, io, env = process.env) {
+  const connectionId = String(connection._id);
+  if (youtubeStreams.has(connectionId)) return;
+  const token = await getAccessToken(connection, env);
+  const active = await fetchJson('https://www.googleapis.com/youtube/v3/liveBroadcasts?part=id,snippet,status&broadcastStatus=active&mine=true', {
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  const liveChatId = active.items?.[0]?.snippet?.liveChatId || '';
+  if (!liveChatId) {
+    await ExternalProviderConnection.updateOne({ _id: connection._id }, {
+      $set: {
+        youtubeLiveChatId: null, youtubePageToken: null,
+        youtubeNextPollAt: new Date(Date.now() + 60000), chatSyncStatus: 'idle',
+        chatSyncError: null, youtubePollLockUntil: null, chatSyncLastAt: new Date()
+      }
+    });
+    return;
+  }
+  const pageToken = connection.youtubeLiveChatId === liveChatId ? (connection.youtubePageToken || '') : '';
+  await ExternalProviderConnection.updateOne({ _id: connection._id }, {
+    $set: {
+      youtubeLiveChatId: liveChatId, youtubeNextPollAt: new Date(Date.now() + 60000),
+      chatSyncStatus: 'subscribed', chatSyncError: null, chatSyncLastAt: new Date()
+    }
+  });
+  const metadata = new grpc.Metadata();
+  metadata.add('authorization', 'Bearer ' + token);
+  const request = { liveChatId, part: ['id', 'snippet', 'authorDetails'] };
+  if (pageToken) request.pageToken = pageToken;
+  const stream = youtubeGrpcClient.streamList(request, metadata);
+  const entry = { stream, intentionalClose: false, leaseTimer: null, refreshTimer: null };
+  youtubeStreams.set(connectionId, entry);
+  entry.leaseTimer = setInterval(async () => {
+    try {
+      const lease = await ExternalProviderConnection.updateOne({
+        _id: connection._id, youtubePollLockUntil: { $gt: new Date() }
+      }, { $set: { youtubePollLockUntil: new Date(Date.now() + 60000), youtubeNextPollAt: new Date(Date.now() + 60000) } });
+      if (!lease.modifiedCount) {
+        entry.intentionalClose = true;
+        stream.cancel();
+        cleanupYouTubeStreamEntry(connectionId, entry);
+      }
+    } catch (error) {
+      console.error('YouTube chat lease renewal failed:', error.message);
+    }
+  }, 30000);
+  entry.leaseTimer.unref?.();
+  if (connection.expiresAt) {
+    const refreshIn = Math.max(30000, new Date(connection.expiresAt).getTime() - Date.now() - 60000);
+    entry.refreshTimer = setTimeout(async () => {
+      entry.intentionalClose = true;
+      stream.cancel();
+      cleanupYouTubeStreamEntry(connectionId, entry);
+      await ExternalProviderConnection.updateOne({ _id: connection._id }, {
+        $set: { youtubeNextPollAt: new Date(), youtubePollLockUntil: null }
+      });
+    }, Math.min(refreshIn, 2147480000));
+    entry.refreshTimer.unref?.();
+  }
+  stream.on('data', async (response) => {
+    if (response.nextPageToken) {
+      await ExternalProviderConnection.updateOne({ _id: connection._id }, { $set: { youtubePageToken: response.nextPageToken } }).catch(() => {});
+    }
+    const items = response.items || [];
+    const chatEnded = Boolean(response.offlineAt) || items.some(item => item.snippet?.type === 'CHAT_ENDED_EVENT');
+    for (const item of items) {
+      const snippet = item.snippet || {};
+      const author = item.authorDetails || {};
+      const message = snippet.textMessageDetails?.messageText || snippet.displayMessage || '';
+      if (!message || ['CHAT_ENDED_EVENT', 'TOMBSTONE', 'INVALID_TYPE'].includes(snippet.type)) continue;
+      try {
+        await ingestExternalChatMessage({
+          provider: 'youtube', externalUserId: connection.externalUserId,
+          externalMessageId: item.id, username: author.displayName || 'YouTube viewer',
+          message, io
+        });
+      } catch (error) {
+        console.error('YouTube Live Chat message import failed:', error.message);
+      }
+    }
+    if (chatEnded && youtubeStreams.get(connectionId) === entry) {
+      entry.intentionalClose = true;
+      stream.cancel();
+      cleanupYouTubeStreamEntry(connectionId, entry);
+      await ExternalProviderConnection.updateOne({ _id: connection._id }, {
+        $set: {
+          youtubeLiveChatId: null, youtubePageToken: null,
+          youtubeNextPollAt: new Date(Date.now() + 60000), youtubePollLockUntil: null,
+          chatSyncStatus: 'idle', chatSyncError: null, chatSyncLastAt: new Date()
+        }
+      });
+    }
+  });
+  stream.on('error', (error) => {
+    finishYouTubeStream(connectionId, entry, error).catch((finishError) => {
+      console.error('YouTube Live Chat stream cleanup failed:', finishError.message);
+    });
+  });
+  stream.on('end', () => {
+    finishYouTubeStream(connectionId, entry).catch((error) => {
+      console.error('YouTube Live Chat stream cleanup failed:', error.message);
+    });
+  });
+}
+
+let lastRetentionCleanupAt = 0;
+async function cleanupExpiredKickMessages() {
+  if (Date.now() - lastRetentionCleanupAt < 15 * 60 * 1000) return;
+  lastRetentionCleanupAt = Date.now();
+  const expired = await LiveStreamMessage.find({
+    externalProvider: 'kick', externalExpiresAt: { $lte: new Date() }
+  }).select('_id stream').limit(500).lean();
+  if (!expired.length) return;
+  const ids = expired.map(item => item._id);
+  await LiveStream.updateMany({ pinnedMessage: { $in: ids } }, {
+    $set: { pinnedMessage: null, pinnedBy: null, pinnedAt: null }
+  });
+  await LiveStreamMessage.deleteMany({ _id: { $in: ids } });
+}
+
+const youtubeStreams = new Map();
 let youtubePollTimer = null;
 let youtubePollInFlight = false;
 function startYouTubeChatSync(io, env = process.env) {
@@ -240,30 +403,29 @@ function startYouTubeChatSync(io, env = process.env) {
     if (youtubePollInFlight) return;
     youtubePollInFlight = true;
     try {
+      await cleanupExpiredKickMessages();
       const due = await ExternalProviderConnection.find({
         provider: 'youtube', status: 'connected',
         $or: [{ youtubeNextPollAt: null }, { youtubeNextPollAt: { $lte: new Date() } }]
       }).select('_id youtubeNextPollAt').limit(50).lean();
       for (const candidate of due) {
+        const connectionId = String(candidate._id);
+        if (youtubeStreams.has(connectionId)) continue;
         const connection = await ExternalProviderConnection.findOneAndUpdate({
           _id: candidate._id, provider: 'youtube', status: 'connected',
           $or: [{ youtubePollLockUntil: null }, { youtubePollLockUntil: { $lte: new Date() } }]
         }, { $set: { youtubePollLockUntil: new Date(Date.now() + 60000) } }, { new: true })
-          .select('+encryptedAccessToken +accessIv +accessAuthTag +encryptedRefreshToken +refreshIv +refreshAuthTag +youtubeLiveChatId +youtubePageToken +youtubeNextPollAt').lean();
+          .select('+encryptedAccessToken +accessIv +accessAuthTag +encryptedRefreshToken +refreshIv +refreshAuthTag +youtubeLiveChatId +youtubePageToken +youtubeNextPollAt expiresAt externalUserId').lean();
         if (!connection) continue;
-        try { await pollYouTubeConnection(connection, io, env); }
+        try { await openYouTubeChatStream(connection, io, env); }
         catch (error) {
-          const endedChat = error.status === 404 || (error.status === 403 && /liveChatEnded|liveChatNotFound/i.test(error.message));
           await ExternalProviderConnection.updateOne({ _id: connection._id }, {
             $set: {
-              chatSyncStatus: endedChat ? 'idle' : 'error',
-              chatSyncError: endedChat ? null : String(error.message).slice(0, 240),
-              ...(endedChat ? { youtubeLiveChatId: null, youtubePageToken: null } : {}),
-              youtubeNextPollAt: new Date(Date.now() + (endedChat ? 60000 : 120000)), chatSyncLastAt: new Date()
+              chatSyncStatus: 'error', chatSyncError: String(error.message).slice(0, 240),
+              youtubeNextPollAt: new Date(Date.now() + 120000), youtubePollLockUntil: null,
+              chatSyncLastAt: new Date()
             }
           });
-        } finally {
-          await ExternalProviderConnection.updateOne({ _id: connection._id }, { $set: { youtubePollLockUntil: null } });
         }
       }
     } catch (error) { console.error('YouTube live chat sync failed:', error.message); }
@@ -277,18 +439,33 @@ function startYouTubeChatSync(io, env = process.env) {
 function stopYouTubeChatSync() {
   if (youtubePollTimer) clearInterval(youtubePollTimer);
   youtubePollTimer = null;
+  for (const [connectionId, entry] of youtubeStreams.entries()) {
+    entry.intentionalClose = true;
+    streamCancel(entry.stream);
+    ExternalProviderConnection.updateOne({ _id: connectionId }, { $set: { youtubePollLockUntil: null, youtubeNextPollAt: new Date() } }).catch(() => {});
+    cleanupYouTubeStreamEntry(connectionId, entry);
+  }
+  youtubeGrpcClient.close();
 }
+function streamCancel(stream) { try { stream.cancel(); } catch {} }
 async function processTwitchWebhook(body, io) {
   const type = body?.metadata?.message_type;
+  if (type === 'revocation') {
+    const broadcasterId = String(body.payload?.subscription?.condition?.broadcaster_user_id || '');
+    if (broadcasterId) await ExternalProviderConnection.updateOne({ provider: 'twitch', externalUserId: broadcasterId }, {
+      $set: { chatSyncStatus: 'error', chatSyncError: 'Twitch revocó o canceló una suscripción EventSub. Volvé a vincular la cuenta si continúa el problema.' }
+    });
+    return { accepted: true, type };
+  }
   if (type !== 'notification') return { accepted: true, type };
   const subscriptionType = body.payload?.subscription?.type;
   const event = body.payload?.event || {};
-  const externalUserId = String(event.broadcaster_user_id || '');
+  const externalUserId = String(event.broadcaster_user_id || event.to_broadcaster_user_id || '');
   const messageId = String(event.message_id || body.metadata?.message_id || '');
   if (subscriptionType === 'channel.chat.message') {
     return ingestExternalChatMessage({
       provider: 'twitch', externalUserId, externalMessageId: messageId,
-      username: event.chatter_user_name || event.chatter_user_login || 'Twitch viewer',
+      username: event.chatter_user_login || event.chatter_user_name || 'Twitch viewer',
       message: event.message?.text || '', io
     });
   }
@@ -299,6 +476,7 @@ async function processTwitchWebhook(body, io) {
   else if (subscriptionType === 'channel.subscription.gift') summary = 'regaló ' + Number(event.total || 1) + ' suscripción(es)';
   else if (subscriptionType === 'stream.online') summary = 'inició una transmisión en Twitch';
   else if (subscriptionType === 'stream.offline') summary = 'finalizó su transmisión en Twitch';
+  else if (subscriptionType === 'channel.raid') summary = 'recibió una raid de ' + String(event.from_broadcaster_user_name || 'otro canal') + ' con ' + Number(event.viewers || 0) + ' espectadores';
   if (!summary) return { accepted: true, type: subscriptionType };
   return ingestExternalChatMessage({ provider: 'twitch', externalUserId, externalMessageId: messageId, username, message: summary, io });
 }
@@ -306,7 +484,8 @@ async function processKickWebhook(body, headers, io) {
   const eventType = headers['kick-event-type'] || '';
   const event = body?.data || body?.event || body || {};
   const broadcasterId = String(event.broadcaster?.user_id || event.broadcaster_user_id || '');
-  const sender = event.sender || event.follower || event.subscriber || event.gifter || event.redeemer || {};
+  if (!isValidKickEventPayload(eventType, event)) return { accepted: false, reason: 'invalid_event_payload' };
+  const sender = event.sender || event.follower || event.subscriber || event.gifter || event.redeemer || event.moderator || {};
   const messageId = String(event.message_id || headers['kick-event-message-id'] || '');
   if (eventType === 'chat.message.sent') {
     return ingestExternalChatMessage({
@@ -321,13 +500,83 @@ async function processKickWebhook(body, headers, io) {
   else if (eventType === 'channel.subscription.renewal') summary = 'renovó su suscripción';
   else if (eventType === 'channel.subscription.gifts') summary = 'regaló ' + ((event.giftees || []).length || 1) + ' suscripción(es)';
   else if (eventType === 'kicks.gifted') summary = 'envió ' + Number(event.gift?.amount || 0) + ' KICKs' + (event.gift?.message ? ': ' + event.gift.message : '');
+  else if (eventType === 'moderation.banned') summary = 'moderó a @' + String(event.banned_user.username) + (event.metadata?.reason ? ': ' + event.metadata.reason : '');
   else if (eventType === 'channel.reward.redemption.updated') summary = 'canjeó la recompensa ' + String(event.reward?.title || '');
   else if (eventType === 'livestream.status.updated') summary = event.is_live ? 'inició su transmisión en Kick' : 'finalizó su transmisión en Kick';
   else if (eventType === 'livestream.metadata.updated') summary = 'actualizó los datos de su transmisión en Kick';
   if (!summary) return { accepted: true, type: eventType };
   return ingestExternalChatMessage({ provider: 'kick', externalUserId: broadcasterId, externalMessageId: messageId, username, message: summary, io });
 }
+
+async function sendToLinkedProviders(owner, message, env = process.env) {
+  const text = typeof message === 'string' ? message.trim() : '';
+  if (!text || text.length > 500) return [];
+  const connections = await ExternalProviderConnection.find({ owner, status: 'connected' })
+    .select('provider externalUserId scopes expiresAt +encryptedAccessToken +accessIv +accessAuthTag +encryptedRefreshToken +refreshIv +refreshAuthTag +youtubeLiveChatId').lean();
+  return Promise.all(connections.map(async (connection) => {
+    const provider = connection.provider;
+    try {
+      const token = await getAccessToken(connection, env);
+      if (provider === 'twitch') {
+        if (!connection.scopes?.includes('user:write:chat')) return { provider, status: 'scope_missing' };
+        const credentials = getCredentials('twitch', env);
+        const response = await fetchJson('https://api.twitch.tv/helix/chat/messages', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token, 'Client-Id': credentials.clientId, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            broadcaster_id: connection.externalUserId,
+            sender_id: connection.externalUserId,
+            message: text
+          })
+        });
+        const result = response.data?.[0];
+        return { provider, status: result?.is_sent ? 'sent' : 'rejected', messageId: result?.message_id || null };
+      }
+      if (provider === 'kick') {
+        if (!connection.scopes?.includes('chat:write')) return { provider, status: 'scope_missing' };
+        const broadcasterId = Number(connection.externalUserId);
+        const graphemes = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)].length;
+        if (!Number.isSafeInteger(broadcasterId) || graphemes > 500 || Buffer.byteLength(text, 'utf8') > 2048) {
+          return { provider, status: 'message_not_supported' };
+        }
+        const response = await fetchJson('https://api.kick.com/public/v1/chat', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ broadcaster_user_id: broadcasterId, content: text, type: 'user' })
+        });
+        return { provider, status: response.data?.is_sent ? 'sent' : 'rejected', messageId: response.data?.message_id || null };
+      }
+      if (provider === 'youtube') {
+        if (!connection.scopes?.includes('https://www.googleapis.com/auth/youtube.force-ssl')) return { provider, status: 'scope_missing' };
+        if (!connection.youtubeLiveChatId) return { provider, status: 'no_active_live_chat' };
+        if ([...text].length > 200) return { provider, status: 'message_too_long' };
+        const url = new URL('https://www.googleapis.com/youtube/v3/liveChat/messages');
+        url.searchParams.set('part', 'snippet');
+        const response = await fetchJson(url, {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            snippet: {
+              liveChatId: connection.youtubeLiveChatId,
+              type: 'textMessageEvent',
+              textMessageDetails: { messageText: text }
+            }
+          })
+        });
+        return { provider, status: response.id ? 'sent' : 'rejected', messageId: response.id || null };
+      }
+      return { provider, status: 'unsupported' };
+    } catch (error) {
+      return { provider, status: 'error', message: String(error.message || 'Error del proveedor').slice(0, 160) };
+    }
+  }));
+}
+
+function isYouTubeStreamListAvailable() {
+  return Boolean(youtubeGrpcClient && typeof youtubeGrpcClient.streamList === 'function');
+}
+
 module.exports = {
-  ingestExternalChatMessage, processKickWebhook, processTwitchWebhook,
-  startYouTubeChatSync, stopYouTubeChatSync, subscribeProviderEvents, verifyKickWebhook, verifyTwitchEventSub
+  claimWebhookReceipt, cleanupExpiredKickMessages, completeWebhookReceipt, ingestExternalChatMessage, processKickWebhook, processTwitchWebhook, sendToLinkedProviders,
+  isValidKickEventPayload, isYouTubeStreamListAvailable, startYouTubeChatSync, stopYouTubeChatSync, subscribeProviderEvents, verifyKickWebhook, verifyTwitchEventSub
 };
