@@ -21,6 +21,7 @@ test('floating HUD is draggable and its visible actions work', () => {
   assert.match(service, /setOnTouchListener/);
   assert.match(service, /windowManager\.updateViewLayout/);
   assert.match(service, /getLaunchIntentForPackage/);
+  assert.match(service, /FLAG_ACTIVITY_CLEAR_TOP/);
   assert.match(service, /setText\("Ocultar HUD"\)/);
   assert.match(service, /private void hideHud\(\)/);
   assert.match(service, /if \(captureActive \|\| microphoneActive \|\| cameraActive\)/);
