@@ -13,6 +13,12 @@ const externalProviderConnectionSchema = new mongoose.Schema({
   refreshAuthTag: { type: String, default: null, select: false },
   scopes: { type: [String], default: [] },
   expiresAt: { type: Date, default: null },
+  chatSyncStatus: { type: String, enum: ['idle', 'subscribed', 'error'], default: 'idle' },
+  chatSyncError: { type: String, default: null, maxlength: 240 },
+  chatSyncLastAt: { type: Date, default: null },
+  youtubeLiveChatId: { type: String, default: null, select: false },
+  youtubePageToken: { type: String, default: null, select: false },
+  youtubeNextPollAt: { type: Date, default: null, index: true, select: false },
   status: { type: String, enum: ['connected', 'reauthorization_required'], default: 'connected', index: true },
   connectedAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
