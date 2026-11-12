@@ -6,7 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.os.Build
-import com.getcapacitor.ActivityResult
+import androidx.activity.result.ActivityResult
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -189,12 +189,4 @@ class NativeScreenSharePlugin : Plugin() {
         }
     }
 
-    override fun handleOnDestroy() {
-        pluginScope.launch {
-            try { room?.disconnect() } catch (_: Exception) {}
-            room = null
-            screenShareActive = false
-        }
-        super.handleOnDestroy()
-    }
 }
