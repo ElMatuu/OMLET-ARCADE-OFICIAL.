@@ -886,6 +886,10 @@
     <div id="settings-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
         <form id="streaming-settings-form" onsubmit="saveStreamingPreferences(event)" class="PLAYVERSE-card rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-5 border border-slate-800">
             <div class="flex items-center justify-between pb-3 border-b border-slate-800"><div><h3 class="font-black text-lg text-white">Ajustes de PLAYVERSE</h3><p class="text-xs text-slate-400">Accesibilidad y preferencias de creador</p></div><button type="button" onclick="closeSettingsModal()" class="text-slate-400" aria-label="Cerrar"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+            <section id="android-hud-settings" class="hidden space-y-3 rounded-2xl border border-orange-500/30 bg-orange-500/5 p-4">
+                <div><h4 class="text-xs font-black uppercase tracking-wider text-orange-300">HUD flotante de Android</h4><p class="mt-1 text-[11px] text-slate-400">Activá o volvé a configurar los controles flotantes mientras jugás. El permiso se administra desde Android.</p></div>
+                <button type="button" onclick="openPlayverseOverlayPermission()" class="w-full rounded-xl border border-orange-500/40 bg-orange-500/10 px-4 py-2.5 text-xs font-bold text-orange-200">Configurar HUD Android</button>
+            </section>
             <section class="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
                 <div><h4 class="text-xs font-black uppercase tracking-wider text-orange-300">Accesibilidad de la aplicación</h4><p class="text-[11px] text-slate-400 mt-1">Se guardan en tu cuenta y se aplican a esta interfaz.</p></div>
                 <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Reducir animaciones<input id="app-reduce-motion" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
@@ -1319,7 +1323,8 @@
             if (pendingFloatingAction) {
                 const action = pendingFloatingAction;
                 pendingFloatingAction = '';
-                switchTab(action);
+                if (['chat', 'live', 'lobbies', 'clubs'].includes(action)) switchTab(action);
+                else runFloatingAction(action).catch((error) => setLiveStatus('No se pudo ejecutar el control flotante: ' + error.message));
             }
             if (!friendsPresenceTimer) {
                 friendsPresenceTimer = setInterval(() => {
@@ -1366,35 +1371,56 @@
         }
 
         async function checkPlayverseOverlayPermission() {
-            const plugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.OverlayPermission;
-            if (!plugin || typeof plugin.check !== 'function') return { supported: false, granted: false };
-            try { return await plugin.check(); } catch { return { supported: false, granted: false }; }
+            const plugin = window.Capacitor?.Plugins?.ArcadeHud;
+            if (!plugin || typeof plugin.hasOverlayPermission !== 'function') return { supported: false, granted: false };
+            try {
+                const result = await plugin.hasOverlayPermission();
+                return { supported: true, granted: Boolean(result && result.granted) };
+            } catch { return { supported: false, granted: false }; }
         }
 
         async function openPlayverseOverlayPermission() {
             const status = document.getElementById('overlay-permission-status');
             const screen = document.getElementById('overlay-permission-screen');
-            const plugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.OverlayPermission;
-            if (!plugin) { status.textContent = 'Los controles flotantes requieren la aplicación Android instalada.'; return; }
+            const plugin = window.Capacitor?.Plugins?.ArcadeHud;
+            if (!plugin) { status.textContent = 'El HUD nativo no está disponible en esta compilación.'; return; }
+            screen.classList.remove('hidden');
+            screen.classList.add('flex');
             try {
-                const permission = await plugin.check();
-                if (!permission.granted) { await plugin.request(); status.textContent = 'Android abrió el permiso. Activá Mostrar sobre otras apps y volvé a PLAYVERSE.'; return; }
-                await plugin.startBubble();
-                status.textContent = 'Controles flotantes activados. La burbuja se acopla al borde para no tapar el juego.';
-                screen.classList.add('hidden'); screen.classList.remove('flex');
+                const permission = await plugin.hasOverlayPermission();
+                if (!permission.granted) {
+                    await plugin.openOverlaySettings();
+                    status.textContent = 'Android abrió Ajustes. Permití Mostrar sobre otras apps y volvé a PLAYVERSE.';
+                    return;
+                }
+                await plugin.startHud();
+                status.textContent = 'HUD flotante activo. La transmisión no se inicia automáticamente.';
+                screen.classList.add('hidden');
+                screen.classList.remove('flex');
                 localStorage.setItem('pv-overlay-permission-dismissed', '1');
-            } catch (error) { status.textContent = 'No se pudieron activar los controles: ' + error.message; }
+            } catch (error) {
+                status.textContent = 'No se pudieron activar los controles: ' + (error?.message || 'error desconocido');
+            }
         }
+
         function setupOverlayPermissionPrompt() {
             if (!window.Capacitor || window.Capacitor.getPlatform() !== 'android') return;
             const screen = document.getElementById('overlay-permission-screen');
             const enable = document.getElementById('overlay-permission-enable');
             const later = document.getElementById('overlay-permission-later');
             const status = document.getElementById('overlay-permission-status');
+            document.getElementById('android-hud-settings')?.classList.remove('hidden');
             if (!screen || localStorage.getItem('pv-overlay-permission-dismissed') === '1') return;
             checkPlayverseOverlayPermission().then((permission) => {
-                status.textContent = permission.granted ? 'Permiso concedido. Activá los controles cuando quieras.' : 'Android te pedirá autorización para mostrar la burbuja sobre los juegos.';
-                enable.textContent = permission.granted ? 'Activar burbuja flotante' : 'Habilitar permiso';
+                if (!permission.supported) {
+                    status.textContent = 'El módulo nativo del HUD no está instalado en esta compilación. No se solicitarán permisos.';
+                    enable.disabled = true;
+                    enable.textContent = 'HUD no disponible';
+                } else {
+                    enable.disabled = false;
+                    status.textContent = permission.granted ? 'Permiso concedido. Podés activar el HUD flotante.' : 'El permiso es opcional y Android lo administra desde Ajustes.';
+                    enable.textContent = permission.granted ? 'Activar HUD flotante' : 'Habilitar controles flotantes';
+                }
                 screen.classList.remove('hidden');
                 screen.classList.add('flex');
             });
@@ -1407,15 +1433,68 @@
             const verifyOnReturn = async () => {
                 const permission = await checkPlayverseOverlayPermission();
                 if (permission.granted) {
-                    status.textContent = 'Permiso habilitado. Tocá Activar burbuja flotante para iniciar los controles.';
-                    enable.textContent = 'Activar burbuja flotante';
+                    status.textContent = 'Permiso habilitado. Tocá Activar HUD flotante para iniciar los controles.';
+                    enable.textContent = 'Activar HUD flotante';
+                    enable.disabled = false;
                 }
             };
             window.addEventListener('focus', verifyOnReturn);
             document.addEventListener('visibilitychange', () => { if (!document.hidden) verifyOnReturn(); });
         }
 
-        window.addEventListener('DOMContentLoaded', async () => {
+        async function runFloatingAction(action) {
+            const allowed = ['chat', 'live', 'lobbies', 'clubs', 'stream_chat', 'screen_share_toggle', 'microphone_toggle', 'camera_toggle', 'end_stream'];
+            if (!allowed.includes(action)) return;
+            if (!authToken) { pendingFloatingAction = action; return; }
+            if (['chat', 'live', 'lobbies', 'clubs'].includes(action)) {
+                switchTab(action);
+                return;
+            }
+            if (action === 'stream_chat') {
+                switchTab('live');
+                document.getElementById('live-chat-messages')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                document.getElementById('live-chat-input')?.focus();
+                return;
+            }
+            if (action === 'screen_share_toggle') {
+                switchTab('live');
+                if (activeLiveStreamRole !== 'publisher') {
+                    setLiveStatus('Primero iniciá un directo para compartir la pantalla.');
+                } else if (window.Capacitor?.getPlatform?.() === 'android') {
+                    setLiveStatus('La captura de pantalla nativa de Android requiere el puente de MediaProjection; no se iniciará una captura web no compatible.');
+                } else {
+                    await toggleLiveScreenShare();
+                }
+                return;
+            }
+            if (action === 'microphone_toggle' || action === 'camera_toggle') {
+                switchTab('live');
+                if (activeLiveStreamRole !== 'publisher') {
+                    setLiveStatus('Primero iniciá tu transmisión para controlar el micrófono o la cámara.');
+                    return;
+                }
+                if (action === 'microphone_toggle') await toggleLiveMicrophone();
+                else await toggleLiveCamera();
+                return;
+            }
+            if (action === 'end_stream') {
+                if (activeLiveStreamRole === 'publisher') await endLiveStream();
+                else setLiveStatus('No hay una transmisión propia activa para finalizar.');
+            }
+        }
+
+        function syncFloatingHudChat() {
+            const plugin = window.Capacitor?.Plugins?.ArcadeHud;
+            const container = document.getElementById('live-chat-messages');
+            if (!plugin || typeof plugin.updateHudChat !== 'function' || !container) return;
+            const messages = Array.from(container.querySelectorAll('[data-message-id]')).slice(-6).map((item) => ({
+                username: item.querySelector('strong')?.textContent || 'Jugador',
+                message: item.querySelector('p')?.textContent || ''
+            }));
+            plugin.updateHudChat({ messages: JSON.stringify(messages) }).catch(() => {});
+        }
+
+                window.addEventListener('DOMContentLoaded', async () => {
             const progress = document.getElementById('splash-progress');
             const status = document.getElementById('splash-status');
             const stages = [
@@ -1446,15 +1525,14 @@
                 setTimeout(() => splash.remove(), 460);
             }
             setupOverlayPermissionPrompt();
-            const overlayPlugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.OverlayPermission;
+            const hudPlugin = window.Capacitor?.Plugins?.ArcadeHud;
             function consumeFloatingAction() {
-                if (!overlayPlugin || typeof overlayPlugin.consumePendingAction !== 'function') return;
-                overlayPlugin.consumePendingAction().then(function(result) {
+                if (!hudPlugin || typeof hudPlugin.consumePendingAction !== 'function') return;
+                hudPlugin.consumePendingAction().then((result) => {
                     const action = result && result.action;
-                    if (!['chat', 'live', 'lobbies', 'clubs'].includes(action)) return;
-                    if (authToken) switchTab(action);
-                    else pendingFloatingAction = action;
-                }).catch(function() {});
+                    if (!action) return;
+                    runFloatingAction(action).catch((error) => setLiveStatus('No se pudo ejecutar el control flotante: ' + error.message));
+                }).catch(() => {});
             }
             consumeFloatingAction();
             window.addEventListener('focus', consumeFloatingAction);
@@ -5522,6 +5600,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             container.appendChild(item);
             while (container.children.length > 100) container.firstElementChild.remove();
             container.scrollTop = container.scrollHeight;
+            syncFloatingHudChat();
         }
 
         function renderLiveChatPinnedMessage(message) {
