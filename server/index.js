@@ -521,13 +521,57 @@ const cameraVideo=document.getElementById('camera');
 const audioTracks=document.getElementById('audio-tracks');
 let overlayRoom=null;
 let overlayStopped=false;
+let overlayConnectInProgress=false;
 const set=(id,value)=>{document.getElementById(id).textContent=value||''};
+function attachOverlayTrack(track,publication){
+ const source=publication.source;
+ if(source===LivekitClient.Track.Source.ScreenShare){
+  track.attach(screenVideo);screenVideo.style.display='block';root.classList.remove('camera-only');
+ }else if(source===LivekitClient.Track.Source.Camera){
+  track.attach(cameraVideo);cameraVideo.style.display='block';
+  if(!screenVideo.srcObject)root.classList.add('camera-only');
+ }else if(track.kind==='audio'){
+  const audio=track.attach();audio.autoplay=true;audio.controls=false;audioTracks.appendChild(audio);audio.play().catch(()=>{});
+ }
+}
+function detachOverlayTrack(track){
+ track.detach().forEach(element=>{
+  if(element===screenVideo){screenVideo.srcObject=null;screenVideo.style.display='none';root.classList.toggle('camera-only',Boolean(cameraVideo.srcObject));}
+  else if(element===cameraVideo){cameraVideo.srcObject=null;cameraVideo.style.display='none';root.classList.add('camera-only');}
+  else if(element&&element.tagName==='AUDIO')element.remove();
+ });
+}
+async function connectOverlayRoom(){
+ if(overlayStopped||overlayConnectInProgress||!window.LivekitClient)return;
+ overlayConnectInProgress=true;
+ try{
+  if(overlayRoom){const previous=overlayRoom;overlayRoom=null;await previous.disconnect();}
+  const response=await fetch('/api/public/stream-overlay/'+encodeURIComponent(token)+'/session',{method:'POST',cache:'no-store'});
+  if(response.status===404){overlayStopped=true;set('title','Transmisión finalizada');return}
+  if(!response.ok)throw new Error('No se pudo obtener acceso de video ('+response.status+')');
+  const data=await response.json();
+  const room=new LivekitClient.Room({adaptiveStream:true,dynacast:true});
+  room.on(LivekitClient.RoomEvent.TrackSubscribed,attachOverlayTrack);
+  room.on(LivekitClient.RoomEvent.TrackUnsubscribed,detachOverlayTrack);
+  room.on(LivekitClient.RoomEvent.Disconnected,()=>{
+   if(overlayRoom===room){overlayRoom=null;setTimeout(connectOverlayRoom,5000);}
+  });
+  await room.connect(data.liveKit.url,data.liveKit.token);
+  overlayRoom=room;
+  setTimeout(connectOverlayRoom,8*60*1000);
+ }catch(error){
+  set('title','Composición de video reconectando…');
+  setTimeout(connectOverlayRoom,30000);
+ }finally{overlayConnectInProgress=false}
+}
 async function refresh(){
  try{
   const response=await fetch('/api/public/stream-overlay/'+encodeURIComponent(token),{cache:'no-store'});
-  if(!response.ok){set('title','Transmisión finalizada');set('creator','PLAYVERSE');set('viewers','');set('watermark','');root.removeAttribute('data-product');return}
+  if(!response.ok){overlayStopped=true;if(overlayRoom){const oldRoom=overlayRoom;overlayRoom=null;oldRoom.disconnect()}set('title','Transmisión finalizada');set('creator','PLAYVERSE');set('viewers','');set('watermark','');root.removeAttribute('data-product');return}
   const data=await response.json();const p=data.overlay||{};
-  root.className='theme-'+(p.theme||'arcade')+' layout-'+(p.layout||'wide');
+  root.className='theme-'+(p.theme||'arcade')+' layout-'+(p.layout||'wide')+(screenVideo.srcObject?'':' camera-only');
+  cameraVideo.dataset.position=p.cameraPosition||'bottom-right';
+  cameraVideo.dataset.frame=p.cameraFrame||'none';
   if(p.equippedOverlay&&/^overlay-[a-z0-9-]+$/.test(p.equippedOverlay.id||''))root.dataset.product=p.equippedOverlay.id;else root.removeAttribute('data-product');
   set('creator','@'+(data.stream.creator||''));
   set('title',data.stream.title);
@@ -538,7 +582,7 @@ async function refresh(){
   set('viewers',p.showViewerCount?(Number.isInteger(data.viewerCount)?'● '+data.viewerCount+' espectadores':'● espectadores no disponibles'):'');
  }catch{set('title','Reconectando…')}
 }
-refresh();setInterval(refresh,5000);
+refresh();connectOverlayRoom();setInterval(refresh,5000);
 </script></body></html>`);
 });
 
