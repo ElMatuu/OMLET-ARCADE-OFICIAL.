@@ -1721,6 +1721,7 @@
                     return;
                 }
                 if (action === 'microphone_toggle' || action === 'camera_toggle') {
+                    switchTab('live');
                     if (!nativeShare) { setLiveStatus('El control nativo de medios no está disponible en esta compilación.'); return; }
                     try {
                         const result = action === 'microphone_toggle'
