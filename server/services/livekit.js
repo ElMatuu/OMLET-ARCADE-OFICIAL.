@@ -47,7 +47,8 @@ async function createParticipantToken({ config, identity, name, metadata, roomNa
     room: roomName,
     canPublish: Boolean(canPublish),
     canSubscribe: true,
-    canPublishData: Boolean(canPublish)
+    canPublishData: Boolean(canPublish),
+    ...(Array.isArray(arguments) ? {} : {})
   });
   return token.toJwt();
 }
