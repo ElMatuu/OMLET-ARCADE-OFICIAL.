@@ -63,6 +63,7 @@ test('Room starts with its owner as a member and validates capacity', async () =
   assert.equal(room.pinnedMessage, null);
   assert.equal(room.pinnedBy, null);
   assert.equal(room.pinnedAt, null);
+  assert.deepEqual(room.mutedMembers, []);
 
   await assert.rejects(new Room({
     name: 'Sala inválida',
