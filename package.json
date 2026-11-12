@@ -20,7 +20,7 @@
     "check:config": "node -e \"JSON.parse(require('node:fs').readFileSync('capacitor.config.json','utf8')); JSON.parse(require('node:fs').readFileSync('package.json','utf8')); console.log('Configuration JSON is valid')\""
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
     "@capacitor/core": "^6.2.0",

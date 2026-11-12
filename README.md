@@ -66,7 +66,7 @@ The API uses MongoDB. LiveKit requires `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIV
 
 ## Development requirements
 
-- Node.js 20 or newer.
+- Node.js 22 or newer.
 - MongoDB (replica set for transaction-dependent integration tests).
 - Android Studio + Android SDK for Android builds.
 - Windows build environment for Windows installers.
