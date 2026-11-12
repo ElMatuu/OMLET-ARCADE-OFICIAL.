@@ -13,7 +13,7 @@ if (!fs.existsSync(source)) {
 
 fs.mkdirSync(outputDir, { recursive: true });
 let html = fs.readFileSync(source, 'utf8');
-html = html.replace('</body>', '    <script src="/external-integrations-ui.js" defer></script>\\n</body>');
+html = html.replace('</body>', '    <script src="/external-integrations-ui.js" defer></script>\n</body>');
 fs.writeFileSync(output, html);
 const configuredApiUrl = typeof process.env.PLAYVERSE_API_URL === 'string' ? process.env.PLAYVERSE_API_URL.trim() : '';
 const runtimeConfig = 'window.PLAYVERSE_API_URL = window.PLAYVERSE_API_URL || ' + JSON.stringify(configuredApiUrl) + ';\n';
