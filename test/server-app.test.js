@@ -245,6 +245,43 @@ test('live stream chat history and message creation require authentication', asy
   });
 });
 
+test('live stream chat moderation actions require authentication', async () => {
+  await withServer(async (baseUrl) => {
+    const streamId = '507f1f77bcf86cd799439011';
+    const messageId = '507f1f77bcf86cd799439012';
+    const pin = await fetch(baseUrl + '/api/streams/' + streamId + '/messages/' + messageId + '/pin', { method: 'POST' });
+    const unpin = await fetch(baseUrl + '/api/streams/' + streamId + '/pin', { method: 'DELETE' });
+    const remove = await fetch(baseUrl + '/api/streams/' + streamId + '/messages/' + messageId, { method: 'DELETE' });
+    assert.equal(pin.status, 401);
+    assert.equal(unpin.status, 401);
+    assert.equal(remove.status, 401);
+  });
+});
+
+test('live stream chat moderation rejects malformed identifiers before database access', async () => {
+  const jwt = require('jsonwebtoken');
+  const mongoose = require('mongoose');
+  const token = jwt.sign({
+    sub: new mongoose.Types.ObjectId().toString(),
+    username: 'ordinary_player',
+    role: 'user'
+  }, process.env.JWT_SECRET, {
+    algorithm: 'HS256',
+    expiresIn: '5m',
+    issuer: 'playverse-api',
+    audience: 'playverse-clients'
+  });
+  await withServer(async (baseUrl) => {
+    const headers = { Authorization: 'Bearer ' + token };
+    const pin = await fetch(baseUrl + '/api/streams/not-an-id/messages/not-an-id/pin', { method: 'POST', headers });
+    const unpin = await fetch(baseUrl + '/api/streams/not-an-id/pin', { method: 'DELETE', headers });
+    const remove = await fetch(baseUrl + '/api/streams/not-an-id/messages/not-an-id', { method: 'DELETE', headers });
+    assert.equal(pin.status, 400);
+    assert.equal(unpin.status, 400);
+    assert.equal(remove.status, 400);
+  });
+});
+
 test('live stream chat rejects malformed stream identifiers before database access', async () => {
   const jwt = require('jsonwebtoken');
   const mongoose = require('mongoose');
