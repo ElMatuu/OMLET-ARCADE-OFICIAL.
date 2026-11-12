@@ -147,7 +147,8 @@ async function revokeConnection(connection, env = process.env) {
   const credentials = getCredentials(connection.provider, env);
   if (!credentials) return false;
   try {
-    const token = connection.encryptedRefreshToken && connection.refreshIv && connection.refreshAuthTag
+    const useRefreshToken = connection.provider !== 'twitch' && connection.encryptedRefreshToken && connection.refreshIv && connection.refreshAuthTag;
+    const token = useRefreshToken
       ? decryptSecret(connection.encryptedRefreshToken, connection.refreshIv, connection.refreshAuthTag, env)
       : decryptSecret(connection.encryptedAccessToken, connection.accessIv, connection.accessAuthTag, env);
     let url;
