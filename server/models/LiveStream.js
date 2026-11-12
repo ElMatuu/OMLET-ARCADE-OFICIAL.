@@ -6,6 +6,7 @@ const liveStreamSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true, maxlength: 100 },
   game: { type: String, default: 'Otro', trim: true, maxlength: 60 },
   description: { type: String, default: '', trim: true, maxlength: 500 },
+  customWatermark: { type: String, default: '', trim: true, maxlength: 40 },
   roomName: { type: String, required: true, unique: true, immutable: true },
   overlayTokenHash: { type: String, default: null, select: false },
   pinnedMessage: { type: mongoose.Schema.Types.ObjectId, ref: 'LiveStreamMessage', default: null },
