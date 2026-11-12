@@ -36,3 +36,20 @@ test('web, Android and desktop bundle includes navigation asset and app cache', 
   assert.match(prepare, /<script src="\/playverse-navigation\.js" defer><\/script>/);
   assert.match(serviceWorker, /'\/playverse-navigation\.js'/);
 });
+
+
+test('contextual navigation covers the full app instead of only primary tabs', () => {
+  for (const section of ['feed','live','chat','lobbies','friends','clubs','tournaments','events','saved','notifications','help']) {
+    assert.match(navigation, new RegExp(section + ': \\{ id:'));
+  }
+  assert.match(navigation, /installContextNavigation/);
+  assert.match(navigation, /Destacados/);
+  assert.match(navigation, /Crear directo/);
+  assert.match(navigation, /Solicitudes recibidas/);
+  assert.match(navigation, /Enviar monedas/);
+});
+test('desktop rail includes support and the store exposes its full wallet journey', () => {
+  assert.match(navigation, /help:'Ayuda'/);
+  assert.match(navigation, /PLAYVERSE Plus/);
+  assert.match(navigation, /wallet-gift-form/);
+});
