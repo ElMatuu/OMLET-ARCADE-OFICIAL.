@@ -247,7 +247,7 @@ app.get('/api/streams', async (req, res, next) => {
   try {
     const streams = await LiveStream.find({ status: 'live' })
       .sort({ startedAt: -1 }).limit(50)
-      .select('ownerUsername title description startedAt').lean();
+      .select('ownerUsername title game description startedAt').lean();
     return res.json({
       success: true,
       streamingEnabled: Boolean(getLiveKitConfig()),
@@ -255,6 +255,7 @@ app.get('/api/streams', async (req, res, next) => {
         id: String(stream._id),
         creator: stream.ownerUsername,
         title: stream.title,
+        game: stream.game || 'Otro',
         description: stream.description,
         startedAt: stream.startedAt
       }))
@@ -310,7 +311,8 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
     const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
     const title = typeof body.title === 'string' ? body.title.trim() : '';
     const description = typeof body.description === 'string' ? body.description.trim() : '';
-    if (!title || title.length > 100 || description.length > 500) {
+    const game = typeof body.game === 'string' ? body.game.trim() : '';
+    if (!title || title.length > 100 || description.length > 500 || !game || game.length > 60) {
       return res.status(400).json({ success: false, message: 'El título es obligatorio (máximo 100 caracteres) y la descripción admite hasta 500.' });
     }
     const existingStream = await LiveStream.findOne({ owner: req.auth.sub, status: 'live' }).select('_id title').lean();
@@ -330,6 +332,7 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
       owner: req.auth.sub,
       ownerUsername: user.username,
       title,
+      game,
       description,
       roomName,
       overlayTokenHash,
@@ -348,7 +351,7 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
       });
       return res.status(201).json({
         success: true,
-        stream: { id: String(session._id), title: session.title, description: session.description, status: session.status, startedAt: session.startedAt },
+        stream: { id: String(session._id), title: session.title, game: session.game, description: session.description, status: session.status, startedAt: session.startedAt },
         liveKit: { url: config.clientUrl, token, role: 'publisher', expiresInSeconds: 600 },
         overlay: { url: req.protocol + '://' + req.get('host') + '/overlay/' + overlayAccessToken, refreshIntervalMs: 5000 }
       });
@@ -402,7 +405,7 @@ app.post('/api/streams/:streamId/token', requireAuth, streamLimiter, async (req,
     });
     return res.json({
       success: true,
-      stream: { id: String(session._id), title: session.title, creator: session.ownerUsername, status: session.status },
+      stream: { id: String(session._id), title: session.title, game: session.game || 'Otro', creator: session.ownerUsername, status: session.status },
       liveKit: { url: config.clientUrl, token, role, expiresInSeconds: 600 }
     });
   } catch (error) { return next(error); }
