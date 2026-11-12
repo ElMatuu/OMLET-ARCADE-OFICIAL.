@@ -37,4 +37,5 @@ test('self-hosted LiveKit includes its shared Redis bus and a matching Egress wo
   assert.match(livekitConfig, /redis:\n  address: redis:6379/);
   assert.match(egressConfig, /redis:\n  address: redis:6379/);
   assert.match(egressConfig, /ws_url: ws:\/\/livekit:7880/);
+  assert.match(egressConfig, /insecure: true/);
 });
