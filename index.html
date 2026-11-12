@@ -4878,6 +4878,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         }
         function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
         let liveKitRoom = null;
+        let nativeScreenShareActive = false;
         let liveCompositeBroadcast = null;
         let activeLiveStream = null;
         let activeLiveStreamRole = null;
@@ -5169,7 +5170,12 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
                 attachLiveTrack(track, participant);
                 const status = document.getElementById('live-player-status');
-                if (status) status.textContent = 'Conectado · recibiendo audio/video en tiempo real.';
+                const isScreenShare = track && track.kind === 'video' && track.source === LivekitClient.Track.Source.ScreenShare;
+                if (isScreenShare && activeLiveStreamRole === 'publisher') {
+                    if (status) status.textContent = 'Captura nativa conectada: la pantalla del juego ya se está enviando a los espectadores.';
+                } else if (status) {
+                    status.textContent = 'Conectado · recibiendo audio/video en tiempo real.';
+                }
             });
             const updateParticipantCount = () => {
                 const count = room.numParticipants;
@@ -5567,8 +5573,31 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         }
 
         async function toggleLiveScreenShare() {
-            if (!liveKitRoom || activeLiveStreamRole !== 'publisher') return;
+            if (!liveKitRoom || activeLiveStreamRole !== 'publisher' || !activeLiveStream) return;
             try {
+                const isAndroid = window.Capacitor && window.Capacitor.getPlatform() === 'android';
+                if (isAndroid) {
+                    const nativePlugin = window.Capacitor.Plugins && window.Capacitor.Plugins.NativeScreenShare;
+                    if (!nativePlugin || typeof nativePlugin.start !== 'function') {
+                        throw new Error('Esta compilación no incluye el módulo nativo de captura. Actualizá la aplicación.');
+                    }
+                    if (nativeScreenShareActive) {
+                        await nativePlugin.stop();
+                        nativeScreenShareActive = false;
+                        document.getElementById('live-player-status').textContent = 'Captura de pantalla detenida. El juego ya no se está compartiendo.';
+                        return;
+                    }
+                    document.getElementById('live-player-status').textContent = 'Android va a pedir permiso para compartir la pantalla. Elegí iniciar ahora para transmitir el juego.';
+                    const credentials = await apiRequest('/api/streams/' + encodeURIComponent(activeLiveStream.id) + '/token', { method: 'POST' });
+                    if (!credentials.liveKit || !credentials.liveKit.url || !credentials.liveKit.token) {
+                        throw new Error('El servidor no entregó credenciales temporales de captura.');
+                    }
+                    await nativePlugin.start({ url: credentials.liveKit.url, token: credentials.liveKit.token });
+                    nativeScreenShareActive = true;
+                    document.getElementById('live-player-status').textContent = 'Permiso concedido. Conectando la captura nativa del juego…';
+                    return;
+                }
+
                 const enabling = !liveCompositeBroadcast && !liveKitRoom.localParticipant.isScreenShareEnabled;
                 if (enabling) {
                     await liveKitRoom.localParticipant.setScreenShareEnabled(true, {
@@ -5601,10 +5630,19 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                     applyLocalCameraPresentation(document.getElementById('live-local-preview'));
                     document.getElementById('live-player-status').textContent = 'Compartir pantalla finalizado.';
                 }
-            } catch (error) { document.getElementById('live-player-status').textContent = 'No se pudo compartir la pantalla: ' + error.message; }
+            } catch (error) {
+                document.getElementById('live-player-status').textContent = 'No se pudo compartir la pantalla: ' + error.message;
+            }
         }
 
         async function closeLivePlayer() {
+            if (nativeScreenShareActive) {
+                const nativePlugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.NativeScreenShare;
+                try { if (nativePlugin && typeof nativePlugin.stop === 'function') await nativePlugin.stop(); } catch (error) {
+                    console.warn('Native screen capture cleanup failed:', error);
+                }
+                nativeScreenShareActive = false;
+            }
             if (liveCompositeBroadcast) await stopLiveCompositeBroadcast({ restoreCamera: false, stopScreen: true });
             if (liveKitRoom) await liveKitRoom.disconnect();
             liveKitRoom = null;
