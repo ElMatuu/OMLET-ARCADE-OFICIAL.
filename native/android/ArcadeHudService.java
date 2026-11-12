@@ -15,6 +15,8 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -176,8 +178,7 @@ public class ArcadeHudService extends Service {
 
     private void togglePanel() {
         if (panel != null) {
-            try { windowManager.removeView(panel); } catch (IllegalArgumentException ignored) {}
-            panel = null;
+            removePanelAnimated();
             return;
         }
         LinearLayout card = new LinearLayout(this);
@@ -250,6 +251,23 @@ public class ArcadeHudService extends Service {
         panelParams.x = bubbleParams.x;
         panelParams.y = bubbleParams.y + 64;
         windowManager.addView(panel, panelParams);
+        panel.startAnimation(AnimationUtils.loadAnimation(this, R.anim.playverse_panel_enter));
+    }
+
+    private void removePanelAnimated() {
+        if (panel == null) return;
+        final View closingPanel = panel;
+        panel = null;
+        Animation exit = AnimationUtils.loadAnimation(this, R.anim.playverse_panel_exit);
+        exit.setAnimationListener(new Animation.AnimationListener() {
+            @Override public void onAnimationStart(Animation animation) {}
+            @Override public void onAnimationRepeat(Animation animation) {}
+            @Override public void onAnimationEnd(Animation animation) {
+                try { windowManager.removeView(closingPanel); }
+                catch (IllegalArgumentException ignored) {}
+            }
+        });
+        closingPanel.startAnimation(exit);
     }
 
     private String formatChatPreview(String rawMessages) {
@@ -275,10 +293,7 @@ public class ArcadeHudService extends Service {
 
     private void hideHud() {
         getSharedPreferences("arcade_hud", MODE_PRIVATE).edit().putBoolean("hud_hidden", true).putBoolean("hud_enabled", false).apply();
-        if (panel != null) {
-            windowManager.removeView(panel);
-            panel = null;
-        }
+        removePanelAnimated();
         if (bubble != null) {
             try { windowManager.removeView(bubble); } catch (IllegalArgumentException ignored) {}
             bubble = null;
