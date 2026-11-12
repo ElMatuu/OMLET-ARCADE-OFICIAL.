@@ -908,6 +908,7 @@
         let activeRoomName = '';
         let activeVoiceRoom = null;
         let activeVoiceMuted = false;
+        let roomVoiceJoinGeneration = 0;
         let roomSocket = null;
         let roomSocketJoined = false;
         let socketScriptLoading = false;
@@ -2710,6 +2711,7 @@
             }
             if (!activeRoomId) return;
             const joiningRoomId = activeRoomId;
+            const joiningGeneration = ++roomVoiceJoinGeneration;
             const sdk = window.LivekitClient;
             if (!sdk || !sdk.Room || !sdk.RoomEvent) {
                 setRoomVoiceStatus('No se pudo cargar el módulo de voz. Recargá la aplicación e intentá otra vez.', true);
@@ -2743,7 +2745,7 @@
                 });
                 await voiceRoom.connect(data.liveKit.url, data.liveKit.token);
                 await voiceRoom.localParticipant.setMicrophoneEnabled(true);
-                if (activeRoomId !== joiningRoomId) {
+                if (activeRoomId !== joiningRoomId || joiningGeneration !== roomVoiceJoinGeneration) {
                     await voiceRoom.disconnect();
                     return;
                 }
@@ -2758,15 +2760,18 @@
                 setRoomVoiceStatus('Conectado al canal de voz de ' + data.room.name + '. Micrófono activo.');
             } catch (error) {
                 if (voiceRoom) { try { await voiceRoom.disconnect(); } catch {} }
-                activeVoiceRoom = null;
-                resetRoomVoiceControls();
-                setRoomVoiceStatus(error.message || 'No se pudo conectar a la voz grupal.', true);
+                if (joiningGeneration === roomVoiceJoinGeneration) {
+                    activeVoiceRoom = null;
+                    resetRoomVoiceControls();
+                    setRoomVoiceStatus(error.message || 'No se pudo conectar a la voz grupal.', true);
+                }
             } finally {
-                button.disabled = false;
+                if (joiningGeneration === roomVoiceJoinGeneration) button.disabled = false;
             }
         }
 
         function closeRoomChat() {
+            roomVoiceJoinGeneration += 1;
             document.getElementById('room-chat-modal').classList.add('hidden');
             if (activeVoiceRoom) {
                 const currentVoiceRoom = activeVoiceRoom;
