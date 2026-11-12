@@ -145,24 +145,27 @@ async function subscribeProviderEvents(provider, owner, env = process.env) {
         return { subscribed: false, reason: 'events:subscribe_scope_missing' };
       }
       const token = await getAccessToken(connection, env);
-      const response = await fetchJson('https://api.kick.com/public/v1/events/subscriptions', {
+      const desiredEvents = [
+        { name: 'chat.message.sent', version: 1 },
+        { name: 'channel.followed', version: 1 },
+        { name: 'channel.subscription.new', version: 1 },
+        { name: 'channel.subscription.renewal', version: 1 },
+        { name: 'channel.subscription.gifts', version: 1 },
+        { name: 'channel.reward.redemption.updated', version: 1 },
+        { name: 'livestream.status.updated', version: 1 },
+        { name: 'livestream.metadata.updated', version: 1 },
+        { name: 'kicks.gifted', version: 1 }
+      ];
+      const existing = await fetchJson('https://api.kick.com/public/v1/events/subscriptions', {
+        headers: { Authorization: 'Bearer ' + token }
+      }).catch(() => ({ data: [] }));
+      const existingNames = new Set((existing.data || []).map(item => item.event || item.name));
+      const missingEvents = desiredEvents.filter(item => !existingNames.has(item.name));
+      const response = missingEvents.length ? await fetchJson('https://api.kick.com/public/v1/events/subscriptions', {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          method: 'webhook',
-          events: [
-            { name: 'chat.message.sent', version: 1 },
-            { name: 'channel.followed', version: 1 },
-            { name: 'channel.subscription.new', version: 1 },
-            { name: 'channel.subscription.renewal', version: 1 },
-            { name: 'channel.subscription.gifts', version: 1 },
-            { name: 'channel.reward.redemption.updated', version: 1 },
-            { name: 'livestream.status.updated', version: 1 },
-            { name: 'livestream.metadata.updated', version: 1 },
-            { name: 'kicks.gifted', version: 1 }
-          ]
-        })
-      });
+        body: JSON.stringify({ method: 'webhook', events: missingEvents })
+      }) : { data: [] };
       await ExternalProviderConnection.updateOne({ _id: connection._id }, { $set: { chatSyncStatus: 'subscribed', chatSyncError: null, updatedAt: new Date() } });
       return { subscribed: true, data: response.data || [] };
     }
@@ -240,8 +243,14 @@ function startYouTubeChatSync(io, env = process.env) {
       const due = await ExternalProviderConnection.find({
         provider: 'youtube', status: 'connected',
         $or: [{ youtubeNextPollAt: null }, { youtubeNextPollAt: { $lte: new Date() } }]
-      }).select('+encryptedAccessToken +accessIv +accessAuthTag +encryptedRefreshToken +refreshIv +refreshAuthTag externalUserId youtubeLiveChatId youtubePageToken youtubeNextPollAt').limit(50).lean();
-      for (const connection of due) {
+      }).select('_id youtubeNextPollAt').limit(50).lean();
+      for (const candidate of due) {
+        const connection = await ExternalProviderConnection.findOneAndUpdate({
+          _id: candidate._id, provider: 'youtube', status: 'connected',
+          $or: [{ youtubePollLockUntil: null }, { youtubePollLockUntil: { $lte: new Date() } }]
+        }, { $set: { youtubePollLockUntil: new Date(Date.now() + 60000) } }, { new: true })
+          .select('+encryptedAccessToken +accessIv +accessAuthTag +encryptedRefreshToken +refreshIv +refreshAuthTag +youtubeLiveChatId +youtubePageToken +youtubeNextPollAt').lean();
+        if (!connection) continue;
         try { await pollYouTubeConnection(connection, io, env); }
         catch (error) {
           const endedChat = error.status === 404 || (error.status === 403 && /liveChatEnded|liveChatNotFound/i.test(error.message));
@@ -253,6 +262,8 @@ function startYouTubeChatSync(io, env = process.env) {
               youtubeNextPollAt: new Date(Date.now() + (endedChat ? 60000 : 120000)), chatSyncLastAt: new Date()
             }
           });
+        } finally {
+          await ExternalProviderConnection.updateOne({ _id: connection._id }, { $set: { youtubePollLockUntil: null } });
         }
       }
     } catch (error) { console.error('YouTube live chat sync failed:', error.message); }
