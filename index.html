@@ -1631,15 +1631,15 @@
             try {
                 await apiRequest('/api/me/notifications/' + encodeURIComponent(notificationId) + '/read', { method: 'PUT' });
                 switchTab('friends');
-                await loadGroupConversations();
-                const groups = await apiRequest('/api/group-conversations');
-                const group = (groups.groups || []).find(item => String(item.id) === String(groupId));
+                const groups = await loadGroupConversations();
+                const group = groups.find(item => String(item.id) === String(groupId));
+                await refreshNotificationBadge();
                 if (!group) {
-                    if (status) status.textContent = 'La invitación ya no está disponible o ya no pertenecés a ese grupo.';
+                    const groupStatus = document.getElementById('group-list-status');
+                    if (groupStatus) groupStatus.textContent = 'La invitación ya no está disponible o ya no pertenecés a ese grupo.';
                     return;
                 }
                 await openGroupConversation(group);
-                await refreshNotificationBadge();
             } catch (error) {
                 if (status) status.textContent = error.message || 'No se pudo abrir el grupo desde la notificación.';
             }
@@ -3979,13 +3979,13 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         async function loadGroupConversations() {
             const status = document.getElementById('group-list-status');
             const list = document.getElementById('group-conversations-list');
-            if (!status || !list || !authToken) return;
+            if (!status || !list || !authToken) return [];
             status.textContent = 'Cargando grupos…';
             try {
                 const data = await apiRequest('/api/group-conversations');
                 list.replaceChildren();
                 const groups = data.groups || [];
-                if (!groups.length) { status.textContent = 'Todavía no participás en grupos. Creá uno e invitá a tus amigos.'; return; }
+                if (!groups.length) { status.textContent = 'Todavía no participás en grupos. Creá uno e invitá a tus amigos.'; return groups; }
                 status.textContent = groups.length + ' grupo(s) activo(s).';
                 groups.forEach(group => {
                     const button = document.createElement('button');
@@ -4004,7 +4004,8 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                     button.addEventListener('click', () => openGroupConversation(group));
                     list.appendChild(button);
                 });
-            } catch (error) { status.textContent = 'No se pudieron cargar los grupos: ' + error.message; }
+                return groups;
+            } catch (error) { status.textContent = 'No se pudieron cargar los grupos: ' + error.message; return []; }
         }
 
         async function createGroupConversation(event) {
