@@ -4,12 +4,14 @@ on:
   push:
     branches:
       - main
+      - feat/playverse-brand-foundation
+      - fix/livekit-token-ttl-10m
+      - feat/mission-campaign-expansion
       - feat/arcade-hud-game-discovery
   pull_request:
     branches:
       - main
       - feat/profile-menu-achievements
-      - feat/arcade-hud-game-discovery
 
 jobs:
   test:
