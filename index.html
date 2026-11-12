@@ -1032,6 +1032,41 @@
         const SESSION_KEY = 'playverse_session_token';
         let authToken = sessionStorage.getItem(SESSION_KEY);
         let pendingFloatingAction = '';
+
+        async function runFloatingAction(action) {
+                        if (!action) return;
+                        if (!authToken) { pendingFloatingAction = action; return; }
+                        if (action === 'chat') { switchTab('chat'); return; }
+                        if (action === 'live' || action === 'lobbies' || action === 'clubs') { switchTab(action); return; }
+                        if (action === 'stream_chat') {
+                            switchTab('live');
+                            document.getElementById('stream-chat-messages')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            document.getElementById('stream-chat-input')?.focus();
+                            return;
+                        }
+                        if (action === 'screen_share_toggle') {
+                            if (activeLiveStreamRole === 'publisher') await toggleLiveScreenShare();
+                            else { switchTab('live'); setLiveStatus('Primero iniciá un directo; después usá Capturar juego en el HUD.'); }
+                            return;
+                        }
+                        if (action === 'microphone_toggle' || action === 'camera_toggle') {
+                            switchTab('live');
+                            if (activeLiveStreamRole !== 'publisher') {
+                                setLiveStatus('Primero iniciá tu transmisión para controlar el micrófono o la cámara.');
+                                return;
+                            }
+                            try {
+                                if (action === 'microphone_toggle') await toggleLiveMicrophone();
+                                else await toggleLiveCamera();
+                            } catch (error) { setLiveStatus('No se pudo cambiar el control: ' + error.message); }
+                            return;
+                        }
+                        if (action === 'end_stream') {
+                            if (activeLiveStreamRole === 'publisher') await endLiveStream();
+                            else setLiveStatus('No hay una transmisión propia activa para finalizar.');
+                        }
+                    }
+
         let appState = { username: '', walletTokens: 0, walletBalances: { gold: 0, purple: 0, diamond: 0 }, profile: null };
         let activeRoomId = null;
         let activeRoomName = '';
@@ -1703,39 +1738,6 @@
             if (authToken) checkPendingExperienceRewards();
             setupOverlayPermissionPrompt();
             const overlayPlugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.ArcadeHud;
-            async function runFloatingAction(action) {
-                if (!action) return;
-                if (!authToken) { pendingFloatingAction = action; return; }
-                if (action === 'chat') { switchTab('chat'); return; }
-                if (action === 'live' || action === 'lobbies' || action === 'clubs') { switchTab(action); return; }
-                if (action === 'stream_chat') {
-                    switchTab('live');
-                    document.getElementById('stream-chat-messages')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    document.getElementById('stream-chat-input')?.focus();
-                    return;
-                }
-                if (action === 'screen_share_toggle') {
-                    if (activeLiveStreamRole === 'publisher') await toggleLiveScreenShare();
-                    else { switchTab('live'); setLiveStatus('Primero iniciá un directo; después usá Capturar juego en el HUD.'); }
-                    return;
-                }
-                if (action === 'microphone_toggle' || action === 'camera_toggle') {
-                    switchTab('live');
-                    if (activeLiveStreamRole !== 'publisher') {
-                        setLiveStatus('Primero iniciá tu transmisión para controlar el micrófono o la cámara.');
-                        return;
-                    }
-                    try {
-                        if (action === 'microphone_toggle') await toggleLiveMicrophone();
-                        else await toggleLiveCamera();
-                    } catch (error) { setLiveStatus('No se pudo cambiar el control: ' + error.message); }
-                    return;
-                }
-                if (action === 'end_stream') {
-                    if (activeLiveStreamRole === 'publisher') await endLiveStream();
-                    else setLiveStatus('No hay una transmisión propia activa para finalizar.');
-                }
-            }
             function consumeFloatingAction() {
                 if (!overlayPlugin || typeof overlayPlugin.consumePendingAction !== 'function') return;
                 overlayPlugin.consumePendingAction().then(function(result) {
