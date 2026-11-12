@@ -3,20 +3,13 @@ name: Omlet Arcade Windows installer
 on:
   push:
     branches:
-      - main      - feat/native-android-floating-hud
-
+      - main
+      - feat/arcade-hud-game-discovery
   pull_request:
     branches:
-      - main      - feat/profile-menu-achievements
-
-  workflow_dispatch:
-
-permissions:
-  contents: read
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+      - main
+      - feat/profile-menu-achievements
+      - feat/arcade-hud-game-discovery
 
 jobs:
   build-windows:
