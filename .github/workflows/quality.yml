@@ -83,15 +83,16 @@ jobs:
             const hello = db.hello();
             if (!hello.isWritablePrimary || hello.setName !== \"rs0\") quit(2);
             const database = db.getSiblingDB(\"playverse\");
-            database.__pv_transaction_smoke.createIndex({marker: 1});
+            const collection = database.getCollection("__pv_transaction_smoke");
+            collection.createIndex({marker: 1});
             const marker = \"ci-\" + new Date().getTime();
             const session = db.getMongo().startSession();
             const txdb = session.getDatabase(\"playverse\");
             session.startTransaction();
-            txdb.__pv_transaction_smoke.insertOne({marker});
+            txdb.getCollection("__pv_transaction_smoke").insertOne({marker});
             session.commitTransaction();
             session.endSession();
-            database.__pv_transaction_smoke.deleteOne({marker});
+            collection.deleteOne({marker});
           "'
       - name: Run unit and multi-user integration tests
         run: npm test
