@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const compose = fs.readFileSync(path.join(__dirname, '..', 'docker-compose.yml'), 'utf8');
+const replicaInit = fs.readFileSync(path.join(__dirname, '..', 'docker', 'mongo-init-replica-set.sh'), 'utf8');
 
 test('self-hosted MongoDB enables authenticated transactions through a replica set', () => {
   assert.match(compose, /--replSet", "rs0"/);
