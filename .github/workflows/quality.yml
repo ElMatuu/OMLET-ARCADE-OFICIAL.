@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feat/store-catalog-discovery
       - feat/playverse-brand-foundation
   pull_request:
     branches:
