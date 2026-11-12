@@ -3,10 +3,12 @@ name: Omlet Arcade Android test APK
 on:
   push:
     branches:
-      - main
+      - main      - feat/native-android-floating-hud
+
   pull_request:
     branches:
-      - main
+      - main      - feat/profile-menu-achievements
+
   workflow_dispatch:
 
 permissions:
