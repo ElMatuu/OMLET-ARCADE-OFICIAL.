@@ -10,6 +10,74 @@ if (!fs.existsSync(androidRoot)) {
   console.error('Android platform is not generated yet. Run npx cap add android first.');
   process.exit(1);
 }
+
+const animationDir = path.join(resources, 'anim');
+fs.mkdirSync(animationDir, { recursive: true });
+const animationResources = {
+  'playverse_fade_in.xml': '<?xml version="1.0" encoding="utf-8"?>\n<alpha xmlns:android="http://schemas.android.com/apk/res/android" android:duration="180" android:interpolator="@android:anim/decelerate_interpolator" android:fromAlpha="0.0" android:toAlpha="1.0" />',
+  'playverse_fade_out.xml': '<?xml version="1.0" encoding="utf-8"?>\n<alpha xmlns:android="http://schemas.android.com/apk/res/android" android:duration="150" android:interpolator="@android:anim/accelerate_interpolator" android:fromAlpha="1.0" android:toAlpha="0.0" />',
+  'playverse_panel_enter.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:shareInterpolator="false"><scale android:duration="220" android:interpolator="@android:anim/decelerate_interpolator" android:pivotX="50%" android:pivotY="100%" android:fromXScale="0.9" android:toXScale="1.0" android:fromYScale="0.9" android:toYScale="1.0" /><alpha android:duration="180" android:interpolator="@android:anim/decelerate_interpolator" android:fromAlpha="0.0" android:toAlpha="1.0" /></set>',
+  'playverse_panel_exit.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:shareInterpolator="false"><scale android:duration="170" android:interpolator="@android:anim/accelerate_interpolator" android:pivotX="50%" android:pivotY="100%" android:fromXScale="1.0" android:toXScale="0.9" android:fromYScale="1.0" android:toYScale="0.9" /><alpha android:duration="150" android:interpolator="@android:anim/accelerate_interpolator" android:fromAlpha="1.0" android:toAlpha="0.0" /></set>',
+  'playverse_slide_in_up.xml': '<?xml version="1.0" encoding="utf-8"?>\n<translate xmlns:android="http://schemas.android.com/apk/res/android" android:duration="220" android:interpolator="@android:anim/decelerate_interpolator" android:fromYDelta="50%p" android:toYDelta="0" />',
+  'playverse_slide_in_down.xml': '<?xml version="1.0" encoding="utf-8"?>\n<translate xmlns:android="http://schemas.android.com/apk/res/android" android:duration="220" android:interpolator="@android:anim/decelerate_interpolator" android:fromYDelta="-50%p" android:toYDelta="0" />',
+  'playverse_slide_out_down.xml': '<?xml version="1.0" encoding="utf-8"?>\n<translate xmlns:android="http://schemas.android.com/apk/res/android" android:duration="180" android:interpolator="@android:anim/accelerate_interpolator" android:fromYDelta="0" android:toYDelta="50%p" />',
+  'playverse_slide_out_up.xml': '<?xml version="1.0" encoding="utf-8"?>\n<translate xmlns:android="http://schemas.android.com/apk/res/android" android:duration="180" android:interpolator="@android:anim/accelerate_interpolator" android:fromYDelta="0" android:toYDelta="-50%p" />',
+  'playverse_fade_translate_left.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:interpolator="@android:anim/accelerate_decelerate_interpolator" android:shareInterpolator="false"><alpha android:duration="150" android:fromAlpha="1.0" android:toAlpha="0.0" /><translate android:duration="200" android:fromXDelta="0" android:toXDelta="-30%p" /></set>',
+  'playverse_fade_translate_right.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:interpolator="@android:anim/accelerate_decelerate_interpolator" android:shareInterpolator="false"><alpha android:duration="150" android:fromAlpha="1.0" android:toAlpha="0.0" /><translate android:duration="200" android:fromXDelta="0" android:toXDelta="30%p" /></set>',
+  'playverse_float_drift.xml': '<?xml version="1.0" encoding="utf-8"?>\n<translate xmlns:android="http://schemas.android.com/apk/res/android" android:duration="1600" android:fromYDelta="0" android:toYDelta="16" android:repeatCount="infinite" android:repeatMode="reverse" android:interpolator="@android:anim/accelerate_decelerate_interpolator" />',
+  'playverse_reveal_ripple.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:shareInterpolator="false"><scale android:duration="600" android:pivotX="0%" android:pivotY="50%" android:fromXScale="0" android:toXScale="1" android:fromYScale="1" android:toYScale="1" android:repeatCount="infinite" android:interpolator="@android:anim/linear_interpolator" /><alpha android:duration="600" android:fromAlpha="1" android:toAlpha="0" android:repeatCount="infinite" android:interpolator="@android:anim/linear_interpolator" /></set>',
+  'playverse_rise_in.xml': '<?xml version="1.0" encoding="utf-8"?>\n<translate xmlns:android="http://schemas.android.com/apk/res/android" android:duration="260" android:interpolator="@android:anim/decelerate_interpolator" android:fromYDelta="100%p" android:toYDelta="0" />',
+  'playverse_rise_out.xml': '<?xml version="1.0" encoding="utf-8"?>\n<translate xmlns:android="http://schemas.android.com/apk/res/android" android:duration="220" android:interpolator="@android:anim/accelerate_interpolator" android:fromYDelta="0" android:toYDelta="100%p" />',
+  'playverse_scale_fade_expand.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:shareInterpolator="false"><scale android:duration="500" android:interpolator="@android:anim/decelerate_interpolator" android:pivotX="50%" android:pivotY="50%" android:fromXScale="0" android:toXScale="1" android:fromYScale="0" android:toYScale="1" /><alpha android:duration="500" android:interpolator="@android:anim/accelerate_interpolator" android:fromAlpha="1" android:toAlpha="0" /></set>',
+  'playverse_enter_from_bottom_fade.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:duration="150" android:interpolator="@android:anim/decelerate_interpolator" android:shareInterpolator="true"><translate android:fromYDelta="20%p" android:toYDelta="0" /><alpha android:fromAlpha="0" android:toAlpha="1" /></set>',
+  'playverse_enter_from_right_fade.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:duration="150" android:interpolator="@android:anim/decelerate_interpolator" android:shareInterpolator="true"><translate android:fromXDelta="20%p" android:toXDelta="0" /><alpha android:fromAlpha="0" android:toAlpha="1" /></set>',
+  'playverse_exit_to_bottom_fade.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:duration="150" android:interpolator="@android:anim/accelerate_interpolator" android:shareInterpolator="true"><translate android:fromYDelta="0" android:toYDelta="20%p" /><alpha android:fromAlpha="1" android:toAlpha="0" /></set>',
+  'playverse_exit_to_right_fade.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:duration="150" android:interpolator="@android:anim/accelerate_interpolator" android:shareInterpolator="true"><translate android:fromXDelta="0" android:toXDelta="20%p" /><alpha android:fromAlpha="1" android:toAlpha="0" /></set>',
+  'playverse_alpha_in.xml': '<?xml version="1.0" encoding="utf-8"?>\n<alpha xmlns:android="http://schemas.android.com/apk/res/android" android:duration="220" android:interpolator="@android:anim/decelerate_interpolator" android:fromAlpha="0" android:toAlpha="1" />',
+  'playverse_alpha_out.xml': '<?xml version="1.0" encoding="utf-8"?>\n<alpha xmlns:android="http://schemas.android.com/apk/res/android" android:duration="180" android:interpolator="@android:anim/accelerate_interpolator" android:fromAlpha="1" android:toAlpha="0" />',
+  'playverse_scale_fade_pop.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:shareInterpolator="false"><scale android:duration="500" android:interpolator="@android:anim/decelerate_interpolator" android:pivotX="50%" android:pivotY="50%" android:fromXScale="0" android:toXScale="1" android:fromYScale="0" android:toYScale="1" /><alpha android:duration="500" android:interpolator="@android:anim/accelerate_interpolator" android:fromAlpha="1" android:toAlpha="0" /></set>',
+  'playverse_particle_burst_a.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:interpolator="@android:anim/accelerate_decelerate_interpolator" android:fillAfter="true"><translate android:duration="400" android:fromYDelta="0" android:toYDelta="-45" /><translate android:duration="200" android:startOffset="400" android:fromXDelta="0" android:toXDelta="-20" android:fromYDelta="0" android:toYDelta="-50" /><translate android:duration="400" android:startOffset="600" android:fromXDelta="0" android:toXDelta="40" android:fromYDelta="0" android:toYDelta="-55" /><alpha android:duration="400" android:startOffset="600" android:fromAlpha="1" android:toAlpha="0" /></set>',
+  'playverse_particle_burst_b.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:interpolator="@android:anim/accelerate_decelerate_interpolator" android:fillAfter="true"><translate android:duration="400" android:fromYDelta="0" android:toYDelta="-40" /><translate android:duration="300" android:startOffset="400" android:fromXDelta="0" android:toXDelta="30" android:fromYDelta="0" android:toYDelta="-55" /><translate android:duration="300" android:startOffset="700" android:fromXDelta="0" android:toXDelta="-20" android:fromYDelta="0" android:toYDelta="-60" /><alpha android:duration="400" android:startOffset="600" android:fromAlpha="1" android:toAlpha="0" /></set>',
+  'playverse_particle_burst_c.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:interpolator="@android:anim/accelerate_decelerate_interpolator" android:fillAfter="true"><translate android:duration="400" android:fromYDelta="0" android:toYDelta="-40" /><translate android:duration="200" android:startOffset="400" android:fromXDelta="0" android:toXDelta="-40" android:fromYDelta="0" android:toYDelta="-50" /><translate android:duration="400" android:startOffset="600" android:fromXDelta="0" android:toXDelta="10" android:fromYDelta="0" android:toYDelta="-60" /><alpha android:duration="400" android:startOffset="600" android:fromAlpha="1" android:toAlpha="0" /></set>',
+  'playverse_rotate_loop.xml': '<?xml version="1.0" encoding="utf-8"?>\n<rotate xmlns:android="http://schemas.android.com/apk/res/android" android:interpolator="@android:anim/linear_interpolator" android:duration="1000" android:fromDegrees="0" android:toDegrees="360" android:pivotX="50%" android:pivotY="50%" android:repeatCount="infinite" />',
+  'playverse_scale_bounce.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:interpolator="@android:anim/accelerate_decelerate_interpolator" android:shareInterpolator="true"><scale android:duration="400" android:pivotX="50%" android:pivotY="50%" android:fromXScale="1" android:toXScale="1.2" android:fromYScale="1" android:toYScale="1.2" /><scale android:duration="100" android:startOffset="400" android:pivotX="50%" android:pivotY="50%" android:fromXScale="1" android:toXScale="0.83" android:fromYScale="1" android:toYScale="0.83" /></set>',
+  'playverse_enter_from_left_fade.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:interpolator="@android:anim/decelerate_interpolator" android:shareInterpolator="false"><alpha android:duration="300" android:fromAlpha="0" android:toAlpha="1" /><translate android:duration="200" android:fromXDelta="-50%p" android:toXDelta="0" /></set>',
+  'playverse_enter_from_right_full.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:interpolator="@android:anim/decelerate_interpolator" android:shareInterpolator="false"><alpha android:duration="300" android:fromAlpha="0" android:toAlpha="1" /><translate android:duration="200" android:fromXDelta="50%p" android:toXDelta="0" /></set>',
+  'playverse_exit_to_left_full.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:interpolator="@android:anim/accelerate_interpolator" android:shareInterpolator="false"><alpha android:duration="150" android:fromAlpha="1" android:toAlpha="0" /><translate android:duration="200" android:fromXDelta="0" android:toXDelta="-50%p" /></set>',
+  'playverse_exit_to_right_full.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:interpolator="@android:anim/accelerate_interpolator" android:shareInterpolator="false"><alpha android:duration="150" android:fromAlpha="1" android:toAlpha="0" /><translate android:duration="200" android:fromXDelta="0" android:toXDelta="50%p" /></set>',
+  'playverse_shake_up.xml': '<?xml version="1.0" encoding="utf-8"?>\n<translate xmlns:android="http://schemas.android.com/apk/res/android" android:interpolator="@android:anim/accelerate_decelerate_interpolator" android:duration="500" android:repeatCount="12" android:repeatMode="reverse" android:fromYDelta="0" android:toYDelta="-20" />',
+  'playverse_shake_right.xml': '<?xml version="1.0" encoding="utf-8"?>\n<translate xmlns:android="http://schemas.android.com/apk/res/android" android:interpolator="@android:anim/accelerate_decelerate_interpolator" android:duration="500" android:repeatCount="12" android:repeatMode="reverse" android:fromXDelta="0" android:toXDelta="20" />',
+  'playverse_shake_left.xml': '<?xml version="1.0" encoding="utf-8"?>\n<translate xmlns:android="http://schemas.android.com/apk/res/android" android:interpolator="@android:anim/accelerate_decelerate_interpolator" android:duration="500" android:repeatCount="12" android:repeatMode="reverse" android:fromXDelta="0" android:toXDelta="-20" />',
+  'playverse_shake_down.xml': '<?xml version="1.0" encoding="utf-8"?>\n<translate xmlns:android="http://schemas.android.com/apk/res/android" android:interpolator="@android:anim/accelerate_decelerate_interpolator" android:duration="500" android:repeatCount="12" android:repeatMode="reverse" android:fromYDelta="0" android:toYDelta="20" />'
+};
+const interpolatorDir = path.join(resources, 'interpolator');
+fs.mkdirSync(interpolatorDir, { recursive: true });
+fs.writeFileSync(path.join(interpolatorDir, 'playverse_smooth_curve.xml'), '<?xml version="1.0" encoding="utf-8"?>\n<pathInterpolator xmlns:android="http://schemas.android.com/apk/res/android" android:controlX1="0.4" android:controlY1="0.0" android:controlX2="0.6" android:controlY2="1.0" />\n');
+for (const [name, xml] of Object.entries(animationResources)) {
+  fs.writeFileSync(path.join(animationDir, name), xml + String.fromCharCode(10));
+}
+
+const animatorDir = path.join(resources, 'animator');
+fs.mkdirSync(animatorDir, { recursive: true });
+const animatorResources = {
+  'playverse_pop_in.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:ordering="together"><objectAnimator android:propertyName="scaleX" android:duration="199" android:valueFrom="0.0" android:valueTo="1.0" android:valueType="floatType" android:interpolator="@android:anim/overshoot_interpolator" /><objectAnimator android:propertyName="scaleY" android:duration="199" android:valueFrom="0.0" android:valueTo="1.0" android:valueType="floatType" android:interpolator="@android:anim/overshoot_interpolator" /></set>',
+  'playverse_pop_out.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:ordering="together"><objectAnimator android:propertyName="scaleX" android:duration="200" android:valueFrom="1.0" android:valueTo="0.0" android:valueType="floatType" android:interpolator="@android:anim/accelerate_interpolator" /><objectAnimator android:propertyName="scaleY" android:duration="200" android:valueFrom="1.0" android:valueTo="0.0" android:valueType="floatType" android:interpolator="@android:anim/accelerate_interpolator" /></set>',
+  'playverse_pulse.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:ordering="together"><objectAnimator android:propertyName="scaleX" android:duration="166" android:valueFrom="1.0" android:valueTo="0.9" android:valueType="floatType" /><objectAnimator android:propertyName="scaleY" android:duration="166" android:valueFrom="1.0" android:valueTo="0.9" android:valueType="floatType" /></set>',
+  'playverse_slide_left_in.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:ordering="together"><objectAnimator android:propertyName="translationX" android:duration="200" android:valueFrom="-15" android:valueTo="0" android:valueType="floatType" /><objectAnimator android:propertyName="alpha" android:duration="300" android:valueFrom="0" android:valueTo="1" android:valueType="floatType" /></set>',
+  'playverse_slide_right_in.xml': '<?xml version="1.0" encoding="utf-8"?>\n<set xmlns:android="http://schemas.android.com/apk/res/android" android:ordering="together"><objectAnimator android:propertyName="translationX" android:duration="200" android:valueFrom="15" android:valueTo="0" android:valueType="floatType" /><objectAnimator android:propertyName="alpha" android:duration="300" android:valueFrom="0" android:valueTo="1" android:valueType="floatType" /></set>'
+};
+for (const [name, xml] of Object.entries(animatorResources)) {
+  fs.writeFileSync(path.join(animatorDir, name), xml + String.fromCharCode(10));
+}
+
+const stateAnimatorResources = {
+  'playverse_elevation_states.xml': '<?xml version="1.0" encoding="utf-8"?>\n<selector xmlns:android="http://schemas.android.com/apk/res/android"><item android:state_enabled="true"><objectAnimator android:duration="180" android:valueTo="8dp" android:valueType="floatType" android:propertyName="elevation" /></item><item><objectAnimator android:duration="0" android:valueTo="0dp" android:valueType="floatType" android:propertyName="elevation" /></item></selector>',
+  'playverse_elevation_default.xml': '<?xml version="1.0" encoding="utf-8"?>\n<selector xmlns:android="http://schemas.android.com/apk/res/android"><item><objectAnimator android:duration="1" android:valueTo="8dp" android:valueType="floatType" android:propertyName="elevation" /></item></selector>'
+};
+for (const [name, xml] of Object.entries(stateAnimatorResources)) {
+  fs.writeFileSync(path.join(animatorDir, name), xml + String.fromCharCode(10));
+}
+
 if (!fs.existsSync(path.join(generated, 'playverse_foreground.png'))) {
   console.error('Generated brand assets are missing. Run node scripts/generate-icons.js first.');
   process.exit(1);
@@ -353,7 +421,10 @@ public class FloatingControlsService extends Service {
         panelParams = params(224,-2,Gravity.TOP | Gravity.LEFT);
         panelParams.x = Math.max(dp(8), Math.min(bubbleParams.x - dp(165), getResources().getDisplayMetrics().widthPixels - dp(232)));
         panelParams.y = Math.max(dp(30), Math.min(bubbleParams.y - dp(110), getResources().getDisplayMetrics().heightPixels - dp(260)));
-        manager.addView(panel,panelParams); expanded = true;
+        manager.addView(panel,panelParams);
+        android.view.animation.Animation entrance = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.playverse_panel_enter);
+        panel.startAnimation(entrance);
+        expanded = true;
     }
 
     private void launchApp(String action) {
@@ -365,7 +436,19 @@ public class FloatingControlsService extends Service {
     }
 
     private void hidePanel() {
-        if (panel != null) { try { manager.removeView(panel); } catch (Exception ignored) {} panel = null; }
+        if (panel != null) {
+            final View closingPanel = panel;
+            android.view.animation.Animation exit = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.playverse_panel_exit);
+            exit.setAnimationListener(new android.view.animation.Animation.AnimationListener() {
+                @Override public void onAnimationStart(android.view.animation.Animation animation) {}
+                @Override public void onAnimationRepeat(android.view.animation.Animation animation) {}
+                @Override public void onAnimationEnd(android.view.animation.Animation animation) {
+                    try { manager.removeView(closingPanel); } catch (Exception ignored) {}
+                }
+            });
+            closingPanel.startAnimation(exit);
+            panel = null;
+        }
         expanded = false;
     }
 
