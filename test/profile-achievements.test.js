@@ -20,4 +20,7 @@ test('achievement rewards are claimed through the authenticated API and safe tex
   assert.match(html, /title\.textContent = achievement\.title/);
   assert.match(html, /desc\.textContent = achievement\.description/);
   assert.match(html, /body\.textContent = post\.content/);
+  assert.match(html, /id="drawer-profile-banner"/);
+  assert.match(html, /id="drawer-avatar"/);
+  assert.match(html, /onclick="openDrawerProfile\(\)"/);
 });
