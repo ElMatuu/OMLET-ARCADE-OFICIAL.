@@ -64,6 +64,8 @@ for (const [attribute, value] of [['android:icon', '@mipmap/ic_launcher'], ['and
 manifest = manifest.replace(application[0], appTag);
 
 const permissions = [
+  '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />',
+  '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />',
   '    <uses-permission android:name="android.permission.CAMERA" />',
   '    <uses-permission android:name="android.permission.RECORD_AUDIO" />',
   '    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />',
@@ -141,6 +143,147 @@ let activity = fs.readFileSync(activityPath, 'utf8');
 const packageMatch = activity.match(/^package\s+([\w.]+);/m);
 if (!packageMatch) throw new Error('Could not determine Android application package for overlay permission bridge.');
 const javaPackage = packageMatch[1];
+const nativeScreenSharePath = path.join(path.dirname(activityPath), 'NativeScreenSharePlugin.kt');
+const nativeScreenShareSource = `package ${javaPackage}
+
+import android.app.Activity
+import android.content.Context
+import android.content.Intent
+import android.media.projection.MediaProjectionManager
+import androidx.activity.result.ActivityResult
+import com.getcapacitor.JSObject
+import com.getcapacitor.Plugin
+import com.getcapacitor.PluginCall
+import com.getcapacitor.PluginMethod
+import com.getcapacitor.annotation.ActivityCallback
+import com.getcapacitor.annotation.CapacitorPlugin
+import io.livekit.android.LiveKit
+import io.livekit.android.room.Room
+import io.livekit.android.room.track.screencapture.ScreenCaptureParams
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+
+@CapacitorPlugin(name = "NativeScreenShare")
+class NativeScreenSharePlugin : Plugin() {
+    private val pluginScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var nativeRoom: Room? = null
+
+    @PluginMethod
+    fun start(call: PluginCall) {
+        if (nativeRoom != null) {
+            call.reject("La captura nativa ya está activa.")
+            return
+        }
+        val url = call.getString("url")?.trim().orEmpty()
+        val token = call.getString("token")?.trim().orEmpty()
+        if (url.isBlank() || token.isBlank()) {
+            call.reject("Faltan las credenciales temporales de LiveKit.")
+            return
+        }
+        val manager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        startActivityForResult(call, manager.createScreenCaptureIntent(), "screenCapturePermissionResult")
+    }
+
+    @ActivityCallback
+    private fun screenCapturePermissionResult(call: PluginCall?, result: ActivityResult) {
+        if (call == null) return
+        val data = result.data
+        if (result.resultCode != Activity.RESULT_OK || data == null) {
+            call.reject("Cancelaste el permiso de captura de pantalla.")
+            return
+        }
+        val url = call.getString("url")?.trim().orEmpty()
+        val token = call.getString("token")?.trim().orEmpty()
+        pluginScope.launch {
+            var candidate: Room? = null
+            try {
+                candidate = LiveKit.create(context)
+                candidate.connect(url, token)
+                val published = candidate.localParticipant.setScreenShareEnabled(
+                    true,
+                    ScreenCaptureParams(data)
+                )
+                if (!published) {
+                    candidate.disconnect()
+                    candidate.release()
+                    call.reject("LiveKit no pudo publicar la pantalla.")
+                    return@launch
+                }
+                nativeRoom = candidate
+                val resultData = JSObject()
+                resultData.put("active", true)
+                resultData.put("source", "android-media-projection")
+                call.resolve(resultData)
+            } catch (error: Exception) {
+                try { candidate?.disconnect() } catch (_: Exception) {}
+                try { candidate?.release() } catch (_: Exception) {}
+                call.reject("No se pudo iniciar la captura nativa: ${error.message}", error)
+            }
+        }
+    }
+
+    @PluginMethod
+    fun stop(call: PluginCall) {
+        val active = nativeRoom
+        if (active == null) {
+            val result = JSObject()
+            result.put("active", false)
+            call.resolve(result)
+            return
+        }
+        pluginScope.launch {
+            try {
+                active.localParticipant.setScreenShareEnabled(false)
+                active.disconnect()
+                active.release()
+                nativeRoom = null
+                val result = JSObject()
+                result.put("active", false)
+                call.resolve(result)
+            } catch (error: Exception) {
+                call.reject("No se pudo detener la captura nativa: ${error.message}", error)
+            }
+        }
+    }
+
+    override fun handleOnDestroy() {
+        pluginScope.cancel()
+        nativeRoom?.let { active ->
+            pluginScope.launch {
+                try { active.localParticipant.setScreenShareEnabled(false) } catch (_: Exception) {}
+                try { active.disconnect() } catch (_: Exception) {}
+                try { active.release() } catch (_: Exception) {}
+            }
+        }
+        nativeRoom = null
+        super.handleOnDestroy()
+    }
+}
+`;
+fs.writeFileSync(nativeScreenSharePath, nativeScreenShareSource);
+
+const rootGradlePath = path.join(root, 'android', 'build.gradle');
+if (!fs.existsSync(rootGradlePath)) throw new Error('Android root build.gradle was not found.');
+let rootGradle = fs.readFileSync(rootGradlePath, 'utf8');
+if (!rootGradle.includes('kotlin-gradle-plugin')) {
+  const dependenciesBlock = rootGradle.match(/dependencies\\s*\\{[\\s\\S]*?\\}/);
+  if (!dependenciesBlock) throw new Error('Could not find root Gradle buildscript dependencies.');
+  rootGradle = rootGradle.replace(dependenciesBlock[0], dependenciesBlock[0].replace(/\\}\\s*$/, "    classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.25'\\n}"));
+  fs.writeFileSync(rootGradlePath, rootGradle);
+}
+const appGradlePath = path.join(root, 'android', 'app', 'build.gradle');
+if (!fs.existsSync(appGradlePath)) throw new Error('Android app build.gradle was not found.');
+let appGradle = fs.readFileSync(appGradlePath, 'utf8');
+if (!appGradle.includes("apply plugin: 'kotlin-android'")) {
+  appGradle = appGradle.replace("apply plugin: 'com.android.application'", "apply plugin: 'com.android.application'\\napply plugin: 'kotlin-android'");
+}
+if (!appGradle.includes('io.livekit:livekit-android')) {
+  appGradle = appGradle.replace('dependencies {', 'dependencies {\\n    implementation "io.livekit:livekit-android:2.30.0"');
+}
+fs.writeFileSync(appGradlePath, appGradle);
 const pluginPath = path.join(path.dirname(activityPath), 'OverlayPermissionPlugin.java');
 const pluginSource = `package ${javaPackage};
 
@@ -375,6 +518,11 @@ public class FloatingControlsService extends Service {
 }
 `;
 fs.writeFileSync(path.join(path.dirname(activityPath), 'FloatingControlsService.java'), serviceSource);
+if (!manifest.includes('io.livekit.android.room.track.screencapture.ScreenCaptureService')) {
+  manifest = manifest.replace('</application>', '        <service android:name="io.livekit.android.room.track.screencapture.ScreenCaptureService" android:enabled="true" android:exported="false" android:foregroundServiceType="mediaProjection" />\\n    </application>');
+  fs.writeFileSync(manifestPath, manifest);
+}
+
 if (!manifest.includes('FloatingControlsService')) {
   manifest = manifest.replace('</application>', '        <service android:name=".FloatingControlsService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="specialUse">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-requested floating in-game controls" />\n        </service>\n    </application>');
   fs.writeFileSync(manifestPath, manifest);
@@ -385,6 +533,7 @@ if (!activity.includes('OverlayPermissionPlugin.class')) {
     @Override
     public void onCreate(android.os.Bundle savedInstanceState) {
         registerPlugin(OverlayPermissionPlugin.class);
+    registerPlugin(NativeScreenSharePlugin.class);
         super.onCreate(savedInstanceState);
     }
 `);
