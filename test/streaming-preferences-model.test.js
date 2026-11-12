@@ -60,7 +60,7 @@ test('live stream model stores a game identity for game-first discovery', () => 
   assert.equal(stream.game, 'Minecraft');
 });
 
-test('live stream model rejects missing or oversized game identity', async () => {
+test('live stream model defaults legacy or omitted game identity and rejects oversized values', async () => {
   const LiveStream = require('../server/models/LiveStream');
   const base = {
     owner: new (require('mongoose').Types.ObjectId)(),
@@ -68,8 +68,8 @@ test('live stream model rejects missing or oversized game identity', async () =>
     title: 'Test stream',
     roomName: 'test-room-game-validation'
   };
-  const missing = new LiveStream(base);
-  await assert.rejects(missing.validate(), (error) => Boolean(error.errors.game));
+  const legacy = new LiveStream(base);
+  assert.equal(legacy.game, 'Otro');
   const oversized = new LiveStream({ ...base, roomName: 'test-room-game-oversized', game: 'x'.repeat(61) });
   await assert.rejects(oversized.validate(), (error) => Boolean(error.errors.game));
 });
