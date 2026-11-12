@@ -88,6 +88,16 @@ test('protected profile endpoint rejects unauthenticated requests', async () => 
   });
 });
 
+test('room cohost promotion and revocation require an authenticated account', async () => {
+  await withServer(async (baseUrl) => {
+    const path = '/api/rooms/507f1f77bcf86cd799439011/moderators/507f1f77bcf86cd799439012';
+    const promote = await fetch(baseUrl + path, { method: 'PUT' });
+    const revoke = await fetch(baseUrl + path, { method: 'DELETE' });
+    assert.equal(promote.status, 401);
+    assert.equal(revoke.status, 401);
+  });
+});
+
 test('room participant removal requires an authenticated host account', async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(baseUrl + '/api/rooms/507f1f77bcf86cd799439011/members/507f1f77bcf86cd799439012/remove', { method: 'POST' });
