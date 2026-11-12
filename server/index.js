@@ -46,6 +46,7 @@ const PremiumPlusTransaction = require('./models/PremiumPlusTransaction');
 const PremiumSubscription = require('./models/PremiumSubscription');
 const { STORE_CATALOG } = require('./data/storeCatalog');
 const { buildStoreCatalog } = require('./services/storeCatalog');
+const { buildPublicStreamOverlay } = require('./services/streamOverlay');
 const { AVATAR_CATALOG, AVATAR_BY_ID } = require('./data/avatarCatalog');
 const { requireAuth } = require('./middleware/auth');
 const { attachSocketServer } = require('./socket');
@@ -597,7 +598,7 @@ app.get('/api/streams', async (req, res, next) => {
   try {
     const streams = await LiveStream.find({ status: 'live' })
       .sort({ startedAt: -1 }).limit(50)
-      .select('ownerUsername title game description startedAt').lean();
+      .select('ownerUsername title game description customWatermark startedAt').lean();
     return res.json({
       success: true,
       streamingEnabled: Boolean(getLiveKitConfig()),
@@ -607,6 +608,7 @@ app.get('/api/streams', async (req, res, next) => {
         title: stream.title,
         game: stream.game || 'Otro',
         description: stream.description,
+        customWatermark: stream.customWatermark || '',
         startedAt: stream.startedAt
       }))
     });
@@ -625,6 +627,7 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
     const title = typeof body.title === 'string' ? body.title.trim() : '';
     const description = typeof body.description === 'string' ? body.description.trim() : '';
     const game = body.game === undefined ? 'Otro' : (typeof body.game === 'string' ? body.game.trim() : null);
+    const customWatermark = typeof body.customWatermark === 'string' ? body.customWatermark.trim().slice(0, 40) : '';
     if (game === null || !game || game.length > 60) return res.status(400).json({ success: false, message: 'Elegí un juego válido para la transmisión.' });
     if (!title || title.length > 100 || description.length > 500) {
       return res.status(400).json({ success: false, message: 'El título es obligatorio (máximo 100 caracteres) y la descripción admite hasta 500.' });
@@ -648,6 +651,7 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
       title,
       game,
       description,
+      customWatermark,
       roomName,
       overlayTokenHash,
       status: 'live'
@@ -665,7 +669,7 @@ app.post('/api/me/streams', requireAuth, streamLimiter, async (req, res, next) =
       });
       return res.status(201).json({
         success: true,
-        stream: { id: String(session._id), title: session.title, game: session.game, description: session.description, status: session.status, startedAt: session.startedAt },
+        stream: { id: String(session._id), title: session.title, game: session.game, description: session.description, customWatermark: session.customWatermark, status: session.status, startedAt: session.startedAt },
         liveKit: { url: config.clientUrl, token, role: 'publisher', expiresInSeconds: 600 },
         overlay: { url: req.protocol + '://' + req.get('host') + '/overlay/' + overlayAccessToken, refreshIntervalMs: 5000 }
       });
@@ -986,47 +990,67 @@ app.get('/api/public/stream-overlay/:token', overlayReadLimiter, async (req, res
     }
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const stream = await LiveStream.findOne({ overlayTokenHash: tokenHash, status: 'live' })
-      .select('owner ownerUsername title roomName').lean();
+      .select('owner ownerUsername title roomName customWatermark').lean();
     if (!stream) return res.status(404).json({ success: false, message: 'La transmisión finalizó o el overlay fue revocado.' });
     const [owner, config] = await Promise.all([
-      User.findById(stream.owner).select('streamingPreferences').lean(),
+      User.findById(stream.owner).select('streamingPreferences activeStreamOverlay').lean(),
       Promise.resolve(getLiveKitConfig())
     ]);
     if (!owner || !config) return res.status(503).json({ success: false, message: 'El overlay no está disponible temporalmente.' });
     let viewerCount = null;
     try {
       const participants = await createLiveKitApi(config).room.listParticipants(stream.roomName);
-      viewerCount = Math.max(0, (participants || []).filter((participant) =>
-        !(participant.identity || '').startsWith(String(stream.owner) + ':')
-      ).length);
+      viewerCount = Math.max(0, (participants || []).filter((participant) => {
+        const identity = participant.identity || '';
+        return !identity.startsWith(String(stream.owner) + ':') && !identity.startsWith('overlay:');
+      }).length);
     } catch (error) {
       console.error('Unable to read LiveKit overlay participant count:', error.message);
     }
-    const preferences = owner.streamingPreferences || {};
+    const payload = buildPublicStreamOverlay({
+      stream: { title: stream.title, creator: stream.ownerUsername, watermark: stream.customWatermark || '' },
+      preferences: owner.streamingPreferences || {},
+      activeStreamOverlay: owner.activeStreamOverlay,
+      viewerCount,
+      catalog: STORE_CATALOG
+    });
     const chatMessages = await LiveStreamMessage.find({ stream: stream._id })
       .sort({ sentAt: -1, _id: -1 }).limit(6).lean();
+    payload.chatMessages = chatMessages.reverse().map((message) => ({
+      id: String(message._id), username: message.username,
+      message: message.message, sentAt: message.sentAt
+    }));
+    payload.capabilities.chat = (owner.streamingPreferences || {}).overlayShowChat !== false;
+    return res.set('Cache-Control', 'no-store').json(payload);
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/public/stream-overlay/:token/session', overlayReadLimiter, async (req, res, next) => {
+  try {
+    const token = req.params.token;
+    if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{40,64}$/.test(token)) {
+      return res.status(404).json({ success: false, message: 'Overlay no disponible.' });
+    }
+    const config = getLiveKitConfig();
+    if (!config) return res.status(503).json({ success: false, message: 'El servicio de video no está configurado.' });
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const stream = await LiveStream.findOne({ overlayTokenHash: tokenHash, status: 'live' })
+      .select('_id roomName').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'La transmisión finalizó o el overlay fue revocado.' });
+    const identity = 'overlay:' + String(stream._id) + ':' + crypto.randomUUID();
+    const participantToken = await createParticipantToken({
+      config,
+      identity,
+      name: 'PLAYVERSE Overlay',
+      metadata: { role: 'overlay', streamId: String(stream._id) },
+      roomName: stream.roomName,
+      canPublish: false,
+      canPublishData: false,
+      canSubscribe: true
+    });
     return res.set('Cache-Control', 'no-store').json({
       success: true,
-      stream: { title: stream.title, creator: stream.ownerUsername },
-      overlay: {
-        theme: preferences.overlayTheme || 'arcade',
-        layout: preferences.overlayLayout || 'wide',
-        position: preferences.overlayPosition || 'bottom-left',
-        scale: Number.isInteger(preferences.overlayScale) ? preferences.overlayScale : 100,
-        opacity: Number.isInteger(preferences.overlayOpacity) ? preferences.overlayOpacity : 90,
-        showViewerCount: preferences.overlayShowViewerCount !== false,
-        showChat: preferences.overlayShowChat !== false,
-        brandingText: preferences.overlayBrandingText || '',
-        socialYouTube: preferences.socialYouTube || '',
-        socialTwitch: preferences.socialTwitch || '',
-        socialTikTok: preferences.socialTikTok || ''
-      },
-      viewerCount,
-      chatMessages: chatMessages.reverse().map((message) => ({
-        id: String(message._id), username: message.username,
-        message: message.message, sentAt: message.sentAt
-      })),
-      capabilities: { viewerCount: viewerCount !== null, chat: true, donations: false }
+      liveKit: { url: config.clientUrl, token: participantToken, expiresInSeconds: 600 }
     });
   } catch (error) { return next(error); }
 });
