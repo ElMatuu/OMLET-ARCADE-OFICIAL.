@@ -340,6 +340,62 @@ app.delete('/api/streams/:streamId/messages/:messageId', requireAuth, liveChatLi
   } catch (error) { return next(error); }
 });
 
+app.post('/api/streams/:streamId/participants/:userId/mute', requireAuth, liveChatLimiter, async (req, res, next) => {
+  try {
+    const { streamId, userId } = req.params;
+    if (!isValidObjectId(streamId) || !isValidObjectId(userId)) {
+      return res.status(400).json({ success: false, message: 'Transmisión o participante inválido.' });
+    }
+    const durationMinutes = Number(req.body && req.body.durationMinutes);
+    if (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 1440) {
+      return res.status(400).json({ success: false, message: 'La duración debe estar entre 1 y 1440 minutos.' });
+    }
+    const stream = await LiveStream.findOne({ _id: streamId, status: 'live' }).select('owner').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
+    if (String(stream.owner) !== String(req.auth.sub)) {
+      return res.status(403).json({ success: false, message: 'Solo el anfitrión puede silenciar participantes.' });
+    }
+    if (String(stream.owner) === String(userId) || String(req.auth.sub) === String(userId)) {
+      return res.status(400).json({ success: false, message: 'No podés silenciar al anfitrión ni a vos mismo.' });
+    }
+    const target = await User.exists({ _id: userId });
+    if (!target) return res.status(404).json({ success: false, message: 'Participante no encontrado.' });
+    const expiresAt = new Date(Date.now() + durationMinutes * 60 * 1000);
+    const updated = await LiveStream.findOneAndUpdate(
+      { _id: streamId, owner: req.auth.sub, status: 'live' },
+      { $pull: { mutedParticipants: { user: userId } } },
+      { new: true }
+    ).select('_id').lean();
+    if (!updated) return res.status(404).json({ success: false, message: 'La transmisión ya no está disponible.' });
+    await LiveStream.updateOne(
+      { _id: streamId, owner: req.auth.sub, status: 'live' },
+      { $push: { mutedParticipants: { user: userId, moderator: req.auth.sub, expiresAt, createdAt: new Date() } } }
+    );
+    const payload = { streamId, userId, expiresAt, durationMinutes };
+    const io = httpServer.io;
+    if (io) io.to('stream-chat:' + streamId).emit('stream_chat_participant_muted', payload);
+    return res.json({ success: true, mute: payload });
+  } catch (error) { return next(error); }
+});
+
+app.delete('/api/streams/:streamId/participants/:userId/mute', requireAuth, liveChatLimiter, async (req, res, next) => {
+  try {
+    const { streamId, userId } = req.params;
+    if (!isValidObjectId(streamId) || !isValidObjectId(userId)) {
+      return res.status(400).json({ success: false, message: 'Transmisión o participante inválido.' });
+    }
+    const stream = await LiveStream.findOneAndUpdate(
+      { _id: streamId, owner: req.auth.sub, status: 'live' },
+      { $pull: { mutedParticipants: { user: userId } } },
+      { new: true }
+    ).select('_id').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'Transmisión no disponible o no sos el anfitrión.' });
+    const io = httpServer.io;
+    if (io) io.to('stream-chat:' + streamId).emit('stream_chat_participant_unmuted', { streamId, userId });
+    return res.json({ success: true });
+  } catch (error) { return next(error); }
+});
+
 app.post('/api/streams/:streamId/messages', requireAuth, liveChatLimiter, async (req, res, next) => {
   try {
     if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
@@ -355,6 +411,13 @@ app.post('/api/streams/:streamId/messages', requireAuth, liveChatLimiter, async 
         { blocker: stream.owner, blocked: req.auth.sub }
       ] });
       if (blocked) return res.status(403).json({ success: false, message: 'No podés participar en esta transmisión.' });
+    }
+    if (String(stream.owner) !== String(req.auth.sub)) {
+      const activeMute = await LiveStream.findOne({
+        _id: stream._id,
+        mutedParticipants: { $elemMatch: { user: req.auth.sub, expiresAt: { $gt: new Date() } } }
+      }).select('_id').lean();
+      if (activeMute) return res.status(403).json({ success: false, code: 'STREAM_CHAT_MUTED', message: 'No podés enviar mensajes porque el anfitrión te silenció temporalmente.' });
     }
     const user = await User.findById(req.auth.sub).select('username').lean();
     if (!user) return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
