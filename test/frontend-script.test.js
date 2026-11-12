@@ -37,6 +37,11 @@ test('all inline JavaScript in the main interface parses successfully', () => {
   assert.match(html, /livekit-client\.umd\.js/, 'The bundled LiveKit browser SDK must be loaded locally');
   assert.match(html, /function connectLiveKitSession\(/, 'The live UI must connect to authenticated LiveKit sessions');
   assert.match(html, /function startLiveStream\(/, 'Creators must be able to start a real stream from the UI');
+  assert.match(html, /id="streaming-auto-setup"/, 'Creators must have a one-tap automatic streaming setup');
+  assert.match(html, /function applyAutomaticStreamingSetup\(/, 'Automatic streaming setup must persist a device-aware preset');
+  assert.match(html, /method: 'PUT',[\\s\\S]{0,180}body: JSON\.stringify\(preset\)/, 'Automatic streaming setup must save its preset through the authenticated preferences API');
+  assert.match(html, /isAndroid \|\| \(cores > 0 && cores <= 4\)/, 'Automatic streaming setup must choose a conservative profile for lower-power devices');
+  assert.match(html, /Podés ajustar cada opción manualmente/, 'Automatic setup must preserve the ability to customize settings manually');
   assert.match(html, /id="stream-overlay-theme"/, 'Creators must be able to choose a stream overlay theme');
   assert.match(html, /id="stream-overlay-layout"/, 'Creators must be able to choose an overlay layout');
   assert.match(html, /id="stream-welcome-message"/, 'Creators must be able to configure stream welcome messages');
