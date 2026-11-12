@@ -2,7 +2,7 @@ services:
   mongo:
     image: mongo:7.0
     restart: unless-stopped
-    command: ["mongod", "--bind_ip_all", "--auth"]
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--auth"]
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?Set MONGO_ROOT_USERNAME in .env.selfhost}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env.selfhost}
@@ -12,7 +12,14 @@ services:
       - playverse_mongo_data:/data/db
       - ./docker/mongo-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test:
+        - CMD-SHELL
+        - >-
+          mongosh --quiet
+          --username "$MONGO_INITDB_ROOT_USERNAME"
+          --password "$MONGO_INITDB_ROOT_PASSWORD"
+          --authenticationDatabase admin
+          --eval 'try { rs.status().ok } catch (error) { rs.initiate({_id: "rs0", members: [{_id: 0, host: "mongo:27017"}]}).ok }'
       interval: 10s
       timeout: 5s
       retries: 10
@@ -26,7 +33,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      MONGODB_URI: mongodb://${MONGO_APP_USERNAME}:${MONGO_APP_PASSWORD}@mongo:27017/playverse?authSource=playverse
+      MONGODB_URI: mongodb://${MONGO_APP_USERNAME}:${MONGO_APP_PASSWORD}@mongo:27017/playverse?authSource=playverse&replicaSet=rs0
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.selfhost}
       CORS_ORIGIN: ${CORS_ORIGIN:?Set CORS_ORIGIN in .env.selfhost}
       LIVEKIT_URL: ${LIVEKIT_URL:?Set LIVEKIT_URL in .env.selfhost}
