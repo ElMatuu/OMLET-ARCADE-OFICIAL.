@@ -53,3 +53,11 @@ test('self-hosted profile includes opt-in Minecraft Java and Bedrock instances',
   assert.match(compose, /omlet_minecraft_java_data/);
   assert.match(compose, /omlet_minecraft_bedrock_data/);
 });
+
+test('creator flow does not claim a stream is live before publishing video', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.match(html, /Preparando tu emisión/);
+  assert.match(html, /LocalTrackPublished/);
+  assert.match(html, /Sala preparada\. Publicá una pista de video/);
+  assert.doesNotMatch(html, /Transmisión iniciada\. Compartí tu emisión desde esta sala\./);
+});
