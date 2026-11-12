@@ -32,3 +32,16 @@ Writes are rate-limited. The API never accepts arbitrary RTMP URLs in this first
 ## Platform setup
 
 Find the key in the creator dashboard for the selected provider. For Kick, its help center directs creators to Creator Dashboard → Channel → Stream URL and Key and documents the RTMPS ingest URL used by external encoders. Confirm the current server URL in your own dashboard in case the provider changes regional routing.
+
+
+## LiveKit multi-destination RTMP broadcast
+
+Connected creator destinations can now be used as actual LiveKit Egress outputs. For an already-live PLAYVERSE stream, the authenticated endpoints are:
+
+- `POST /api/me/stream-destinations/streams/:streamId/broadcast/start`
+- `GET /api/me/stream-destinations/streams/:streamId/broadcast`
+- `POST /api/me/stream-destinations/streams/:streamId/broadcast/stop`
+
+The backend decrypts keys only in memory, builds provider URLs from a fixed allowlist, and starts one composite Egress with all connected destinations. Keys and RTMP URLs are never returned by these endpoints. A unique active-session record prevents duplicate concurrent broadcasts for one stream; the signed `egress_ended` webhook closes the session. This requires a working LiveKit Egress service and `STREAM_KEY_ENCRYPTION_KEY`. An accepted Egress job is not proof that every provider has accepted the stream: verify each provider's live dashboard before announcing the external broadcast as live.
+
+The provider keys remain manually entered. OAuth account linking and provider-side analytics/chat ingestion are separate integrations and are not implied by this RTMP relay.
