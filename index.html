@@ -793,6 +793,12 @@
                 <label class="block text-xs text-slate-400">Mensaje de despedida<input id="stream-farewell-message" maxlength="200" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="¡Gracias por acompañarme!"></label>
                 <p class="text-[11px] text-amber-300/80">La configuración queda guardada en tu cuenta. La composición visual en tiempo real y los paneles de donaciones conectados a pagos se habilitarán al completar el motor de overlays y sus integraciones.</p>
             </section>
+            <section class="rounded-2xl border border-cyan-500/30 bg-cyan-950/20 p-4 space-y-2">
+                <div class="flex items-center gap-2"><span class="text-lg">⚡</span><h4 class="text-sm font-black text-cyan-100">Configuración rápida</h4></div>
+                <p class="text-[11px] text-slate-300">Un toque para aplicar y guardar una configuración conservadora según tu dispositivo. Después podés cambiar cualquier ajuste manualmente.</p>
+                <button id="streaming-auto-setup" type="button" onclick="applyAutomaticStreamingSetup()" class="w-full rounded-xl bg-cyan-400 px-4 py-3 text-xs font-black text-slate-950">⚡ Configurar automáticamente</button>
+                <p class="text-[10px] text-slate-400">No solicita permisos ni inicia una transmisión. La captura se autoriza cuando empezás un directo.</p>
+            </section>
             <p id="streaming-settings-status" class="text-xs text-slate-400" role="status">Cargando preferencias guardadas…</p>
             <p class="text-[11px] text-amber-300/90">Estas opciones guardan tus preferencias. No activan todavía la captura de pantalla/cámara ni inician una transmisión real.</p>
             <div class="flex gap-2"><button type="button" onclick="closeSettingsModal()" class="flex-1 rounded-xl border border-slate-700 px-4 py-3 text-xs font-bold text-slate-300">Cancelar</button><button id="streaming-settings-save" type="submit" class="flex-1 PLAYVERSE-gradient text-white font-bold py-3 rounded-xl shadow-md">Guardar preferencias</button></div>
@@ -4039,6 +4045,63 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 status.textContent = data.capabilityNote || 'Preferencias cargadas desde tu cuenta.';
             } catch (error) {
                 status.textContent = 'No se pudieron cargar las preferencias: ' + error.message;
+            }
+        }
+
+        async function applyAutomaticStreamingSetup() {
+            const button = document.getElementById('streaming-auto-setup');
+            const status = document.getElementById('streaming-settings-status');
+            if (!authToken) {
+                status.textContent = 'Iniciá sesión para guardar tu configuración automática.';
+                return;
+            }
+            const isAndroid = /Android/i.test(navigator.userAgent);
+            const cores = Number(navigator.hardwareConcurrency || 0);
+            const isLowPower = isAndroid || (cores > 0 && cores <= 4);
+            const preset = {
+                resolution: isLowPower ? '720p' : '1080p',
+                fps: 30,
+                bitrateMbps: isLowPower ? 3 : 6,
+                cameraEnabled: false,
+                microphoneEnabled: true,
+                systemAudioEnabled: false,
+                orientation: 'auto',
+                cameraPosition: 'bottom-right',
+                cameraFrame: 'none'
+            };
+            button.disabled = true;
+            button.textContent = 'Aplicando configuración…';
+            status.textContent = 'Guardando un perfil inicial compatible con tu dispositivo…';
+            try {
+                const data = await apiRequest('/api/me/streaming-preferences', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(preset)
+                });
+                const preferences = data.preferences || preset;
+                document.getElementById('stream-resolution').value = preferences.resolution;
+                document.getElementById('stream-fps').value = String(preferences.fps);
+                document.getElementById('stream-bitrate').value = String(preferences.bitrateMbps);
+                document.getElementById('stream-camera').checked = preferences.cameraEnabled === true;
+                document.getElementById('stream-microphone').checked = preferences.microphoneEnabled !== false;
+                document.getElementById('stream-system-audio').checked = preferences.systemAudioEnabled === true;
+                document.getElementById('stream-orientation').value = preferences.orientation || 'auto';
+                document.getElementById('stream-camera-position').value = preferences.cameraPosition || 'bottom-right';
+                document.getElementById('stream-camera-frame').value = preferences.cameraFrame || 'none';
+                activeStreamingPreferences = {
+                    cameraEnabled: preferences.cameraEnabled === true,
+                    microphoneEnabled: preferences.microphoneEnabled !== false,
+                    systemAudioEnabled: preferences.systemAudioEnabled === true,
+                    orientation: preferences.orientation || 'auto',
+                    cameraPosition: preferences.cameraPosition || 'bottom-right',
+                    cameraFrame: preferences.cameraFrame || 'none'
+                };
+                status.textContent = 'Configuración automática guardada (' + (isLowPower ? 'perfil liviano' : 'perfil estándar') + '). Podés ajustar cada opción manualmente cuando quieras.';
+            } catch (error) {
+                status.textContent = 'No se pudo guardar la configuración automática: ' + error.message;
+            } finally {
+                button.disabled = false;
+                button.textContent = '⚡ Configurar automáticamente';
             }
         }
 
