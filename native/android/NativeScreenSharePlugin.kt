@@ -138,11 +138,13 @@ class NativeScreenSharePlugin : Plugin() {
         pluginScope.launch {
             try {
                 val enabled = !current.localParticipant.isMicrophoneEnabled
+                if (enabled) context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_MICROPHONE_START))
                 val changed = withContext(Dispatchers.IO) { current.localParticipant.setMicrophoneEnabled(enabled) }
-                if (!changed) throw IllegalStateException("LiveKit no pudo cambiar el micrófono.")
-                context.startService(Intent(context, ArcadeHudService::class.java).setAction(
-                    if (enabled) ArcadeHudService.ACTION_MICROPHONE_START else ArcadeHudService.ACTION_MICROPHONE_STOP
-                ))
+                if (!changed) {
+                    if (enabled) context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_MICROPHONE_STOP))
+                    throw IllegalStateException("LiveKit no pudo cambiar el micrófono.")
+                }
+                if (!enabled) context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_MICROPHONE_STOP))
                 call.resolve(JSObject().put("enabled", enabled))
             } catch (error: Exception) {
                 call.reject("No se pudo cambiar el micrófono: " + (error.message ?: "error desconocido"))
@@ -177,11 +179,13 @@ class NativeScreenSharePlugin : Plugin() {
         pluginScope.launch {
             try {
                 val enabled = !current.localParticipant.isCameraEnabled
+                if (enabled) context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_CAMERA_START))
                 val changed = withContext(Dispatchers.IO) { current.localParticipant.setCameraEnabled(enabled) }
-                if (!changed) throw IllegalStateException("LiveKit no pudo cambiar la cámara.")
-                context.startService(Intent(context, ArcadeHudService::class.java).setAction(
-                    if (enabled) ArcadeHudService.ACTION_CAMERA_START else ArcadeHudService.ACTION_CAMERA_STOP
-                ))
+                if (!changed) {
+                    if (enabled) context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_CAMERA_STOP))
+                    throw IllegalStateException("LiveKit no pudo cambiar la cámara.")
+                }
+                if (!enabled) context.startService(Intent(context, ArcadeHudService::class.java).setAction(ArcadeHudService.ACTION_CAMERA_STOP))
                 call.resolve(JSObject().put("enabled", enabled))
             } catch (error: Exception) {
                 call.reject("No se pudo cambiar la cámara: " + (error.message ?: "error desconocido"))
