@@ -53,6 +53,8 @@ test('Android app uses the registered ArcadeHud bridge instead of the old placeh
   assert.match(html, /hasOverlayPermission/);
   assert.match(html, /openOverlaySettings/);
   assert.match(html, /startHud\(\)/);
+  assert.match(html, /syncFloatingHudChat/);
+  assert.match(html, /updateHudChat/);
   assert.doesNotMatch(html, /Plugins\.OverlayPermission/);
 });
 
@@ -65,6 +67,9 @@ test('native screen share joins LiveKit and publishes Android MediaProjection vi
   assert.match(screenShare, /created\.connect\(url, token\)/);
   assert.match(screenShare, /setScreenShareEnabled\(true, ScreenCaptureParams\(projectionData\)\)/);
   assert.match(screenShare, /setScreenShareEnabled\(false\)/);
+  assert.match(screenShare, /updateHudChat/);
+  assert.match(service, /CHAT DEL DIRECTO/);
+  assert.match(service, /formatChatPreview/);
   assert.match(screenShare, /toggleMicrophone/);
   assert.match(screenShare, /toggleCamera/);
   assert.match(screenShare, /requestPermissionForAlias/);
