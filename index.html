@@ -5856,6 +5856,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             const title = document.getElementById('live-stream-title').value.trim();
             const description = document.getElementById('live-stream-description').value.trim();
             let createdStreamId = null;
+            let startedConnectionGeneration = null;
             button.disabled = true;
             setLiveStatus('Cargando tus ajustes de cámara y micrófono…');
             try {
@@ -5871,6 +5872,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 createdStreamId = data.stream.id;
                 const connected = await connectLiveKitSession(data.liveKit, data.stream, 'publisher');
                 if (!connected) throw new Error('La conexión de emisión fue cancelada porque cambió la sesión.');
+                startedConnectionGeneration = liveKitConnectionGeneration;
                 const overlayPanel = document.getElementById('live-stream-overlay-share');
                 const overlayInput = document.getElementById('live-stream-overlay-url');
                 if (data.overlay && data.overlay.url) {
@@ -5887,8 +5889,11 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 setLiveStatus('No se pudo iniciar la transmisión: ' + error.message);
                 if (createdStreamId) {
                     try { await apiRequest('/api/me/streams/' + encodeURIComponent(createdStreamId), { method: 'DELETE' }); } catch {}
-                    // connectLiveKitSession already disconnects its own failed room.
-                    // Do not close a newer session that may have replaced it meanwhile.
+                    if (startedConnectionGeneration !== null &&
+                        liveKitConnectionGeneration === startedConnectionGeneration &&
+                        activeLiveStream && String(activeLiveStream.id) === String(createdStreamId)) {
+                        await closeLivePlayer();
+                    }
                 }
             } finally { button.disabled = false; }
         }
@@ -5998,14 +6003,3 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 document.getElementById('live-stream-overlay-url').value = '';
                 setLiveStatus('Transmisión finalizada y sala cerrada.');
                 await loadLiveStreams();
-            } catch (error) { document.getElementById('live-player-status').textContent = 'No se pudo cerrar la transmisión en el servidor: ' + error.message; }
-        }
-        function openStreamStudio() {
-            switchTab('live');
-            document.getElementById('live-stream-title').focus();
-            loadLiveStreams();
-        }
-    </script>
-    <script src="/app-update.js" defer></script>
-</body>
-</html>
