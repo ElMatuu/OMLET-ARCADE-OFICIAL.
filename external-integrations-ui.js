@@ -67,15 +67,24 @@
         action.type = 'button';
         action.className = 'shrink-0 rounded-lg border border-slate-700 px-3 py-2 text-[10px] font-bold text-cyan-200';
         if (item.connection && item.connection.connected) {
-          action.textContent = 'Desconectar';
-          action.classList.replace('text-cyan-200', 'text-rose-200');
-          action.addEventListener('click', () => window.disconnectExternalProvider(item.provider));
-        } else {
-          action.textContent = 'Vincular';
+          action.textContent = 'Actualizar permisos';
           action.disabled = !item.configured;
           action.addEventListener('click', () => window.connectExternalProvider(item.provider));
+          const disconnect = document.createElement('button');
+          disconnect.type = 'button';
+          disconnect.className = 'shrink-0 rounded-lg border border-slate-700 px-3 py-2 text-[10px] font-bold text-rose-200';
+          disconnect.textContent = 'Desconectar';
+          disconnect.addEventListener('click', () => window.disconnectExternalProvider(item.provider));
+          const actions = document.createElement('div');
+          actions.className = 'flex shrink-0 gap-2';
+          actions.append(action, disconnect);
+          card.append(info, actions);
+        } else {
+          action.textContent = item.connection && item.connection.status === 'reauthorization_required' ? 'Volver a vincular' : 'Vincular';
+          action.disabled = !item.configured;
+          action.addEventListener('click', () => window.connectExternalProvider(item.provider));
+          card.append(info, action);
         }
-        card.append(info, action);
         list.appendChild(card);
       });
       const connected = items.filter(item => item.connection && item.connection.connected).length;
