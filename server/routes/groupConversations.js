@@ -5,9 +5,10 @@ const { requireAuth } = require('../middleware/auth');
 const User = require('../models/User');
 const GroupConversation = require('../models/GroupConversation');
 const GroupMessage = require('../models/GroupMessage');
+const LiveStream = require('../models/LiveStream');
 const Notification = require('../models/Notification');
 const { createRealtimeNotificationPolicy } = require('../services/notificationDelivery');
-const shouldDeliverRealtimeNotification = createRealtimeNotificationPolicy({ UserModel: User, LiveStreamModel: require('../models/LiveStream') });
+const shouldDeliverRealtimeNotification = createRealtimeNotificationPolicy({ UserModel: User, LiveStreamModel: LiveStream });
 
 const router = express.Router();
 const limiter = rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false });
