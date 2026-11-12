@@ -441,3 +441,43 @@ test('live stream chat rejects malformed stream identifiers before database acce
     assert.equal(response.status, 400);
   });
 });
+
+
+test('PLAYVERSE Plus wallet and subscription endpoints require authentication', async () => {
+  await withServer(async (baseUrl) => {
+    const wallet = await fetch(baseUrl + '/api/me/plus');
+    const subscription = await fetch(baseUrl + '/api/me/subscription');
+    const redeem = await fetch(baseUrl + '/api/me/subscription/redeem', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ planId: 'plus-30d' })
+    });
+    assert.equal(wallet.status, 401);
+    assert.equal(subscription.status, 401);
+    assert.equal(redeem.status, 401);
+  });
+});
+
+test('PLAYVERSE Plus redemption rejects unknown plans before database access', async () => {
+  const jwt = require('jsonwebtoken');
+  const mongoose = require('mongoose');
+  const token = jwt.sign({
+    sub: new mongoose.Types.ObjectId().toString(),
+    username: 'ordinary_player',
+    role: 'user'
+  }, process.env.JWT_SECRET, {
+    algorithm: 'HS256',
+    expiresIn: '5m',
+    issuer: 'playverse-api',
+    audience: 'playverse-clients'
+  });
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/me/subscription/redeem', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ planId: 'cash-monthly' })
+    });
+    const body = await response.json();
+    assert.equal(response.status, 400);
+    assert.equal(body.success, false);
+  });
+});
