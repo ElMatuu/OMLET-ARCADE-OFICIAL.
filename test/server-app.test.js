@@ -236,6 +236,35 @@ test('squad voice token endpoint requires membership authentication and fails cl
   });
 });
 
+test('native screen-share token is owner-only and fails closed without LiveKit', async () => {
+  await withServer(async (baseUrl) => {
+    const unauthenticated = await fetch(baseUrl + '/api/streams/507f1f77bcf86cd799439011/screen-share-token', { method: 'POST' });
+    assert.equal(unauthenticated.status, 401);
+  });
+
+  const jwt = require('jsonwebtoken');
+  const token = jwt.sign({
+    sub: '507f1f77bcf86cd799439012',
+    username: 'screen_creator',
+    role: 'user'
+  }, process.env.JWT_SECRET, {
+    algorithm: 'HS256',
+    expiresIn: '5m',
+    issuer: 'playverse-api',
+    audience: 'playverse-clients'
+  });
+  await withServer(async (baseUrl) => {
+    const response = await fetch(baseUrl + '/api/streams/507f1f77bcf86cd799439011/screen-share-token', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    const body = await response.json();
+    assert.equal(response.status, 503);
+    assert.equal(body.success, false);
+    assert.equal(body.code, 'LIVE_STREAMING_NOT_CONFIGURED');
+  });
+});
+
 test('report submission requires an authenticated account', async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(baseUrl + '/api/reports', {
