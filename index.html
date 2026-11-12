@@ -1942,12 +1942,14 @@ const GAME_CATALOG_DETAILS = {
         async function loadGameDetailPosts() {
             const status = document.getElementById('game-detail-post-status');
             const container = document.getElementById('game-detail-posts');
-            const game = GAME_CATALOG_DETAILS[activeGameDetailKey];
+            const gameKey = activeGameDetailKey;
+            const game = GAME_CATALOG_DETAILS[gameKey];
             if (!status || !container || !game) return;
             status.textContent = 'Buscando publicaciones de ' + game.name + '…';
             container.replaceChildren();
             try {
                 const data = await apiRequest('/api/posts?game=' + encodeURIComponent(game.name));
+                if (activeGameDetailKey !== gameKey) return;
                 const posts = Array.isArray(data.posts) ? data.posts : [];
                 if (!posts.length) {
                     status.textContent = 'Todavía no hay publicaciones etiquetadas para ' + game.name + '. ¡Podés iniciar la conversación!';
@@ -1956,19 +1958,21 @@ const GAME_CATALOG_DETAILS = {
                 status.textContent = posts.length + (posts.length === 1 ? ' publicación relacionada.' : ' publicaciones relacionadas.');
                 posts.forEach(post => container.appendChild(renderCommunityPost(post)));
             } catch (error) {
-                status.textContent = 'No se pudieron cargar las publicaciones: ' + error.message;
+                if (activeGameDetailKey === gameKey) status.textContent = 'No se pudieron cargar las publicaciones: ' + error.message;
             }
         }
 
         async function loadGameDetailStreams() {
             const status = document.getElementById('game-detail-stream-status');
             const container = document.getElementById('game-detail-streams');
-            if (!status || !container || !activeGameDetailKey) return;
+            const gameKey = activeGameDetailKey;
+            const game = GAME_CATALOG_DETAILS[gameKey];
+            if (!status || !container || !game) return;
             status.textContent = 'Buscando transmisiones activas…';
             container.replaceChildren();
             try {
                 const data = await apiRequest('/api/streams');
-                const game = GAME_CATALOG_DETAILS[activeGameDetailKey];
+                if (activeGameDetailKey !== gameKey) return;
                 const terms = [game.name.toLowerCase(), activeGameDetailKey];
                 const streams = (data.streams || []).filter(stream => {
                     const text = [stream.game, stream.title, stream.description, stream.category].filter(Boolean).join(' ').toLowerCase();
