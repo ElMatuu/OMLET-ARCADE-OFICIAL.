@@ -1934,9 +1934,7 @@ const GAME_CATALOG_DETAILS = {
         function openGamePostComposer() {
             const game = GAME_CATALOG_DETAILS[activeGameDetailKey];
             if (!game) return;
-            const gameSelect = document.getElementById('post-game-input');
-            if (gameSelect) gameSelect.value = game.name;
-            openPostModal();
+            openPostModal(game.name);
         }
 
         async function loadGameDetailPosts() {
@@ -3833,8 +3831,10 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             });
         });
 
-        function openPostModal() {
+        function openPostModal(gameName = '') {
             document.getElementById('post-form-status').textContent = 'Máximo 2000 caracteres.';
+            const gameSelect = document.getElementById('post-game-input');
+            if (gameSelect) gameSelect.value = gameName;
             document.getElementById('post-modal').classList.remove('hidden');
         }
         function closePostModal() { document.getElementById('post-modal').classList.add('hidden'); }
