@@ -256,6 +256,7 @@ function cleanupYouTubeStreamEntry(connectionId, entry) {
   if (youtubeStreams.get(connectionId) === entry) youtubeStreams.delete(connectionId);
 }
 async function finishYouTubeStream(connectionId, entry, error = null) {
+  if (youtubeStreams.get(connectionId) !== entry) return;
   if (entry.intentionalClose) return cleanupYouTubeStreamEntry(connectionId, entry);
   cleanupYouTubeStreamEntry(connectionId, entry);
   const now = new Date();
@@ -264,7 +265,8 @@ async function finishYouTubeStream(connectionId, entry, error = null) {
   await ExternalProviderConnection.updateOne({ _id: connectionId, youtubePollLockUntil: { $gt: now } }, {
     $set: {
       ...(ended ? { youtubeLiveChatId: null, youtubePageToken: null } : {}),
-      chatSyncStatus: error ? (unauthorized ? 'error' : 'error') : 'idle',
+      ...(unauthorized ? { status: 'reauthorization_required' } : {}),
+      chatSyncStatus: error ? 'error' : 'idle',
       chatSyncError: error ? String(error.details || error.message || 'YouTube Live Chat stream ended').slice(0, 240) : null,
       youtubeNextPollAt: new Date(Date.now() + (unauthorized ? 120000 : 60000)),
       youtubePollLockUntil: null,
@@ -293,7 +295,7 @@ async function openYouTubeChatStream(connection, io, env = process.env) {
   const pageToken = connection.youtubeLiveChatId === liveChatId ? (connection.youtubePageToken || '') : '';
   await ExternalProviderConnection.updateOne({ _id: connection._id }, {
     $set: {
-      youtubeLiveChatId: liveChatId, youtubeNextPollAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      youtubeLiveChatId: liveChatId, youtubeNextPollAt: new Date(Date.now() + 60000),
       chatSyncStatus: 'subscribed', chatSyncError: null, chatSyncLastAt: new Date()
     }
   });
@@ -308,7 +310,7 @@ async function openYouTubeChatStream(connection, io, env = process.env) {
     try {
       const lease = await ExternalProviderConnection.updateOne({
         _id: connection._id, youtubePollLockUntil: { $gt: new Date() }
-      }, { $set: { youtubePollLockUntil: new Date(Date.now() + 60000) } });
+      }, { $set: { youtubePollLockUntil: new Date(Date.now() + 60000), youtubeNextPollAt: new Date(Date.now() + 60000) } });
       if (!lease.modifiedCount) {
         entry.intentionalClose = true;
         stream.cancel();
@@ -426,6 +428,7 @@ function stopYouTubeChatSync() {
   for (const [connectionId, entry] of youtubeStreams.entries()) {
     entry.intentionalClose = true;
     streamCancel(entry.stream);
+    ExternalProviderConnection.updateOne({ _id: connectionId }, { $set: { youtubePollLockUntil: null, youtubeNextPollAt: new Date() } }).catch(() => {});
     cleanupYouTubeStreamEntry(connectionId, entry);
   }
   youtubeGrpcClient.close();
