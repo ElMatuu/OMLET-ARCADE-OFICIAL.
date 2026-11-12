@@ -853,14 +853,14 @@ app.post('/api/me/streams/:streamId/recording/stop', requireAuth, streamLimiter,
     try {
       const liveKit = createLiveKitApi(config);
       await stopRoomRecording({ egressClient: liveKit.egress, egressId: stream.recordingEgressId });
-      const endedAt = new Date();
+      const stoppingAt = new Date();
       await Promise.all([
         LiveStream.updateOne({ _id: stream._id, owner: req.auth.sub, recordingEgressId: stream.recordingEgressId },
-          { $set: { recordingStatus: 'ended', recordingEndedAt: endedAt } }),
+          { $set: { recordingStatus: 'stopping' } }),
         StreamRecording.updateOne({ egressId: stream.recordingEgressId, owner: req.auth.sub },
-          { $set: { status: 'ended', endedAt } })
+          { $set: { status: 'stopping' } })
       ]);
-      return res.json({ success: true, recording: { status: 'ended', endedAt } });
+      return res.json({ success: true, recording: { status: 'stopping', stoppingAt } });
     } catch (error) {
       await Promise.all([
         LiveStream.updateOne({ _id: stream._id, owner: req.auth.sub, recordingEgressId: stream.recordingEgressId, recordingStatus: 'stopping' },
@@ -888,10 +888,9 @@ app.delete('/api/me/streams/:streamId', requireAuth, streamLimiter, async (req, 
     const liveKit = createLiveKitApi(config);
     if (session.recordingEgressId && ['starting', 'active', 'stopping'].includes(session.recordingStatus)) {
       await stopRoomRecording({ egressClient: liveKit.egress, egressId: session.recordingEgressId });
-      session.recordingStatus = 'ended';
-      session.recordingEndedAt = new Date();
+      session.recordingStatus = 'stopping';
       await StreamRecording.updateOne({ egressId: session.recordingEgressId, owner: req.auth.sub },
-        { $set: { status: 'ended', endedAt: session.recordingEndedAt } });
+        { $set: { status: 'stopping' } });
     }
     await liveKit.room.deleteRoom(session.roomName);
     session.status = 'ended';
