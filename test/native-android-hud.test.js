@@ -70,6 +70,9 @@ test('native screen share joins LiveKit and publishes Android MediaProjection vi
   assert.match(screenShare, /updateHudChat/);
   assert.match(service, /CHAT DEL DIRECTO/);
   assert.match(service, /formatChatPreview/);
+  assert.match(service, /putBoolean\("hud_enabled", true\)/);
+  assert.match(service, /putBoolean\("hud_enabled", false\)/);
+  assert.match(screenShare, /getBoolean\("hud_enabled", false\)/);
   assert.match(screenShare, /toggleMicrophone/);
   assert.match(screenShare, /toggleCamera/);
   assert.match(screenShare, /requestPermissionForAlias/);
