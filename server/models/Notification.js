@@ -5,7 +5,7 @@ const notificationSchema = new mongoose.Schema({
   actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   type: {
     type: String,
-    enum: ['friend_request', 'friend_accepted', 'direct_message', 'room_participation_request', 'room_participation_accepted', 'room_participation_declined', 'token_gift'],
+    enum: ['friend_request', 'friend_accepted', 'direct_message', 'room_participation_request', 'room_participation_accepted', 'room_participation_declined', 'token_gift', 'group_invite'],
     required: true
   },
   title: { type: String, required: true, trim: true, maxlength: 100 },
