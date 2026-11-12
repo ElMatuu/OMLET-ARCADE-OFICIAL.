@@ -32,6 +32,8 @@ test('floating HUD is draggable and dispatches only app navigation actions', () 
   }
   assert.match(service, /FOREGROUND_SERVICE_TYPE_SPECIAL_USE/);
   assert.match(service, /FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION/);
+  assert.match(service, /Settings\\.canDrawOverlays\\(this\\)/);
+  assert.match(service, /catch \\(IllegalArgumentException ignored\\)/);
 });
 
 test('Android sync is idempotent and registers the plugin and foreground service', () => {
@@ -45,6 +47,7 @@ test('Android sync is idempotent and registers the plugin and foreground service
 
 test('web app uses the ArcadeHud bridge and handles floating actions safely', () => {
   assert.match(html, /ArcadeHud/);
+  assert.match(html, /android-hud-settings/);
   assert.match(html, /hasOverlayPermission/);
   assert.match(html, /openOverlaySettings/);
   assert.match(html, /startHud\(\)/);
