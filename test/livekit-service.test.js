@@ -97,6 +97,8 @@ test('LiveKit participant tokens are short-lived and role-scoped', async () => {
     metadata: { userId: 'user-1', role: 'screen_share' },
     roomName: 'pv_test_room',
     canPublish: true,
+    canPublishData: false,
+    canSubscribe: false,
     canPublishSources: ['SCREEN_SHARE']
   });
   const screenClaims = JSON.parse(Buffer.from(screenShare.split('.')[1], 'base64url').toString('utf8'));
