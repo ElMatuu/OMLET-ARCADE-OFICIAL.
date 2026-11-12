@@ -278,11 +278,10 @@
                         <button type="button" onclick="switchTab('lobbies')" class="flex min-w-16 flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-700 text-slate-300"><span class="text-2xl">＋</span><span class="text-[10px]">Más juegos</span></button>
                     </div>
                 </section>
-            </section>
                 <section aria-labelledby="highlights-title" class="space-y-3">
                     <div class="flex items-center justify-between">
                         <div>
-                            <h3 id="highlights-title" class="font-black text-base text-white">Highlights de Omlet Arcade</h3>
+                            <h3 id="highlights-title" class="font-black text-base text-white">Destacados de Omlet Arcade</h3>
                             <p class="text-[11px] text-slate-400">Accesos rápidos para entrar en acción</p>
                         </div>
                         <span class="text-[10px] font-bold tracking-wide text-orange-300">EXPLORAR</span>
@@ -320,8 +319,8 @@
                 <section class="PLAYVERSE-card rounded-2xl p-4 space-y-3">
                     <div class="flex items-center gap-2"><i class="fa-solid fa-tower-broadcast text-rose-400"></i><div><h3 class="font-black text-sm">Descubrí la comunidad en directo</h3><p class="text-xs text-slate-400">Entrá a transmisiones reales o buscá partidas públicas para jugar.</p></div></div>
                     <div class="grid grid-cols-2 gap-2">
-                        <button type="button" onclick="switchTab('live')" class="rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-200 px-3 py-3 text-xs font-bold"><i class="fa-solid fa-satellite-dish mr-1"></i> Live Now</button>
-                        <button type="button" onclick="switchTab('lobbies')" class="rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-200 px-3 py-3 text-xs font-bold"><i class="fa-solid fa-gamepad mr-1"></i> Viewer Games</button>
+                        <button type="button" onclick="switchTab('live')" class="rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-200 px-3 py-3 text-xs font-bold"><i class="fa-solid fa-satellite-dish mr-1"></i> En vivo</button>
+                        <button type="button" onclick="switchTab('lobbies')" class="rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-200 px-3 py-3 text-xs font-bold"><i class="fa-solid fa-gamepad mr-1"></i> Juegos</button>
                     </div>
                 </section>
 
@@ -347,8 +346,8 @@
             <div id="tab-live" class="space-y-6 hidden">
                 <section class="space-y-2">
                     <div class="grid grid-cols-2 gap-2" role="group" aria-label="Descubrimiento de Omlet Arcade">
-                        <button type="button" aria-current="page" class="rounded-xl border border-rose-500/40 bg-rose-500/10 text-rose-200 px-3 py-3 text-xs font-black"><i class="fa-solid fa-tower-broadcast mr-1"></i> Live Now</button>
-                        <button type="button" onclick="switchTab('lobbies')" class="rounded-xl border border-slate-700 bg-slate-900 text-slate-200 px-3 py-3 text-xs font-bold"><i class="fa-solid fa-gamepad mr-1"></i> Viewer Games</button>
+                        <button type="button" aria-current="page" class="rounded-xl border border-rose-500/40 bg-rose-500/10 text-rose-200 px-3 py-3 text-xs font-black"><i class="fa-solid fa-tower-broadcast mr-1"></i> En vivo</button>
+                        <button type="button" onclick="switchTab('lobbies')" class="rounded-xl border border-slate-700 bg-slate-900 text-slate-200 px-3 py-3 text-xs font-bold"><i class="fa-solid fa-gamepad mr-1"></i> Juegos</button>
                     </div>
                     
                     <div class="flex items-center justify-between"><div><h3 class="font-black text-lg">En Vivo</h3><p class="text-xs text-slate-400">Descubrí transmisiones de la comunidad</p></div><span class="text-[10px] font-bold text-rose-300 bg-rose-500/10 border border-rose-500/20 px-2 py-1 rounded-full">LIVE</span></div>
@@ -565,7 +564,7 @@
                 </div>
                 <section class="PLAYVERSE-card rounded-2xl p-4 space-y-2">
                     <div class="flex items-center justify-between gap-3">
-                        <div><p class="text-[10px] font-bold uppercase tracking-widest text-orange-300">Omlet Arcade STORE</p><h3 class="font-black text-xl">Tienda y personalización</h3></div>
+                        <div><p class="text-[10px] font-bold uppercase tracking-widest text-orange-300">TIENDA OMLET ARCADE</p><h3 class="font-black text-xl">Tienda y personalización</h3></div>
                         <div class="grid grid-cols-3 gap-2 w-full sm:w-auto">
 <div class="rounded-xl bg-slate-950 border border-amber-400/30 px-2 py-2 text-center"><span class="pv-coin pv-coin-gold">PV</span><strong id="wallet-gold-balance" class="block text-xs text-amber-300">0</strong><span class="text-[9px] text-slate-500">ORO</span></div>
 <div class="rounded-xl bg-slate-950 border border-fuchsia-400/30 px-2 py-2 text-center"><span class="pv-coin pv-coin-purple">PV</span><strong id="wallet-purple-balance" class="block text-xs text-fuchsia-300">0</strong><span class="text-[9px] text-slate-500">VIOLETA</span></div>
@@ -737,7 +736,7 @@
                     <div class="relative -mx-6 -mt-6 mb-2 h-32 overflow-hidden rounded-t-3xl bg-gradient-to-r from-orange-600 via-fuchsia-700 to-indigo-700">
                         <img id="profile-banner-image" class="hidden h-full w-full object-cover" alt="Portada del perfil">
                         <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent"></div>
-                        <span class="absolute bottom-3 left-4 text-[10px] font-black uppercase tracking-[.2em] text-white/80">Omlet Arcade PLAYER CARD</span>
+                        <span class="absolute bottom-3 left-4 text-[10px] font-black uppercase tracking-[.2em] text-white/80">TARJETA DE JUGADOR</span>
                     </div>
                     <div class="w-24 h-24 mx-auto rounded-full PLAYVERSE-gradient p-1 shadow-2xl flex items-center justify-center text-4xl overflow-hidden">
                         <span id="profile-avatar-placeholder">🎮</span>
