@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createRealtimeNotificationPolicy } = require('../server/services/notificationDelivery');
+const User = require('../server/models/User');
 
 function makeUserModel(user) {
   return {
@@ -56,4 +57,11 @@ test('notification delivery fails open if preference or live-state lookup fails'
 
 test('notification delivery policy requires both models', () => {
   assert.throws(() => createRealtimeNotificationPolicy({ UserModel: {}, LiveStreamModel: null }));
+});
+
+test('streaming DND is a persisted opt-in preference and defaults to off', () => {
+  const user = new User({ username: 'dnd_test', passwordHash: 'test-hash' });
+  assert.equal(user.streamingPreferences.doNotDisturbWhileStreaming, false);
+  user.streamingPreferences.doNotDisturbWhileStreaming = true;
+  assert.equal(user.validateSync(), undefined);
 });
