@@ -30,6 +30,7 @@ test('public game server address validation rejects non-public IPv4 ranges witho
     '999.1.1.1'
   ]) assert.equal(normalizePublicServerAddress(address), null, address);
   assert.equal(normalizePublicServerAddress('8.8.8.8'), '8.8.8.8');
+  assert.equal(normalizePublicServerAddress('192.2.0.8'), '192.2.0.8');
   assert.equal(normalizePublicServerAddress('play.example.net'), 'play.example.net');
 });
 
