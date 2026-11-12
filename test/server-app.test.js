@@ -128,6 +128,10 @@ test('private browser overlay page renders watermark and equipped overlay layers
     assert.match(html, /src="\/livekit-client\.umd\.js"/);
     assert.match(html, /id="screen-share"/);
     assert.match(html, /id="camera"/);
+    assert.match(html, /data-position/);
+    assert.match(html, /data-frame/);
+    assert.match(html, /Track\.Source\.ScreenShare/);
+    assert.match(html, /Track\.Source\.Camera/);
     assert.match(html, /stream-overlay\/'\+encodeURIComponent\(token\)\+'\/session/);
     assert.match(html, /overlay-cyber-arena/);
     assert.match(html, /overlay-nebula-live/);
