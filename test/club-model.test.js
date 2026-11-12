@@ -36,3 +36,25 @@ test('public gaming clubs persist an owner member and bounded community metadata
     visibility: 'unlisted'
   }).validate());
 });
+
+test('club rejects inconsistent owner membership and multiple owner roles', async () => {
+  const owner = new mongoose.Types.ObjectId();
+  const member = new mongoose.Types.ObjectId();
+  await assert.rejects(new Club({
+    name: 'Club inconsistente',
+    game: 'Minecraft',
+    owner,
+    ownerUsername: 'HostPlayer',
+    members: [{ user: member, username: 'Member', role: 'owner' }]
+  }).validate());
+  await assert.rejects(new Club({
+    name: 'Club con dos dueños',
+    game: 'Minecraft',
+    owner,
+    ownerUsername: 'HostPlayer',
+    members: [
+      { user: owner, username: 'HostPlayer', role: 'owner' },
+      { user: member, username: 'Member', role: 'owner' }
+    ]
+  }).validate());
+});
