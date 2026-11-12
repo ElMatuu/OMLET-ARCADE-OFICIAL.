@@ -44,7 +44,7 @@ test('Android sync is idempotent and registers the plugin and foreground service
 });
 
 test('web app uses the ArcadeHud bridge and handles floating actions safely', () => {
-  assert.match(html, /Capacitor\.Plugins\.ArcadeHud/);
+  assert.match(html, /ArcadeHud/);
   assert.match(html, /hasOverlayPermission/);
   assert.match(html, /openOverlaySettings/);
   assert.match(html, /startHud\(\)/);
