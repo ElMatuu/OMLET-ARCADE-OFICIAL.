@@ -34,6 +34,8 @@ const StreamRecording = require('./models/StreamRecording');
 const { createPresignedRecordingUrl } = require('./services/recordingStorage');
 const LiveStreamMessage = require('./models/LiveStreamMessage');
 const creatorDestinationsRouter = require('./routes/creatorDestinations');
+const creatorBroadcastsRouter = require('./routes/creatorBroadcasts');
+const StreamBroadcastSession = require('./models/StreamBroadcastSession');
 const groupConversationsRouter = require('./routes/groupConversations');
 const Conversation = require('./models/Conversation');
 const DirectMessage = require('./models/DirectMessage');
@@ -138,6 +140,10 @@ app.post('/api/webhooks/livekit', express.raw({ type: 'application/webhook+json'
           { egressId },
           { $set: { status: finalStatus, endedAt } }
         );
+        await StreamBroadcastSession.updateOne(
+          { egressId, active: true },
+          { $set: { status: finalStatus, active: false, endedAt } }
+        );
       }
     }
     return res.status(200).json({ success: true });
@@ -149,6 +155,7 @@ app.post('/api/webhooks/livekit', express.raw({ type: 'application/webhook+json'
 
 app.use(express.json({ limit: '20kb' }));
 app.use('/api/me/stream-destinations', creatorDestinationsRouter);
+app.use('/api/me/stream-destinations', creatorBroadcastsRouter);
 app.use('/api/group-conversations', groupConversationsRouter);
 
 const webRoot = path.join(__dirname, '..', 'www');
