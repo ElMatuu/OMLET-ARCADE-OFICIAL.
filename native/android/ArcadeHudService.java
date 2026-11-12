@@ -35,7 +35,10 @@ public class ArcadeHudService extends Service {
         super.onCreate();
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         createNotificationChannel();
-        Notification notification = new Notification.Builder(this, CHANNEL_ID)
+        Notification.Builder notificationBuilder = Build.VERSION.SDK_INT >= 26
+            ? new Notification.Builder(this, CHANNEL_ID)
+            : new Notification.Builder(this);
+        Notification notification = notificationBuilder
             .setSmallIcon(getApplicationInfo().icon)
             .setContentTitle("PLAYVERSE HUD activo")
             .setContentText("Controles flotantes disponibles. La transmisión no se inicia automáticamente.")
