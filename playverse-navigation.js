@@ -81,6 +81,21 @@
     const nav=createSubnav('pv-profile-subnav',entries,e=>{const target=byId(e.target);(target?.closest('section')||target)?.scrollIntoView({behavior:'smooth',block:'start'});});
     nav.id='pv-profile-subnav';profile.insertBefore(nav,profile.firstChild);
   }
+  function installStoreSections(){
+    const store=byId('tab-shop');if(!store||byId('pv-store-subnav'))return;
+    const entries=[
+      {label:'Monedero',target:'wallet-gold-balance'},
+      {label:'Personalización',target:'store-avatar-preview'},
+      {label:'Catálogo',target:'store-search'},
+      {label:'Inventario',target:'store-inventory-list'},
+      {label:'Movimientos',target:'wallet-transactions-list'}
+    ];
+    const nav=createSubnav('pv-store-subnav',entries,e=>{
+      const target=byId(e.target);
+      (target?.closest('section')||target?.closest('form')||target)?.scrollIntoView({behavior:'smooth',block:'start'});
+    });
+    nav.id='pv-store-subnav';store.insertBefore(nav,store.firstChild);
+  }
   function installSettingsSections(){
     const form=byId('streaming-settings-form');if(!form||byId('pv-settings-subnav'))return;
     const sections=Array.from(form.querySelectorAll(':scope > section'));
@@ -89,6 +104,6 @@
     const heading=form.querySelector(':scope > div');if(heading)heading.insertAdjacentElement('afterend',nav);
   }
   function normalizeBrandCopy(){const label=document.querySelector('#drawer-panel .tracking-\\[\\.2em\\]');if(label&&/Omlet Arcade/i.test(label.textContent))label.textContent='TU ESPACIO PLAYVERSE';}
-  function install(){addStyles();buildMobileNav();buildDesktopRail();installRouter();installProfileSections();installSettingsSections();normalizeBrandCopy();byId('main-app')?.classList.add('pv-desktop-shell');}
+  function install(){addStyles();buildMobileNav();buildDesktopRail();installRouter();installProfileSections();installStoreSections();installSettingsSections();normalizeBrandCopy();byId('main-app')?.classList.add('pv-desktop-shell');}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
