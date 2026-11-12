@@ -41,4 +41,5 @@ test('recording playback signer rejects invalid keys, credentials and expiry win
   assert.throws(() => createPresignedRecordingUrl({ storage, objectKey: '../private.mp4' }));
   assert.throws(() => createPresignedRecordingUrl({ storage, objectKey, expiresInSeconds: 30 }));
   assert.throws(() => createPresignedRecordingUrl({ storage: { ...storage, endpoint: 'file:///etc/passwd' }, objectKey }));
+  assert.throws(() => createPresignedRecordingUrl({ storage: { ...storage, endpoint: 'http://objects.example.test' }, objectKey }));
 });
