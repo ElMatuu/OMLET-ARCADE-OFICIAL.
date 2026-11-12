@@ -1,5 +1,9 @@
 # Omlet Arcade experience parity — PLAYVERSE
 
+## Reference audit
+
+The historical version, screenshot gallery, video walkthroughs, feature inventory, unknown original backend details, and parity gaps are tracked in [OMLET_REFERENCE_AUDIT.md](./OMLET_REFERENCE_AUDIT.md). Use archived version 1.111.9 as the primary Android reference; do not confuse the older 1.44.1 release notes with the final archived version.
+
 ## Product decision
 
 Omlet Arcade is the target product name and experience for this rebuild. The owner states that authorization for the brand and product has been obtained. The implementation is being rebuilt in this repository with project-owned backend services. The official identity package, legal attribution/authorization record, and approved assets must be supplied by the rights holder and integrated before public distribution.
