@@ -11,7 +11,7 @@ function getRecordingStorageConfig(env = process.env) {
   if (endpoint) {
     let parsed;
     try { parsed = new URL(endpoint); } catch { return null; }
-    if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.host || parsed.username || parsed.password ||
+    if (parsed.protocol !== 'https:' || !parsed.host || parsed.username || parsed.password ||
         parsed.search || parsed.hash) return null;
   }
   return { bucket, accessKey, secret, region, endpoint: endpoint || undefined, forcePathStyle };
