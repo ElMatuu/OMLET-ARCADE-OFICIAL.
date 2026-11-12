@@ -348,13 +348,13 @@
                         <textarea id="live-stream-description" maxlength="500" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white" placeholder="Descripción (opcional)"></textarea>
                         <label for="live-stream-watermark" class="block text-xs font-bold text-slate-300">Marca de agua personalizada <span class="font-normal text-slate-500">(hasta 40 caracteres)</span></label>
                         <input id="live-stream-watermark" maxlength="40" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white" placeholder="Tu nombre o canal">
-                        <p class="text-[10px] text-slate-500">Se guarda como metadato público de la transmisión. La superposición visual dentro del video requiere composición de video compatible.</p>
+                        <p class="text-[10px] text-slate-500">Se muestra como marca visible en la fuente de navegador de PLAYVERSE. No se incrusta en el archivo de video original ni en otras salidas RTMP.</p>
                         <button id="live-stream-start" type="submit" class="PLAYVERSE-gradient rounded-xl px-4 py-3 text-xs font-bold text-white w-full">Iniciar transmisión</button>
                     </form>
                     <p id="live-stream-status" class="text-xs text-slate-400" role="status" aria-live="polite">Comprobando disponibilidad del servicio de video…</p>
                     <div id="live-stream-overlay-share" class="hidden rounded-xl border border-cyan-400/30 bg-slate-950/70 p-3 space-y-2">
                         <div class="text-xs font-bold text-cyan-200">Overlay para OBS / software de emisión</div>
-                        <p class="text-[11px] text-slate-400">Enlace privado de tu transmisión. No lo publiques ni lo compartas con espectadores.</p>
+                        <p class="text-[11px] text-slate-400">Agregalo como fuente de navegador en OBS o un emisor compatible. Incluye tu marca de agua, tema, redes, contador de espectadores y el overlay cosmético equipado. No lo compartas con espectadores.</p>
                         <input id="live-stream-overlay-url" type="password" readonly autocomplete="off" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
                         <div class="flex gap-2">
                             <button type="button" onclick="toggleStreamOverlayVisibility()" class="rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold">Mostrar / ocultar</button>
@@ -810,13 +810,12 @@
                     <label class="text-xs text-slate-400">TikTok<input id="stream-social-tiktok" maxlength="60" class="mt-1 w-full min-w-0 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="@usuario"></label>
                 </div>
                 <div class="space-y-2 rounded-xl border border-slate-800 bg-slate-950/50 p-3">
-                    <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Mostrar chat en overlay<input id="stream-overlay-show-chat" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
                     <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Mostrar espectadores<input id="stream-overlay-show-viewers" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
-                    <label class="flex items-center justify-between gap-3 text-sm text-slate-200">Mostrar panel de donaciones/regalos<input id="stream-overlay-show-donations" type="checkbox" class="accent-orange-400 w-5 h-5"></label>
+                    <p class="text-[11px] text-slate-400">El contador se actualiza desde LiveKit. El chat integrado y el panel de regalos todavía no tienen una fuente de eventos conectada y no se muestran como si funcionaran.</p>
                 </div>
                 <label class="block text-xs text-slate-400">Mensaje de bienvenida<input id="stream-welcome-message" maxlength="200" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="¡Bienvenidos al directo!"></label>
                 <label class="block text-xs text-slate-400">Mensaje de despedida<input id="stream-farewell-message" maxlength="200" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white" placeholder="¡Gracias por acompañarme!"></label>
-                <p class="text-[11px] text-amber-300/80">La configuración queda guardada en tu cuenta. La composición visual en tiempo real y los paneles de donaciones conectados a pagos se habilitarán al completar el motor de overlays y sus integraciones.</p>
+                <p class="text-[11px] text-emerald-300/80">El tema, la distribución, la marca y el overlay comprado se aplican a la fuente de navegador privada del directo. El chat y los regalos externos requieren sus integraciones propias.</p>
             </section>
             <section class="rounded-2xl border border-cyan-500/30 bg-cyan-950/20 p-4 space-y-2">
                 <div class="flex items-center gap-2"><span class="text-lg">⚡</span><h4 class="text-sm font-black text-cyan-100">Configuración rápida</h4></div>
