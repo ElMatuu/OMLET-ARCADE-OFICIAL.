@@ -2,7 +2,7 @@
   "name": "playverse-platform",
   "version": "0.3.0",
   "private": true,
-  "description": "PLAYVERSE — original gaming community platform for Android and Windows",
+  "description": "Omlet Arcade — comunidad gamer y plataforma de transmisiones en vivo para Android y Windows",
   "main": "desktop/main.js",
   "scripts": {
     "start": "npm run build:web && node server/index.js",
@@ -47,7 +47,7 @@
   },
   "build": {
     "appId": "com.playverse.desktop",
-    "productName": "PLAYVERSE",
+    "productName": "Omlet Arcade",
     "directories": {
       "output": "release"
     },
