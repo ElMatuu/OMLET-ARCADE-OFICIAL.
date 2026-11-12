@@ -38,3 +38,18 @@ test('creator stream destination endpoints require authentication for reads and 
     assert.equal(remove.status, 401);
   });
 });
+
+test('settings UI exposes the authenticated RTMP destination workflow without nested forms', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const start = html.indexOf('<div id="settings-modal"');
+  const end = html.indexOf('<!-- MODAL CREAR CLUB -->', start);
+  assert.ok(start >= 0 && end > start);
+  const settings = html.slice(start, end);
+  assert.match(settings, /id="stream-destination-form"/);
+  assert.match(settings, /saveStreamDestination\(event\)/);
+  assert.match(settings, /loadStreamDestinations\(\)/);
+  assert.equal((settings.match(/<form\b/g) || []).length, 1);
+  assert.equal((settings.match(/<\/form>/g) || []).length, 1);
+});
