@@ -745,6 +745,9 @@ app.get('/api/public/stream-overlay/:token', overlayReadLimiter, async (req, res
       overlay: {
         theme: preferences.overlayTheme || 'arcade',
         layout: preferences.overlayLayout || 'wide',
+        position: preferences.overlayPosition || 'bottom-left',
+        scale: Number.isInteger(preferences.overlayScale) ? preferences.overlayScale : 100,
+        opacity: Number.isInteger(preferences.overlayOpacity) ? preferences.overlayOpacity : 90,
         showViewerCount: preferences.overlayShowViewerCount !== false,
         showChat: preferences.overlayShowChat !== false,
         brandingText: preferences.overlayBrandingText || '',
@@ -775,7 +778,11 @@ app.get('/overlay/:token', (req, res) => {
 <title>PLAYVERSE Stream Overlay</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:transparent;color:#fff;font-family:Inter,system-ui,Arial,sans-serif}
-#overlay{position:absolute;left:3%;right:3%;bottom:4%;display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+#overlay{position:absolute;left:3%;right:3%;bottom:4%;display:flex;align-items:flex-end;justify-content:flex-start;gap:16px;transform-origin:bottom left}
+#overlay.position-top-left{top:4%;bottom:auto;justify-content:flex-start;align-items:flex-start;transform-origin:top left}
+#overlay.position-top-right{top:4%;bottom:auto;justify-content:flex-end;align-items:flex-start;transform-origin:top right}
+#overlay.position-bottom-left{bottom:4%;top:auto;justify-content:flex-start;align-items:flex-end;transform-origin:bottom left}
+#overlay.position-bottom-right{bottom:4%;top:auto;justify-content:flex-end;align-items:flex-end;transform-origin:bottom right}
 .panel{max-width:75%;padding:14px 18px;border:1px solid #ffffff35;border-radius:16px;background:linear-gradient(110deg,#10152be8,#1c2345d9);box-shadow:0 8px 30px #0006;backdrop-filter:blur(10px)}
 #creator{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#9da9ff}
 #title{font-size:clamp(16px,2.4vw,28px);font-weight:900;line-height:1.15;margin-top:4px}
@@ -820,7 +827,14 @@ async function refresh(){
   const response=await fetch('/api/public/stream-overlay/'+encodeURIComponent(token),{cache:'no-store'});
   if(!response.ok){set('title','Transmisión finalizada');set('creator','PLAYVERSE');set('viewers','');return}
   const data=await response.json();const p=data.overlay||{};
-  root.className='theme-'+(p.theme||'arcade')+' layout-'+(p.layout||'wide');
+  root.className='theme-'+(p.theme||'arcade')+' layout-'+(p.layout||'wide')+' position-'+(p.position||'bottom-left');
+  const position=p.position||'bottom-left';
+  const layout=p.layout||'wide';
+  root.style.justifyContent=layout==='vertical'?(position.startsWith('top')?'flex-start':'flex-end'):(position.endsWith('right')?'flex-end':'flex-start');
+  root.style.alignItems=layout==='vertical'?(position.endsWith('right')?'flex-end':'flex-start'):(position.startsWith('top')?'flex-start':'flex-end');
+  root.style.transform='scale('+((Number.isInteger(p.scale)?p.scale:100)/100)+')';
+  root.style.transformOrigin=position.replace('-', ' ');
+  root.style.opacity=String((Number.isInteger(p.opacity)?p.opacity:90)/100);
   set('creator','@'+(data.stream.creator||''));
   set('title',data.stream.title);
   set('branding',p.brandingText);
@@ -1254,6 +1268,9 @@ const DEFAULT_STREAMING_PREFERENCES = {
   cameraFrame: 'none',
   overlayTheme: 'arcade',
   overlayLayout: 'wide',
+  overlayPosition: 'bottom-left',
+  overlayScale: 100,
+  overlayOpacity: 90,
   overlayShowChat: true,
   overlayShowViewerCount: true,
   overlayShowDonations: true,
@@ -1277,6 +1294,9 @@ const STREAMING_PREFERENCE_RULES = {
   cameraFrame: (value) => ['none', 'cyan', 'violet'].includes(value),
   overlayTheme: (value) => ['arcade', 'neon', 'minimal', 'esports'].includes(value),
   overlayLayout: (value) => ['compact', 'wide', 'vertical'].includes(value),
+  overlayPosition: (value) => ['top-left', 'top-right', 'bottom-left', 'bottom-right'].includes(value),
+  overlayScale: (value) => Number.isInteger(value) && value >= 75 && value <= 125,
+  overlayOpacity: (value) => Number.isInteger(value) && value >= 40 && value <= 100,
   overlayShowChat: (value) => typeof value === 'boolean',
   overlayShowViewerCount: (value) => typeof value === 'boolean',
   overlayShowDonations: (value) => typeof value === 'boolean',
