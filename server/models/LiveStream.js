@@ -27,6 +27,11 @@ const liveStreamSchema = new mongoose.Schema({
     expiresAt: { type: Date, required: true },
     createdAt: { type: Date, default: Date.now }
   }],
+  recordingEgressId: { type: String, default: null, select: false },
+  recordingObjectKey: { type: String, default: null, select: false, maxlength: 512 },
+  recordingStatus: { type: String, enum: ['not_started', 'starting', 'active', 'stopping', 'ended', 'failed'], default: 'not_started', index: true },
+  recordingStartedAt: { type: Date, default: null },
+  recordingEndedAt: { type: Date, default: null },
   status: { type: String, enum: ['live', 'ended'], default: 'live', index: true },
   startedAt: { type: Date, default: Date.now, immutable: true },
   endedAt: { type: Date, default: null }

@@ -43,6 +43,7 @@ const { AVATAR_CATALOG, AVATAR_BY_ID } = require('./data/avatarCatalog');
 const { requireAuth } = require('./middleware/auth');
 const { attachSocketServer } = require('./socket');
 const { createLiveKitApi, createParticipantToken, createRoomName, createWebhookReceiver, getLiveKitConfig } = require('./services/livekit');
+const { getRecordingStorageConfig, createRecordingObjectKey, createRecordingOutput, startRoomRecording, stopRoomRecording } = require('./services/recordings');
 
 const app = express();
 // Render terminates the public connection in one trusted proxy hop.
@@ -112,6 +113,19 @@ app.post('/api/webhooks/livekit', express.raw({ type: 'application/webhook+json'
         { roomName: event.room.name, status: 'live' },
         { $set: { status: 'ended', endedAt: new Date() } }
       );
+    }
+    if (event.event === 'egress_ended') {
+      const egressInfo = event.egressInfo || event.egress_info || {};
+      const egressId = egressInfo.egressId || egressInfo.egress_id;
+      if (typeof egressId === 'string' && egressId) {
+        await LiveStream.updateOne(
+          { recordingEgressId: egressId },
+          { $set: {
+            recordingStatus: egressInfo.error ? 'failed' : 'ended',
+            recordingEndedAt: new Date()
+          } }
+        );
+      }
     }
     return res.status(200).json({ success: true });
   } catch (error) {
@@ -695,6 +709,100 @@ app.post('/api/streams/:streamId/token', requireAuth, streamLimiter, async (req,
   } catch (error) { return next(error); }
 });
 
+app.get('/api/me/streams/:streamId/recording', requireAuth, async (req, res, next) => {
+  try {
+    if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
+    const stream = await LiveStream.findOne({ _id: req.params.streamId, owner: req.auth.sub })
+      .select('recordingStatus recordingStartedAt recordingEndedAt status').lean();
+    if (!stream) return res.status(404).json({ success: false, message: 'Transmisión no encontrada.' });
+    return res.set('Cache-Control', 'no-store').json({
+      success: true,
+      recording: {
+        status: stream.recordingStatus || 'not_started',
+        startedAt: stream.recordingStartedAt || null,
+        endedAt: stream.recordingEndedAt || null,
+        streamStatus: stream.status,
+        storageConfigured: Boolean(getRecordingStorageConfig())
+      }
+    });
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/me/streams/:streamId/recording/start', requireAuth, streamLimiter, async (req, res, next) => {
+  const config = getLiveKitConfig();
+  if (!config) return res.status(503).json({ success: false, code: 'LIVE_STREAMING_NOT_CONFIGURED', message: 'LiveKit no está configurado.' });
+  const storage = getRecordingStorageConfig();
+  if (!storage) return res.status(503).json({
+    success: false, code: 'RECORDING_STORAGE_NOT_CONFIGURED',
+    message: 'La grabación necesita un bucket S3 privado configurado en el servidor.'
+  });
+  try {
+    if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
+    const objectKey = createRecordingObjectKey({ ownerId: req.auth.sub, streamId: req.params.streamId });
+    const now = new Date();
+    const stream = await LiveStream.findOneAndUpdate({
+      _id: req.params.streamId,
+      owner: req.auth.sub,
+      status: 'live',
+      recordingStatus: { $nin: ['starting', 'active', 'stopping'] }
+    }, {
+      $set: { recordingStatus: 'starting', recordingObjectKey: objectKey, recordingStartedAt: now, recordingEndedAt: null, recordingEgressId: null }
+    }, { new: true }).select('roomName title recordingStartedAt').lean();
+    if (!stream) return res.status(409).json({ success: false, message: 'No hay una transmisión propia disponible o ya existe una grabación activa.' });
+    try {
+      const liveKit = createLiveKitApi(config);
+      const output = createRecordingOutput({ storage, objectKey });
+      const egress = await startRoomRecording({ egressClient: liveKit.egress, roomName: stream.roomName, output });
+      const egressId = egress && (egress.egressId || egress.egress_id);
+      if (typeof egressId !== 'string' || !egressId) throw new Error('LiveKit no devolvió un identificador de grabación.');
+      const activated = await LiveStream.updateOne(
+        { _id: req.params.streamId, owner: req.auth.sub, status: 'live', recordingStatus: 'starting' },
+        { $set: { recordingEgressId: egressId, recordingStatus: 'active' } }
+      );
+      if (!activated.matchedCount) {
+        try { await stopRoomRecording({ egressClient: liveKit.egress, egressId }); } catch {}
+        return res.status(409).json({ success: false, message: 'La transmisión cambió mientras iniciaba la grabación.' });
+      }
+      return res.status(202).json({ success: true, recording: { status: 'active', startedAt: now } });
+    } catch (error) {
+      await LiveStream.updateOne(
+        { _id: req.params.streamId, owner: req.auth.sub, recordingStatus: 'starting' },
+        { $set: { recordingStatus: 'failed', recordingEndedAt: new Date() } }
+      );
+      console.error('Unable to start LiveKit room recording:', error.message);
+      return res.status(502).json({ success: false, code: 'RECORDING_START_FAILED', message: 'No se pudo iniciar la grabación. Revisá el servicio Egress y el almacenamiento configurado.' });
+    }
+  } catch (error) { return next(error); }
+});
+
+app.post('/api/me/streams/:streamId/recording/stop', requireAuth, streamLimiter, async (req, res, next) => {
+  const config = getLiveKitConfig();
+  if (!config) return res.status(503).json({ success: false, code: 'LIVE_STREAMING_NOT_CONFIGURED', message: 'LiveKit no está configurado.' });
+  try {
+    if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
+    const stream = await LiveStream.findOneAndUpdate({
+      _id: req.params.streamId, owner: req.auth.sub, status: 'live',
+      recordingStatus: { $in: ['starting', 'active'] },
+      recordingEgressId: { $ne: null }
+    }, { $set: { recordingStatus: 'stopping' } }, { new: true })
+      .select('+recordingEgressId roomName recordingStatus').lean();
+    if (!stream || !stream.recordingEgressId) return res.status(409).json({ success: false, message: 'No hay una grabación activa para detener o ya se está deteniendo.' });
+    try {
+      const liveKit = createLiveKitApi(config);
+      await stopRoomRecording({ egressClient: liveKit.egress, egressId: stream.recordingEgressId });
+      const endedAt = new Date();
+      await LiveStream.updateOne({ _id: stream._id, owner: req.auth.sub, recordingEgressId: stream.recordingEgressId },
+        { $set: { recordingStatus: 'ended', recordingEndedAt: endedAt } });
+      return res.json({ success: true, recording: { status: 'ended', endedAt } });
+    } catch (error) {
+      await LiveStream.updateOne({ _id: stream._id, owner: req.auth.sub, recordingEgressId: stream.recordingEgressId, recordingStatus: 'stopping' },
+        { $set: { recordingStatus: 'active' } });
+      console.error('Unable to stop LiveKit room recording:', error.message);
+      return res.status(502).json({ success: false, code: 'RECORDING_STOP_FAILED', message: 'No se pudo detener la grabación. Podés volver a intentarlo.' });
+    }
+  } catch (error) { return next(error); }
+});
+
 app.delete('/api/me/streams/:streamId', requireAuth, streamLimiter, async (req, res, next) => {
   const config = getLiveKitConfig();
   if (!config) return res.status(503).json({
@@ -704,9 +812,14 @@ app.delete('/api/me/streams/:streamId', requireAuth, streamLimiter, async (req, 
   });
   try {
     if (!isValidObjectId(req.params.streamId)) return res.status(400).json({ success: false, message: 'Transmisión inválida.' });
-    const session = await LiveStream.findOne({ _id: req.params.streamId, owner: req.auth.sub, status: 'live' });
+    const session = await LiveStream.findOne({ _id: req.params.streamId, owner: req.auth.sub, status: 'live' }).select('+recordingEgressId');
     if (!session) return res.status(404).json({ success: false, message: 'No se encontró una transmisión activa propia.' });
     const liveKit = createLiveKitApi(config);
+    if (session.recordingEgressId && ['starting', 'active', 'stopping'].includes(session.recordingStatus)) {
+      await stopRoomRecording({ egressClient: liveKit.egress, egressId: session.recordingEgressId });
+      session.recordingStatus = 'ended';
+      session.recordingEndedAt = new Date();
+    }
     await liveKit.room.deleteRoom(session.roomName);
     session.status = 'ended';
     session.endedAt = new Date();

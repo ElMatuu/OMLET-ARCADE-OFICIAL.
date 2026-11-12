@@ -50,3 +50,20 @@ test('LiveStream stores only a non-selected overlay token hash', () => {
   assert.equal(LiveStream.schema.path('overlayTokenHash').options.select, false);
   assert.equal(LiveStream.schema.path('overlayTokenHash').options.default, null);
 });
+
+test('LiveStream keeps recording state private and validates recording lifecycle states', () => {
+  const stream = new LiveStream({
+    owner: new mongoose.Types.ObjectId(),
+    ownerUsername: 'creator',
+    title: 'Recorded stream',
+    roomName: 'pv_recording_test'
+  });
+  assert.equal(stream.recordingStatus, 'not_started');
+  assert.equal(stream.recordingEgressId, null);
+  assert.equal(LiveStream.schema.path('recordingEgressId').options.select, false);
+  assert.equal(LiveStream.schema.path('recordingObjectKey').options.select, false);
+  stream.recordingStatus = 'active';
+  assert.equal(stream.validateSync(), undefined);
+  stream.recordingStatus = 'uploaded';
+  assert.ok(stream.validateSync().errors.recordingStatus);
+});
