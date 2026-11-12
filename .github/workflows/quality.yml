@@ -4,12 +4,12 @@ on:
   push:
     branches:
       - main
-      - feat/playverse-brand-foundation      - feat/native-android-floating-hud
-
+      - feat/arcade-hud-game-discovery
   pull_request:
     branches:
-      - main      - feat/profile-menu-achievements
-
+      - main
+      - feat/profile-menu-achievements
+      - feat/arcade-hud-game-discovery
 
 jobs:
   validate:
