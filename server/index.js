@@ -829,6 +829,9 @@ async function refresh(){
   const data=await response.json();const p=data.overlay||{};
   root.className='theme-'+(p.theme||'arcade')+' layout-'+(p.layout||'wide')+' position-'+(p.position||'bottom-left');
   const position=p.position||'bottom-left';
+  const layout=p.layout||'wide';
+  root.style.justifyContent=layout==='vertical'?(position.startsWith('top')?'flex-start':'flex-end'):(position.endsWith('right')?'flex-end':'flex-start');
+  root.style.alignItems=layout==='vertical'?(position.endsWith('right')?'flex-end':'flex-start'):(position.startsWith('top')?'flex-start':'flex-end');
   root.style.transform='scale('+((Number.isInteger(p.scale)?p.scale:100)/100)+')';
   root.style.transformOrigin=position.replace('-', ' ');
   root.style.opacity=String((Number.isInteger(p.opacity)?p.opacity:90)/100);
