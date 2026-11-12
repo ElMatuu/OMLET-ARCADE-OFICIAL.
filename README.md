@@ -1,8 +1,8 @@
-# PLAYVERSE
+# Omlet Arcade
 
 **Gaming · Community · Live**
 
-PLAYVERSE is an independent gaming and creator-community platform for Android and Windows. It is inspired by broad social-gaming workflows (profiles, communities, creator tools, multiplayer rooms and live video), while using its own brand, interface implementation, code and services.
+Omlet Arcade es el producto que se está reconstruyendo para Android y Windows, con experiencia social gamer, comunidades, herramientas de creador, salas multijugador y transmisiones en vivo. La implementación técnica y los servicios de esta plataforma se desarrollan para el proyecto, no se reutiliza código privado de terceros.
 
 ## Honest implementation status
 
@@ -27,7 +27,7 @@ This repository contains a working backend foundation and a web client that is s
 - Authenticated creator streaming-preference storage (resolution preference up to 2160p/4K, FPS presets, bitrate, camera, microphone, system audio, orientation and camera overlay position/frame).
 - Health liveness/readiness endpoints.
 - Web asset build, service-worker update foundation, Android Capacitor configuration and Windows Electron packaging configuration.
-- PLAYVERSE install name and original vector icon resources.
+- Omlet Arcade install name and original vector icon resources.
 
 ### Not yet implemented or verified as production features
 
@@ -60,7 +60,7 @@ See [`docs/LIVEKIT_SETUP.md`](docs/LIVEKIT_SETUP.md) for the exact environment v
 - `desktop/` — Electron Windows shell.
 - `capacitor.config.json` — Android application identity and web asset configuration.
 - `scripts/` — web build and platform asset preparation.
-- `assets/playverse-icon.svg` — original vector application icon.
+- `assets/` — recursos de marca; pendiente incorporar el paquete oficial autorizado de Omlet Arcade y sus créditos/licencias.
 
 The API uses MongoDB. LiveKit requires `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` to enable live-session endpoints; API secrets must exist only in backend environment settings. The current backend issues 10-minute role-scoped tokens and never sends the API secret to clients. The web client SDK and camera/screen playback UI are integrated; Android native permissions and device-level verification remain pending. Multi-document operations that need transactions require a MongoDB replica set. Configure a real HTTPS origin, production database, exact CORS allowlist, secrets, backups, monitoring and rate limits before public release.
 
