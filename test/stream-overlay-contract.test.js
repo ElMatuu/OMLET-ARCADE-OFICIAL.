@@ -42,6 +42,8 @@ test('browser overlay bundle is served from the installed LiveKit client package
   assert.ok(fs.existsSync(bundlePath), 'LiveKit UMD browser bundle must exist in the installed dependency');
   assert.match(indexHtml, /id="live-stream-watermark"/);
   assert.match(indexHtml, /customWatermark/);
+  assert.match(indexHtml, /Pagos externos y retiros \(deshabilitados\)/);
+  assert.match(indexHtml, /id="stream-overlay-show-donations" type="checkbox" disabled/);
 });
 
 test('overlay applies saved position, scale and opacity preferences', () => {
