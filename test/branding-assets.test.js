@@ -41,7 +41,10 @@ test('Android floating Arcade menu opens chat, live, multiplayer rooms and clubs
   for (const action of ['chat', 'live', 'lobbies', 'clubs']) {
     assert.ok(androidSync.includes('launchApp("' + action + '")'), 'Native floating menu must expose ' + action);
   }
-  assert.ok(html.includes("['chat', 'live', 'lobbies', 'clubs'].includes(action)"), 'Floating menu must accept only supported Arcade destinations');
+  for (const action of ['screen_share_toggle', 'microphone_toggle', 'camera_toggle', 'end_stream', 'stream_chat']) {
+    assert.ok(html.includes("'" + action + "'"), 'Floating menu must handle ' + action);
+  }
   assert.ok(html.includes("pendingFloatingAction = action"), 'Signed-out users must retain the selected Arcade destination until sign-in');
+  assert.ok(html.includes("switchTab('chat')"), 'Authenticated users must be able to open chat from the floating menu');
   assert.ok(html.includes("switchTab(action)"), 'Authenticated users must navigate to the selected Arcade destination');
 });
