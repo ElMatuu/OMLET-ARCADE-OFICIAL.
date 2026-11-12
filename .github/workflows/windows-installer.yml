@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feat/store-catalog-discovery
   pull_request:
     branches:
       - main
