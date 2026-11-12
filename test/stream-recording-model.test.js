@@ -30,6 +30,9 @@ test('stream recording stores private object and egress identifiers and a valid 
   assert.equal(recording.validateSync(), undefined);
   recording.status = 'public';
   assert.ok(recording.validateSync().errors.status);
+  recording.status = 'ended';
+  recording.objectKey = '../private.mp4';
+  assert.ok(recording.validateSync().errors.objectKey);
 });
 
 test('recording library has owner chronology and unique Egress indexes', () => {
