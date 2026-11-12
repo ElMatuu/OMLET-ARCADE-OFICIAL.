@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const http = require('http');
+const net = require('node:net');
 const crypto = require('node:crypto');
 const path = require('node:path');
 const express = require('express');
@@ -3017,20 +3018,33 @@ app.post('/api/tournaments/:tournamentId/entries/:entryId/score', requireAuth, a
 const GAME_SERVER_HEARTBEAT_MAX_AGE_MS = 90 * 1000;
 const GAME_SERVER_TOKEN_PATTERN = /^[A-Za-z0-9_-]{40,60}$/;
 
+function isNonPublicIPv4(address) {
+  if (net.isIP(address) !== 4) return false;
+  const [a, b, c, d] = address.split('.').map(Number);
+  return a === 0 || a === 10 || a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && (b === 0 || b === 2 || b === 168)) ||
+    (a === 192 && b === 88 && c === 99) ||
+    (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
+    (a === 203 && b === 0 && c === 113) ||
+    a >= 224 || (a === 255 && b === 255 && c === 255 && d === 255);
+}
+
 function normalizePublicServerAddress(value) {
   const address = typeof value === 'string' ? value.trim().toLowerCase() : '';
   if (!address || address.length > 253 || address.includes(' ') ||
       address.includes('/') || address.includes('@') || address.includes('?') ||
       address.includes('#') || address.includes('\\\\')) return null;
   if (address === 'localhost' || address.endsWith('.localhost') || address.endsWith('.local')) return null;
+  if (/^\\d+(?:\\.\\d+){3}$/.test(address)) {
+    return net.isIP(address) === 4 && !isNonPublicIPv4(address) ? address : null;
+  }
   const labels = address.split('.');
   if (labels.length < 2 || labels.some((label) =>
     !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)
   )) return null;
-  const octets = address.split('.');
-  if (['10', '127', '0', '192'].includes(octets[0]) &&
-      (octets[0] !== '192' || octets[1] === '168')) return null;
-  if (octets[0] === '172' && Number(octets[1]) >= 16 && Number(octets[1]) <= 31) return null;
   return address;
 }
 
@@ -3958,4 +3972,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { app, httpServer, start, shutdown, serializeGameServer };
+module.exports = { app, httpServer, start, shutdown, serializeGameServer, normalizePublicServerAddress };
