@@ -269,21 +269,22 @@ const rootGradlePath = path.join(root, 'android', 'build.gradle');
 if (!fs.existsSync(rootGradlePath)) throw new Error('Android root build.gradle was not found.');
 let rootGradle = fs.readFileSync(rootGradlePath, 'utf8');
 if (!rootGradle.includes('kotlin-gradle-plugin')) {
-  const dependenciesBlock = rootGradle.match(/dependencies\\s*\\{[\\s\\S]*?\\}/);
+  const dependenciesBlock = rootGradle.match(/dependencies\s*\{[\s\S]*?\}/);
   if (!dependenciesBlock) throw new Error('Could not find root Gradle buildscript dependencies.');
-  rootGradle = rootGradle.replace(dependenciesBlock[0], dependenciesBlock[0].replace(/\\}\\s*$/, "    classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.25'\\n}"));
+  rootGradle = rootGradle.replace(dependenciesBlock[0], dependenciesBlock[0].replace(/\}\s*$/, "    classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.25'\n}"));
   fs.writeFileSync(rootGradlePath, rootGradle);
 }
 const appGradlePath = path.join(root, 'android', 'app', 'build.gradle');
 if (!fs.existsSync(appGradlePath)) throw new Error('Android app build.gradle was not found.');
 let appGradle = fs.readFileSync(appGradlePath, 'utf8');
 if (!appGradle.includes("apply plugin: 'kotlin-android'")) {
-  appGradle = appGradle.replace("apply plugin: 'com.android.application'", "apply plugin: 'com.android.application'\\napply plugin: 'kotlin-android'");
+  appGradle = appGradle.replace("apply plugin: 'com.android.application'", "apply plugin: 'com.android.application'\napply plugin: 'kotlin-android'");
 }
 if (!appGradle.includes('io.livekit:livekit-android')) {
-  appGradle = appGradle.replace('dependencies {', 'dependencies {\\n    implementation "io.livekit:livekit-android:2.30.0"');
+  appGradle = appGradle.replace('dependencies {', 'dependencies {\n    implementation "io.livekit:livekit-android:2.30.0"');
 }
 fs.writeFileSync(appGradlePath, appGradle);
+
 const pluginPath = path.join(path.dirname(activityPath), 'OverlayPermissionPlugin.java');
 const pluginSource = `package ${javaPackage};
 
@@ -541,4 +542,4 @@ if (!activity.includes('OverlayPermissionPlugin.class')) {
   fs.writeFileSync(activityPath, activity);
 }
 
-console.log('Omlet Arcade: official icon installed for Android launcher; branded splash and overlay permission bridge configured for Android.');
+console.log('Omlet Arcade: provisional launcher assets, branded splash, floating controls and native LiveKit screen capture configured for Android.');
