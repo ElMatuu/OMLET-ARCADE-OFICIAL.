@@ -120,37 +120,19 @@ Specific defects and gaps:
 - [ ] Replace the current browser-only publisher with native Android gameplay capture and a foreground service.
 - [ ] Implement the full streaming HUD controls and game-specific publisher-approved artwork package.
 
-## Native Android HUD implementation status (2026-11-12)
+## Native Android HUD and screen-share implementation status (2026-11-12)
 
-The development branch `feat/native-android-floating-hud` adds a first native HUD slice:
-- Capacitor bridge methods to check overlay permission, open Android's permission screen, start the HUD, and stop it.
-- A foreground Android service with a draggable floating bubble, expandable panel, app-return action, and explicit close action.
-- A persistent notification while the HUD service is active.
-- An Android sync script that installs the native Java sources, registers the Capacitor plugin, and declares the service and permissions in the generated Android project.
-- The Android CI workflow invokes that sync script before building the test APK; Node tests verify the frontend-to-native bridge wiring.
+- [x] Capacitor `ArcadeHud` bridge for overlay permission, service start/stop and pending navigation actions.
+- [x] Android foreground service with draggable overlay bubble, compact panel, hide-without-stopping-active-capture behavior and notification.
+- [x] HUD actions for game capture, microphone, camera, ending the stream and opening the live chat in PLAYVERSE.
+- [x] Native `NativeScreenShare` Capacitor plugin: Android MediaProjection consent flow, LiveKit Android SDK connection using short-lived server-issued publisher credentials, screen-share track publication and stop/disconnect.
+- [x] Native LiveKit microphone/camera toggles with runtime permission requests and matching Android foreground-service type changes.
+- [x] Idempotent Android sync script that installs the Kotlin plugin, registers it in MainActivity, adds the LiveKit Android SDK and declares MediaProjection/microphone/camera service permissions and types.
+- [ ] Verify Android compilation and all CI workflows on the latest commit.
+- [ ] Test consent, capture after leaving PLAYVERSE, mic/camera controls, hide HUD, stop capture and finalizing the server stream on physical Android devices (including Android 14+).
+- [ ] Confirm viewers on a second device receive the native screen-share track and the webhook transitions the stream to live.
 
-**Scope boundary:** this is a real, limited floating control shell, not the complete Omlet-style streaming HUD. It does not yet capture gameplay, publish media to LiveKit, toggle microphone/camera, or display live chat. The current native panel must not be represented as a stream-control HUD. The panel intentionally states that a transmission has not started; it must not imply otherwise. Android 14+ special-use foreground-service eligibility and Play distribution policy must be reviewed before release. Physical-device permission, drag, lifecycle, and battery tests remain mandatory.
-
-## Engineering work required
-
-1. Break the monolithic client into maintainable feature modules and shared components before the visual overhaul becomes harder to test.
-2. Implement and test native Android screen capture and foreground-service lifecycle; integrate captured media with the LiveKit publisher.
-3. Implement a real native floating overlay/HUD and test permission, drag, expand/collapse, stop, process death, and background behavior.
-4. Replace the current generic live composer with the game-first Go Live flow and make OBS an optional advanced destination.
-5. Build the game catalog and game detail feeds with artwork and server-backed metadata.
-6. Redesign the feed, live player, chat, clubs, notifications, profiles, shop, settings, and desktop shell against the reference.
-7. Add UI tests for navigation, responsive states, stream lifecycle, chat, club membership, profile permissions, and notification deep links.
-8. Run Android tests on physical devices and Windows tests on a real Windows machine. CI build success alone is not acceptance.
-
-## Release gates
-
-- No feature is labelled complete until its backend, UI, permission path, and real-device behavior are verified.
-- Android screen capture and floating HUD must be demonstrated on a physical Android device.
-- Two separate accounts/devices must verify publishing, viewing, chat, moderation, reconnect, and stream termination.
-- Windows must be installed and tested on a real Windows machine.
-- CI must pass after each implementation batch.
-- Keep this work on the existing feature branch and draft PR. Do not merge or deploy without explicit approval.
-
+Important scope limits: system/game audio capture is not wired yet. Camera is published as a separate LiveKit camera track; a picture-in-picture composition with gameplay still needs implementation. The “Chat del directo” HUD action opens the in-app live chat; the chat is not yet rendered inside the floating native panel. The service uses Android's special-use foreground-service type for the persistent overlay; Play distribution still requires policy eligibility/review. Do not mark this feature production-ready until the device tests and distribution review are complete.
 
 ## Game detail slice (2026-11-12)
 
