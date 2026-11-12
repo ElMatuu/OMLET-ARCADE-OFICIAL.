@@ -9,10 +9,10 @@
     if(byId('pv-omlet-navigation-styles'))return;
     const style=document.createElement('style');style.id='pv-omlet-navigation-styles';
     style.textContent=[
-      '#main-app.pv-desktop-shell{display:grid!important;grid-template-columns:248px minmax(0,1fr);grid-template-rows:64px minmax(0,1fr) 70px;grid-template-areas:"rail header" "rail content" "rail bottom";height:100dvh;min-height:0}',
-      '#main-app.pv-desktop-shell>header{grid-area:header;width:100%;padding-inline:1.5rem}',
-      '#main-app.pv-desktop-shell>main{grid-area:content;width:100%;max-width:none;margin:0;padding:1.5rem 2rem;overscroll-behavior:contain}',
-      '#main-app.pv-desktop-shell>[aria-label="Navegación principal"]{grid-area:bottom;display:none}',
+      '#main-app:not(.hidden).pv-desktop-shell{display:grid!important;grid-template-columns:248px minmax(0,1fr);grid-template-rows:64px minmax(0,1fr) 70px;grid-template-areas:"rail header" "rail content" "rail bottom";height:100dvh;min-height:0}',
+      '#main-app:not(.hidden).pv-desktop-shell>header{grid-area:header;width:100%;padding-inline:1.5rem}',
+      '#main-app:not(.hidden).pv-desktop-shell>main{grid-area:content;width:100%;max-width:none;margin:0;padding:1.5rem 2rem;overscroll-behavior:contain}',
+      '#main-app:not(.hidden).pv-desktop-shell>[aria-label="Navegación principal"]{grid-area:bottom;display:none}',
       '.pv-desktop-rail{grid-area:rail;grid-row:1/4;display:flex;flex-direction:column;min-height:0;background:#0b1020;border-right:1px solid #273449;padding:18px 12px;gap:8px;z-index:32}',
       '.pv-desktop-rail .pv-rail-brand{display:flex;align-items:center;gap:10px;padding:8px 10px 20px;border-bottom:1px solid #273449;margin-bottom:8px}',
       '.pv-desktop-rail .pv-rail-links{display:flex;flex-direction:column;gap:4px;overflow:auto;min-height:0}',
@@ -30,7 +30,7 @@
       '.pv-subnav button{white-space:nowrap;border:1px solid #334155;border-radius:999px;padding:8px 13px;font-size:11px;font-weight:750;color:#b9c5d7;background:#0b1220}',
       '.pv-subnav button[aria-current="true"]{border-color:#f08a54;background:rgba(240,138,84,.15);color:#ffd0b4}',
       '.pv-profile-subnav,.pv-settings-subnav{position:sticky;top:0;z-index:10;background:rgba(8,13,25,.94);backdrop-filter:blur(14px);margin:0 -4px;padding:8px 4px}',
-      '@media(max-width:1023px){.pv-desktop-rail{display:none!important}#main-app.pv-desktop-shell{display:flex!important;flex-direction:column}#main-app.pv-desktop-shell>header{width:auto}#main-app.pv-desktop-shell>main{width:100%;max-width:76rem;margin:0 auto;padding:12px}#main-app.pv-desktop-shell>[aria-label="Navegación principal"]{display:grid}}',
+      '@media(max-width:1023px){.pv-desktop-rail{display:none!important}#main-app:not(.hidden).pv-desktop-shell{display:flex!important;flex-direction:column}#main-app:not(.hidden).pv-desktop-shell>header{width:auto}#main-app:not(.hidden).pv-desktop-shell>main{width:100%;max-width:76rem;margin:0 auto;padding:12px}#main-app.pv-desktop-shell>[aria-label="Navegación principal"]{display:grid}}',
       '@media(min-width:640px) and (max-width:1023px){#main-app.pv-desktop-shell>main{padding:20px}}',
       '@media(max-width:420px){.pv-mobile-primary-nav button span{font-size:9px}.pv-mobile-primary-nav{padding-inline:3px}}',
       '@media(min-width:1024px){#main-app.pv-desktop-shell>main>.max-w-xl{max-width:58rem}#main-app.pv-desktop-shell>main>.max-w-2xl{max-width:64rem}}'
