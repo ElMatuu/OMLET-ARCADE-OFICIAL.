@@ -4173,6 +4173,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 if (status) status.textContent = 'Conectado · recibiendo audio/video en tiempo real.';
             });
             const updateParticipantCount = () => {
+                if (liveKitRoom !== room) return;
                 const count = room.numParticipants;
                 const counter = document.getElementById('live-player-participant-count');
                 if (counter) counter.textContent = count + (count === 1 ? ' participante conectado' : ' participantes conectados');
@@ -4181,6 +4182,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             room.on(LivekitClient.RoomEvent.ParticipantDisconnected, updateParticipantCount);
             room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => detachLiveTrack(track));
             room.on(LivekitClient.RoomEvent.AudioPlaybackStatusChanged, () => {
+                if (liveKitRoom !== room) return;
                 const audioButton = document.getElementById('live-audio-enable');
                 if (audioButton) audioButton.classList.toggle('hidden', room.canPlaybackAudio);
             });
@@ -4293,7 +4295,8 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 setLiveStatus('Creando sala segura y solicitando acceso de emisión…');
                 const data = await apiRequest('/api/me/streams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description }) });
                 createdStreamId = data.stream.id;
-                await connectLiveKitSession(data.liveKit, data.stream, 'publisher');
+                const connected = await connectLiveKitSession(data.liveKit, data.stream, 'publisher');
+                if (!connected) throw new Error('La conexión de emisión fue cancelada porque cambió la sesión.');
                 const overlayPanel = document.getElementById('live-stream-overlay-share');
                 const overlayInput = document.getElementById('live-stream-overlay-url');
                 if (data.overlay && data.overlay.url) {
@@ -4339,7 +4342,8 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             setLiveStatus('Solicitando acceso de espectador…');
             try {
                 const data = await apiRequest('/api/streams/' + encodeURIComponent(streamId) + '/token', { method: 'POST' });
-                await connectLiveKitSession(data.liveKit, data.stream, data.liveKit.role);
+                const connected = await connectLiveKitSession(data.liveKit, data.stream, data.liveKit.role);
+                if (!connected) return;
             } catch (error) { setLiveStatus('No se pudo conectar a la transmisión: ' + error.message); }
         }
 
