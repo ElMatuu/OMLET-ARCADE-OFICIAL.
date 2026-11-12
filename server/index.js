@@ -1055,53 +1055,87 @@ app.post('/api/public/stream-overlay/:token/session', overlayReadLimiter, async 
   } catch (error) { return next(error); }
 });
 
+app.get('/livekit-client.umd.js', (req, res) => {
+  const bundlePath = path.resolve(__dirname, '..', 'node_modules', 'livekit-client', 'dist', 'livekit-client.umd.js');
+  res.type('application/javascript').sendFile(bundlePath, (error) => {
+    if (error && !res.headersSent) res.status(503).type('text').send('El reproductor LiveKit no está disponible en este servidor.');
+  });
+});
+
 app.get('/overlay/:token', (req, res) => {
   const token = req.params.token;
   if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{40,64}$/.test(token)) {
     return res.status(404).type('text').send('Overlay no disponible.');
   }
+  const liveKitConfig = getLiveKitConfig();
+  const liveKitOrigin = liveKitConfig ? new URL(liveKitConfig.clientUrl).origin : '';
+  const connectSources = liveKitOrigin ? "'self' " + liveKitOrigin : "'self'";
   res.set({
     'Cache-Control': 'no-store',
-    'Content-Security-Policy': "default-src 'none'; connect-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; frame-ancestors *"
+    'Content-Security-Policy': "default-src 'none'; connect-src " + connectSources + "; media-src 'self' blob:; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; frame-ancestors *"
   }).type('html').send(`<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PLAYVERSE Stream Overlay</title>
 <style>
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:transparent;color:#fff;font-family:Inter,system-ui,Arial,sans-serif}
-#overlay{position:absolute;left:3%;right:3%;bottom:4%;display:flex;align-items:flex-end;justify-content:flex-start;gap:16px;transform-origin:bottom left}
-#overlay.position-top-left{top:4%;bottom:auto;justify-content:flex-start;align-items:flex-start;transform-origin:top left}
-#overlay.position-top-right{top:4%;bottom:auto;justify-content:flex-end;align-items:flex-start;transform-origin:top right}
-#overlay.position-bottom-left{bottom:4%;top:auto;justify-content:flex-start;align-items:flex-end;transform-origin:bottom left}
-#overlay.position-bottom-right{bottom:4%;top:auto;justify-content:flex-end;align-items:flex-end;transform-origin:bottom right}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:transparent;color:#fff;font-family:Inter,system-ui,Arial,sans-serif;overflow:hidden}
+#video-stage{position:absolute;inset:0;overflow:hidden;background:transparent;z-index:0}
+#video-stage video{position:absolute;display:none}
+#screen-share{inset:0;width:100%;height:100%;object-fit:contain;background:transparent}
+#camera{width:24%;height:28%;object-fit:cover;border:2px solid #fff;border-radius:14px;box-shadow:0 4px 22px #0009;background:#020617}
+#camera[data-position="top-left"]{top:4%;left:3%}
+#camera[data-position="top-right"]{top:4%;right:3%}
+#camera[data-position="bottom-left"]{bottom:5%;left:3%}
+#camera[data-position="bottom-right"]{bottom:5%;right:3%}
+#camera[data-frame="cyan"]{border:3px solid #22d3ee;box-shadow:0 0 22px #22d3ee88}
+#camera[data-frame="violet"]{border:3px double #a78bfa;box-shadow:0 0 22px #8b5cf688}
+#overlay.camera-only #camera{inset:0;width:100%;height:100%;border:0;border-radius:0;box-shadow:none;object-fit:contain}
+#overlay{position:absolute;z-index:5;left:3%;right:3%;bottom:4%;display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
 .panel{max-width:75%;padding:14px 18px;border:1px solid #ffffff35;border-radius:16px;background:linear-gradient(110deg,#10152be8,#1c2345d9);box-shadow:0 8px 30px #0006;backdrop-filter:blur(10px)}
 #creator{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#9da9ff}
 #title{font-size:clamp(16px,2.4vw,28px);font-weight:900;line-height:1.15;margin-top:4px}
 #branding{font-size:12px;color:#cbd5e1;margin-top:7px}
 #viewers{white-space:nowrap;padding:10px 14px;border-radius:999px;background:#10152be8;border:1px solid #ffffff35;font-weight:800}
 #social{font-size:11px;color:#dbeafe;margin-top:5px}
-#chat{display:none;max-width:min(420px,42vw);min-width:220px;max-height:42vh;overflow:hidden;padding:12px 14px;border:1px solid #ffffff35;border-radius:14px;background:#10152be8;box-shadow:0 8px 30px #0006}
-#chat.visible{display:block}
-#chat-title{font-size:10px;font-weight:900;letter-spacing:.12em;color:#9da9ff;text-transform:uppercase;margin-bottom:7px}
-#chat-messages{display:flex;flex-direction:column;gap:6px;overflow:hidden}
-.chat-line{font-size:12px;line-height:1.35;overflow-wrap:anywhere;color:#f8fafc}
-.chat-line strong{color:#fdba74;margin-right:5px}
+#chat{display:none;max-width:min(420px,42vw);min-width:220px;max-height:42vh;overflow:hidden;padding:12px 14px;border:1px solid #ffffff35;border-radius:14px;background:#10152be8;box-shadow:0 8px 30px #0006}#chat.visible{display:block}#chat-title{font-size:10px;font-weight:900;letter-spacing:.12em;color:#9da9ff;text-transform:uppercase;margin-bottom:7px}#chat-messages{display:flex;flex-direction:column;gap:6px;overflow:hidden}.chat-line{font-size:12px;line-height:1.35;overflow-wrap:anywhere;color:#f8fafc}.chat-line strong{color:#fdba74;margin-right:5px}\n#watermark{position:absolute;right:3%;top:3%;max-width:42%;padding:7px 11px;border-radius:9px;background:#020617b8;border:1px solid #ffffff55;color:#fff;font-size:clamp(10px,1.3vw,15px);font-weight:900;letter-spacing:.08em;text-transform:uppercase;text-shadow:0 2px 8px #000;overflow-wrap:anywhere}
+#skin{display:none;position:absolute;inset:1.5%;border:2px solid #ffffff35;border-radius:20px;pointer-events:none;box-shadow:inset 0 0 35px #0005}
+#overlay[data-product="overlay-retro-arcade"] #skin{display:block;border-color:#4ade80;background:linear-gradient(135deg,#14532d22,#02061711)}
+#overlay[data-product="overlay-minimal-black"] #skin{display:block;border-color:#94a3b8;border-radius:5px}
+#overlay[data-product="overlay-flame-rgb"] #skin{display:block;border:3px solid #fb7185;box-shadow:inset 0 0 28px #f9731633,0 0 20px #fb718555}
+#overlay[data-product="overlay-pro-esports"] #skin{display:block;border:3px solid #60a5fa;border-radius:4px}
+#overlay[data-product="overlay-cyber-arena"] #skin{display:block;border:2px solid #22d3ee;box-shadow:inset 0 0 36px #06b6d433}
+#overlay[data-product="overlay-sunset"] #skin{display:block;border:2px solid #fb923c;box-shadow:inset 0 0 36px #ea580c33}
+#overlay[data-product="overlay-tournament"] #skin{display:block;border:3px double #a5b4fc;border-radius:6px}
+#overlay[data-product="overlay-streamer-classic"] #skin{display:block;border:2px solid #cbd5e1;border-radius:14px}
+#overlay[data-product="overlay-pixel-grid"] #skin{display:block;border:3px dashed #fbbf24;border-radius:3px}
+#overlay[data-product="overlay-nebula-live"] #skin{display:block;border:2px solid #c084fc;box-shadow:inset 0 0 55px #7e22ce44,0 0 18px #c084fc55}
+#overlay[data-product="overlay-rgb-storm"] #skin{display:block;border:3px solid #22d3ee;box-shadow:inset 0 0 30px #22d3ee33,0 0 18px #ec489955}
+#overlay[data-product="overlay-ice-breaker"] #skin{display:block;border:2px solid #7dd3fc;box-shadow:inset 0 0 40px #38bdf833}
 .theme-neon .panel,.theme-neon #viewers{border-color:#22d3ee99;box-shadow:0 0 22px #22d3ee33}
 .theme-minimal .panel,.theme-minimal #viewers{background:#111c;color:#fff;border-color:#ffffff55;box-shadow:none}
 .theme-esports .panel,.theme-esports #viewers{border-radius:4px;border-left:4px solid #f97316;background:#111827ed}
 .layout-compact .panel{padding:9px 12px}.layout-vertical{flex-direction:column;align-items:flex-start}.layout-vertical .panel{max-width:100%}
-</style></head><body><main id="overlay"><section class="panel"><div id="creator"></div><div id="title">Conectando con la transmisión…</div><div id="branding"></div><div id="social"></div></section><section id="chat"><div id="chat-title">Chat en vivo</div><div id="chat-messages"></div></section><div id="viewers"></div></main>
+@media(prefers-reduced-motion:no-preference){#overlay[data-product="overlay-flame-rgb"] #skin,#overlay[data-product="overlay-nebula-live"] #skin{animation:skin-pulse 5s ease-in-out infinite alternate}}
+@keyframes skin-pulse{from{filter:brightness(.85)}to{filter:brightness(1.3)}}
+</style></head><body><div id="video-stage" aria-hidden="true"><video id="screen-share" autoplay playsinline></video><video id="camera" data-position="bottom-right" data-frame="none" autoplay playsinline muted></video><div id="audio-tracks"></div></div><main id="overlay" class="camera-only"><div id="skin" aria-hidden="true"></div><section class="panel"><div id="creator"></div><div id="title">Conectando con la transmisión…</div><div id="branding"></div><div id="social"></div></section><div id="viewers"></div><section id="chat"><div id="chat-title">Chat en vivo</div><div id="chat-messages"></div></section><div id="watermark"></div></main>
+<script src="/livekit-client.umd.js"></script>
 <script>
 const token=${JSON.stringify(token)};
 const root=document.getElementById('overlay');
+const screenVideo=document.getElementById('screen-share');
+const cameraVideo=document.getElementById('camera');
+const audioTracks=document.getElementById('audio-tracks');
+let overlayRoom=null;
+let overlayStopped=false;
+let overlayConnectInProgress=false;
 const set=(id,value)=>{document.getElementById(id).textContent=value||''};
 const chat=document.getElementById('chat');
 const chatMessages=document.getElementById('chat-messages');
 let lastChatSignature='';
 function renderChat(messages,enabled){
  chat.classList.toggle('visible',enabled===true);
- if(!enabled){chatMessages.replaceChildren();lastChatSignature='';return}
+ if(!enabled){chatMessages.replaceChildren();lastChatSignature='';return;}
  const safeMessages=Array.isArray(messages)?messages.slice(-6):[];
- const signature=safeMessages.map(m=>String(m.id||'')+':'+String(m.message||'')).join('|');
+ const signature=safeMessages.map(message=>String(message.id||'')+':'+String(message.message||'')).join('|');
  if(signature===lastChatSignature)return;
  lastChatSignature=signature;
  chatMessages.replaceChildren();
@@ -1112,29 +1146,69 @@ function renderChat(messages,enabled){
   line.append(author,body);chatMessages.appendChild(line);
  }
 }
+
+function attachOverlayTrack(track,publication){
+ const source=publication.source;
+ if(source===LivekitClient.Track.Source.ScreenShare){
+  track.attach(screenVideo);screenVideo.style.display='block';root.classList.remove('camera-only');
+ }else if(source===LivekitClient.Track.Source.Camera){
+  track.attach(cameraVideo);cameraVideo.style.display='block';
+  root.classList.toggle('camera-only',!screenVideo.srcObject);
+ }else if(track.kind==='audio'){
+  const audio=track.attach();audio.autoplay=true;audio.controls=false;audioTracks.appendChild(audio);audio.play().catch(()=>{});
+ }
+}
+function detachOverlayTrack(track){
+ track.detach().forEach(element=>{
+  if(element===screenVideo){screenVideo.srcObject=null;screenVideo.style.display='none';root.classList.toggle('camera-only',Boolean(cameraVideo.srcObject));}
+  else if(element===cameraVideo){cameraVideo.srcObject=null;cameraVideo.style.display='none';root.classList.toggle('camera-only',!screenVideo.srcObject);}
+  else if(element&&element.tagName==='AUDIO')element.remove();
+ });
+}
+async function connectOverlayRoom(){
+ if(overlayStopped||overlayConnectInProgress||!window.LivekitClient)return;
+ overlayConnectInProgress=true;
+ try{
+  if(overlayRoom){const previous=overlayRoom;overlayRoom=null;await previous.disconnect();}
+  const response=await fetch('/api/public/stream-overlay/'+encodeURIComponent(token)+'/session',{method:'POST',cache:'no-store'});
+  if(response.status===404){overlayStopped=true;set('title','Transmisión finalizada');return}
+  if(!response.ok)throw new Error('No se pudo obtener acceso de video ('+response.status+')');
+  const data=await response.json();
+  const room=new LivekitClient.Room({adaptiveStream:true,dynacast:true});
+  room.on(LivekitClient.RoomEvent.TrackSubscribed,attachOverlayTrack);
+  room.on(LivekitClient.RoomEvent.TrackUnsubscribed,detachOverlayTrack);
+  room.on(LivekitClient.RoomEvent.Disconnected,()=>{
+   if(overlayRoom===room){overlayRoom=null;setTimeout(connectOverlayRoom,5000);}
+  });
+  await room.connect(data.liveKit.url,data.liveKit.token);
+  overlayRoom=room;
+  setTimeout(connectOverlayRoom,8*60*1000);
+ }catch(error){
+  set('title','Composición de video reconectando…');
+  setTimeout(connectOverlayRoom,30000);
+ }finally{overlayConnectInProgress=false}
+}
 async function refresh(){
  try{
   const response=await fetch('/api/public/stream-overlay/'+encodeURIComponent(token),{cache:'no-store'});
-  if(!response.ok){set('title','Transmisión finalizada');set('creator','PLAYVERSE');set('viewers','');return}
+  if(response.status===404){overlayStopped=true;if(overlayRoom){const oldRoom=overlayRoom;overlayRoom=null;oldRoom.disconnect()}set('title','Transmisión finalizada');set('creator','PLAYVERSE');set('viewers','');set('watermark','');root.removeAttribute('data-product');return}
+  if(!response.ok)throw new Error('Overlay temporalmente no disponible ('+response.status+')');
   const data=await response.json();const p=data.overlay||{};
-  root.className='theme-'+(p.theme||'arcade')+' layout-'+(p.layout||'wide')+' position-'+(p.position||'bottom-left');
-  const position=p.position||'bottom-left';
-  const layout=p.layout||'wide';
-  root.style.justifyContent=layout==='vertical'?(position.startsWith('top')?'flex-start':'flex-end'):(position.endsWith('right')?'flex-end':'flex-start');
-  root.style.alignItems=layout==='vertical'?(position.endsWith('right')?'flex-end':'flex-start'):(position.startsWith('top')?'flex-start':'flex-end');
-  root.style.transform='scale('+((Number.isInteger(p.scale)?p.scale:100)/100)+')';
-  root.style.transformOrigin=position.replace('-', ' ');
-  root.style.opacity=String((Number.isInteger(p.opacity)?p.opacity:90)/100);
+  root.className='theme-'+(p.theme||'arcade')+' layout-'+(p.layout||'wide')+(screenVideo.srcObject?'':' camera-only');
+  cameraVideo.dataset.position=p.cameraPosition||'bottom-right';
+  cameraVideo.dataset.frame=p.cameraFrame||'none';
+  if(p.equippedOverlay&&/^overlay-[a-z0-9-]+$/.test(p.equippedOverlay.id||''))root.dataset.product=p.equippedOverlay.id;else root.removeAttribute('data-product');
   set('creator','@'+(data.stream.creator||''));
   set('title',data.stream.title);
   set('branding',p.brandingText);
+  set('watermark',data.stream.watermark);
   const socials=[p.socialYouTube&&'YouTube '+p.socialYouTube,p.socialTwitch&&'Twitch '+p.socialTwitch,p.socialTikTok&&'TikTok '+p.socialTikTok].filter(Boolean).join('  •  ');
   set('social',socials);
   set('viewers',p.showViewerCount?(Number.isInteger(data.viewerCount)?'● '+data.viewerCount+' espectadores':'● espectadores no disponibles'):'');
-  renderChat(data.chatMessages,p.showChat);
+  renderChat(data.chatMessages,p.showChat===true);
  }catch{set('title','Reconectando…')}
 }
-refresh();setInterval(refresh,5000);
+refresh();connectOverlayRoom();setInterval(refresh,5000);
 </script></body></html>`);
 });
 
