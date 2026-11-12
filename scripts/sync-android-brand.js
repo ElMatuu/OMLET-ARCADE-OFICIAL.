@@ -250,15 +250,12 @@ class NativeScreenSharePlugin : Plugin() {
     }
 
     override fun handleOnDestroy() {
-        pluginScope.cancel()
         nativeRoom?.let { active ->
-            pluginScope.launch {
-                try { active.localParticipant.setScreenShareEnabled(false) } catch (_: Exception) {}
-                try { active.disconnect() } catch (_: Exception) {}
-                try { active.release() } catch (_: Exception) {}
-            }
+            try { active.disconnect() } catch (_: Exception) {}
+            try { active.release() } catch (_: Exception) {}
         }
         nativeRoom = null
+        pluginScope.cancel()
         super.handleOnDestroy()
     }
 }
