@@ -24,7 +24,7 @@ La ficha publica licencia Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 
 
 ## Recurso provisional incorporado
 
-Se añadió `assets/omlet-arcade-icon.svg`, una adaptación vectorial del icono histórico mostrado en la ficha de Wikimedia Commons. Se conserva la atribución a Omlet Inc. y la licencia CC BY-SA 4.0; esta adaptación no reemplaza el paquete oficial del titular ni acredita por sí sola el permiso comercial específico.
+Se añadió `assets/omlet-arcade-icon.svg` como símbolo vectorial provisional creado para pruebas. No es el logotipo oficial ni se presenta como tal. La ficha de Wikimedia Commons citada arriba es una referencia histórica independiente; no se afirma que el archivo provisional sea una adaptación de ese recurso.
 
 ## Integración
 
