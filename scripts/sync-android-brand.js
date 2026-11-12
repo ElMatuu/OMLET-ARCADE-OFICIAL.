@@ -289,9 +289,9 @@ if (!appGradle.includes('io.livekit:livekit-android')) {
 fs.writeFileSync(appGradlePath, appGradle);
 
 if (!rootGradle.includes('https://jitpack.io')) {
-  const repositoriesBlock = rootGradle.match(/allprojects\\s*\\{\\s*repositories\\s*\\{/);
+  const repositoriesBlock = rootGradle.match(/allprojects\s*\{\s*repositories\s*\{/);
   if (!repositoriesBlock) throw new Error('Could not find allprojects repositories in Android root Gradle.');
-  rootGradle = rootGradle.replace(repositoriesBlock[0], repositoriesBlock[0] + "\\n        maven { url 'https://jitpack.io' }");
+  rootGradle = rootGradle.replace(repositoriesBlock[0], repositoriesBlock[0] + "\n        maven { url 'https://jitpack.io' }");
   fs.writeFileSync(rootGradlePath, rootGradle);
 }
 
