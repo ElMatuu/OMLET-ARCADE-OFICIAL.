@@ -301,7 +301,7 @@ async function openYouTubeChatStream(connection, io, env = process.env) {
   });
   const metadata = new grpc.Metadata();
   metadata.add('authorization', 'Bearer ' + token);
-  const request = { liveChatId, part: ['snippet', 'authorDetails'] };
+  const request = { liveChatId, part: ['id', 'snippet', 'authorDetails'] };
   if (pageToken) request.pageToken = pageToken;
   const stream = youtubeGrpcClient.streamList(request, metadata);
   const entry = { stream, intentionalClose: false, leaseTimer: null, refreshTimer: null };
