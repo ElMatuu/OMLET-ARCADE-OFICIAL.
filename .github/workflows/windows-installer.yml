@@ -19,9 +19,14 @@ concurrency:
 jobs:
   build-windows:
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: source
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          path: source
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -41,6 +46,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: PLAYVERSE-Windows-installer
-          path: release/*.exe
+          path: source/release/*.exe
           if-no-files-found: error
           retention-days: 14
