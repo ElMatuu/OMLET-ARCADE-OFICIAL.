@@ -2918,8 +2918,12 @@ app.post('/api/rooms/:roomId/messages', requireAuth, commentLimiter, async (req,
       _id: req.params.roomId,
       members: req.auth.sub,
       status: 'open'
-    }).select('_id').lean();
+    }).select('_id mutedMembers').lean();
     if (!room) return res.status(403).json({ success: false, message: 'La sala está cerrada o no pertenecés a ella.' });
+    const activeMute = (room.mutedMembers || []).find((entry) =>
+      String(entry.user) === String(req.auth.sub) && new Date(entry.mutedUntil) > new Date()
+    );
+    if (activeMute) return res.status(403).json({ success: false, message: 'El anfitrión silenció temporalmente tu chat en esta sala.' });
     const created = await RoomMessage.create({
       room: room._id,
       author: req.auth.sub,
@@ -2928,6 +2932,7 @@ app.post('/api/rooms/:roomId/messages', requireAuth, commentLimiter, async (req,
     });
     const result = {
       id: String(created._id),
+      authorId: String(created.author),
       username: created.username,
       message: created.message,
       sentAt: created.sentAt
