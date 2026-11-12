@@ -15,8 +15,8 @@ Feature inspiration does not authorize copying another product's proprietary cod
 - **Community game servers:** MongoDB stores public listings and hashed heartbeat tokens. The owner-run Node.js agent supports generic TCP reachability, Minecraft Java Server List Ping over TCP, and Minecraft Bedrock RakNet Unconnected Ping over UDP. Java/Bedrock modes report protocol-derived player counts, capacity and game version. The API trusts the authenticated heartbeat; it does not independently probe the remote game port. The directory does not host game worlds or provide arbitrary game-state synchronization.
 
 - **Web client:** current `index.html` interface, local Tailwind build and service-worker update foundation.
-- **Android shell:** Capacitor configuration and generated adaptive launcher resources. Native build and install still require verification.
-- **Windows shell:** Electron with hardened renderer settings. Installer build and real-machine verification remain pending.
+- **Android shell:** Capacitor configuration and generated adaptive launcher resources. CI now produces a debug APK; installation, native permissions and real-device acceptance still require verification.
+- **Windows shell:** Electron with hardened renderer settings. CI produces an NSIS installer; installation, capture permissions and real-machine acceptance still require verification.
 - **Creator settings:** persistent, authenticated stream preference storage. Settings describe user preferences; they do not capture or broadcast media.
 
 ## Live media architecture still required
