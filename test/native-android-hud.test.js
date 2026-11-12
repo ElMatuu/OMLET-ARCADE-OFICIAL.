@@ -30,3 +30,12 @@ test('Android sync script registers the plugin and declares the overlay service'
   assert.match(sync, /FOREGROUND_SERVICE_SPECIAL_USE/);
   assert.match(sync, /ArcadeHudService/);
 });
+
+test('Android app uses the registered ArcadeHud bridge instead of the old placeholder plugin', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.match(html, /Capacitor\.Plugins\.ArcadeHud/);
+  assert.match(html, /hasOverlayPermission/);
+  assert.match(html, /openOverlaySettings/);
+  assert.match(html, /startHud\(\)/);
+  assert.doesNotMatch(html, /Plugins\.OverlayPermission/);
+});
