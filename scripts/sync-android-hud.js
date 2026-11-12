@@ -37,7 +37,9 @@ fs.mkdirSync(pluginDirectory, { recursive: true });
 for (const file of ['ArcadeHudPlugin.java', 'ArcadeHudService.java', 'NativeScreenSharePlugin.kt']) {
   const sourcePath = path.join(sourceRoot, file);
   if (!fs.existsSync(sourcePath)) throw new Error('Missing native HUD source: ' + sourcePath);
-  const source = fs.readFileSync(sourcePath, 'utf8').replace(/^package\s+[\w.]+;/m, 'package ' + pluginPackage + ';');
+  const sourceText = fs.readFileSync(sourcePath, 'utf8');
+  const packageDeclaration = file.endsWith('.kt') ? 'package ' + pluginPackage : 'package ' + pluginPackage + ';';
+  const source = sourceText.replace(/^package\s+[\w.]+;?/m, packageDeclaration);
   fs.writeFileSync(path.join(pluginDirectory, file), source);
 }
 
