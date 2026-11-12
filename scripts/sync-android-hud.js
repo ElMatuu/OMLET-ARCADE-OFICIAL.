@@ -60,7 +60,10 @@ for (const file of ['ArcadeHudPlugin.java', 'ArcadeHudService.java', 'NativeScre
   if (!fs.existsSync(sourcePath)) throw new Error('Missing native HUD source: ' + sourcePath);
   const sourceText = fs.readFileSync(sourcePath, 'utf8');
   const packageDeclaration = file.endsWith('.kt') ? 'package ' + pluginPackage : 'package ' + pluginPackage + ';';
-  const source = sourceText.replace(/^package\s+[\w.]+;?/m, packageDeclaration);
+  let source = sourceText.replace(/^package\s+[\w.]+;?/m, packageDeclaration);
+  if (file === 'ArcadeHudService.java' && !source.includes('import ' + appPackage + '.R;')) {
+    source = source.replace(packageDeclaration, packageDeclaration + '\n\nimport ' + appPackage + '.R;');
+  }
   fs.writeFileSync(path.join(pluginDirectory, file), source);
 }
 
