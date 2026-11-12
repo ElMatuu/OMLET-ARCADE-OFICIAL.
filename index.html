@@ -4123,6 +4123,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         let liveKitRoom = null;
         let activeLiveStream = null;
         let activeLiveStreamRole = null;
+        let liveKitConnectionGeneration = 0;
         let activeStreamingPreferences = { cameraEnabled: false, microphoneEnabled: true };
 
         function setLiveStatus(message) {
@@ -4139,6 +4140,15 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             element.className = track.kind === 'video' ? 'w-full max-h-[65vh] rounded-xl bg-black object-contain' : 'w-full';
             element.dataset.liveParticipant = participant ? participant.identity : 'remote';
             container.appendChild(element);
+            if (track.kind === 'audio') {
+                const playback = element.play();
+                if (playback && typeof playback.catch === 'function') {
+                    playback.catch(() => {
+                        const audioButton = document.getElementById('live-audio-enable');
+                        if (audioButton) audioButton.classList.remove('hidden');
+                    });
+                }
+            }
         }
 
         function detachLiveTrack(track) {
@@ -4147,10 +4157,17 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
 
         async function connectLiveKitSession(connection, stream, role) {
             if (typeof LivekitClient === 'undefined') throw new Error('No se pudo cargar el SDK de video. Actualizá la aplicación.');
-            if (liveKitRoom) await liveKitRoom.disconnect();
+            const generation = ++liveKitConnectionGeneration;
+            const previousRoom = liveKitRoom;
+            liveKitRoom = null;
+            if (previousRoom) {
+                try { await previousRoom.disconnect(); } catch {}
+            }
+            if (generation !== liveKitConnectionGeneration) return false;
             const room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
             liveKitRoom = room;
             room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+                if (liveKitRoom !== room) { detachLiveTrack(track); return; }
                 attachLiveTrack(track, participant);
                 const status = document.getElementById('live-player-status');
                 if (status) status.textContent = 'Conectado · recibiendo audio/video en tiempo real.';
@@ -4168,10 +4185,24 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 if (audioButton) audioButton.classList.toggle('hidden', room.canPlaybackAudio);
             });
             room.on(LivekitClient.RoomEvent.Disconnected, () => {
+                if (liveKitRoom !== room) return;
+                liveKitRoom = null;
+                activeLiveStream = null;
+                activeLiveStreamRole = null;
                 const status = document.getElementById('live-player-status');
                 if (status) status.textContent = 'Conexión de video finalizada.';
             });
-            await room.connect(connection.url, connection.token);
+            try {
+                await room.connect(connection.url, connection.token);
+                if (generation !== liveKitConnectionGeneration || liveKitRoom !== room) {
+                    try { await room.disconnect(); } catch {}
+                    return false;
+                }
+            } catch (error) {
+                if (liveKitRoom === room) liveKitRoom = null;
+                try { await room.disconnect(); } catch {}
+                throw error;
+            }
             const initialParticipantCount = document.getElementById('live-player-participant-count');
             if (initialParticipantCount) initialParticipantCount.textContent = room.numParticipants + (room.numParticipants === 1 ? ' participante conectado' : ' participantes conectados');
             activeLiveStream = stream;
@@ -4197,6 +4228,7 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 try { await room.localParticipant.setMicrophoneEnabled(activeStreamingPreferences.microphoneEnabled !== false); }
                 catch (error) { document.getElementById('live-player-status').textContent += ' Micrófono no disponible: ' + error.message; }
             }
+            return true;
         }
 
         async function loadLiveStreams() {
@@ -4342,7 +4374,8 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
         }
 
         async function closeLivePlayer() {
-            if (liveKitRoom) await liveKitRoom.disconnect();
+            liveKitConnectionGeneration += 1;
+            const room = liveKitRoom;
             liveKitRoom = null;
             activeLiveStream = null;
             activeLiveStreamRole = null;
@@ -4354,6 +4387,13 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             document.getElementById('live-audio-enable').classList.add('hidden');
             document.getElementById('live-host-controls').classList.add('hidden');
             document.getElementById('live-player-panel').classList.add('hidden');
+            if (room) {
+                try { await room.disconnect(); }
+                catch (error) {
+                    const status = document.getElementById('live-player-status');
+                    if (status) status.textContent = 'Se cerró el reproductor; la conexión está terminando.';
+                }
+            }
         }
 
         async function leaveLiveStream() {
