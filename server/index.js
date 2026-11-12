@@ -38,7 +38,7 @@ const creatorBroadcastsRouter = require('./routes/creatorBroadcasts');
 const externalIntegrationsRouter = require('./routes/externalIntegrations');
 const StreamBroadcastSession = require('./models/StreamBroadcastSession');
 const { startRtmpBroadcast, stopRtmpBroadcast } = require('./services/rtmpBroadcast');
-const { processKickWebhook, processTwitchWebhook, startYouTubeChatSync, stopYouTubeChatSync, verifyKickWebhook, verifyTwitchEventSub } = require('./services/externalProviderEvents');
+const { processKickWebhook, processTwitchWebhook, sendToLinkedProviders, startYouTubeChatSync, stopYouTubeChatSync, verifyKickWebhook, verifyTwitchEventSub } = require('./services/externalProviderEvents');
 const groupConversationsRouter = require('./routes/groupConversations');
 const Conversation = require('./models/Conversation');
 const DirectMessage = require('./models/DirectMessage');
@@ -635,7 +635,19 @@ app.post('/api/streams/:streamId/messages', requireAuth, liveChatLimiter, async 
     };
     const io = httpServer.io;
     if (io) io.to('stream-chat:' + String(stream._id)).emit('stream_chat_message', result);
-    return res.status(201).json({ success: true, message: result });
+    let externalDelivery = [];
+    if (String(stream.owner) === String(req.auth.sub)) {
+      try {
+        externalDelivery = await sendToLinkedProviders(req.auth.sub, message);
+      } catch (error) {
+        console.error('External chat relay failed:', error.message);
+        externalDelivery = [{ status: 'error', message: 'No se pudo completar el envío externo.' }];
+      }
+      if (io) io.to('user:' + String(req.auth.sub)).emit('external_chat_delivery_status', {
+        streamId: String(stream._id), results: externalDelivery
+      });
+    }
+    return res.status(201).json({ success: true, message: result, externalDelivery });
   } catch (error) { return next(error); }
 });
 
