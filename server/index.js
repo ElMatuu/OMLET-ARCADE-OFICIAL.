@@ -2824,8 +2824,82 @@ app.get('/api/clubs', requireAuth, async (req, res, next) => {
       ownerUsername: club.ownerUsername,
       memberCount: club.memberCount,
       isMember: club.members.some((member) => String(member.user) === req.auth.sub),
-      isOwner: club.members.some((member) => String(member.user) === req.auth.sub && member.role === 'owner')
+      role: (club.members.find((member) => String(member.user) === req.auth.sub) || {}).role || null,
+      isOwner: club.members.some((member) => String(member.user) === req.auth.sub && member.role === 'owner'),
+      isModerator: club.members.some((member) => String(member.user) === req.auth.sub && member.role === 'moderator')
     })) });
+  } catch (error) { return next(error); }
+});
+
+app.get('/api/clubs/:clubId/members', requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.clubId)) return res.status(400).json({ success: false, message: 'Identificador de club inválido.' });
+    const club = await Club.findOne({ _id: req.params.clubId, status: 'active' })
+      .select('owner visibility members name').lean();
+    if (!club) return res.status(404).json({ success: false, message: 'Club no encontrado o archivado.' });
+    const viewer = club.members.find(member => String(member.user) === String(req.auth.sub));
+    if (!viewer) return res.status(403).json({ success: false, message: 'Solo los integrantes pueden consultar la administración de miembros.' });
+    return res.json({
+      success: true,
+      ownerId: String(club.owner),
+      members: club.members.map(member => ({
+        userId: String(member.user),
+        username: member.username,
+        role: member.role,
+        joinedAt: member.joinedAt
+      }))
+    });
+  } catch (error) { return next(error); }
+});
+
+app.patch('/api/clubs/:clubId/members/:userId/role', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.clubId) || !mongoose.isValidObjectId(req.params.userId)) {
+      return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    }
+    const role = req.body.role;
+    if (!['moderator', 'member'].includes(role)) return res.status(400).json({ success: false, message: 'Rol inválido.' });
+    const club = await Club.findOne({ _id: req.params.clubId, status: 'active' });
+    if (!club) return res.status(404).json({ success: false, message: 'Club no encontrado o archivado.' });
+    if (String(club.owner) !== String(req.auth.sub)) return res.status(403).json({ success: false, message: 'Solo el propietario puede administrar moderadores.' });
+    const target = club.members.find(member => String(member.user) === String(req.params.userId));
+    if (!target || target.role === 'owner') return res.status(404).json({ success: false, message: 'Integrante no encontrado.' });
+    target.role = role;
+    await club.save();
+    return res.json({ success: true, userId: String(req.params.userId), role });
+  } catch (error) { return next(error); }
+});
+
+app.delete('/api/clubs/:clubId/members/:userId', requireAuth, friendshipLimiter, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.clubId) || !mongoose.isValidObjectId(req.params.userId)) {
+      return res.status(400).json({ success: false, message: 'Identificador inválido.' });
+    }
+    if (String(req.params.userId) === String(req.auth.sub)) {
+      return res.status(400).json({ success: false, message: 'Usá la opción Salir del club para abandonar la comunidad.' });
+    }
+    const club = await Club.findOne({ _id: req.params.clubId, status: 'active' })
+      .select('owner members.user members.role').lean();
+    if (!club) return res.status(404).json({ success: false, message: 'Club no encontrado o archivado.' });
+    const actor = club.members.find(member => String(member.user) === String(req.auth.sub));
+    const target = club.members.find(member => String(member.user) === String(req.params.userId));
+    if (!actor || !['owner', 'moderator'].includes(actor.role)) return res.status(403).json({ success: false, message: 'Solo propietarios y moderadores pueden quitar integrantes.' });
+    if (!target || target.role === 'owner') return res.status(404).json({ success: false, message: 'Integrante no encontrado.' });
+    if (actor.role === 'moderator' && target.role !== 'member') return res.status(403).json({ success: false, message: 'Los moderadores solo pueden quitar integrantes comunes.' });
+    const updated = await Club.findOneAndUpdate({
+      _id: req.params.clubId,
+      status: 'active',
+      $and: [
+        { members: { $elemMatch: { user: req.auth.sub, role: actor.role } } },
+        { members: { $elemMatch: { user: req.params.userId, role: target.role } } }
+      ]
+    }, {
+      $pull: { members: { user: req.params.userId } },
+      $inc: { memberCount: -1 },
+      $set: { updatedAt: new Date() }
+    }, { new: true, runValidators: true }).select('memberCount').lean();
+    if (!updated) return res.status(409).json({ success: false, message: 'La membresía cambió. Actualizá la lista e intentá de nuevo.' });
+    return res.json({ success: true, memberCount: updated.memberCount, removedUserId: String(req.params.userId) });
   } catch (error) { return next(error); }
 });
 
