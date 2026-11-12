@@ -2,7 +2,7 @@ const express = require('express');
 const { rateLimit } = require('express-rate-limit');
 const ExternalProviderConnection = require('../models/ExternalProviderConnection');
 const { requireAuth } = require('../middleware/auth');
-const { PROVIDERS, completeAuthorization, createAuthorization, getCredentials, getEncryptionKey, toPublicConnection } = require('../services/externalProviders');
+const { PROVIDERS, completeAuthorization, createAuthorization, getCredentials, getEncryptionKey, revokeConnection, toPublicConnection } = require('../services/externalProviders');
 
 const router = express.Router();
 const connectLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 8, standardHeaders: 'draft-7', legacyHeaders: false });
@@ -35,8 +35,12 @@ router.delete('/:provider', requireAuth, connectLimiter, async (req, res, next) 
   const provider = String(req.params.provider || '').toLowerCase();
   if (!PROVIDERS[provider]) return res.status(404).json({ success: false, message: 'Proveedor no compatible.' });
   try {
-    const removed = await ExternalProviderConnection.deleteOne({ owner: req.auth.sub, provider });
-    return res.json({ success: true, removed: removed.deletedCount > 0 });
+    const connection = await ExternalProviderConnection.findOne({ owner: req.auth.sub, provider })
+      .select('+encryptedAccessToken +encryptedRefreshToken +accessIv +accessAuthTag +refreshIv +refreshAuthTag').lean();
+    if (!connection) return res.json({ success: true, removed: false, providerRevoked: false });
+    const providerRevoked = await revokeConnection(connection);
+    await ExternalProviderConnection.deleteOne({ _id: connection._id, owner: req.auth.sub });
+    return res.json({ success: true, removed: true, providerRevoked });
   } catch (error) { return next(error); }
 });
 router.get('/:provider/callback', async (req, res) => {
