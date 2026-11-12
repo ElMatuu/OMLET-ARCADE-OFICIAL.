@@ -2,10 +2,11 @@ const { Server } = require('socket.io');
 const { verifyToken } = require('./middleware/auth');
 const Room = require('./models/Room');
 const RoomMessage = require('./models/RoomMessage');
+const LiveStream = require('./models/LiveStream');
+const Block = require('./models/Block');
 const Conversation = require('./models/Conversation');
 const DirectMessage = require('./models/DirectMessage');
 const Friendship = require('./models/Friendship');
-const Block = require('./models/Block');
 const Notification = require('./models/Notification');
 const UserPresence = require('./models/UserPresence');
 
@@ -263,6 +264,28 @@ function attachSocketServer(httpServer, allowedOrigins) {
         return acknowledge({ success: true, message });
       } catch {
         return acknowledge({ success: false, message: 'No se pudo guardar el mensaje.' });
+      }
+    });
+
+    socket.on('join_stream_chat', async (payload, acknowledge = () => {}) => {
+      const streamId = payload && payload.streamId;
+      if (typeof streamId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(streamId)) {
+        return acknowledge({ success: false, message: 'Transmisión inválida.' });
+      }
+      try {
+        const stream = await LiveStream.findOne({ _id: streamId, status: 'live' }).select('owner').lean();
+        if (!stream) return acknowledge({ success: false, message: 'La transmisión ya no está disponible.' });
+        if (String(stream.owner) !== String(socket.user.sub)) {
+          const blocked = await Block.exists({ $or: [
+            { blocker: socket.user.sub, blocked: stream.owner },
+            { blocker: stream.owner, blocked: socket.user.sub }
+          ] });
+          if (blocked) return acknowledge({ success: false, message: 'No podés acceder al chat de esta transmisión.' });
+        }
+        await socket.join('stream-chat:' + streamId);
+        return acknowledge({ success: true, streamId });
+      } catch {
+        return acknowledge({ success: false, message: 'No se pudo validar el acceso al chat.' });
       }
     });
 
