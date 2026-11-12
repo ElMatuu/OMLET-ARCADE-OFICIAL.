@@ -2976,10 +2976,10 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 if (['avatar-frame', 'stream-overlay'].includes(item.category)) {
                     const button = document.createElement('button');
                     button.type = 'button';
-                    button.className = 'shrink-0 rounded-lg bg-orange-500/15 border border-orange-500/40 px-3 py-2 text-[10px] font-bold text-orange-200';
-                    button.textContent = item.equipped ? 'Equipado' : 'Equipar';
-                    button.disabled = item.equipped;
-                    button.addEventListener('click', () => equipStoreItem(item.id));
+                    button.className = 'shrink-0 rounded-lg border px-3 py-2 text-[10px] font-bold ' + (item.equipped ? 'border-rose-500/40 bg-rose-500/10 text-rose-200' : 'border-orange-500/40 bg-orange-500/15 text-orange-200');
+                    button.textContent = item.equipped ? 'Quitar' : 'Equipar';
+                    button.setAttribute('aria-label', (item.equipped ? 'Quitar ' : 'Equipar ') + item.name);
+                    button.addEventListener('click', () => item.equipped ? unequipStoreCategory(item.category) : equipStoreItem(item.id));
                     row.appendChild(button);
                 }
                 container.appendChild(row);
@@ -2996,16 +2996,28 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             }
         }
 
+        async function unequipStoreCategory(category) {
+            if (!['avatar-frame', 'stream-overlay'].includes(category)) return;
+            try {
+                await apiRequest('/api/me/inventory/' + encodeURIComponent(category) + '/equip', { method: 'DELETE' });
+                document.getElementById('store-status').textContent = category === 'avatar-frame' ? 'Marco retirado del perfil.' : 'Overlay retirado del equipamiento.';
+                await loadStore();
+            } catch (error) {
+                document.getElementById('store-status').textContent = 'No se pudo retirar el artículo: ' + error.message;
+            }
+        }
+
         function applyEquippedCosmetics(equipped) {
             const frame = document.getElementById('profile-avatar')?.parentElement;
             if (frame) {
                 frame.style.boxShadow = equipped.avatarFrame ? '0 0 18px rgba(255,122,24,.65)' : '';
                 frame.style.borderColor = equipped.avatarFrame ? '#ff7a18' : '';
+                frame.dataset.equippedFrame = equipped.avatarFrame || '';
             }
             const overlay = document.getElementById('store-overlay-preview');
-            if (overlay && equipped.streamOverlay) {
-                const product = storeItems.find(item => item.id === equipped.streamOverlay);
-                if (product) overlay.textContent = 'Equipado: ' + product.name;
+            if (overlay) {
+                const product = equipped.streamOverlay ? storeItems.find(item => item.id === equipped.streamOverlay) : null;
+                overlay.textContent = product ? 'Equipado: ' + product.name : 'No hay ningún overlay equipado.';
             }
         }
 
