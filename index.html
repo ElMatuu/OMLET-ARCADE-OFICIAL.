@@ -4067,8 +4067,10 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
             });
         });
 
-        function openPostModal() {
+        function openPostModal(gameName = '') {
             document.getElementById('post-form-status').textContent = 'Máximo 2000 caracteres.';
+            const gameSelect = document.getElementById('post-game-input');
+            if (gameSelect) gameSelect.value = gameName;
             document.getElementById('post-modal').classList.remove('hidden');
         }
         function closePostModal() { document.getElementById('post-modal').classList.add('hidden'); }
