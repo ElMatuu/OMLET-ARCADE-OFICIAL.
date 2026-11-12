@@ -25,5 +25,14 @@ const groupConversationSchema = new mongoose.Schema({
   status: { type: String, enum: ['active', 'archived'], default: 'active', index: true }
 }, { timestamps: true, versionKey: false });
 
+groupConversationSchema.pre('validate', function validateOwnerMembership(next) {
+  const owners = this.members.filter(member => member.role === 'owner');
+  const ownerIsMember = this.members.some(member => String(member.user) === String(this.owner));
+  if (!ownerIsMember || owners.length !== 1 || String(owners[0].user) !== String(this.owner)) {
+    this.invalidate('owner', 'A group must have exactly one owner who is an active member.');
+  }
+  next();
+});
+
 groupConversationSchema.index({ 'members.user': 1, lastMessageAt: -1 });
 module.exports = mongoose.model('GroupConversation', groupConversationSchema);
