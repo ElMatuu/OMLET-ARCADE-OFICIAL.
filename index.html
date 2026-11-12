@@ -5482,9 +5482,9 @@ document.getElementById('wallet-gift-form')?.addEventListener('submit', async (e
                 setLiveStatus('Creando sala segura y solicitando acceso de emisión…');
                 const data = await apiRequest('/api/me/streams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description, game }) });
                 createdStreamId = data.stream.id;
+                setLiveStatus('Conectando la emisión. El directo aparecerá en En Vivo cuando se publique video…');
                 await connectLiveKitSession(data.liveKit, data.stream, 'publisher');
                 document.getElementById('live-stream-create-form').reset();
-                setLiveStatus('Sala preparada. Publicá una pista de video para que tu directo aparezca en En Vivo.');
                 await loadLiveStreams();
             } catch (error) {
                 setLiveStatus('No se pudo iniciar la transmisión: ' + error.message);
