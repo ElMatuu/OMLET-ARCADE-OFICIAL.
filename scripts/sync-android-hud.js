@@ -109,10 +109,24 @@ if (!rootGradle.includes('kotlin-gradle-plugin')) {
   if (!/dependencies\s*\{/.test(rootGradle)) throw new Error('Cannot locate root Gradle dependencies block.');
   rootGradle = rootGradle.replace(/dependencies\s*\{/, match => match + '\n        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21"');
 }
-if (!rootGradle.includes('jitpack.io')) {
-  rootGradle = rootGradle.replace(/allprojects\s*\{\s*repositories\s*\{/, match => match + '\n        maven { url "https://jitpack.io" }');
-}
 fs.writeFileSync(rootGradlePath, rootGradle);
+
+const settingsGradlePath = path.join(root, 'android', 'settings.gradle');
+if (!fs.existsSync(settingsGradlePath)) throw new Error('Android settings.gradle not found.');
+let settingsGradle = fs.readFileSync(settingsGradlePath, 'utf8');
+if (!settingsGradle.includes('jitpack.io')) {
+  const managedRepositories = /dependencyResolutionManagement\s*\{[\s\S]*?repositories\s*\{/;
+  if (managedRepositories.test(settingsGradle)) {
+    settingsGradle = settingsGradle.replace(managedRepositories, match => match + '\n        maven { url "https://jitpack.io" }');
+  } else {
+    rootGradle = fs.readFileSync(rootGradlePath, 'utf8');
+    const projectRepositories = /allprojects\s*\{\s*repositories\s*\{/;
+    if (!projectRepositories.test(rootGradle)) throw new Error('Cannot locate Android dependency repositories for JitPack.');
+    rootGradle = rootGradle.replace(projectRepositories, match => match + '\n        maven { url "https://jitpack.io" }');
+    fs.writeFileSync(rootGradlePath, rootGradle);
+  }
+  fs.writeFileSync(settingsGradlePath, settingsGradle);
+}
 
 const appGradlePath = path.join(root, 'android', 'app', 'build.gradle');
 if (!fs.existsSync(appGradlePath)) throw new Error('Android app build.gradle not found.');
