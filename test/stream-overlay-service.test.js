@@ -13,6 +13,7 @@ test('public stream overlay resolves an owned overlay and exposes the live water
       overlayScale: 115,
       overlayOpacity: 80,
       overlayShowViewerCount: true,
+      overlayShowChat: true,
       overlayBrandingText: 'Canal oficial',
       socialYouTube: '@creator'
     },
@@ -34,6 +35,7 @@ test('public stream overlay resolves an owned overlay and exposes the live water
   });
   assert.equal(payload.overlay.theme, 'neon');
   assert.equal(payload.overlay.layout, 'vertical');
+  assert.equal(payload.overlay.showChat, true);
   assert.equal(payload.overlay.position, 'top-right');
   assert.equal(payload.overlay.scale, 115);
   assert.equal(payload.overlay.opacity, 80);
@@ -43,7 +45,7 @@ test('public stream overlay resolves an owned overlay and exposes the live water
     viewerCount: true,
     watermark: true,
     equippedOverlay: true,
-    chat: false,
+    chat: true,
     donations: false
   });
 });
@@ -59,4 +61,18 @@ test('public stream overlay never treats a non-overlay inventory item as an equi
   assert.equal(payload.capabilities.equippedOverlay, false);
   assert.equal(payload.capabilities.watermark, false);
   assert.equal(payload.viewerCount, null);
+  assert.equal(payload.overlay.showChat, true);
+  assert.equal(payload.capabilities.chat, true);
+});
+
+
+test('public overlay can hide chat explicitly while never enabling real-money donations', () => {
+  const payload = buildPublicStreamOverlay({
+    stream: { title: 'Test', creator: 'creator' },
+    preferences: { overlayShowChat: false },
+    catalog: STORE_CATALOG
+  });
+  assert.equal(payload.overlay.showChat, false);
+  assert.equal(payload.capabilities.chat, false);
+  assert.equal(payload.capabilities.donations, false);
 });
