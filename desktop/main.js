@@ -27,8 +27,8 @@ function configureMediaPermissions() {
       buttons: ['Permitir', 'Bloquear'],
       defaultId: 1,
       cancelId: 1,
-      title: 'Permisos multimedia de PLAYVERSE',
-      message: 'PLAYVERSE solicita acceso a ' + requested + '.',
+      title: 'Permisos multimedia de Omlet Arcade',
+      message: 'Omlet Arcade solicita acceso a ' + requested + '.',
       detail: 'El acceso se usa únicamente cuando iniciás una transmisión. Podés bloquearlo si no querés emitir.'
     }).then((result) => callback(result.response === 0)).catch(() => callback(false));
   });
@@ -54,7 +54,7 @@ function configureMediaPermissions() {
         buttons: choices,
         cancelId: choices.length - 1,
         defaultId: choices.length - 1,
-        title: 'Compartir pantalla en PLAYVERSE',
+        title: 'Compartir pantalla en Omlet Arcade',
         message: 'Elegí la pantalla o ventana que querés compartir.'
       });
       const selected = sources[result.response];
