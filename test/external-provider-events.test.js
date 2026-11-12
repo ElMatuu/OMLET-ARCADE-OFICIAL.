@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const {
-  verifyKickWebhook, verifyTwitchEventSub
+  isValidKickEventPayload, verifyKickWebhook, verifyTwitchEventSub
 } = require('../server/services/externalProviderEvents');
 
 test('Twitch EventSub signature validates exact raw body and rejects stale or altered payloads', () => {
@@ -44,4 +44,13 @@ test('Kick webhook signature is checked against the current fetched provider pub
   } finally {
     global.fetch = originalFetch;
   }
+});
+
+test('Kick event type headers must match the signed event body shape', () => {
+  const base = { broadcaster: { user_id: 123 } };
+  assert.equal(isValidKickEventPayload('channel.followed', { ...base, follower: { username: 'viewer' } }), true);
+  assert.equal(isValidKickEventPayload('channel.followed', { ...base, gift: { amount: 500 } }), false);
+  assert.equal(isValidKickEventPayload('kicks.gifted', { ...base, sender: { username: 'viewer' }, gift: { amount: 500 } }), true);
+  assert.equal(isValidKickEventPayload('livestream.status.updated', { ...base, is_live: true }), true);
+  assert.equal(isValidKickEventPayload('livestream.status.updated', { ...base, metadata: { title: 'spoofed' } }), false);
 });
