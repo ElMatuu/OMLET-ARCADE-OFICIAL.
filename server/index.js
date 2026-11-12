@@ -43,6 +43,7 @@ const MissionClaim = require('./models/MissionClaim');
 const PremiumPlusTransaction = require('./models/PremiumPlusTransaction');
 const PremiumSubscription = require('./models/PremiumSubscription');
 const { STORE_CATALOG } = require('./data/storeCatalog');
+const { buildStoreCatalog } = require('./services/storeCatalog');
 const { AVATAR_CATALOG, AVATAR_BY_ID } = require('./data/avatarCatalog');
 const { requireAuth } = require('./middleware/auth');
 const { attachSocketServer } = require('./socket');
@@ -1620,10 +1621,14 @@ app.put('/api/me/app-preferences', requireAuth, profileLimiter, async (req, res,
 
 
 app.get('/api/store/catalog', requireAuth, (req, res) => {
+  const catalog = buildStoreCatalog(STORE_CATALOG, req.query);
   return res.json({
     success: true,
     currencies: Object.entries(CURRENCY_CONFIG).map(([id, currency]) => ({ id, label: currency.label, icon: currency.icon, symbol: currency.symbol })),
-    items: STORE_CATALOG.map(({ id, name, category, description, priceTokens, priceCurrency, rarity, animation, assetKey }) => ({
+    filters: catalog.filters,
+    applied: catalog.applied,
+    pagination: catalog.pagination,
+    items: catalog.items.map(({ id, name, category, description, priceTokens, priceCurrency, rarity, animation, assetKey }) => ({
       id, name, category, description, priceTokens, priceCurrency: priceCurrency || 'gold', currencyLabel: getCurrencyLabel(priceCurrency || 'gold'), rarity, animation, assetKey
     }))
   });
