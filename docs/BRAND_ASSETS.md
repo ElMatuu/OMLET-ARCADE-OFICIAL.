@@ -22,6 +22,10 @@ La ficha publica licencia Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 
 - Capturas de referencia aprobadas para Android, tablet y Windows.
 - Documento de autorización del titular y alcance territorial/temporal de uso.
 
+## Recurso provisional incorporado
+
+Se añadió `assets/omlet-arcade-icon.svg`, una adaptación vectorial del icono histórico mostrado en la ficha de Wikimedia Commons. Se conserva la atribución a Omlet Inc. y la licencia CC BY-SA 4.0; esta adaptación no reemplaza el paquete oficial del titular ni acredita por sí sola el permiso comercial específico.
+
 ## Integración
 
 Los recursos se deben incorporar en `assets/omlet/` y generar desde una única fuente las variantes Android, Windows, PWA y splash. Mantener créditos y licencias en este documento. No redibujar ni alterar el símbolo oficial sin las reglas del titular.
