@@ -329,6 +329,13 @@ function stopYouTubeChatSync() {
 }
 async function processTwitchWebhook(body, io) {
   const type = body?.metadata?.message_type;
+  if (type === 'revocation') {
+    const broadcasterId = String(body.payload?.subscription?.condition?.broadcaster_user_id || '');
+    if (broadcasterId) await ExternalProviderConnection.updateOne({ provider: 'twitch', externalUserId: broadcasterId }, {
+      $set: { chatSyncStatus: 'error', chatSyncError: 'Twitch revocó o canceló una suscripción EventSub. Volvé a vincular la cuenta si continúa el problema.' }
+    });
+    return { accepted: true, type };
+  }
   if (type !== 'notification') return { accepted: true, type };
   const subscriptionType = body.payload?.subscription?.type;
   const event = body.payload?.event || {};
