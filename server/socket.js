@@ -287,6 +287,49 @@ function attachSocketServer(httpServer, allowedOrigins) {
       }
     });
 
+    socket.on('pin_room_message', async (payload, acknowledge = () => {}) => {
+      const roomId = payload && payload.roomId;
+      const messageId = payload && payload.messageId;
+      if (typeof roomId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(roomId) ||
+          typeof messageId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(messageId) ||
+          !socket.rooms.has(roomId)) {
+        return acknowledge({ success: false, message: 'Sala o mensaje inválidos.' });
+      }
+      try {
+        const room = await Room.findOne({ _id: roomId, owner: socket.user.sub, members: socket.user.sub, status: 'open' }).select('_id').lean();
+        if (!room) return acknowledge({ success: false, message: 'Solo el anfitrión puede fijar mensajes.' });
+        const target = await RoomMessage.findOne({ _id: messageId, room: roomId }).lean();
+        if (!target) return acknowledge({ success: false, message: 'El mensaje ya no existe en esta sala.' });
+        const pinnedAt = new Date();
+        await Room.updateOne({ _id: roomId, owner: socket.user.sub, status: 'open' },
+          { $set: { pinnedMessage: target._id, pinnedBy: socket.user.sub, pinnedAt } });
+        const pinnedMessage = { id: String(target._id), username: target.username, message: target.message,
+          sentAt: target.sentAt, pinnedBy: String(socket.user.sub), pinnedAt };
+        io.to(roomId).emit('room_message_pinned', { roomId, pinnedMessage });
+        return acknowledge({ success: true, pinnedMessage });
+      } catch {
+        return acknowledge({ success: false, message: 'No se pudo fijar el mensaje.' });
+      }
+    });
+
+    socket.on('unpin_room_message', async (payload, acknowledge = () => {}) => {
+      const roomId = payload && payload.roomId;
+      if (typeof roomId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(roomId) || !socket.rooms.has(roomId)) {
+        return acknowledge({ success: false, message: 'Sala inválida.' });
+      }
+      try {
+        const room = await Room.findOneAndUpdate(
+          { _id: roomId, owner: socket.user.sub, members: socket.user.sub, status: 'open' },
+          { $set: { pinnedMessage: null, pinnedBy: null, pinnedAt: null } }, { new: true }
+        ).select('_id').lean();
+        if (!room) return acknowledge({ success: false, message: 'Solo el anfitrión puede quitar el mensaje fijado.' });
+        io.to(roomId).emit('room_message_unpinned', { roomId });
+        return acknowledge({ success: true });
+      } catch {
+        return acknowledge({ success: false, message: 'No se pudo quitar el mensaje fijado.' });
+      }
+    });
+
     socket.on('send_message', async (payload, acknowledge = () => {}) => {
       const roomId = payload && payload.roomId;
       const rawMessage = payload && payload.message;
