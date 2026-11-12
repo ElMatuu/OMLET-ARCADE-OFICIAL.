@@ -445,6 +445,40 @@ integrationTest('multiple independent accounts can interact concurrently with ow
     }, alice.body.token);
     assert.equal(room.status, 201);
 
+    const retryableRoom = await request(baseUrl, '/api/rooms', {
+      method: 'POST', body: { name: 'Sala de reintentos', game: 'PLAYVERSE Test', capacity: 4 }
+    }, alice.body.token);
+    assert.equal(retryableRoom.status, 201);
+    const retryableRoomId = retryableRoom.body.room.id;
+    const firstParticipationRequest = await request(baseUrl, '/api/rooms/' + retryableRoomId + '/participation-requests', {
+      method: 'POST'
+    }, dave.body.token);
+    assert.equal(firstParticipationRequest.status, 201);
+    const declinedParticipation = await request(baseUrl, '/api/rooms/' + retryableRoomId + '/participation-requests/' + dave.body.user.id, {
+      method: 'PATCH', body: { decision: 'decline' }
+    }, alice.body.token);
+    assert.equal(declinedParticipation.status, 200);
+    assert.equal(declinedParticipation.body.status, 'declined');
+    const retriedParticipationRequest = await request(baseUrl, '/api/rooms/' + retryableRoomId + '/participation-requests', {
+      method: 'POST'
+    }, dave.body.token);
+    assert.equal(retriedParticipationRequest.status, 201);
+    assert.equal(retriedParticipationRequest.body.status, 'pending');
+    const pendingParticipationRequests = await request(baseUrl, '/api/rooms/' + retryableRoomId + '/participation-requests', {}, alice.body.token);
+    assert.equal(pendingParticipationRequests.status, 200);
+    assert.equal(pendingParticipationRequests.body.requests.length, 1);
+    assert.equal(pendingParticipationRequests.body.requests[0].userId, dave.body.user.id);
+    const acceptedRetriedParticipation = await request(baseUrl, '/api/rooms/' + retryableRoomId + '/participation-requests/' + dave.body.user.id, {
+      method: 'PATCH', body: { decision: 'accept' }
+    }, alice.body.token);
+    assert.equal(acceptedRetriedParticipation.status, 200);
+    assert.equal(acceptedRetriedParticipation.body.status, 'accepted');
+    const acceptedCannotRequestAgain = await request(baseUrl, '/api/rooms/' + retryableRoomId + '/participation-requests', {
+      method: 'POST'
+    }, dave.body.token);
+    assert.equal(acceptedCannotRequestAgain.status, 200);
+    assert.equal(acceptedCannotRequestAgain.body.alreadyAccepted, true);
+
     const unauthenticatedActivity = await request(baseUrl, '/api/me/activity');
     assert.equal(unauthenticatedActivity.status, 401);
     const invalidActivityLimit = await request(baseUrl, '/api/me/activity?limit=51', {}, alice.body.token);
