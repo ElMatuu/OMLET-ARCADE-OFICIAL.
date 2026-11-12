@@ -19,9 +19,16 @@ concurrency:
 jobs:
   build-windows:
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: D:/a/playverse-source
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - name: Check out source into a Windows-safe directory
+        shell: pwsh
+        working-directory: D:/a
+        run: |
+          $branch = if ($env:GITHUB_HEAD_REF) { $env:GITHUB_HEAD_REF } else { $env:GITHUB_REF_NAME }
+          git clone --depth 1 --branch $branch https://github.com/$env:GITHUB_REPOSITORY.git D:/a/playverse-source
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -41,6 +48,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: PLAYVERSE-Windows-installer
-          path: release/*.exe
+          path: D:/a/playverse-source/release/*.exe
           if-no-files-found: error
           retention-days: 14
